@@ -22,6 +22,7 @@ func Provider() *schema.Provider {
 		ResourcesMap: map[string]*schema.Resource{
 			"photic_consortium":  resourceConsortium(),
 			"photic_environment": resourceEnvironment(),
+			"photic_membership":  resourceMembership(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
