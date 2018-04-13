@@ -23,6 +23,7 @@ func Provider() *schema.Provider {
 			"photic_consortium":  resourceConsortium(),
 			"photic_environment": resourceEnvironment(),
 			"photic_membership":  resourceMembership(),
+			"photic_node":        resourceNode(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
