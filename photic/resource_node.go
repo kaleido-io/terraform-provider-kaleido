@@ -73,8 +73,10 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 		}
 
 		if nodeState.State != "started" {
-			msg := fmt.Errorf("Node in state %s, waiting for 'started'.", nodeState.State)
-			return resource.RetryableError(msg)
+			msg := "Node %s in environment %s in consortium %s" +
+				"took too long to enter state 'started'. Final state was %s."
+			err := fmt.Errorf(msg, nodeState.State, environmentId, consortiumId, nodeState.State)
+			return resource.RetryableError(err)
 		}
 
 		return nil
