@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/Consensys/photic-sdk-go"
   packages = ["kaleido"]
-  revision = "e7424942831a2f4bccef992614d439086145f14d"
+  revision = "53a311ad4a9d09633a592f8389f555df4b32e6b1"
 
 [[projects]]
   name = "github.com/agext/levenshtein"
@@ -98,8 +98,8 @@
 [[projects]]
   name = "github.com/go-ini/ini"
   packages = ["."]
-  revision = "5e9692864e22d02ac79e2fa499cffb00520b4fea"
-  version = "v1.34.0"
+  revision = "ace140f73450505f33e8b8418216792275ae82a7"
+  version = "v1.35.0"
 
 [[projects]]
   name = "github.com/golang/protobuf"

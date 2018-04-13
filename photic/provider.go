@@ -20,7 +20,8 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"photic_consortium": resourceConsortium(),
+			"photic_consortium":  resourceConsortium(),
+			"photic_environment": resourceEnvironment(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

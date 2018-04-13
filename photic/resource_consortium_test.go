@@ -11,14 +11,19 @@ import (
 
 func TestPhoticConsortiumResource(t *testing.T) {
 	consortium := photic.NewConsortium("terraformConsort", "terraforming", "single-org")
+	resourceName := "photic_consortium.basic"
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckConsortiumDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccConsortiumConfig_basic(&consortium),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckConsortiumExists("photic_consortium.testConsort", &consortium),
+					testAccCheckConsortiumExists(resourceName, &consortium),
+					resource.TestCheckResourceAttr(resourceName, "name", consortium.Name),
+					resource.TestCheckResourceAttr(resourceName, "description", consortium.Description),
+					resource.TestCheckResourceAttr(resourceName, "mode", consortium.Mode),
 				),
 			},
 		},
@@ -26,7 +31,7 @@ func TestPhoticConsortiumResource(t *testing.T) {
 }
 
 func testAccConsortiumConfig_basic(consortium *photic.Consortium) string {
-	return fmt.Sprintf(`resource "photic_consortium" "testConsort" {
+	return fmt.Sprintf(`resource "photic_consortium" "basic" {
     name = "%s"
     description = "%s"
     mode = "%s"
@@ -34,6 +39,14 @@ func testAccConsortiumConfig_basic(consortium *photic.Consortium) string {
 }
 
 func testAccCheckConsortiumDestroy(s *terraform.State) error {
+	client := testAccProvider.Meta().(photic.KaleidoClient)
+
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "photic_consortium" || rs.Primary.ID == "" {
+			continue
+		}
+		client.DeleteConsortium(rs.Primary.ID)
+	}
 	return nil
 }
 
