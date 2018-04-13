@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/Consensys/photic-sdk-go"
   packages = ["kaleido"]
-  revision = "53a311ad4a9d09633a592f8389f555df4b32e6b1"
+  revision = "384a10ee0deef36420557f16bcae55c99db5cb97"
 
 [[projects]]
   name = "github.com/agext/levenshtein"
@@ -398,7 +398,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "3b87a42e500a6dc65dae1a55d0b641295971163e"
+  revision = "f6f352972f061230a99fbf49d1eb8073ebdb36cb"
 
 [[projects]]
   name = "golang.org/x/text"

@@ -2,8 +2,10 @@ package photic
 
 import (
 	"fmt"
+	"time"
 
 	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -54,6 +56,32 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	if status != 201 {
 		msg := "Could not create node %s in consortium %s in environment %s, status was: %d"
 		return fmt.Errorf(msg, node.Name, consortiumId, environmentId, status)
+	}
+
+	err = resource.Retry(2*time.Minute, func() *resource.RetryError {
+		var nodeState photic.Node
+		res, err := client.GetNode(consortiumId, environmentId, node.Id, &nodeState)
+
+		if err != nil {
+			return resource.NonRetryableError(err)
+		}
+
+		statusCode := res.StatusCode()
+		if statusCode != 200 {
+			msg := fmt.Errorf("Fetching node state failed: %d", statusCode)
+			return resource.NonRetryableError(msg)
+		}
+
+		if nodeState.State != "started" {
+			msg := fmt.Errorf("Node in state %s, waiting for 'started'.", nodeState.State)
+			return resource.RetryableError(msg)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	d.SetId(node.Id)
