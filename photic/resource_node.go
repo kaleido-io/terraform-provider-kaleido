@@ -36,6 +36,11 @@ func resourceNode() *schema.Resource {
 				ForceNew: true,
 			},
 		},
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(10 * time.Minute),
+			Update: schema.DefaultTimeout(10 * time.Minute),
+			Delete: schema.DefaultTimeout(10 * time.Minute),
+		},
 	}
 }
 
@@ -58,7 +63,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf(msg, node.Name, consortiumId, environmentId, status)
 	}
 
-	err = resource.Retry(2*time.Minute, func() *resource.RetryError {
+	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
 		var nodeState photic.Node
 		res, err := client.GetNode(consortiumId, environmentId, node.Id, &nodeState)
 
@@ -120,5 +125,6 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceNodeDelete(d *schema.ResourceData, meta interface{}) error {
-	return fmt.Errorf("Not implemented.")
+	d.SetId("")
+	return nil
 }

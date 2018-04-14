@@ -12,12 +12,12 @@ import (
 func TestPhoticNodeResource(t *testing.T) {
 	consortium := photic.NewConsortium("terraNode", "terraforming", "single-org")
 	membership := photic.NewMembership("kaleido")
-	environment := photic.NewEnvironment("terraNode", "terraforming", "quorum", "raft")
+	environment := photic.NewEnvironment("nodeEnv", "terraforming", "quorum", "raft")
 
 	consResource := "photic_consortium." + consortium.Name
 	membershipResource := "photic_membership." + membership.OrgName
 	envResource := "photic_environment." + environment.Name
-	nodeResource := "photic_node.basicNode"
+	nodeResource := "photic_node.theNode"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
