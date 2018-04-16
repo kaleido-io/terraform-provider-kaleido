@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/Consensys/photic-sdk-go"
   packages = ["kaleido"]
-  revision = "384a10ee0deef36420557f16bcae55c99db5cb97"
+  revision = "e854d1a9a7a6ba072f4061ee811b3348552b47ca"
 
 [[projects]]
   name = "github.com/agext/levenshtein"
@@ -275,7 +275,7 @@
   branch = "master"
   name = "github.com/mitchellh/cli"
   packages = ["."]
-  revision = "c54c85e9bd492bdba226ffdda55d4e293b79f8e8"
+  revision = "c48282d14eba4b0817ddef3f832ff8d13851aefd"
 
 [[projects]]
   branch = "master"
@@ -392,13 +392,13 @@
     "publicsuffix",
     "trace"
   ]
-  revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+  revision = "500e7a4f953ddaf55d316b4d3adc516aa0379622"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "f6f352972f061230a99fbf49d1eb8073ebdb36cb"
+  revision = "2f57af4873d00d535c5c9028850aa2152e6a5566"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -425,7 +425,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "51d0944304c3cbce4afe9e5247e21100037bff78"
+  revision = "7fd901a49ba6a7f87732eb344f6e3c5b19d1b200"
 
 [[projects]]
   name = "google.golang.org/grpc"
