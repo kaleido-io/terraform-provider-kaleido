@@ -24,6 +24,7 @@ func Provider() *schema.Provider {
 			"photic_environment": resourceEnvironment(),
 			"photic_membership":  resourceMembership(),
 			"photic_node":        resourceNode(),
+			"photic_app_key":     resourceAppKey(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
