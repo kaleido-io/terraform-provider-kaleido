@@ -60,7 +60,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Could not create node %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, node.Name, consortiumId, environmentId, status)
+		return fmt.Errorf(msg, node.Id, consortiumId, environmentId, status)
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
@@ -73,7 +73,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching node state failed: %d", statusCode)
+			msg := fmt.Errorf("Fetching node %s state failed: %d", node.Id, statusCode)
 			return resource.NonRetryableError(msg)
 		}
 
