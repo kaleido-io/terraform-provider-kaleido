@@ -28,6 +28,18 @@ func resourceAppKey() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"username": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"password": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"auth_type": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -77,7 +89,6 @@ func resourceAppKeyRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.Set("username", appKey.Username)
-	d.Set("password", appKey.Password)
 	d.Set("auth_type", appKey.AuthType)
 	return nil
 }
