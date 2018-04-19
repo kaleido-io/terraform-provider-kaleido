@@ -35,6 +35,14 @@ func resourceNode() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"websocker_url": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"https_url": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -64,11 +72,10 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		var nodeState photic.Node
-		res, err := client.GetNode(consortiumId, environmentId, node.Id, &nodeState)
+		res, retryErr := client.GetNode(consortiumId, environmentId, node.Id, &node)
 
-		if err != nil {
-			return resource.NonRetryableError(err)
+		if retryErr != nil {
+			return resource.NonRetryableError(retryErr)
 		}
 
 		statusCode := res.StatusCode()
@@ -77,11 +84,11 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 			return resource.NonRetryableError(msg)
 		}
 
-		if nodeState.State != "started" {
+		if node.State != "started" {
 			msg := "Node %s in environment %s in consortium %s" +
 				"took too long to enter state 'started'. Final state was '%s'."
-			err := fmt.Errorf(msg, nodeState.Id, environmentId, consortiumId, nodeState.State)
-			return resource.RetryableError(err)
+			retryErr := fmt.Errorf(msg, node.Id, environmentId, consortiumId, node.State)
+			return resource.RetryableError(retryErr)
 		}
 
 		return nil
@@ -92,6 +99,8 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(node.Id)
+	d.Set("websocket_url", node.Urls.WSS)
+	d.Set("https_url", node.Urls.RPC)
 
 	return nil
 }
@@ -121,6 +130,8 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.Set("name", node.Name)
+	d.Set("websocket_url", node.Urls.WSS)
+	d.Set("https_url", node.Urls.RPC)
 	return nil
 }
 

@@ -27,6 +27,7 @@ func TestPhoticNodeResource(t *testing.T) {
 				Config: testAccNodeConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckNodeExists(consResource, membershipResource, envResource, nodeResource),
+					resource.TestCheckResourceAttrSet(nodeResource, "https_url"),
 				),
 			},
 		},
