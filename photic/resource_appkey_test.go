@@ -27,6 +27,8 @@ func TestPhoticAppKeyResource(t *testing.T) {
 				Config: testAccAppKeyConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAppKeyExists(consResource, membershipResource, envResource, appKeyResource),
+					resource.TestCheckResourceAttrSet(appKeyResource, "username"),
+					resource.TestCheckResourceAttrSet(appKeyResource, "password"),
 				),
 			},
 		},

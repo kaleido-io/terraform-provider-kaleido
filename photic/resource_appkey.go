@@ -88,7 +88,6 @@ func resourceAppKeyRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf(msg, appKeyId, consortiumId, envId, res.StatusCode())
 	}
 
-	d.Set("username", appKey.Username)
 	d.Set("auth_type", appKey.AuthType)
 	return nil
 }
