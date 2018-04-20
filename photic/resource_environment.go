@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -62,6 +63,33 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	if res.StatusCode() != 201 {
 		msg := "Could not create environment %s for consortia %s, status was: %d"
 		return fmt.Errorf(msg, environment.Name, consortiumId, res.StatusCode())
+	}
+
+	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
+		res, retryErr := client.GetEnvironment(consortiumId, environment.Id, &environment)
+
+		if retryErr != nil {
+			return resource.NonRetryableError(retryErr)
+		}
+
+		statusCode := res.StatusCode()
+		if statusCode != 200 {
+			msg := fmt.Errorf("polling environment %s failed: %d", environment.Id, statusCode)
+			return resource.NonRetryableError(msg)
+		}
+
+		if environment.State != "live" {
+			msg := "Environment %s in consortium %s" +
+				"took too long to enter state 'live'. Final state was '%s'."
+			retryErr := fmt.Errorf(msg, environment.Id, consortiumId, environment.State)
+			return resource.RetryableError(retryErr)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	d.SetId(environment.Id)
