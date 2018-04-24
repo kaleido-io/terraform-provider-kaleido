@@ -12,9 +12,21 @@ export KALEIDO_API_KEY=XXXXXXX=
 go test -v ./photic
 ```
 
-## Building
+## Cross Compiling
 
-`go build -o terraform-provider-photic`
+```
+export GOOS=linux
+export GOARCH=amd64
+go build -o terraform-provider-photic
+```
+
+## Building
+```
+#Cros Compiling
+export GOOS=linux
+export GOARCH=amd64
+go build -o terraform-provider-photic
+```
 
 ## Using
 
