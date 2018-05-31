@@ -1,9 +1,9 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -33,8 +33,8 @@ func resourceConsortium() *schema.Resource {
 }
 
 func resourceConsortiumCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
-	consortium := photic.NewConsortium(d.Get("name").(string),
+	client := meta.(kaleido.KaleidoClient)
+	consortium := kaleido.NewConsortium(d.Get("name").(string),
 		d.Get("description").(string),
 		d.Get("mode").(string))
 	res, err := client.CreateConsortium(&consortium)
@@ -52,8 +52,8 @@ func resourceConsortiumCreate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceConsortiumRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
-	var consortium photic.Consortium
+	client := meta.(kaleido.KaleidoClient)
+	var consortium kaleido.Consortium
 	res, err := client.GetConsortium(d.Id(), &consortium)
 
 	if err != nil {
@@ -72,7 +72,7 @@ func resourceConsortiumRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceConsortiumDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	res, err := client.DeleteConsortium(d.Id())
 
 	if err != nil {

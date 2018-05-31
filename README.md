@@ -1,4 +1,4 @@
-# Photic Terraform Provider
+# Kaleido Terraform Provider
 
 
 ## Acceptance Tests
@@ -7,9 +7,9 @@ Any changes to the provider must pass acceptance tests.
 
 ```
 export TF_ACC=true
-export KALEIDO_API='https://control-stage.photic.io/api/v1'
+export KALEIDO_API='https://control-stage.kaleido.io/api/v1'
 export KALEIDO_API_KEY=XXXXXXX=
-go test -v ./photic
+go test -v ./kaleido
 ```
 
 ## Cross Compiling
@@ -17,7 +17,7 @@ go test -v ./photic
 ```
 export GOOS=linux
 export GOARCH=amd64
-go build -o terraform-provider-photic
+go build -o terraform-provider-kaleido
 ```
 
 ## Building
@@ -25,7 +25,7 @@ go build -o terraform-provider-photic
 #Cros Compiling
 export GOOS=linux
 export GOARCH=amd64
-go build -o terraform-provider-photic
+go build -o terraform-provider-kaleido
 ```
 
 ## Using
@@ -33,7 +33,7 @@ go build -o terraform-provider-photic
 See examples for an example manifest.
 
 ```
-mv terraform-provider-photic ~/.terraform.d/plugins/
+mv terraform-provider-kaleido ~/.terraform.d/plugins/
 terraform init #You should have a `main.tf` in your current repository.
 terraform plan
 terraform apply

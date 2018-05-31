@@ -1,17 +1,17 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 	"testing"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 )
 
-func TestPhoticConsortiumResource(t *testing.T) {
-	consortium := photic.NewConsortium("terraformConsort", "terraforming", "single-org")
-	resourceName := "photic_consortium.basic"
+func TestKaleidoConsortiumResource(t *testing.T) {
+	consortium := kaleido.NewConsortium("terraformConsort", "terraforming", "single-org")
+	resourceName := "kaleido_consortium.basic"
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
@@ -30,8 +30,8 @@ func TestPhoticConsortiumResource(t *testing.T) {
 	})
 }
 
-func testAccConsortiumConfig_basic(consortium *photic.Consortium) string {
-	return fmt.Sprintf(`resource "photic_consortium" "basic" {
+func testAccConsortiumConfig_basic(consortium *kaleido.Consortium) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "basic" {
     name = "%s"
     description = "%s"
     mode = "%s"
@@ -39,10 +39,10 @@ func testAccConsortiumConfig_basic(consortium *photic.Consortium) string {
 }
 
 func testAccCheckConsortiumDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(photic.KaleidoClient)
+	client := testAccProvider.Meta().(kaleido.KaleidoClient)
 
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "photic_consortium" || rs.Primary.ID == "" {
+		if rs.Type != "kaleido_consortium" || rs.Primary.ID == "" {
 			continue
 		}
 		client.DeleteConsortium(rs.Primary.ID)
@@ -51,7 +51,7 @@ func testAccCheckConsortiumDestroy(s *terraform.State) error {
 }
 
 // testAccCheckConsortiumExists
-func testAccCheckConsortiumExists(resourceName string, consortium *photic.Consortium) resource.TestCheckFunc {
+func testAccCheckConsortiumExists(resourceName string, consortium *kaleido.Consortium) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
 		if !ok {
@@ -67,8 +67,8 @@ func testAccCheckConsortiumExists(resourceName string, consortium *photic.Consor
 			return fmt.Errorf("Terraform resource instance missing consortium id.")
 		}
 
-		client := testAccProvider.Meta().(photic.KaleidoClient)
-		var consortium photic.Consortium
+		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		var consortium kaleido.Consortium
 		res, err := client.GetConsortium(consortiumId, &consortium)
 
 		if err != nil {

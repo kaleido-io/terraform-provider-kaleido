@@ -1,9 +1,9 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -44,13 +44,13 @@ func resourceEnvironment() *schema.Resource {
 }
 
 func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 
 	if consortiumId == "" {
 		return fmt.Errorf("Consortium missing id.")
 	}
-	environment := photic.NewEnvironment(d.Get("name").(string),
+	environment := kaleido.NewEnvironment(d.Get("name").(string),
 		d.Get("description").(string),
 		d.Get("env_type").(string),
 		d.Get("consensus_type").(string))
@@ -97,11 +97,11 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	environmentId := d.Id()
 
-	var environment photic.Environment
+	var environment kaleido.Environment
 	res, err := client.GetEnvironment(consortiumId, environmentId, &environment)
 
 	if err != nil {
@@ -127,7 +127,7 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	environmentId := d.Id()
 

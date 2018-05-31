@@ -1,23 +1,23 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 	"testing"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 )
 
-func TestPhoticAppKeyResource(t *testing.T) {
-	consortium := photic.NewConsortium("terrAppKey", "appkey", "single-org")
-	membership := photic.NewMembership("kaleido")
-	environment := photic.NewEnvironment("appKeyEnv", "appKey", "quorum", "raft")
+func TestKaleidoAppKeyResource(t *testing.T) {
+	consortium := kaleido.NewConsortium("terrAppKey", "appkey", "single-org")
+	membership := kaleido.NewMembership("kaleido")
+	environment := kaleido.NewEnvironment("appKeyEnv", "appKey", "quorum", "raft")
 
-	consResource := "photic_consortium." + consortium.Name
-	membershipResource := "photic_membership." + membership.OrgName
-	envResource := "photic_environment." + environment.Name
-	appKeyResource := "photic_app_key.key"
+	consResource := "kaleido_consortium." + consortium.Name
+	membershipResource := "kaleido_membership." + membership.OrgName
+	envResource := "kaleido_environment." + environment.Name
+	appKeyResource := "kaleido_app_key.key"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -55,8 +55,8 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 			return fmt.Errorf("Not found: %s.", envResource)
 		}
 
-		client := testAccProvider.Meta().(photic.KaleidoClient)
-		var appKey photic.AppKey
+		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		var appKey kaleido.AppKey
 		res, err := client.GetAppKey(consortRs.Primary.ID, envRs.Primary.ID, appKeyRs.Primary.ID, &appKey)
 		if err != nil {
 			return err
@@ -71,29 +71,29 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 	}
 }
 
-func testAccAppKeyConfig_basic(consortium *photic.Consortium, membership *photic.Membership, environment *photic.Environment) string {
-	return fmt.Sprintf(`resource "photic_consortium" "terrAppKey" {
+func testAccAppKeyConfig_basic(consortium *kaleido.Consortium, membership *kaleido.Membership, environment *kaleido.Environment) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "terrAppKey" {
     name = "%s",
     description = "%s",
     mode = "%s"
     }
-    resource "photic_membership" "kaleido" {
-      consortium_id = "${photic_consortium.terrAppKey.id}"
+    resource "kaleido_membership" "kaleido" {
+      consortium_id = "${kaleido_consortium.terrAppKey.id}"
       org_name = "%s"
     }
 
-    resource "photic_environment" "appKeyEnv" {
-      consortium_id = "${photic_consortium.terrAppKey.id}"
+    resource "kaleido_environment" "appKeyEnv" {
+      consortium_id = "${kaleido_consortium.terrAppKey.id}"
       name = "%s"
       description = "%s"
       env_type = "%s"
       consensus_type = "%s"
     }
 
-    resource "photic_app_key" "key" {
-      consortium_id = "${photic_consortium.terrAppKey.id}"
-      environment_id = "${photic_environment.appKeyEnv.id}"
-      membership_id = "${photic_membership.kaleido.id}"
+    resource "kaleido_app_key" "key" {
+      consortium_id = "${kaleido_consortium.terrAppKey.id}"
+      environment_id = "${kaleido_environment.appKeyEnv.id}"
+      membership_id = "${kaleido_membership.kaleido.id}"
     }
     `, consortium.Name, consortium.Description, consortium.Mode,
 		membership.OrgName,

@@ -1,19 +1,19 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 	"testing"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 )
 
-func TestPhoticEnvironmentResource(t *testing.T) {
-	consortium := photic.NewConsortium("terraformConsortEnv", "terraforming", "single-org")
-	environment := photic.NewEnvironment("terraEnv", "terraforming", "quorum", "raft")
-	envResourceName := "photic_environment.basicEnv"
-	consortiumResourceName := "photic_consortium.basic"
+func TestKaleidoEnvironmentResource(t *testing.T) {
+	consortium := kaleido.NewConsortium("terraformConsortEnv", "terraforming", "single-org")
+	environment := kaleido.NewEnvironment("terraEnv", "terraforming", "quorum", "raft")
+	envResourceName := "kaleido_environment.basicEnv"
+	consortiumResourceName := "kaleido_consortium.basic"
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
@@ -29,14 +29,14 @@ func TestPhoticEnvironmentResource(t *testing.T) {
 	})
 }
 
-func testAccEnvironmentConfig_basic(consortium *photic.Consortium, environ *photic.Environment) string {
-	return fmt.Sprintf(`resource "photic_consortium" "basic" {
+func testAccEnvironmentConfig_basic(consortium *kaleido.Consortium, environ *kaleido.Environment) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "basic" {
 		name = "%s"
 		description = "%s"
 		mode = "%s"
 		}
-		resource "photic_environment" "basicEnv" {
-			consortium_id = "${photic_consortium.basic.id}"
+		resource "kaleido_environment" "basicEnv" {
+			consortium_id = "${kaleido_consortium.basic.id}"
 			name = "%s"
 			description = "%s"
 			env_type = "%s"
@@ -76,8 +76,8 @@ func testAccCheckEnvironmentExists(envResource, consortiumResource string) resou
 			return fmt.Errorf("Terraform id mismatch for environment %s and %s", envId, rs.Primary.ID)
 		}
 
-		client := testAccProvider.Meta().(photic.KaleidoClient)
-		var environment photic.Environment
+		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		var environment kaleido.Environment
 		res, err := client.GetEnvironment(consortium.Primary.ID, envId, &environment)
 
 		if err != nil {

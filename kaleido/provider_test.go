@@ -1,4 +1,4 @@
-package photic
+package kaleido
 
 import (
 	"os"
@@ -14,7 +14,7 @@ var testAccProviders map[string]terraform.ResourceProvider
 func init() {
 	testAccProvider = Provider()
 	testAccProviders = map[string]terraform.ResourceProvider{
-		"photic": testAccProvider,
+		"kaleido": testAccProvider,
 	}
 }
 

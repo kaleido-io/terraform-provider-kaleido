@@ -1,10 +1,10 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 	"time"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -53,11 +53,11 @@ func resourceNode() *schema.Resource {
 }
 
 func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	environmentId := d.Get("environment_id").(string)
 	membershipId := d.Get("membership_id").(string)
-	node := photic.NewNode(d.Get("name").(string), membershipId)
+	node := kaleido.NewNode(d.Get("name").(string), membershipId)
 
 	res, err := client.CreateNode(consortiumId, environmentId, &node)
 
@@ -106,12 +106,12 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	environmentId := d.Get("environment_id").(string)
 	nodeId := d.Id()
 
-	var node photic.Node
+	var node kaleido.Node
 	res, err := client.GetNode(consortiumId, environmentId, nodeId, &node)
 
 	if err != nil {

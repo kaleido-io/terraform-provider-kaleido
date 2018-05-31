@@ -1,7 +1,7 @@
-package photic
+package kaleido
 
 import (
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -20,11 +20,11 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"photic_consortium":  resourceConsortium(),
-			"photic_environment": resourceEnvironment(),
-			"photic_membership":  resourceMembership(),
-			"photic_node":        resourceNode(),
-			"photic_app_key":     resourceAppKey(),
+			"kaleido_consortium":  resourceConsortium(),
+			"kaleido_environment": resourceEnvironment(),
+			"kaleido_membership":  resourceMembership(),
+			"kaleido_node":        resourceNode(),
+			"kaleido_app_key":     resourceAppKey(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
@@ -33,6 +33,6 @@ func Provider() *schema.Provider {
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	api := d.Get("api").(string)
 	apiKey := d.Get("api_key").(string)
-	client := photic.NewClient(api, apiKey)
+	client := kaleido.NewClient(api, apiKey)
 	return client, nil
 }

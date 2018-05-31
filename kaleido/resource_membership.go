@@ -1,9 +1,9 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -28,8 +28,8 @@ func resourceMembership() *schema.Resource {
 }
 
 func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
-	membership := photic.NewMembership(d.Get("org_name").(string))
+	client := meta.(kaleido.KaleidoClient)
+	membership := kaleido.NewMembership(d.Get("org_name").(string))
 	consortiumId := d.Get("consortium_id").(string)
 
 	res, err := client.CreateMembership(consortiumId, &membership)
@@ -49,10 +49,10 @@ func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 
-	var membership photic.Membership
+	var membership kaleido.Membership
 	res, err := client.GetMembership(consortiumId, d.Id(), &membership)
 
 	if err != nil {
@@ -70,7 +70,7 @@ func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceMembershipDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	membershipId := d.Id()
 

@@ -1,23 +1,23 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 	"testing"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 )
 
-func TestPhoticNodeResource(t *testing.T) {
-	consortium := photic.NewConsortium("terraNode", "terraforming", "single-org")
-	membership := photic.NewMembership("kaleido")
-	environment := photic.NewEnvironment("nodeEnv", "terraforming", "quorum", "raft")
+func TestKaleidoNodeResource(t *testing.T) {
+	consortium := kaleido.NewConsortium("terraNode", "terraforming", "single-org")
+	membership := kaleido.NewMembership("kaleido")
+	environment := kaleido.NewEnvironment("nodeEnv", "terraforming", "quorum", "raft")
 
-	consResource := "photic_consortium." + consortium.Name
-	membershipResource := "photic_membership." + membership.OrgName
-	envResource := "photic_environment." + environment.Name
-	nodeResource := "photic_node.theNode"
+	consResource := "kaleido_consortium." + consortium.Name
+	membershipResource := "kaleido_membership." + membership.OrgName
+	envResource := "kaleido_environment." + environment.Name
+	nodeResource := "kaleido_node.theNode"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -74,8 +74,8 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
-		client := testAccProvider.Meta().(photic.KaleidoClient)
-		var node photic.Node
+		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		var node kaleido.Node
 		res, err := client.GetNode(consId, envId, nodeId, &node)
 
 		if err != nil {
@@ -92,29 +92,29 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 	}
 }
 
-func testAccNodeConfig_basic(consortium *photic.Consortium, membership *photic.Membership, environment *photic.Environment) string {
-	return fmt.Sprintf(`resource "photic_consortium" "terraNode" {
+func testAccNodeConfig_basic(consortium *kaleido.Consortium, membership *kaleido.Membership, environment *kaleido.Environment) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "terraNode" {
     name = "%s"
     description = "%s"
     mode = "%s"
     }
-    resource "photic_membership" "kaleido" {
-      consortium_id = "${photic_consortium.terraNode.id}"
+    resource "kaleido_membership" "kaleido" {
+      consortium_id = "${kaleido_consortium.terraNode.id}"
       org_name = "%s"
     }
 
-    resource "photic_environment" "nodeEnv" {
-      consortium_id = "${photic_consortium.terraNode.id}"
+    resource "kaleido_environment" "nodeEnv" {
+      consortium_id = "${kaleido_consortium.terraNode.id}"
       name = "%s"
       description = "%s"
       env_type = "%s"
       consensus_type = "%s"
     }
 
-    resource "photic_node" "theNode" {
-      consortium_id = "${photic_consortium.terraNode.id}"
-      environment_id = "${photic_environment.nodeEnv.id}"
-      membership_id = "${photic_membership.kaleido.id}"
+    resource "kaleido_node" "theNode" {
+      consortium_id = "${kaleido_consortium.terraNode.id}"
+      environment_id = "${kaleido_environment.nodeEnv.id}"
+      membership_id = "${kaleido_membership.kaleido.id}"
       name = "node1"
     }
     `, consortium.Name,

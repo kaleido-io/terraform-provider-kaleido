@@ -1,9 +1,9 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -45,11 +45,11 @@ func resourceAppKey() *schema.Resource {
 }
 
 func resourceAppKeyCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	envId := d.Get("environment_id").(string)
 	membershipId := d.Get("membership_id").(string)
-	appKey := photic.NewAppKey(membershipId)
+	appKey := kaleido.NewAppKey(membershipId)
 
 	res, err := client.CreateAppKey(consortiumId, envId, &appKey)
 
@@ -71,12 +71,12 @@ func resourceAppKeyCreate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceAppKeyRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	envId := d.Get("environment_id").(string)
 	appKeyId := d.Id()
 
-	var appKey photic.AppKey
+	var appKey kaleido.AppKey
 	res, err := client.GetAppKey(consortiumId, envId, appKeyId, &appKey)
 
 	if err != nil {
@@ -93,7 +93,7 @@ func resourceAppKeyRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceAppKeyDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(photic.KaleidoClient)
+	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	envId := d.Get("environment_id").(string)
 	appKeyId := d.Id()

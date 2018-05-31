@@ -1,7 +1,8 @@
 package main
 
 import (
-	"github.com/ConsenSys/photic-terraform-provider/photic"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido"
+
 	"github.com/hashicorp/terraform/plugin"
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -9,7 +10,7 @@ import (
 func main() {
 	plugin.Serve(&plugin.ServeOpts{
 		ProviderFunc: func() terraform.ResourceProvider {
-			return photic.Provider()
+			return kaleido.Provider()
 		},
 	})
 }

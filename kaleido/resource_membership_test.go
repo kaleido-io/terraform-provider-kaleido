@@ -1,19 +1,19 @@
-package photic
+package kaleido
 
 import (
 	"fmt"
 	"testing"
 
-	photic "github.com/Consensys/photic-sdk-go/kaleido"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 )
 
-func TestPhoticMembershipResource(t *testing.T) {
-	consortium := photic.NewConsortium("terraMembers", "terraforming", "single-org")
-	membership := photic.NewMembership("kaleido")
-	consResource := "photic_consortium." + consortium.Name
-	membershipResource := "photic_membership." + membership.OrgName
+func TestKaleidoMembershipResource(t *testing.T) {
+	consortium := kaleido.NewConsortium("terraMembers", "terraforming", "single-org")
+	membership := kaleido.NewMembership("kaleido")
+	consResource := "kaleido_consortium." + consortium.Name
+	membershipResource := "kaleido_membership." + membership.OrgName
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -29,14 +29,14 @@ func TestPhoticMembershipResource(t *testing.T) {
 	})
 }
 
-func testAccMembershipConfig_basic(consortium *photic.Consortium, membership *photic.Membership) string {
-	return fmt.Sprintf(`resource "photic_consortium" "terraMembers" {
+func testAccMembershipConfig_basic(consortium *kaleido.Consortium, membership *kaleido.Membership) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "terraMembers" {
     name = "%s"
     description = "%s"
     mode = "%s"
   }
-  resource "photic_membership" "kaleido" {
-    consortium_id = "${photic_consortium.terraMembers.id}"
+  resource "kaleido_membership" "kaleido" {
+    consortium_id = "${kaleido_consortium.terraMembers.id}"
     org_name = "%s"
   }
   `,
@@ -58,9 +58,9 @@ func testAccCheckMembershipExists(consResName, memResName string) resource.TestC
 			return fmt.Errorf("No terraform resource instance for %s", memResName)
 		}
 
-		client := testAccProvider.Meta().(photic.KaleidoClient)
+		client := testAccProvider.Meta().(kaleido.KaleidoClient)
 		consortiaId := memRs.Primary.Attributes["consortium_id"]
-		var membership photic.Membership
+		var membership kaleido.Membership
 		res, err := client.GetMembership(consortiaId, memRs.Primary.ID, &membership)
 
 		if err != nil {
