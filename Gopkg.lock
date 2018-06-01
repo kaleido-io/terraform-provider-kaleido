@@ -260,12 +260,6 @@
   version = "0.1.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/kaleido-io/terraform-provider-kaleido"
-  packages = ["kaleido"]
-  revision = "0de6ccdabadbd7b12bd4d0c68973ab82698fb5b1"
-
-[[projects]]
   name = "github.com/mattn/go-colorable"
   packages = ["."]
   revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
@@ -475,6 +469,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "128c8610f7fddab68d9598d83f831e58b11dbd4d0a5b4ce72fa6325817a22809"
+  inputs-digest = "d7a5d418242fba2d4eaea8fc362a6f513301e3639f859fd55be7a180d43739a4"
   solver-name = "gps-cdcl"
   solver-version = 1
