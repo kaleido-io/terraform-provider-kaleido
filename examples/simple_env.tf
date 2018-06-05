@@ -3,9 +3,21 @@ This creates suite of environments using all available
 environment types and consensus methods.
 */
 
+variable "kaleido_api_key" {
+  type = "string"
+  description = "Kaleido API Key"
+}
+
+variable "kaleido_region" {
+  type = "string"
+  description = "Can be '-ap' for Sydney, or '-eu' for Frankfurt. Defaults to US"
+  default = ""
+}
+
+
 provider "kaleido" {
-  "api" = "https://console.kaleido.io/api/v1"
-  "api_key" = "u0vphsjtqd-GMmgpj+ZxVL29x7Wm0P+Cvy6rsVojjJt4SExhXLUQlQ="
+  "api" = "https://console${var.kaleido_region}.kaleido.io/api/v1"
+  "api_key" = "${var.kaleido_api_key}"
 }
 
 variable "env_types" {
@@ -18,12 +30,6 @@ variable "quorum_consensus" {
   type = "list"
   default = ["raft", "ibft"]
   description = "Consensus methods supported by quorum."
-}
-
-variable "nodes_per_environment" {
-  type = "string"
-  default = 3
-  description = "The number of nodes to deploy per environment."
 }
 
 /*
@@ -60,6 +66,7 @@ resource "kaleido_environment" "myEnv" {
 Creates a node in each environment, must be linked to a consortium, environment, and membership.
 */
 resource "kaleido_node" "myNode" {
+  count = 3
   consortium_id = "${kaleido_consortium.mine.id}"
   environment_id = "${kaleido_environment.myEnv.id}"
   membership_id = "${kaleido_membership.kaleido.id}"
