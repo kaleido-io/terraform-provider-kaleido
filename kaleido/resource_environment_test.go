@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"testing"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func TestKaleidoEnvironmentResource(t *testing.T) {
@@ -34,6 +34,12 @@ func TestKaleidoEnvironmentResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccEnvironmentConfig_basic(&consortium, &environment),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckEnvironmentExists(envResourceName, consortiumResourceName),
+				),
+			},
+			{
+				Config: testAccEnvironmentConfig_oldRelease(&consortium, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckEnvironmentExists(envResourceName, consortiumResourceName),
 				),
@@ -63,6 +69,30 @@ func testAccEnvironmentConfig_basic(consortium *kaleido.Consortium, environ *kal
 		environ.Provider,
 		environ.ConsensusType)
 }
+
+func testAccEnvironmentConfig_oldRelease(consortium *kaleido.Consortium, environ *kaleido.Environment) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "basic" {
+		name = "%s"
+		description = "%s"
+		mode = "%s"
+		}
+		resource "kaleido_environment" "basicEnv" {
+			consortium_id = "${kaleido_consortium.basic.id}"
+			name = "%s"
+			description = "%s"
+			env_type = "%s"
+			consensus_type = "%s"
+			release_id = "k0amk36exj"
+		}
+		`, consortium.Name,
+		consortium.Description,
+		consortium.Mode,
+		environ.Name,
+		environ.Description,
+		environ.Provider,
+		environ.ConsensusType)
+}
+
 func testAccCheckEnvironmentExists(envResource, consortiumResource string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[envResource]

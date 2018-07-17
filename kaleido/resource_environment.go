@@ -16,9 +16,9 @@ package kaleido
 import (
 	"fmt"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func resourceEnvironment() *schema.Resource {
@@ -52,6 +52,11 @@ func resourceEnvironment() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"release": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: false,
+				ForceNew: true,
+			},
 		},
 	}
 }
@@ -67,6 +72,12 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Get("description").(string),
 		d.Get("env_type").(string),
 		d.Get("consensus_type").(string))
+
+	releaseId, ok := d.GetOk("release_id")
+
+	if ok {
+		environment.ReleaseId = releaseId.(string)
+	}
 	res, err := client.CreateEnvironment(consortiumId, &environment)
 
 	if err != nil {
