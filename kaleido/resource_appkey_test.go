@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"testing"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func TestKaleidoAppKeyResource(t *testing.T) {
@@ -69,8 +69,8 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 		}
 
 		client := testAccProvider.Meta().(kaleido.KaleidoClient)
-		var appKey kaleido.AppKey
-		res, err := client.GetAppKey(consortRs.Primary.ID, envRs.Primary.ID, appKeyRs.Primary.ID, &appKey)
+		var appKey kaleido.AppCreds
+		res, err := client.GetAppCreds(consortRs.Primary.ID, envRs.Primary.ID, appKeyRs.Primary.ID, &appKey)
 		if err != nil {
 			return err
 		}

@@ -16,8 +16,8 @@ package kaleido
 import (
 	"fmt"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/schema"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func resourceAppKey() *schema.Resource {
@@ -62,9 +62,9 @@ func resourceAppKeyCreate(d *schema.ResourceData, meta interface{}) error {
 	consortiumId := d.Get("consortium_id").(string)
 	envId := d.Get("environment_id").(string)
 	membershipId := d.Get("membership_id").(string)
-	appKey := kaleido.NewAppKey(membershipId)
+	appKey := kaleido.NewAppCreds(membershipId)
 
-	res, err := client.CreateAppKey(consortiumId, envId, &appKey)
+	res, err := client.CreateAppCreds(consortiumId, envId, &appKey)
 
 	if err != nil {
 		return err
@@ -89,8 +89,8 @@ func resourceAppKeyRead(d *schema.ResourceData, meta interface{}) error {
 	envId := d.Get("environment_id").(string)
 	appKeyId := d.Id()
 
-	var appKey kaleido.AppKey
-	res, err := client.GetAppKey(consortiumId, envId, appKeyId, &appKey)
+	var appKey kaleido.AppCreds
+	res, err := client.GetAppCreds(consortiumId, envId, appKeyId, &appKey)
 
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func resourceAppKeyDelete(d *schema.ResourceData, meta interface{}) error {
 	envId := d.Get("environment_id").(string)
 	appKeyId := d.Id()
 
-	res, err := client.DeleteAppKey(consortiumId, envId, appKeyId)
+	res, err := client.DeleteAppCreds(consortiumId, envId, appKeyId)
 
 	if err != nil {
 		return err
