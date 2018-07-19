@@ -38,10 +38,25 @@ func TestKaleidoEnvironmentResource(t *testing.T) {
 					testAccCheckEnvironmentExists(envResourceName, consortiumResourceName),
 				),
 			},
+		},
+	})
+}
+
+func TestKaleidoEnvironmentResourcePickRelease(t *testing.T) {
+	consortium := kaleido.NewConsortium("oldie", "terraforming", "single-org")
+	environment := kaleido.NewEnvironment("oldieEnv", "terraforming", "quorum", "raft")
+	consortiumResourceName := "kaleido_consortium.oldie"
+	envResourceName := "kaleido_environment.oldieEnv"
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckConsortiumDestroy,
+		Steps: []resource.TestStep{
 			{
 				Config: testAccEnvironmentConfig_oldRelease(&consortium, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckEnvironmentExists(envResourceName, consortiumResourceName),
+					resource.TestCheckResourceAttr("kaleido_environment.oldieEnv", "release_id", "u0qaonpmzz"),
 				),
 			},
 		},
@@ -71,18 +86,18 @@ func testAccEnvironmentConfig_basic(consortium *kaleido.Consortium, environ *kal
 }
 
 func testAccEnvironmentConfig_oldRelease(consortium *kaleido.Consortium, environ *kaleido.Environment) string {
-	return fmt.Sprintf(`resource "kaleido_consortium" "basic" {
+	return fmt.Sprintf(`resource "kaleido_consortium" "oldie" {
 		name = "%s"
 		description = "%s"
 		mode = "%s"
 		}
-		resource "kaleido_environment" "basicEnv" {
-			consortium_id = "${kaleido_consortium.basic.id}"
+		resource "kaleido_environment" "oldieEnv" {
+			consortium_id = "${kaleido_consortium.oldie.id}"
 			name = "%s"
 			description = "%s"
 			env_type = "%s"
 			consensus_type = "%s"
-			release_id = "k0amk36exj"
+			release_id = "u0qaonpmzz"
 		}
 		`, consortium.Name,
 		consortium.Description,

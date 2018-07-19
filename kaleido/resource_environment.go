@@ -52,9 +52,10 @@ func resourceEnvironment() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"release": &schema.Schema{
+			"release_id": &schema.Schema{
 				Type:     schema.TypeString,
-				Required: false,
+				Computed: true,
+				Optional: true,
 				ForceNew: true,
 			},
 		},
@@ -85,8 +86,8 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 201 {
-		msg := "Could not create environment %s for consortia %s, status was: %d"
-		return fmt.Errorf(msg, environment.Name, consortiumId, res.StatusCode())
+		msg := "Could not create environment %s for consortia %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, environment.Name, consortiumId, res.StatusCode(), res.String())
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
@@ -117,6 +118,9 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(environment.Id)
+	if environment.ReleaseId != "" {
+		d.Set("release_id", environment.ReleaseId)
+	}
 	return nil
 }
 
@@ -146,6 +150,7 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("description", environment.Description)
 	d.Set("env_type", environment.Provider)
 	d.Set("consensus_type", environment.ConsensusType)
+	d.Set("release_id", environment.ReleaseId)
 
 	return nil
 }

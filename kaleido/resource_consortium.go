@@ -16,8 +16,8 @@ package kaleido
 import (
 	"fmt"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/schema"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func resourceConsortium() *schema.Resource {
@@ -93,8 +93,8 @@ func resourceConsortiumDelete(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	status := res.StatusCode()
-	if status < 300 {
-		fmt.Errorf("Failed to delete consortium with id %s status was %d.", d.Id(), status)
+	if status != 202 {
+		return fmt.Errorf("failed to delete consortium with id %s status was %d", d.Id(), status)
 	}
 	return nil
 }
