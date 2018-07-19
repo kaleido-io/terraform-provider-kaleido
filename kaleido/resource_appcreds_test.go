@@ -30,7 +30,7 @@ func TestKaleidoAppKeyResource(t *testing.T) {
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
 	envResource := "kaleido_environment." + environment.Name
-	appKeyResource := "kaleido_app_key.key"
+	appKeyResource := "kaleido_app_creds.key"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -103,7 +103,7 @@ func testAccAppKeyConfig_basic(consortium *kaleido.Consortium, membership *kalei
       consensus_type = "%s"
     }
 
-    resource "kaleido_app_key" "key" {
+    resource "kaleido_app_creds" "key" {
       consortium_id = "${kaleido_consortium.terrAppKey.id}"
       environment_id = "${kaleido_environment.appKeyEnv.id}"
       membership_id = "${kaleido_membership.kaleido.id}"

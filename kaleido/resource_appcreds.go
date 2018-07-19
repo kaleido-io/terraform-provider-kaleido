@@ -20,11 +20,11 @@ import (
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceAppKey() *schema.Resource {
+func resourceAppCreds() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceAppKeyCreate,
-		Read:   resourceAppKeyRead,
-		Delete: resourceAppKeyDelete,
+		Create: resourceAppCredCreate,
+		Read:   resourceAppCredRead,
+		Delete: resourceAppCredDelete,
 		Schema: map[string]*schema.Schema{
 			"membership_id": &schema.Schema{
 				Type:     schema.TypeString,
@@ -57,7 +57,7 @@ func resourceAppKey() *schema.Resource {
 	}
 }
 
-func resourceAppKeyCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	envId := d.Get("environment_id").(string)
@@ -83,7 +83,7 @@ func resourceAppKeyCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceAppKeyRead(d *schema.ResourceData, meta interface{}) error {
+func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	envId := d.Get("environment_id").(string)
@@ -105,7 +105,7 @@ func resourceAppKeyRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceAppKeyDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceAppCredDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	envId := d.Get("environment_id").(string)
@@ -118,7 +118,7 @@ func resourceAppKeyDelete(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 204 {
-		msg := "Could not fetch AppKey %s in consortium %s, in environment %s. Status: %d."
+		msg := "Could not delete AppKey %s in consortium %s, in environment %s. Status: %d."
 		return fmt.Errorf(msg, appKeyId, consortiumId, envId, res.StatusCode())
 	}
 
