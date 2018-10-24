@@ -42,27 +42,6 @@ func TestKaleidoEnvironmentResource(t *testing.T) {
 	})
 }
 
-func TestKaleidoEnvironmentResourcePickRelease(t *testing.T) {
-	consortium := kaleido.NewConsortium("oldie", "terraforming", "single-org")
-	environment := kaleido.NewEnvironment("oldieEnv", "terraforming", "quorum", "raft")
-	consortiumResourceName := "kaleido_consortium.oldie"
-	envResourceName := "kaleido_environment.oldieEnv"
-	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckConsortiumDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccEnvironmentConfig_oldRelease(&consortium, &environment),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckEnvironmentExists(envResourceName, consortiumResourceName),
-					resource.TestCheckResourceAttr("kaleido_environment.oldieEnv", "release_id", "u0qaonpmzz"),
-				),
-			},
-		},
-	})
-}
-
 func testAccEnvironmentConfig_basic(consortium *kaleido.Consortium, environ *kaleido.Environment) string {
 	return fmt.Sprintf(`resource "kaleido_consortium" "basic" {
 		name = "%s"
