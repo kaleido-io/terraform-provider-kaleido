@@ -3,33 +3,9 @@ This creates suite of environments using all available
 environment types and consensus methods.
 */
 
-variable "kaleido_api_key" {
-  type = "string"
-  description = "Kaleido API Key"
-}
-
-variable "kaleido_region" {
-  type = "string"
-  description = "Can be '-ap' for Sydney, or '-eu' for Frankfurt. Defaults to US"
-  default = ""
-}
-
-
 provider "kaleido" {
   "api" = "https://console${var.kaleido_region}.kaleido.io/api/v1"
   "api_key" = "${var.kaleido_api_key}"
-}
-
-variable "env_types" {
-  type = "list"
-  default = ["quorum", "geth"]
-  description = "List of environment types you want to deploy. Options are 'quorum' and 'geth'."
-}
-
-variable "quorum_consensus" {
-  type = "list"
-  default = ["raft", "ibft"]
-  description = "Consensus methods supported by quorum."
 }
 
 /*
