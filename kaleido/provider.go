@@ -39,6 +39,7 @@ func Provider() *schema.Provider {
 			"kaleido_node":        resourceNode(),
 			"kaleido_service":     resourceService(),
 			"kaleido_app_creds":   resourceAppCreds(),
+			"kaleido_invitation":  resourceInvitation(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
