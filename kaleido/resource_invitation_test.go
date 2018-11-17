@@ -24,7 +24,7 @@ import (
 
 func TestKaleidoInvitationResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraInvitations", "terraforming", "single-org")
-	invitation := kaleido.NewInvitation("Invited Test Org", "ricardo@larosasanoja.com")
+	invitation := kaleido.NewInvitation("Invited Test Org", "someone@example.com")
 	consResource := "kaleido_consortium." + consortium.Name
 	invitationResource := "kaleido_invitation." + invitation.OrgName
 
