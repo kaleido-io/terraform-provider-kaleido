@@ -58,6 +58,10 @@ func resourceEnvironment() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"multi_region": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -72,7 +76,8 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	environment := kaleido.NewEnvironment(d.Get("name").(string),
 		d.Get("description").(string),
 		d.Get("env_type").(string),
-		d.Get("consensus_type").(string))
+		d.Get("consensus_type").(string),
+		d.Get("multi_region").(bool))
 
 	releaseId, ok := d.GetOk("release_id")
 

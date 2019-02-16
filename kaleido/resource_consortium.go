@@ -36,11 +36,6 @@ func resourceConsortium() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"mode": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
 		},
 	}
 }
@@ -48,8 +43,7 @@ func resourceConsortium() *schema.Resource {
 func resourceConsortiumCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortium := kaleido.NewConsortium(d.Get("name").(string),
-		d.Get("description").(string),
-		d.Get("mode").(string))
+		d.Get("description").(string))
 	res, err := client.CreateConsortium(&consortium)
 	if err != nil {
 		return err

@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"time"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func resourceNode() *schema.Resource {
@@ -56,6 +56,10 @@ func resourceNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"zone_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -70,7 +74,8 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	consortiumId := d.Get("consortium_id").(string)
 	environmentId := d.Get("environment_id").(string)
 	membershipId := d.Get("membership_id").(string)
-	node := kaleido.NewNode(d.Get("name").(string), membershipId)
+	ezoneId := d.Get("zone_id").(string)
+	node := kaleido.NewNode(d.Get("name").(string), membershipId, ezoneId)
 
 	res, err := client.CreateNode(consortiumId, environmentId, &node)
 
