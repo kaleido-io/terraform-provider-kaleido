@@ -61,6 +61,7 @@ func resourceEnvironment() *schema.Resource {
 			"multi_region": &schema.Schema{
 				Type:     schema.TypeBool,
 				Optional: true,
+				ForceNew: true
 			},
 		},
 	}
