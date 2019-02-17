@@ -109,13 +109,6 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 			return resource.NonRetryableError(msg)
 		}
 
-		if environment.State != "live" {
-			msg := "Environment %s in consortium %s" +
-				"took too long to enter state 'live'. Final state was '%s'."
-			retryErr := fmt.Errorf(msg, environment.Id, consortiumId, environment.State)
-			return resource.RetryableError(retryErr)
-		}
-
 		return nil
 	})
 
