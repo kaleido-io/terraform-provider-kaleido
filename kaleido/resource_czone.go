@@ -41,10 +41,12 @@ func resourceCZone() *schema.Resource {
 			"region": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"cloud": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 		},
 		Timeouts: &schema.ResourceTimeout{

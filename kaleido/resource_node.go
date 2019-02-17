@@ -59,6 +59,7 @@ func resourceNode() *schema.Resource {
 			"zone_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
+				ForceNew: true,
 			},
 		},
 		Timeouts: &schema.ResourceTimeout{
