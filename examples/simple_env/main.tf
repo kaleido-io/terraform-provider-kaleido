@@ -50,10 +50,10 @@ resource "kaleido_node" "myNode" {
 }
 
 /*
-Creates an appkey for the "kaleido_membership" resource in
+Creates an appcred for the "kaleido_membership" resource in
 every environment.
 */
-resource "kaleido_app_key" "appkey" {
+resource "kaleido_app_creds" "appcred" {
   consortium_id = "${kaleido_consortium.mine.id}"
   environment_id = "${kaleido_environment.myEnv.id}"
   membership_id = "${kaleido_membership.kaleido.id}"
