@@ -22,15 +22,15 @@ import (
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceNode() *schema.Resource {
+func resourceEZone() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceNodeCreate,
-		Read:   resourceNodeRead,
-		Delete: resourceNodeDelete,
+		Create: resourceEZoneCreate,
+		Read:   resourceEZoneRead,
+		Delete: resourceEZoneDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
 				ForceNew: true,
 			},
 			"consortium_id": &schema.Schema{
@@ -43,27 +43,14 @@ func resourceNode() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"membership_id": &schema.Schema{
+			"region": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			"websocker_url": &schema.Schema{
+			"cloud": &schema.Schema{
 				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"https_url": &schema.Schema{
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"zone_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-			},
-			"size": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
+				Required: true,
 				ForceNew: true,
 			},
 		},
@@ -75,17 +62,15 @@ func resourceNode() *schema.Resource {
 	}
 }
 
-func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	environmentId := d.Get("environment_id").(string)
-	membershipId := d.Get("membership_id").(string)
-	ezoneId := d.Get("zone_id").(string)
-	size := d.Get("size").(string)
-	node := kaleido.NewNode(d.Get("name").(string), membershipId, ezoneId)
-	node.Size = size
+	region := d.Get("region").(string)
+	cloud := d.Get("cloud").(string)
+	ezone := kaleido.NewEZone(d.Get("name").(string), region, cloud)
 
-	res, err := client.CreateNode(consortiumId, environmentId, &node)
+	res, err := client.CreateEZone(consortiumId, environmentId, &ezone)
 
 	if err != nil {
 		return err
@@ -93,12 +78,12 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create node %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, node.Id, consortiumId, environmentId, status)
+		msg := "Could not create ezone %s in consortium %s in environment %s, status was: %d"
+		return fmt.Errorf(msg, ezone.Id, consortiumId, environmentId, status)
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetNode(consortiumId, environmentId, node.Id, &node)
+		res, retryErr := client.GetEZone(consortiumId, environmentId, ezone.Id, &ezone)
 
 		if retryErr != nil {
 			return resource.NonRetryableError(retryErr)
@@ -106,15 +91,8 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching node %s state failed: %d", node.Id, statusCode)
+			msg := fmt.Errorf("Fetching ezone %s state failed: %d", ezone.Id, statusCode)
 			return resource.NonRetryableError(msg)
-		}
-
-		if node.State != "started" {
-			msg := "Node %s in environment %s in consortium %s" +
-				"took too long to enter state 'started'. Final state was '%s'."
-			retryErr := fmt.Errorf(msg, node.Id, environmentId, consortiumId, node.State)
-			return resource.RetryableError(retryErr)
 		}
 
 		return nil
@@ -124,21 +102,19 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	d.SetId(node.Id)
-	d.Set("websocket_url", node.Urls.WSS)
-	d.Set("https_url", node.Urls.RPC)
+	d.SetId(ezone.Id)
 
 	return nil
 }
 
-func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
+func resourceEZoneRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumId := d.Get("consortium_id").(string)
 	environmentId := d.Get("environment_id").(string)
-	nodeId := d.Id()
+	ezoneId := d.Id()
 
-	var node kaleido.Node
-	res, err := client.GetNode(consortiumId, environmentId, nodeId, &node)
+	var ezone kaleido.EZone
+	res, err := client.GetEZone(consortiumId, environmentId, ezoneId, &ezone)
 
 	if err != nil {
 		return err
@@ -151,17 +127,15 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find node %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, nodeId, consortiumId, environmentId, status)
+		msg := "Could not find ezone %s in consortium %s in environment %s, status: %d"
+		return fmt.Errorf(msg, ezoneId, consortiumId, environmentId, status)
 	}
 
-	d.Set("name", node.Name)
-	d.Set("websocket_url", node.Urls.WSS)
-	d.Set("https_url", node.Urls.RPC)
+	d.Set("name", ezone.Name)
 	return nil
 }
 
-func resourceNodeDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceEZoneDelete(d *schema.ResourceData, meta interface{}) error {
 	d.SetId("")
 	return nil
 }

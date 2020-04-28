@@ -12,49 +12,40 @@ provider "kaleido" {
 This represents a Consortia. Give it a name and a description.
 "mode" can be set to "single-org" or ...
 */
-resource "kaleido_consortium" "mine" {
-  name = "My Kaleido Consortium"
-  description = "Deployed with Terraform"
-  mode = "single-org"
+resource "kaleido_consortium" "consortium" {
+  name = "${var.consortium_name}"
+  description = "${var.network_description}"
 }
 
 /*
-This creates a membership, you can give it any "org_name" you like, but it has
-to be linked to a Consortium via the Consortium resource "id".
+This creates a membership for each node
 */
-resource "kaleido_membership" "kaleido" {
-  consortium_id = "${kaleido_consortium.mine.id}"
-  org_name = "Me"
+resource "kaleido_membership" "member" {
+  count = "${var.node_count}"
+  consortium_id = "${kaleido_consortium.consortium.id}"
+  org_name = "Org ${count.index + 1}"
 }
 
 /*
-Creates environments in Consortia.
+Create an environment
 */
-resource "kaleido_environment" "myEnv" {
-  consortium_id = "${kaleido_consortium.mine.id}"
-  name = "My Environment"
-  description = "Deployed with Terraform"
-  env_type = "${element(var.env_types, 0)}"
-  consensus_type = "${element(var.quorum_consensus, 0)}"
+resource "kaleido_environment" "env" {
+  consortium_id = "${kaleido_consortium.consortium.id}"
+  multi_region = "${var.multi_region}"
+  name = "${var.env_name}"
+  env_type = "${var.provider}"
+  consensus_type = "${var.consensus}"
+  description = "${var.env_description}"
 }
 
 /*
-Creates a node in each environment, must be linked to a consortium, environment, and membership.
+Create nodes
 */
-resource "kaleido_node" "myNode" {
-  count = 3
-  consortium_id = "${kaleido_consortium.mine.id}"
-  environment_id = "${kaleido_environment.myEnv.id}"
-  membership_id = "${kaleido_membership.kaleido.id}"
-  name = "terraform-node"
-}
-
-/*
-Creates an appcred for the "kaleido_membership" resource in
-every environment.
-*/
-resource "kaleido_app_creds" "appcred" {
-  consortium_id = "${kaleido_consortium.mine.id}"
-  environment_id = "${kaleido_environment.myEnv.id}"
-  membership_id = "${kaleido_membership.kaleido.id}"
+resource "kaleido_node" "kaleido" {
+  count = "${var.node_count}"
+  consortium_id = "${kaleido_consortium.consortium.id}"
+  environment_id = "${kaleido_environment.env.id}"
+  membership_id = "${element(kaleido_membership.member.*.id, count.index)}"
+  name = "Node ${count.index + 1}"
+  size = "${var.node_size}"
 }

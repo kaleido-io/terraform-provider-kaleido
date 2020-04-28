@@ -19,3 +19,5 @@ vendor
 .DS_Store
 .AppleDouble
 .LSOverride
+
+terraform-provider-kaleido

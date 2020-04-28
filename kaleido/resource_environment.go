@@ -58,6 +58,11 @@ func resourceEnvironment() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"multi_region": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				ForceNew: true,
+			},
 		},
 	}
 }
@@ -72,7 +77,8 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	environment := kaleido.NewEnvironment(d.Get("name").(string),
 		d.Get("description").(string),
 		d.Get("env_type").(string),
-		d.Get("consensus_type").(string))
+		d.Get("consensus_type").(string),
+		d.Get("multi_region").(bool))
 
 	releaseId, ok := d.GetOk("release_id")
 
@@ -101,13 +107,6 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		if statusCode != 200 {
 			msg := fmt.Errorf("polling environment %s failed: %d", environment.Id, statusCode)
 			return resource.NonRetryableError(msg)
-		}
-
-		if environment.State != "live" {
-			msg := "Environment %s in consortium %s" +
-				"took too long to enter state 'live'. Final state was '%s'."
-			retryErr := fmt.Errorf(msg, environment.Id, consortiumId, environment.State)
-			return resource.RetryableError(retryErr)
 		}
 
 		return nil
