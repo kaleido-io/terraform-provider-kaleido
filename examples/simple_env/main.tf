@@ -15,7 +15,6 @@ This represents a Consortia. Give it a name and a description.
 resource "kaleido_consortium" "mine" {
   name = "My Kaleido Consortium"
   description = "Deployed with Terraform"
-  mode = "single-org"
 }
 
 /*

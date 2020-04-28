@@ -1,0 +1,55 @@
+module github.com/kaleido-io/terraform-provider-kaleido
+
+go 1.13
+
+require (
+	github.com/agext/levenshtein v1.2.1
+	github.com/apparentlymart/go-cidr v0.0.0-20170616213631-2bd8b58cf427
+	github.com/apparentlymart/go-textseg v0.0.0-20170531203952-b836f5c4d331
+	github.com/armon/go-radix v0.0.0-20170727155443-1fca145dffbc
+	github.com/aws/aws-sdk-go v1.14.29
+	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d
+	github.com/bgentry/speakeasy v0.1.0
+	github.com/blang/semver v3.5.1+incompatible
+	github.com/davecgh/go-spew v1.1.1
+	github.com/fatih/color v1.7.0
+	github.com/go-ini/ini v1.38.1
+	github.com/golang/protobuf v1.3.2
+	github.com/hashicorp/errwrap v0.0.0-20180715044906-d6c0cd880357
+	github.com/hashicorp/go-cleanhttp v0.0.0-20171218145408-d5fe4b57a186
+	github.com/hashicorp/go-getter v0.0.0-20180709183828-a33f09ce9fee
+	github.com/hashicorp/go-hclog v0.0.0-20180709165350-ff2cf002a8dd
+	github.com/hashicorp/go-multierror v0.0.0-20180717150148-3d5d8f294aa0
+	github.com/hashicorp/go-plugin v0.0.0-20180331002553-e8d22c780116
+	github.com/hashicorp/go-safetemp v0.0.0-20180326211150-b1a1dbde6fdc
+	github.com/hashicorp/go-uuid v1.0.1
+	github.com/hashicorp/go-version v0.0.0-20180716215031-270f2f71b1ee
+	github.com/hashicorp/hcl v1.0.0
+	github.com/hashicorp/hcl2 v0.0.0-20180718224135-41cff854d815
+	github.com/hashicorp/hil v0.0.0-20170627220502-fa9f258a9250
+	github.com/hashicorp/logutils v0.0.0-20150609070431-0dc08b1671f3
+	github.com/hashicorp/terraform v0.11.7
+	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb
+	github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8
+	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20200428133547-fe169e8fab1e
+	github.com/mattn/go-colorable v0.1.0
+	github.com/mattn/go-isatty v0.0.5-0.20180830101745-3fb116b82035
+	github.com/mitchellh/cli v0.0.0-20180414170447-c48282d14eba
+	github.com/mitchellh/copystructure v0.0.0-20170525013902-d23ffcb85de3
+	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77
+	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7
+	github.com/mitchellh/hashstructure v0.0.0-20170609045927-2bca23e0e452
+	github.com/mitchellh/mapstructure v1.1.2
+	github.com/mitchellh/reflectwalk v0.0.0-20170726202117-63d60e9d0dbc
+	github.com/oklog/run v1.0.0
+	github.com/posener/complete v1.1.1
+	github.com/ulikunitz/xz v0.5.4
+	github.com/zclconf/go-cty v0.0.0-20180718220526-02bd58e97b57
+	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
+	golang.org/x/net v0.0.0-20190912160710-24e19bdeb0f2
+	golang.org/x/sys v0.0.0-20190912141932-bc967efca4b8
+	golang.org/x/text v0.3.2
+	google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
+	google.golang.org/grpc v1.23.1
+)
