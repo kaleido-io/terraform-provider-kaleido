@@ -61,6 +61,11 @@ func resourceNode() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"size": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -76,7 +81,9 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	environmentId := d.Get("environment_id").(string)
 	membershipId := d.Get("membership_id").(string)
 	ezoneId := d.Get("zone_id").(string)
+	size := d.Get("size").(string)
 	node := kaleido.NewNode(d.Get("name").(string), membershipId, ezoneId)
+	node.Size = size
 
 	res, err := client.CreateNode(consortiumId, environmentId, &node)
 

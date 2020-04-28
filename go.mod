@@ -3,53 +3,93 @@ module github.com/kaleido-io/terraform-provider-kaleido
 go 1.13
 
 require (
-	github.com/agext/levenshtein v1.2.1
-	github.com/apparentlymart/go-cidr v0.0.0-20170616213631-2bd8b58cf427
-	github.com/apparentlymart/go-textseg v0.0.0-20170531203952-b836f5c4d331
-	github.com/armon/go-radix v0.0.0-20170727155443-1fca145dffbc
-	github.com/aws/aws-sdk-go v1.14.29
+	cloud.google.com/go v0.56.0 // indirect
+	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
+	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
+	github.com/agext/levenshtein v1.2.3
+	github.com/apparentlymart/go-cidr v1.0.1
+	github.com/apparentlymart/go-textseg v1.0.0
+	github.com/aristanetworks/goarista v0.0.0-20200423211322-0b5ff220aee9 // indirect
+	github.com/armon/go-radix v1.0.0
+	github.com/aws/aws-sdk-go v1.30.15
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/bmatcuk/doublestar v1.3.0 // indirect
+	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/fatih/color v1.7.0
+	github.com/edsrzf/mmap-go v1.0.0 // indirect
+	github.com/elastic/gosigar v0.10.5 // indirect
+	github.com/ethereum/go-ethereum v1.9.13 // indirect
+	github.com/fatih/color v1.9.0
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
 	github.com/go-ini/ini v1.38.1
-	github.com/golang/protobuf v1.3.2
-	github.com/hashicorp/errwrap v0.0.0-20180715044906-d6c0cd880357
-	github.com/hashicorp/go-cleanhttp v0.0.0-20171218145408-d5fe4b57a186
-	github.com/hashicorp/go-getter v0.0.0-20180709183828-a33f09ce9fee
-	github.com/hashicorp/go-hclog v0.0.0-20180709165350-ff2cf002a8dd
-	github.com/hashicorp/go-multierror v0.0.0-20180717150148-3d5d8f294aa0
-	github.com/hashicorp/go-plugin v0.0.0-20180331002553-e8d22c780116
-	github.com/hashicorp/go-safetemp v0.0.0-20180326211150-b1a1dbde6fdc
-	github.com/hashicorp/go-uuid v1.0.1
-	github.com/hashicorp/go-version v0.0.0-20180716215031-270f2f71b1ee
+	github.com/go-ole/go-ole v1.2.4 // indirect
+	github.com/golang/protobuf v1.4.0
+	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/hashicorp/errwrap v1.0.0
+	github.com/hashicorp/go-cleanhttp v0.5.1
+	github.com/hashicorp/go-getter v1.4.2-0.20200106182914-9813cbd4eb02
+	github.com/hashicorp/go-hclog v0.12.2
+	github.com/hashicorp/go-multierror v1.1.0
+	github.com/hashicorp/go-plugin v1.2.2
+	github.com/hashicorp/go-retryablehttp v0.6.6 // indirect
+	github.com/hashicorp/go-safetemp v1.0.0
+	github.com/hashicorp/go-uuid v1.0.2
+	github.com/hashicorp/go-version v1.2.0
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0
-	github.com/hashicorp/hcl2 v0.0.0-20180718224135-41cff854d815
-	github.com/hashicorp/hil v0.0.0-20170627220502-fa9f258a9250
-	github.com/hashicorp/logutils v0.0.0-20150609070431-0dc08b1671f3
-	github.com/hashicorp/terraform v0.11.7
-	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb
-	github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8
-	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20200428133547-fe169e8fab1e
-	github.com/mattn/go-colorable v0.1.0
-	github.com/mattn/go-isatty v0.0.5-0.20180830101745-3fb116b82035
-	github.com/mitchellh/cli v0.0.0-20180414170447-c48282d14eba
-	github.com/mitchellh/copystructure v0.0.0-20170525013902-d23ffcb85de3
+	github.com/hashicorp/hcl/v2 v2.4.0 // indirect
+	github.com/hashicorp/hcl2 v0.0.0-20191002203319-fb75b3253c80
+	github.com/hashicorp/hil v0.0.0-20200423225030-a18a1cd20038
+	github.com/hashicorp/logutils v1.0.0
+	github.com/hashicorp/terraform v0.12.24
+	github.com/hashicorp/terraform-config-inspect v0.0.0-20200413172006-36d6f40eb7d7 // indirect
+	github.com/hashicorp/terraform-svchost v0.0.0-20191119180714-d2e4933b9136 // indirect
+	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
+	github.com/huin/goupnp v1.0.0 // indirect
+	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
+	github.com/jmespath/go-jmespath v0.3.0
+	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20200428152354-cdeab6c0e7cd
+	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 // indirect
+	github.com/mattn/go-colorable v0.1.6
+	github.com/mattn/go-isatty v0.0.12
+	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/mitchellh/cli v1.1.1
+	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77
-	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7
-	github.com/mitchellh/hashstructure v0.0.0-20170609045927-2bca23e0e452
-	github.com/mitchellh/mapstructure v1.1.2
-	github.com/mitchellh/reflectwalk v0.0.0-20170726202117-63d60e9d0dbc
-	github.com/oklog/run v1.0.0
-	github.com/posener/complete v1.1.1
-	github.com/ulikunitz/xz v0.5.4
-	github.com/zclconf/go-cty v0.0.0-20180718220526-02bd58e97b57
-	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
-	golang.org/x/net v0.0.0-20190912160710-24e19bdeb0f2
-	golang.org/x/sys v0.0.0-20190912141932-bc967efca4b8
+	github.com/mitchellh/go-testing-interface v1.14.1
+	github.com/mitchellh/go-wordwrap v1.0.0
+	github.com/mitchellh/hashstructure v1.0.0
+	github.com/mitchellh/mapstructure v1.2.3
+	github.com/mitchellh/reflectwalk v1.0.1
+	github.com/oklog/run v1.1.0
+	github.com/olekukonko/tablewriter v0.0.4 // indirect
+	github.com/pelletier/go-toml v1.7.0 // indirect
+	github.com/posener/complete v1.2.3
+	github.com/prometheus/tsdb v0.10.0 // indirect
+	github.com/spf13/afero v1.2.2 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
+	github.com/spf13/cobra v1.0.0 // indirect
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/viper v1.6.3 // indirect
+	github.com/status-im/keycard-go v0.0.0-20200402102358-957c09536969 // indirect
+	github.com/tyler-smith/go-bip39 v1.0.2 // indirect
+	github.com/ulikunitz/xz v0.5.7
+	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
+	github.com/youmark/pkcs8 v0.0.0-20200403053413-436114b17e7c // indirect
+	github.com/zclconf/go-cty v1.4.0
+	golang.org/x/crypto v0.0.0-20200427165652-729f1e841bcc
+	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
+	golang.org/x/sys v0.0.0-20200427175716-29b57079015a
 	golang.org/x/text v0.3.2
-	google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
-	google.golang.org/grpc v1.23.1
+	golang.org/x/tools v0.0.0-20200428140416-006b16f6cf7f // indirect
+	google.golang.org/api v0.22.0 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
+	google.golang.org/genproto v0.0.0-20200428115010-c45acf45369a
+	google.golang.org/grpc v1.29.1
+	gopkg.in/ini.v1 v1.55.0 // indirect
+	gopkg.in/square/go-jose.v2 v2.5.0 // indirect
 )
