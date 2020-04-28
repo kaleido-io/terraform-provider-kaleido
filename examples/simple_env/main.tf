@@ -23,7 +23,7 @@ This creates a membership for each node
 resource "kaleido_membership" "member" {
   count = "${var.node_count}"
   consortium_id = "${kaleido_consortium.consortium.id}"
-  org_name = "Node ${count.index + 1}"
+  org_name = "Org ${count.index + 1}"
 }
 
 /*
