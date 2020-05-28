@@ -51,7 +51,7 @@ require (
 	github.com/huin/goupnp v1.0.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jmespath/go-jmespath v0.3.0
-	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20200428152354-cdeab6c0e7cd
+	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20200528160747-09ce02990d7c
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 // indirect
 	github.com/mattn/go-colorable v0.1.6
 	github.com/mattn/go-isatty v0.0.12
