@@ -64,7 +64,7 @@ func resourceEnvironment() *schema.Resource {
 				ForceNew: true,
 			},
 			"block_period": &schema.Schema{
-				Type:     schema.TypeString,
+				Type:     schema.TypeInt,
 				Optional: true,
 				ForceNew: true,
 			},
