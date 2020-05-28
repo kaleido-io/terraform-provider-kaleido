@@ -7,7 +7,6 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/agext/levenshtein v1.2.3
-	github.com/alexinthesky/kaleido-sdk-go v1.0.1
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/apparentlymart/go-textseg v1.0.0
 	github.com/aristanetworks/goarista v0.0.0-20200423211322-0b5ff220aee9 // indirect
