@@ -18,7 +18,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
+	kaleido "github.com/alexinthesky/kaleido-sdk-go/kaleido"
 )
 
 func resourceEnvironment() *schema.Resource {
