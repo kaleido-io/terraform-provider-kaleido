@@ -63,6 +63,11 @@ func resourceEnvironment() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"block_period": &schema.Schema{
+				Type:     schema.TypeInt,
+				Optional: true,
+				ForceNew: true,
+			},
 		},
 	}
 }
@@ -78,7 +83,8 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Get("description").(string),
 		d.Get("env_type").(string),
 		d.Get("consensus_type").(string),
-		d.Get("multi_region").(bool))
+		d.Get("multi_region").(bool),
+		d.Get("block_period").(int))
 
 	releaseId, ok := d.GetOk("release_id")
 
