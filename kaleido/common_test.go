@@ -238,3 +238,29 @@ func testNodeGocks(node *kaleido.Node) {
 		Reply(204)
 
 }
+
+func testConfigurationGocks(configuration *kaleido.Configuration) {
+
+	configurationCreateRequest := jsonClone(configuration)
+	configurationCreateResponse := jsonClone(configurationCreateRequest)
+	configurationCreateResponse["_id"] = "cfg1"
+	configurationGetResponse1 := jsonClone(configurationCreateResponse)
+
+	gock.New("http://example.com").
+		Post("/api/v1/consortia/cons1/environments/env1/configurations").
+		MatchType("json").
+		JSON(configurationCreateRequest).
+		Reply(201).
+		JSON(configurationCreateResponse)
+
+	gock.New("http://example.com").
+		Get("/api/v1/consortia/cons1/environments/env1/configurations/cfg1").
+		Persist().
+		Reply(200).
+		JSON(configurationGetResponse1)
+
+	gock.New("http://example.com").
+		Delete("/api/v1/consortia/cons1/environments/env1/configurations/cfg1").
+		Reply(204)
+
+}
