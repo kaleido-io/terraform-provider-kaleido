@@ -23,9 +23,9 @@ import (
 )
 
 func TestKaleidoAppKeyResource(t *testing.T) {
-	consortium := kaleido.NewConsortium("terrAppKey", "appkey", "single-org")
+	consortium := kaleido.NewConsortium("terrAppKey", "appkey")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("appKeyEnv", "appKey", "quorum", "raft")
+	environment := kaleido.NewEnvironment("appKeyEnv", "appKey", "quorum", "raft", false, 0)
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
@@ -77,7 +77,7 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 
 		if res.StatusCode() != 200 {
 			msg := "Could not find AppKey %s in consortium %s in environment %s. Status: %d"
-			return fmt.Errorf(msg, appKey.Id, consortRs.Primary.ID, envRs.Primary.ID, res.StatusCode())
+			return fmt.Errorf(msg, appKey.ID, consortRs.Primary.ID, envRs.Primary.ID, res.StatusCode())
 		}
 
 		return nil
@@ -88,7 +88,6 @@ func testAccAppKeyConfig_basic(consortium *kaleido.Consortium, membership *kalei
 	return fmt.Sprintf(`resource "kaleido_consortium" "terrAppKey" {
     name = "%s",
     description = "%s",
-    mode = "%s"
     }
     resource "kaleido_membership" "kaleido" {
       consortium_id = "${kaleido_consortium.terrAppKey.id}"
@@ -108,7 +107,7 @@ func testAccAppKeyConfig_basic(consortium *kaleido.Consortium, membership *kalei
       environment_id = "${kaleido_environment.appKeyEnv.id}"
       membership_id = "${kaleido_membership.kaleido.id}"
     }
-    `, consortium.Name, consortium.Description, consortium.Mode,
+    `, consortium.Name, consortium.Description,
 		membership.OrgName,
 		environment.Name, environment.Description, environment.Provider, environment.ConsensusType)
 }

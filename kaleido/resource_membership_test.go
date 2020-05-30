@@ -17,13 +17,13 @@ import (
 	"fmt"
 	"testing"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func TestKaleidoMembershipResource(t *testing.T) {
-	consortium := kaleido.NewConsortium("terraMembers", "terraforming", "single-org")
+	consortium := kaleido.NewConsortium("terraMembers", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
@@ -46,7 +46,6 @@ func testAccMembershipConfig_basic(consortium *kaleido.Consortium, membership *k
 	return fmt.Sprintf(`resource "kaleido_consortium" "terraMembers" {
     name = "%s"
     description = "%s"
-    mode = "%s"
   }
   resource "kaleido_membership" "kaleido" {
     consortium_id = "${kaleido_consortium.terraMembers.id}"
@@ -55,7 +54,6 @@ func testAccMembershipConfig_basic(consortium *kaleido.Consortium, membership *k
   `,
 		consortium.Name,
 		consortium.Description,
-		consortium.Mode,
 		membership.OrgName)
 }
 
@@ -72,9 +70,9 @@ func testAccCheckMembershipExists(consResName, memResName string) resource.TestC
 		}
 
 		client := testAccProvider.Meta().(kaleido.KaleidoClient)
-		consortiaId := memRs.Primary.Attributes["consortium_id"]
+		consortiaID := memRs.Primary.Attributes["consortium_id"]
 		var membership kaleido.Membership
-		res, err := client.GetMembership(consortiaId, memRs.Primary.ID, &membership)
+		res, err := client.GetMembership(consortiaID, memRs.Primary.ID, &membership)
 
 		if err != nil {
 			return err
@@ -83,7 +81,7 @@ func testAccCheckMembershipExists(consResName, memResName string) resource.TestC
 		if res.StatusCode() != 200 {
 			return fmt.Errorf("Could not find membership %s in consortia %s, status: %d",
 				memRs.Primary.ID,
-				consortiaId,
+				consortiaID,
 				res.StatusCode())
 		}
 

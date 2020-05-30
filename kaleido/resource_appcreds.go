@@ -59,12 +59,12 @@ func resourceAppCreds() *schema.Resource {
 
 func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	envId := d.Get("environment_id").(string)
-	membershipId := d.Get("membership_id").(string)
-	appKey := kaleido.NewAppCreds(membershipId)
+	consortiumID := d.Get("consortium_id").(string)
+	envID := d.Get("environment_id").(string)
+	membershipID := d.Get("membership_id").(string)
+	appKey := kaleido.NewAppCreds(membershipID)
 
-	res, err := client.CreateAppCreds(consortiumId, envId, &appKey)
+	res, err := client.CreateAppCreds(consortiumID, envID, &appKey)
 
 	if err != nil {
 		return err
@@ -72,10 +72,10 @@ func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 
 	if res.StatusCode() != 201 {
 		msg := "Could not create AppKey in consortium %s, in environment %s, with membership %s. Status: %d"
-		return fmt.Errorf(msg, consortiumId, envId, membershipId, res.StatusCode())
+		return fmt.Errorf(msg, consortiumID, envID, membershipID, res.StatusCode())
 	}
 
-	d.SetId(appKey.Id)
+	d.SetId(appKey.ID)
 	d.Set("username", appKey.Username)
 	d.Set("password", appKey.Password)
 	d.Set("auth_type", appKey.AuthType)
@@ -85,12 +85,12 @@ func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 
 func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	envId := d.Get("environment_id").(string)
-	appKeyId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	envID := d.Get("environment_id").(string)
+	appKeyID := d.Id()
 
 	var appKey kaleido.AppCreds
-	res, err := client.GetAppCreds(consortiumId, envId, appKeyId, &appKey)
+	res, err := client.GetAppCreds(consortiumID, envID, appKeyID, &appKey)
 
 	if err != nil {
 		return err
@@ -98,7 +98,7 @@ func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
 
 	if res.StatusCode() != 200 {
 		msg := "Could not fetch AppKey %s in consortium %s, in environment %s. Status: %d."
-		return fmt.Errorf(msg, appKeyId, consortiumId, envId, res.StatusCode())
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode())
 	}
 
 	d.Set("auth_type", appKey.AuthType)
@@ -107,11 +107,11 @@ func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
 
 func resourceAppCredDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	envId := d.Get("environment_id").(string)
-	appKeyId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	envID := d.Get("environment_id").(string)
+	appKeyID := d.Id()
 
-	res, err := client.DeleteAppCreds(consortiumId, envId, appKeyId)
+	res, err := client.DeleteAppCreds(consortiumID, envID, appKeyID)
 
 	if err != nil {
 		return err
@@ -119,7 +119,7 @@ func resourceAppCredDelete(d *schema.ResourceData, meta interface{}) error {
 
 	if res.StatusCode() != 204 {
 		msg := "Could not delete AppKey %s in consortium %s, in environment %s. Status: %d."
-		return fmt.Errorf(msg, appKeyId, consortiumId, envId, res.StatusCode())
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode())
 	}
 
 	d.SetId("")

@@ -23,7 +23,7 @@ import (
 )
 
 func TestKaleidoInvitationResource(t *testing.T) {
-	consortium := kaleido.NewConsortium("terraInvitations", "terraforming", "single-org")
+	consortium := kaleido.NewConsortium("terraInvitations", "terraforming")
 	invitation := kaleido.NewInvitation("Invited Test Org", "someone@example.com")
 	consResource := "kaleido_consortium." + consortium.Name
 	invitationResource := "kaleido_invitation." + invitation.OrgName
@@ -46,7 +46,6 @@ func testAccInvitationConfig_basic(consortium *kaleido.Consortium, invitation *k
 	return fmt.Sprintf(`resource "kaleido_consortium" "terraInvitations" {
     name = "%s"
     description = "%s"
-    mode = "%s"
   }
   resource "kaleido_invitation" "kaleido" {
     consortium_id = "${kaleido_consortium.terraInvitations.id}"
@@ -56,7 +55,6 @@ func testAccInvitationConfig_basic(consortium *kaleido.Consortium, invitation *k
   `,
 		consortium.Name,
 		consortium.Description,
-		consortium.Mode,
 		invitation.OrgName,
 		invitation.Email,
 	)
@@ -75,9 +73,9 @@ func testAccCheckInvitationExists(consResName, invResName string) resource.TestC
 		}
 
 		client := testAccProvider.Meta().(kaleido.KaleidoClient)
-		consortiaId := invRs.Primary.Attributes["consortium_id"]
+		consortiaID := invRs.Primary.Attributes["consortium_id"]
 		var invitation kaleido.Invitation
-		res, err := client.GetInvitation(consortiaId, invRs.Primary.ID, &invitation)
+		res, err := client.GetInvitation(consortiaID, invRs.Primary.ID, &invitation)
 
 		if err != nil {
 			return err
@@ -86,7 +84,7 @@ func testAccCheckInvitationExists(consResName, invResName string) resource.TestC
 		if res.StatusCode() != 200 {
 			return fmt.Errorf("Could not find invitation %s in consortia %s, status: %d",
 				invRs.Primary.ID,
-				consortiaId,
+				consortiaID,
 				res.StatusCode())
 		}
 

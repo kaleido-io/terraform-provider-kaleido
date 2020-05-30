@@ -53,6 +53,16 @@ func resourceService() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"zone_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"details": &schema.Schema{
+				Type:     schema.TypeMap,
+				Optional: true,
+				ForceNew: true,
+			},
 			"https_url": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
@@ -68,13 +78,15 @@ func resourceService() *schema.Resource {
 
 func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	environmentId := d.Get("environment_id").(string)
-	membershipId := d.Get("membership_id").(string)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	membershipID := d.Get("membership_id").(string)
 	serviceType := d.Get("service_type").(string)
-	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipId)
+	details := d.Get("details").(map[string]interface{})
+	zoneID := d.Get("zone_id").(string)
+	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
 
-	res, err := client.CreateService(consortiumId, environmentId, &service)
+	res, err := client.CreateService(consortiumID, environmentID, &service)
 
 	if err != nil {
 		return err
@@ -83,11 +95,11 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Could not create service %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, service.Id, consortiumId, environmentId, status)
+		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status)
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetService(consortiumId, environmentId, service.Id, &service)
+		res, retryErr := client.GetService(consortiumID, environmentID, service.ID, &service)
 
 		if retryErr != nil {
 			return resource.NonRetryableError(retryErr)
@@ -95,14 +107,14 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching service %s state failed: %d", service.Id, statusCode)
+			msg := fmt.Errorf("Fetching service %s state failed: %d", service.ID, statusCode)
 			return resource.NonRetryableError(msg)
 		}
 
 		if service.State != "started" {
 			msg := "Service %s in environment %s in consortium %s" +
 				"took too long to enter state 'started'. Final state was '%s'."
-			retryErr := fmt.Errorf(msg, service.Id, environmentId, consortiumId, service.State)
+			retryErr := fmt.Errorf(msg, service.ID, environmentID, consortiumID, service.State)
 			return resource.RetryableError(retryErr)
 		}
 
@@ -113,7 +125,7 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	d.SetId(service.Id)
+	d.SetId(service.ID)
 	d.Set("https_url", service.Urls["http"])
 
 	return nil
@@ -121,12 +133,12 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 
 func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	environmentId := d.Get("environment_id").(string)
-	serviceId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	serviceID := d.Id()
 
 	var service kaleido.Service
-	res, err := client.GetService(consortiumId, environmentId, serviceId, &service)
+	res, err := client.GetService(consortiumID, environmentID, serviceID, &service)
 
 	if err != nil {
 		return err
@@ -140,7 +152,7 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	if status != 200 {
 		msg := "Could not find service %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, serviceId, consortiumId, environmentId, status)
+		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status)
 	}
 
 	d.Set("name", service.Name)

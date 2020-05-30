@@ -51,7 +51,7 @@ require (
 	github.com/huin/goupnp v1.0.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jmespath/go-jmespath v0.3.0
-	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20200528160747-09ce02990d7c
+	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20200529154742-1de485f1447c
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 // indirect
 	github.com/mattn/go-colorable v0.1.6
 	github.com/mattn/go-isatty v0.0.12
@@ -90,6 +90,7 @@ require (
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200428115010-c45acf45369a
 	google.golang.org/grpc v1.29.1
+	gopkg.in/h2non/gock.v1 v1.0.15
 	gopkg.in/ini.v1 v1.55.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.0 // indirect
 )

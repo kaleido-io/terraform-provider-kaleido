@@ -21,3 +21,4 @@ vendor
 .LSOverride
 
 terraform-provider-kaleido
+coverage.txt

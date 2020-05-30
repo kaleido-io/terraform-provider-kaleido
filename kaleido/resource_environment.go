@@ -74,9 +74,9 @@ func resourceEnvironment() *schema.Resource {
 
 func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
+	consortiumID := d.Get("consortium_id").(string)
 
-	if consortiumId == "" {
+	if consortiumID == "" {
 		return fmt.Errorf("Consortium missing id.")
 	}
 	environment := kaleido.NewEnvironment(d.Get("name").(string),
@@ -86,12 +86,12 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Get("multi_region").(bool),
 		d.Get("block_period").(int))
 
-	releaseId, ok := d.GetOk("release_id")
+	releaseID, ok := d.GetOk("release_id")
 
 	if ok {
-		environment.ReleaseId = releaseId.(string)
+		environment.ReleaseID = releaseID.(string)
 	}
-	res, err := client.CreateEnvironment(consortiumId, &environment)
+	res, err := client.CreateEnvironment(consortiumID, &environment)
 
 	if err != nil {
 		return err
@@ -99,11 +99,11 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 
 	if res.StatusCode() != 201 {
 		msg := "Could not create environment %s for consortia %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, environment.Name, consortiumId, res.StatusCode(), res.String())
+		return fmt.Errorf(msg, environment.Name, consortiumID, res.StatusCode(), res.String())
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetEnvironment(consortiumId, environment.Id, &environment)
+		res, retryErr := client.GetEnvironment(consortiumID, environment.ID, &environment)
 
 		if retryErr != nil {
 			return resource.NonRetryableError(retryErr)
@@ -111,7 +111,7 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("polling environment %s failed: %d", environment.Id, statusCode)
+			msg := fmt.Errorf("polling environment %s failed: %d", environment.ID, statusCode)
 			return resource.NonRetryableError(msg)
 		}
 
@@ -122,20 +122,20 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	d.SetId(environment.Id)
-	if environment.ReleaseId != "" {
-		d.Set("release_id", environment.ReleaseId)
+	d.SetId(environment.ID)
+	if environment.ReleaseID != "" {
+		d.Set("release_id", environment.ReleaseID)
 	}
 	return nil
 }
 
 func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	environmentId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Id()
 
 	var environment kaleido.Environment
-	res, err := client.GetEnvironment(consortiumId, environmentId, &environment)
+	res, err := client.GetEnvironment(consortiumID, environmentID, &environment)
 
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 
 	if res.StatusCode() != 200 {
 		msg := "Failed to get environment %s, from consortium %s status was: %d"
-		return fmt.Errorf(msg, environmentId, consortiumId, res.StatusCode())
+		return fmt.Errorf(msg, environmentID, consortiumID, res.StatusCode())
 	}
 
 	if res.StatusCode() == 404 {
@@ -155,17 +155,17 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("description", environment.Description)
 	d.Set("env_type", environment.Provider)
 	d.Set("consensus_type", environment.ConsensusType)
-	d.Set("release_id", environment.ReleaseId)
+	d.Set("release_id", environment.ReleaseID)
 
 	return nil
 }
 
 func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	environmentId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Id()
 
-	res, err := client.DeleteEnvironment(consortiumId, environmentId)
+	res, err := client.DeleteEnvironment(consortiumID, environmentID)
 
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
 	statusCode := res.StatusCode()
 	if statusCode != 202 && statusCode != 204 {
 		msg := "Failed to delete environment %s, in consortium %s, status was: %d"
-		return fmt.Errorf(msg, environmentId, consortiumId, statusCode)
+		return fmt.Errorf(msg, environmentID, consortiumID, statusCode)
 	}
 
 	d.SetId("")

@@ -59,12 +59,12 @@ func resourceCZone() *schema.Resource {
 
 func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
+	consortiumID := d.Get("consortium_id").(string)
 	region := d.Get("region").(string)
 	cloud := d.Get("cloud").(string)
 	czone := kaleido.NewCZone(d.Get("name").(string), region, cloud)
 
-	res, err := client.CreateCZone(consortiumId, &czone)
+	res, err := client.CreateCZone(consortiumID, &czone)
 
 	if err != nil {
 		return err
@@ -73,11 +73,11 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Could not create czone %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, czone.Id, consortiumId, status)
+		return fmt.Errorf(msg, czone.ID, consortiumID, status)
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetCZone(consortiumId, czone.Id, &czone)
+		res, retryErr := client.GetCZone(consortiumID, czone.ID, &czone)
 
 		if retryErr != nil {
 			return resource.NonRetryableError(retryErr)
@@ -85,7 +85,7 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching czone %s state failed: %d", czone.Id, statusCode)
+			msg := fmt.Errorf("Fetching czone %s state failed: %d", czone.ID, statusCode)
 			return resource.NonRetryableError(msg)
 		}
 
@@ -96,18 +96,18 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	d.SetId(czone.Id)
+	d.SetId(czone.ID)
 
 	return nil
 }
 
 func resourceCZoneRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	czoneId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	czoneID := d.Id()
 
 	var czone kaleido.CZone
-	res, err := client.GetCZone(consortiumId, czoneId, &czone)
+	res, err := client.GetCZone(consortiumID, czoneID, &czone)
 
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func resourceCZoneRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	if status != 200 {
 		msg := "Could not find czone %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, czoneId, consortiumId, status)
+		return fmt.Errorf(msg, czoneID, consortiumID, status)
 	}
 
 	d.Set("name", czone.Name)
