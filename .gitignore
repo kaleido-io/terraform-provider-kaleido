@@ -20,5 +20,5 @@ vendor
 .AppleDouble
 .LSOverride
 
-terraform-provider-kaleido
+terraform-provider-kaleido*
 coverage.txt

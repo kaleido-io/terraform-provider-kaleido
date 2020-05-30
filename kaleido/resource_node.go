@@ -91,6 +91,11 @@ func resourceNode() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"baf_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -115,6 +120,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	node.BackupID = d.Get("backup_id").(string)
 	node.NetworkingID = d.Get("networking_id").(string)
 	node.NodeConfigID = d.Get("node_config_id").(string)
+	node.BafID = d.Get("baf_id").(string)
 
 	res, err := client.CreateNode(consortiumID, environmentID, &node)
 
