@@ -48,9 +48,9 @@ func resourceInvitation() *schema.Resource {
 func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	invitation := kaleido.NewInvitation(d.Get("org_name").(string), d.Get("email").(string))
-	consortiumId := d.Get("consortium_id").(string)
+	consortiumID := d.Get("consortium_id").(string)
 
-	res, err := client.CreateInvitation(consortiumId, &invitation)
+	res, err := client.CreateInvitation(consortiumID, &invitation)
 
 	if err != nil {
 		return err
@@ -59,19 +59,19 @@ func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Failed to create invitation %s in consortium %s with status %d"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumId, status)
+		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status)
 	}
 
-	d.SetId(invitation.Id)
+	d.SetId(invitation.ID)
 	return nil
 }
 
 func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
+	consortiumID := d.Get("consortium_id").(string)
 
 	var invitation kaleido.Invitation
-	res, err := client.GetInvitation(consortiumId, d.Id(), &invitation)
+	res, err := client.GetInvitation(consortiumID, d.Id(), &invitation)
 
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Failed to find invitation %s in consortium %s with status %d"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumId, status)
+		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status)
 	}
 
 	d.Set("org_name", invitation.OrgName)
@@ -90,10 +90,10 @@ func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
 
 func resourceInvitationDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	invitationId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	invitationID := d.Id()
 
-	res, err := client.DeleteInvitation(consortiumId, invitationId)
+	res, err := client.DeleteInvitation(consortiumID, invitationID)
 
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func resourceInvitationDelete(d *schema.ResourceData, meta interface{}) error {
 	status := res.StatusCode()
 	if status != 204 {
 		msg := "Failed to delete invitation %s in consortium %s with status: %d"
-		return fmt.Errorf(msg, invitationId, consortiumId, status)
+		return fmt.Errorf(msg, invitationID, consortiumID, status)
 	}
 
 	d.SetId("")

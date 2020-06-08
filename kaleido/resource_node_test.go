@@ -17,15 +17,15 @@ import (
 	"fmt"
 	"testing"
 
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func TestKaleidoNodeResource(t *testing.T) {
-	consortium := kaleido.NewConsortium("terraNode", "terraforming", "single-org")
+	consortium := kaleido.NewConsortium("terraNode", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("nodeEnv", "terraforming", "quorum", "raft")
+	environment := kaleido.NewEnvironment("nodeEnv", "terraforming", "quorum", "raft", false, 0)
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
@@ -55,8 +55,8 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 			return fmt.Errorf("Not found: %s", nodeResource)
 		}
 
-		nodeId := nodeRs.Primary.ID
-		if nodeId == "" {
+		nodeID := nodeRs.Primary.ID
+		if nodeID == "" {
 			return fmt.Errorf("No terraform resource instance for %s", nodeResource)
 		}
 
@@ -64,8 +64,8 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 		if !ok {
 			return fmt.Errorf("Not found: %s", consResource)
 		}
-		consId := consRs.Primary.ID
-		if consId == "" {
+		consID := consRs.Primary.ID
+		if consID == "" {
 			return fmt.Errorf("No terraform resource instance for %s", consResource)
 		}
 
@@ -73,8 +73,8 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 		if !ok {
 			return fmt.Errorf("Not found: %s", envResource)
 		}
-		envId := envRs.Primary.ID
-		if envId == "" {
+		envID := envRs.Primary.ID
+		if envID == "" {
 			return fmt.Errorf("No terraform resource instance for %s", envResource)
 		}
 
@@ -82,14 +82,14 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 		if !ok {
 			return fmt.Errorf("Not found: %s", envResource)
 		}
-		membershipId := membershipRs.Primary.ID
-		if membershipId == "" {
+		membershipID := membershipRs.Primary.ID
+		if membershipID == "" {
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
 		client := testAccProvider.Meta().(kaleido.KaleidoClient)
 		var node kaleido.Node
-		res, err := client.GetNode(consId, envId, nodeId, &node)
+		res, err := client.GetNode(consID, envID, nodeID, &node)
 
 		if err != nil {
 			return err
@@ -98,7 +98,7 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 		status := res.StatusCode()
 		if status != 200 {
 			msg := "Did not find node %s in consortia %s and environment %s, status was: %d"
-			return fmt.Errorf(msg, nodeId, consId, envId, status)
+			return fmt.Errorf(msg, nodeID, consID, envID, status)
 		}
 
 		return nil
@@ -109,7 +109,6 @@ func testAccNodeConfig_basic(consortium *kaleido.Consortium, membership *kaleido
 	return fmt.Sprintf(`resource "kaleido_consortium" "terraNode" {
     name = "%s"
     description = "%s"
-    mode = "%s"
     }
     resource "kaleido_membership" "kaleido" {
       consortium_id = "${kaleido_consortium.terraNode.id}"
@@ -132,7 +131,6 @@ func testAccNodeConfig_basic(consortium *kaleido.Consortium, membership *kaleido
     }
     `, consortium.Name,
 		consortium.Description,
-		consortium.Mode,
 		membership.OrgName,
 		environment.Name,
 		environment.Description,

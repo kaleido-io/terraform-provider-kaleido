@@ -23,8 +23,8 @@ import (
 )
 
 func TestKaleidoEnvironmentResource(t *testing.T) {
-	consortium := kaleido.NewConsortium("terraformConsortEnv", "terraforming", "single-org")
-	environment := kaleido.NewEnvironment("terraEnv", "terraforming", "quorum", "raft")
+	consortium := kaleido.NewConsortium("terraformConsortEnv", "terraforming")
+	environment := kaleido.NewEnvironment("terraEnv", "terraforming", "quorum", "raft", false, 0)
 	envResourceName := "kaleido_environment.basicEnv"
 	consortiumResourceName := "kaleido_consortium.basic"
 	resource.Test(t, resource.TestCase{
@@ -46,7 +46,6 @@ func testAccEnvironmentConfig_basic(consortium *kaleido.Consortium, environ *kal
 	return fmt.Sprintf(`resource "kaleido_consortium" "basic" {
 		name = "%s"
 		description = "%s"
-		mode = "%s"
 		}
 		resource "kaleido_environment" "basicEnv" {
 			consortium_id = "${kaleido_consortium.basic.id}"
@@ -57,7 +56,6 @@ func testAccEnvironmentConfig_basic(consortium *kaleido.Consortium, environ *kal
 		}
 		`, consortium.Name,
 		consortium.Description,
-		consortium.Mode,
 		environ.Name,
 		environ.Description,
 		environ.Provider,
@@ -68,7 +66,6 @@ func testAccEnvironmentConfig_oldRelease(consortium *kaleido.Consortium, environ
 	return fmt.Sprintf(`resource "kaleido_consortium" "oldie" {
 		name = "%s"
 		description = "%s"
-		mode = "%s"
 		}
 		resource "kaleido_environment" "oldieEnv" {
 			consortium_id = "${kaleido_consortium.oldie.id}"
@@ -80,7 +77,6 @@ func testAccEnvironmentConfig_oldRelease(consortium *kaleido.Consortium, environ
 		}
 		`, consortium.Name,
 		consortium.Description,
-		consortium.Mode,
 		environ.Name,
 		environ.Description,
 		environ.Provider,
@@ -108,21 +104,21 @@ func testAccCheckEnvironmentExists(envResource, consortiumResource string) resou
 			return fmt.Errorf("Not terraform resource instance for %s", envResource)
 		}
 
-		envId := rs.Primary.Attributes["id"]
-		if envId != rs.Primary.ID {
-			return fmt.Errorf("Terraform id mismatch for environment %s and %s", envId, rs.Primary.ID)
+		envID := rs.Primary.Attributes["id"]
+		if envID != rs.Primary.ID {
+			return fmt.Errorf("Terraform id mismatch for environment %s and %s", envID, rs.Primary.ID)
 		}
 
 		client := testAccProvider.Meta().(kaleido.KaleidoClient)
 		var environment kaleido.Environment
-		res, err := client.GetEnvironment(consortium.Primary.ID, envId, &environment)
+		res, err := client.GetEnvironment(consortium.Primary.ID, envID, &environment)
 
 		if err != nil {
 			return err
 		}
 
 		if res.StatusCode() != 200 {
-			return fmt.Errorf("Expected environment with id %s, status was: %d.", envId, res.StatusCode())
+			return fmt.Errorf("Expected environment with id %s, status was: %d.", envID, res.StatusCode())
 		}
 
 		return nil

@@ -66,6 +66,36 @@ func resourceNode() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"kms_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"opsmetric_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"backup_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"networking_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"node_config_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"baf_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -77,15 +107,22 @@ func resourceNode() *schema.Resource {
 
 func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	environmentId := d.Get("environment_id").(string)
-	membershipId := d.Get("membership_id").(string)
-	ezoneId := d.Get("zone_id").(string)
-	size := d.Get("size").(string)
-	node := kaleido.NewNode(d.Get("name").(string), membershipId, ezoneId)
-	node.Size = size
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	membershipID := d.Get("membership_id").(string)
+	ezoneID := d.Get("zone_id").(string)
 
-	res, err := client.CreateNode(consortiumId, environmentId, &node)
+	node := kaleido.NewNode(d.Get("name").(string), membershipID, ezoneID)
+
+	node.Size = d.Get("size").(string)
+	node.KmsID = d.Get("kms_id").(string)
+	node.OpsmetricID = d.Get("opsmetric_id").(string)
+	node.BackupID = d.Get("backup_id").(string)
+	node.NetworkingID = d.Get("networking_id").(string)
+	node.NodeConfigID = d.Get("node_config_id").(string)
+	node.BafID = d.Get("baf_id").(string)
+
+	res, err := client.CreateNode(consortiumID, environmentID, &node)
 
 	if err != nil {
 		return err
@@ -94,11 +131,11 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Could not create node %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, node.Id, consortiumId, environmentId, status)
+		return fmt.Errorf(msg, node.ID, consortiumID, environmentID, status)
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetNode(consortiumId, environmentId, node.Id, &node)
+		res, retryErr := client.GetNode(consortiumID, environmentID, node.ID, &node)
 
 		if retryErr != nil {
 			return resource.NonRetryableError(retryErr)
@@ -106,14 +143,14 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching node %s state failed: %d", node.Id, statusCode)
+			msg := fmt.Errorf("Fetching node %s state failed: %d", node.ID, statusCode)
 			return resource.NonRetryableError(msg)
 		}
 
 		if node.State != "started" {
 			msg := "Node %s in environment %s in consortium %s" +
 				"took too long to enter state 'started'. Final state was '%s'."
-			retryErr := fmt.Errorf(msg, node.Id, environmentId, consortiumId, node.State)
+			retryErr := fmt.Errorf(msg, node.ID, environmentID, consortiumID, node.State)
 			return resource.RetryableError(retryErr)
 		}
 
@@ -124,7 +161,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	d.SetId(node.Id)
+	d.SetId(node.ID)
 	d.Set("websocket_url", node.Urls.WSS)
 	d.Set("https_url", node.Urls.RPC)
 
@@ -133,12 +170,12 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 
 func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortiumId := d.Get("consortium_id").(string)
-	environmentId := d.Get("environment_id").(string)
-	nodeId := d.Id()
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	nodeID := d.Id()
 
 	var node kaleido.Node
-	res, err := client.GetNode(consortiumId, environmentId, nodeId, &node)
+	res, err := client.GetNode(consortiumID, environmentID, nodeID, &node)
 
 	if err != nil {
 		return err
@@ -152,7 +189,7 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	if status != 200 {
 		msg := "Could not find node %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, nodeId, consortiumId, environmentId, status)
+		return fmt.Errorf(msg, nodeID, consortiumID, environmentID, status)
 	}
 
 	d.Set("name", node.Name)

@@ -25,26 +25,25 @@ import (
 	gock "gopkg.in/h2non/gock.v1"
 )
 
-func TestKaleidoServiceResource(t *testing.T) {
-	consortium := kaleido.NewConsortium("terraService", "terraforming")
+func TestKaleidoConfigResource(t *testing.T) {
+	consortium := kaleido.NewConsortium("terraConfig", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("serviceEnv", "terraforming", "quorum", "raft", false, 0)
-	ezone := kaleido.NewEZone("serviceZone", "us-east-2", "aws")
-	service := kaleido.NewService("service1", "hdwallet", "member1", "zone1", map[string]interface{}{
-		"backup_id":     "backupid1",
-		"kms_id":        "kms1",
-		"networking_id": "networking1",
+	environment := kaleido.NewEnvironment("configEnv", "terraforming", "quorum", "raft", false, 0)
+	ezone := kaleido.NewEZone("configZone", "us-east-2", "aws")
+	configuration := kaleido.NewConfiguration("theConfig", "member1", "node_config", map[string]interface{}{
+		"gas_price": "1",
 	})
 	node := kaleido.NewNode("node1", "member1", "zone1")
+	node.NodeConfigID = "cfg1"
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
 	envResource := "kaleido_environment." + environment.Name
-	serviceResource := "kaleido_service.theService"
+	configurationResource := "kaleido_configuration.theConfig"
 
 	defer gock.Off()
 	testNodeGocks(&node)
-	testServiceGocks(&service)
+	testConfigurationGocks(&configuration)
 	testEZoneGocks(&ezone)
 	testEnvironmentGocks(&environment)
 	testMembershipGocks(&membership)
@@ -63,12 +62,10 @@ func TestKaleidoServiceResource(t *testing.T) {
 		Providers:                 testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccServiceConfig_basic(&consortium, &membership, &environment),
+				Config: testAccConfigConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckServiceExists(consResource, membershipResource, envResource, serviceResource),
-					resource.TestMatchResourceAttr(serviceResource, "details.kms_id", regexp.MustCompile("kms1")),
-					resource.TestMatchResourceAttr(serviceResource, "details.backup_id", regexp.MustCompile("backupid1")),
-					resource.TestMatchResourceAttr(serviceResource, "details.networking_id", regexp.MustCompile("networking1")),
+					testAccCheckConfigExists(consResource, membershipResource, envResource, configurationResource),
+					resource.TestMatchResourceAttr(configurationResource, "details.gas_price", regexp.MustCompile("1")),
 				),
 			},
 		},
@@ -76,17 +73,17 @@ func TestKaleidoServiceResource(t *testing.T) {
 
 }
 
-func testAccCheckServiceExists(consResource, membershipResource, envResource, serviceResource string) resource.TestCheckFunc {
+func testAccCheckConfigExists(consResource, membershipResource, envResource, configResource string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		serviceRs, ok := s.RootModule().Resources[serviceResource]
+		configRs, ok := s.RootModule().Resources[configResource]
 
 		if !ok {
-			return fmt.Errorf("Not found: %s", serviceResource)
+			return fmt.Errorf("Not found: %s", configResource)
 		}
 
-		serviceID := serviceRs.Primary.ID
-		if serviceID == "" {
-			return fmt.Errorf("No terraform resource instance for %s", serviceResource)
+		configID := configRs.Primary.ID
+		if configID == "" {
+			return fmt.Errorf("No terraform resource instance for %s", configResource)
 		}
 
 		consRs, ok := s.RootModule().Resources[consResource]
@@ -117,8 +114,8 @@ func testAccCheckServiceExists(consResource, membershipResource, envResource, se
 		}
 
 		client := testAccProvider.Meta().(kaleido.KaleidoClient)
-		var service kaleido.Service
-		res, err := client.GetService(consID, envID, serviceID, &service)
+		var config kaleido.Configuration
+		res, err := client.GetConfiguration(consID, envID, configID, &config)
 
 		if err != nil {
 			return err
@@ -126,26 +123,26 @@ func testAccCheckServiceExists(consResource, membershipResource, envResource, se
 
 		status := res.StatusCode()
 		if status != 200 {
-			msg := "Did not find service %s in consortia %s and environment %s, status was: %d"
-			return fmt.Errorf(msg, serviceID, consID, envID, status)
+			msg := "Did not find config %s in consortia %s and environment %s, status was: %d"
+			return fmt.Errorf(msg, configID, consID, envID, status)
 		}
 
 		return nil
 	}
 }
 
-func testAccServiceConfig_basic(consortium *kaleido.Consortium, membership *kaleido.Membership, environment *kaleido.Environment) string {
-	return fmt.Sprintf(`resource "kaleido_consortium" "terraService" {
+func testAccConfigConfig_basic(consortium *kaleido.Consortium, membership *kaleido.Membership, environment *kaleido.Environment) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "terraConfig" {
     name = "%s"
     description = "%s"
     }
     resource "kaleido_membership" "kaleido" {
-      consortium_id = "${kaleido_consortium.terraService.id}"
+      consortium_id = "${kaleido_consortium.terraConfig.id}"
       org_name = "%s"
     }
 
-    resource "kaleido_environment" "serviceEnv" {
-      consortium_id = "${kaleido_consortium.terraService.id}"
+    resource "kaleido_environment" "configEnv" {
+      consortium_id = "${kaleido_consortium.terraConfig.id}"
       name = "%s"
       description = "%s"
       env_type = "%s"
@@ -153,34 +150,33 @@ func testAccServiceConfig_basic(consortium *kaleido.Consortium, membership *kale
     }
 
 		resource "kaleido_ezone" "theZone" {
-			name = "serviceZone"
-			consortium_id = "${kaleido_consortium.terraService.id}"
-			environment_id = "${kaleido_environment.serviceEnv.id}"
+			name = "configZone"
+			consortium_id = "${kaleido_consortium.terraConfig.id}"
+			environment_id = "${kaleido_environment.configEnv.id}"
 			cloud = "aws"
 			region = "us-east-2"
 		}
 
-    resource "kaleido_node" "theNode" {
-        consortium_id = "${kaleido_consortium.terraService.id}"
-        environment_id = "${kaleido_environment.serviceEnv.id}"
-        membership_id = "${kaleido_membership.kaleido.id}"
-				zone_id = "${kaleido_ezone.theZone.id}"
-        name = "node1"
+    resource "kaleido_configuration" "theConfig" {
+      consortium_id = "${kaleido_consortium.terraConfig.id}"
+      environment_id = "${kaleido_environment.configEnv.id}"
+      membership_id = "${kaleido_membership.kaleido.id}"
+      type = "node_config"
+			name = "theConfig"
+			details = {
+				gas_price = 1
+			}
 		}
 		
-    resource "kaleido_service" "theService" {
-      consortium_id = "${kaleido_consortium.terraService.id}"
-      environment_id = "${kaleido_environment.serviceEnv.id}"
-      membership_id = "${kaleido_membership.kaleido.id}"
+    resource "kaleido_node" "theNode" {
+			consortium_id = "${kaleido_consortium.terraConfig.id}"
+			environment_id = "${kaleido_environment.configEnv.id}"
+			membership_id = "${kaleido_membership.kaleido.id}"
+			node_config_id = "${kaleido_configuration.theConfig.id}"
 			zone_id = "${kaleido_ezone.theZone.id}"
-      service_type = "hdwallet"
-			name = "service1"
-			details = {
-				backup_id = "backupid1"
-				kms_id = "kms1"
-				networking_id = "networking1"
-			}
-    }
+			name = "node1"
+		}
+	
     `, consortium.Name,
 		consortium.Description,
 		membership.OrgName,

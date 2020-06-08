@@ -17,23 +17,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceService() *schema.Resource {
+func resourceConfiguration() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceServiceCreate,
-		Read:   resourceServiceRead,
-		Delete: resourceServiceDelete,
+		Create: resourceConfigurationCreate,
+		Read:   resourceConfigurationRead,
+		Delete: resourceConfigurationDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			"service_type": &schema.Schema{
+			"type": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
@@ -53,19 +52,10 @@ func resourceService() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"zone_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-			},
 			"details": &schema.Schema{
 				Type:     schema.TypeMap,
 				Optional: true,
 				ForceNew: true,
-			},
-			"https_url": &schema.Schema{
-				Type:     schema.TypeString,
-				Computed: true,
 			},
 		},
 		Timeouts: &schema.ResourceTimeout{
@@ -76,17 +66,16 @@ func resourceService() *schema.Resource {
 	}
 }
 
-func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
 	membershipID := d.Get("membership_id").(string)
-	serviceType := d.Get("service_type").(string)
+	configurationType := d.Get("type").(string)
 	details := d.Get("details").(map[string]interface{})
-	zoneID := d.Get("zone_id").(string)
-	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
+	configuration := kaleido.NewConfiguration(d.Get("name").(string), membershipID, configurationType, details)
 
-	res, err := client.CreateService(consortiumID, environmentID, &service)
+	res, err := client.CreateConfiguration(consortiumID, environmentID, &configuration)
 
 	if err != nil {
 		return err
@@ -94,51 +83,34 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create service %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status)
+		msg := "Could not create configuration %s in consortium %s in environment %s, status was: %d"
+		return fmt.Errorf(msg, configuration.ID, consortiumID, environmentID, status)
 	}
 
-	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetService(consortiumID, environmentID, service.ID, &service)
-
-		if retryErr != nil {
-			return resource.NonRetryableError(retryErr)
-		}
-
-		statusCode := res.StatusCode()
-		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching service %s state failed: %d", service.ID, statusCode)
-			return resource.NonRetryableError(msg)
-		}
-
-		if service.State != "started" {
-			msg := "Service %s in environment %s in consortium %s" +
-				"took too long to enter state 'started'. Final state was '%s'."
-			retryErr := fmt.Errorf(msg, service.ID, environmentID, consortiumID, service.State)
-			return resource.RetryableError(retryErr)
-		}
-
-		return nil
-	})
+	res, err = client.GetConfiguration(consortiumID, environmentID, configuration.ID, &configuration)
 
 	if err != nil {
 		return err
 	}
 
-	d.SetId(service.ID)
-	d.Set("https_url", service.Urls["http"])
+	statusCode := res.StatusCode()
+	if statusCode != 200 {
+		return fmt.Errorf("Fetching configuration %s state failed: %d", configuration.ID, statusCode)
+	}
+
+	d.SetId(configuration.ID)
 
 	return nil
 }
 
-func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
+func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
-	serviceID := d.Id()
+	configurationID := d.Id()
 
-	var service kaleido.Service
-	res, err := client.GetService(consortiumID, environmentID, serviceID, &service)
+	var configuration kaleido.Configuration
+	res, err := client.GetConfiguration(consortiumID, environmentID, configurationID, &configuration)
 
 	if err != nil {
 		return err
@@ -151,17 +123,35 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find service %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status)
+		msg := "Could not find configuration %s in consortium %s in environment %s, status: %d"
+		return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status)
 	}
 
-	d.Set("name", service.Name)
-	d.Set("service_type", service.Service)
-	d.Set("https_url", service.Urls["http"])
+	d.Set("name", configuration.Name)
+	d.Set("type", configuration.Type)
 	return nil
 }
 
-func resourceServiceDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceConfigurationDelete(d *schema.ResourceData, meta interface{}) error {
+
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	configurationID := d.Id()
+
+	res, err := client.DeleteConfiguration(consortiumID, environmentID, configurationID)
+
+	if err != nil {
+		return err
+	}
+
+	statusCode := res.StatusCode()
+	if statusCode != 202 && statusCode != 204 {
+		msg := "Failed to delete configuration %s in consortium %s in environment %s, status: %d"
+		return fmt.Errorf(msg, environmentID, consortiumID, statusCode)
+	}
+
 	d.SetId("")
+
 	return nil
 }

@@ -53,7 +53,7 @@ func resourceConsortiumCreate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Failed to create consortium with status: %d", status)
 	}
 
-	d.SetId(consortium.Id)
+	d.SetId(consortium.ID)
 
 	return nil
 }
