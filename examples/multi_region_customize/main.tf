@@ -28,6 +28,8 @@ resource "kaleido_membership" "member" {
 
 /*
 This whitelists a region into the consortium for deployment
+This is only required if deploying to a zone that is not the home zone
+of the API URL - otherwise you will get a 409 conflict on deployment
 */
 resource "kaleido_czone" "allowed_region" {
   consortium_id = "${kaleido_consortium.consortium.id}"
@@ -40,7 +42,7 @@ Create an environment
 */
 resource "kaleido_environment" "env" {
   consortium_id = "${kaleido_consortium.consortium.id}"
-  multi_region = "${var.multi_region}"
+  multi_region = true
   name = "${var.env_name}"
   env_type = "${var.provider}"
   consensus_type = "${var.consensus}"

@@ -6,7 +6,7 @@ variable "kaleido_api_key" {
 variable "kaleido_api_url" {
   type = "string"
   description = "The regional API URL you use will determine the region your metadata is located in"
-  default = "https://console-us1.kaleido.io/api/v1"
+  default = "https://console.kaleido.io/api/v1"
 }
 
 variable "cloud" {
@@ -31,12 +31,6 @@ variable "consensus" {
   type = "string"
   default = "ibft"
   description = "Consensus mechanism."
-}
-
-variable "multi_region" {
-  type = "string"
-  default = false
-  description = "Make the environment multi-region compatible to support additional regions, now or in the future"
 }
 
 variable "node_size" {
