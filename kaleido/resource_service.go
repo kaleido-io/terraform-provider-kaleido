@@ -94,8 +94,8 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create service %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status)
+		msg := "Could not create service %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status, res.String())
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {

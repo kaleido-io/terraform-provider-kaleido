@@ -72,8 +72,8 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create czone %s in consortium %s in environment %s, status was: %d"
-		return fmt.Errorf(msg, czone.ID, consortiumID, status)
+		msg := "Could not create czone %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, czone.ID, consortiumID, status, res.String())
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {

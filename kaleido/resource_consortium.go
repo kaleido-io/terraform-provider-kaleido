@@ -73,7 +73,7 @@ func resourceConsortiumRead(d *schema.ResourceData, meta interface{}) error {
 			d.SetId("")
 			return nil
 		}
-		return fmt.Errorf("Failed to read consortium with id %s status was: %d", d.Id(), status)
+		return fmt.Errorf("Failed to read consortium with id %s status was: %d, error: %s", d.Id(), status, res.String())
 	}
 	return nil
 }
@@ -88,7 +88,7 @@ func resourceConsortiumDelete(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 202 {
-		return fmt.Errorf("failed to delete consortium with id %s status was %d", d.Id(), status)
+		return fmt.Errorf("failed to delete consortium with id %s status was %d, error: %s", d.Id(), status, res.String())
 	}
 	return nil
 }

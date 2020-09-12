@@ -142,8 +142,8 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 200 {
-		msg := "Failed to get environment %s, from consortium %s status was: %d"
-		return fmt.Errorf(msg, environmentID, consortiumID, res.StatusCode())
+		msg := "Failed to get environment %s, from consortium %s status was: %d, error: %s"
+		return fmt.Errorf(msg, environmentID, consortiumID, res.StatusCode(), res.String())
 	}
 
 	if res.StatusCode() == 404 {
@@ -173,8 +173,8 @@ func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
 
 	statusCode := res.StatusCode()
 	if statusCode != 202 && statusCode != 204 {
-		msg := "Failed to delete environment %s, in consortium %s, status was: %d"
-		return fmt.Errorf(msg, environmentID, consortiumID, statusCode)
+		msg := "Failed to delete environment %s, in consortium %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
 	}
 
 	d.SetId("")
