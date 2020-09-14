@@ -67,6 +67,10 @@ func resourceService() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"websocket_url": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -127,6 +131,9 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 
 	d.SetId(service.ID)
 	d.Set("https_url", service.Urls["http"])
+	if wsURL, ok := service.Urls["ws"]; ok {
+		d.Set("websocket_url", wsURL)
+	}
 
 	return nil
 }
@@ -158,6 +165,9 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("name", service.Name)
 	d.Set("service_type", service.Service)
 	d.Set("https_url", service.Urls["http"])
+	if wsURL, ok := service.Urls["ws"]; ok {
+		d.Set("websocket_url", wsURL)
+	}
 	return nil
 }
 
