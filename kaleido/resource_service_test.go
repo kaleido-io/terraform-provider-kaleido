@@ -35,16 +35,19 @@ func TestKaleidoServiceResource(t *testing.T) {
 		"kms_id":        "kms1",
 		"networking_id": "networking1",
 	})
+	ipfs_service := kaleido.NewService("ipfs_service1", "ipfs", "member1", "zone1", map[string]interface{}{})
 	node := kaleido.NewNode("node1", "member1", "zone1")
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
 	envResource := "kaleido_environment." + environment.Name
 	serviceResource := "kaleido_service.theService"
+	ipfsServiceResource := "kaleido_service.ipfs_service"
 
 	defer gock.Off()
 	testNodeGocks(&node)
 	testServiceGocks(&service)
+	testIPFSServiceGocks(&ipfs_service)
 	testEZoneGocks(&ezone)
 	testEnvironmentGocks(&environment)
 	testMembershipGocks(&membership)
@@ -66,6 +69,7 @@ func TestKaleidoServiceResource(t *testing.T) {
 				Config: testAccServiceConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckServiceExists(consResource, membershipResource, envResource, serviceResource),
+					testAccCheckServiceExists(consResource, membershipResource, envResource, ipfsServiceResource),
 					resource.TestMatchResourceAttr(serviceResource, "details.kms_id", regexp.MustCompile("kms1")),
 					resource.TestMatchResourceAttr(serviceResource, "details.backup_id", regexp.MustCompile("backupid1")),
 					resource.TestMatchResourceAttr(serviceResource, "details.networking_id", regexp.MustCompile("networking1")),
@@ -181,6 +185,15 @@ func testAccServiceConfig_basic(consortium *kaleido.Consortium, membership *kale
 				networking_id = "networking1"
 			}
     }
+    
+	resource "kaleido_service" "ipfs_service" {
+		consortium_id = "${kaleido_consortium.terraService.id}"
+		environment_id = "${kaleido_environment.serviceEnv.id}"
+		membership_id = "${kaleido_membership.kaleido.id}"
+			  zone_id = "${kaleido_ezone.theZone.id}"
+		service_type = "ipfs"
+			  name = "ipfs_service1"
+	}
     `, consortium.Name,
 		consortium.Description,
 		membership.OrgName,
