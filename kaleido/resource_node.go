@@ -48,7 +48,7 @@ func resourceNode() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"websocker_url": &schema.Schema{
+			"websocket_url": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
 			},
