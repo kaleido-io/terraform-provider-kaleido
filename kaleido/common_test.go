@@ -201,6 +201,45 @@ func testServiceGocks(service *kaleido.Service) {
 
 }
 
+func testIPFSServiceGocks(service *kaleido.Service) {
+
+	serviceCreateRequest := jsonClone(service)
+	serviceCreateResponse := jsonClone(serviceCreateRequest)
+	serviceCreateResponse["_id"] = "ipfs_svc1"
+	serviceCreateResponse["state"] = "provisioning"
+	serviceGetResponse1 := jsonClone(serviceCreateResponse)
+	serviceGetResponse2 := jsonClone(serviceCreateResponse)
+	serviceGetResponse2["state"] = "started"
+	serviceGetResponse2["urls"] = map[string]string{
+		"http": "http://test-http.example.com",
+		"webui": "http://test-http.example.com",
+		"websocket_url": "http://test-http.example.com",
+	}
+
+	gock.New("http://example.com").
+		Post("/api/v1/consortia/cons1/environments/env1/services").
+		MatchType("json").
+		JSON(serviceCreateRequest).
+		Reply(201).
+		JSON(serviceCreateResponse)
+
+	gock.New("http://example.com").
+		Get("/api/v1/consortia/cons1/environments/env1/services/ipfs_svc1").
+		Reply(200).
+		JSON(serviceGetResponse1)
+
+	gock.New("http://example.com").
+		Get("/api/v1/consortia/cons1/environments/env1/services/ipfs_svc1").
+		Persist().
+		Reply(200).
+		JSON(serviceGetResponse2)
+
+	gock.New("http://example.com").
+		Delete("/api/v1/consortia/cons1/environments/env1/services/ipfs_svc1").
+		Reply(204)
+
+}
+
 func testNodeGocks(node *kaleido.Node) {
 
 	nodeCreateRequest := jsonClone(node)
