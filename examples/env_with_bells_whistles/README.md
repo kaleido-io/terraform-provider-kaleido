@@ -1,6 +1,9 @@
 ## Summary
 
-Create an environment with nodes and IPFS service
+Create an environment with:
+
+* Nodes and IPFS Service
+* Pre-funded accounts in genesis configuration ether pool
 
 ## Inputs
 
@@ -14,3 +17,5 @@ Create an environment with nodes and IPFS service
 | node_size | Size of the nodes to be created | string | `small` | no |
 | node_count | Number of nodes to create | string | 4 | no |
 | service_count | Number of services to create | string | 1 | no |
+| prefunded_accounts | List of accounts to fund with ether in genesis configuration | map | {} | no |
+

@@ -23,8 +23,11 @@ import (
 )
 
 func TestKaleidoEnvironmentResource(t *testing.T) {
+	prefundedAccounts := map[string]string{
+		"f601c8a58a738c1055094d0cf3018266d562c4a5": "1000000000000000000000000000",
+	}
 	consortium := kaleido.NewConsortium("terraformConsortEnv", "terraforming")
-	environment := kaleido.NewEnvironment("terraEnv", "terraforming", "quorum", "raft", false, 0)
+	environment := kaleido.NewEnvironment("terraEnv", "terraforming", "quorum", "raft", false, 0, prefundedAccounts)
 	envResourceName := "kaleido_environment.basicEnv"
 	consortiumResourceName := "kaleido_consortium.basic"
 	resource.Test(t, resource.TestCase{

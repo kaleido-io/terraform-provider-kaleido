@@ -68,6 +68,14 @@ func resourceEnvironment() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"prefunded_accounts": &schema.Schema{
+				Type:     schema.TypeMap,
+				Optional: true,
+				ForceNew: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 		},
 	}
 }
@@ -75,6 +83,15 @@ func resourceEnvironment() *schema.Resource {
 func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
+	prefundedAccounts := d.Get("prefunded_accounts").(map[string]interface{})
+	prefundedAccountsStringified := map[string]string{}
+	for key, val := range prefundedAccounts {
+		valStr, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("Unable to read balance of pre-funded account: %s", key)
+		}
+		prefundedAccountsStringified[key] = valStr
+	}
 
 	if consortiumID == "" {
 		return fmt.Errorf("Consortium missing id.")
@@ -84,7 +101,8 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Get("env_type").(string),
 		d.Get("consensus_type").(string),
 		d.Get("multi_region").(bool),
-		d.Get("block_period").(int))
+		d.Get("block_period").(int),
+		prefundedAccountsStringified)
 
 	releaseID, ok := d.GetOk("release_id")
 
@@ -156,6 +174,16 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("env_type", environment.Provider)
 	d.Set("consensus_type", environment.ConsensusType)
 	d.Set("release_id", environment.ReleaseID)
+	balances := map[string]string{}
+	for account, balanceDetails := range environment.PrefundedAccounts {
+		values := balanceDetails.(map[string]interface{})
+		balanceStr := ""
+		for _, balance := range values {
+			balanceStr = balance.(string)
+		}
+		balances[account] = balanceStr
+	}
+	d.Set("prefunded_accounts", balances)
 
 	return nil
 }

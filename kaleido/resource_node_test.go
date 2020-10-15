@@ -25,7 +25,7 @@ import (
 func TestKaleidoNodeResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraNode", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("nodeEnv", "terraforming", "quorum", "raft", false, 0)
+	environment := kaleido.NewEnvironment("nodeEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{})
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
