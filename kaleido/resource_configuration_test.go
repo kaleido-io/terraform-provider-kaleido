@@ -28,7 +28,7 @@ import (
 func TestKaleidoConfigResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraConfig", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("configEnv", "terraforming", "quorum", "raft", false, 0)
+	environment := kaleido.NewEnvironment("configEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{})
 	ezone := kaleido.NewEZone("configZone", "us-east-2", "aws")
 	configuration := kaleido.NewConfiguration("theConfig", "member1", "node_config", map[string]interface{}{
 		"gas_price": "1",

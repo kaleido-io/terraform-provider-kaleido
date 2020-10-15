@@ -25,7 +25,7 @@ import (
 func TestKaleidoAppKeyResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terrAppKey", "appkey")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("appKeyEnv", "appKey", "quorum", "raft", false, 0)
+	environment := kaleido.NewEnvironment("appKeyEnv", "appKey", "quorum", "raft", false, 0, map[string]string{})
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
