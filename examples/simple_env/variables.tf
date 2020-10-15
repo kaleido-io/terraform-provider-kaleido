@@ -63,8 +63,3 @@ variable "network_description" {
   type = "string"
   default = "Modern Business Network - Built on Kaleido"
 }
-
-variable "prefunded_accounts" {
-  type = "map"
-  default = {}
-}
