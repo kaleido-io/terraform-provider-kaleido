@@ -4,8 +4,8 @@ environment types and consensus methods.
 */
 
 provider "kaleido" {
-  "api" = "https://console${var.kaleido_region}.kaleido.io/api/v1"
-  "api_key" = "${var.kaleido_api_key}"
+  api = "https://console${var.kaleido_region}.kaleido.io/api/v1"
+  api_key = "${var.kaleido_api_key}"
 }
 
 /*
@@ -36,6 +36,7 @@ resource "kaleido_environment" "env" {
   env_type = "${var.provider}"
   consensus_type = "${var.consensus}"
   description = "${var.env_description}"
+  prefunded_accounts = "${var.prefunded_accounts}"
 }
 
 /*
@@ -48,4 +49,18 @@ resource "kaleido_node" "kaleido" {
   membership_id = "${element(kaleido_membership.member.*.id, count.index)}"
   name = "Node ${count.index + 1}"
   size = "${var.node_size}"
+}
+
+/*
+Create ipfs service
+*/
+resource "kaleido_service" "kaleido" {
+  count = "${var.service_count}"
+  consortium_id = "${kaleido_consortium.consortium.id}"
+  environment_id = "${kaleido_environment.env.id}"
+  membership_id = "${element(kaleido_membership.member.*.id, count.index)}"
+  name = "IPFS ${count.index + 1}"
+  service_type = "ipfs"
+
+  depends_on = ["kaleido_node.kaleido"]
 }

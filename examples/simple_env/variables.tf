@@ -39,6 +39,12 @@ variable "node_count" {
   description = "Count of nodes to create - each will have its own membership"
 }
 
+variable "service_count" {
+  type = "string"
+  default = 1
+  description = "Count of services to create - each will have its own membership"
+}
+
 variable "consortium_name" {
   type = "string"
   default = "My Business Network"
@@ -56,4 +62,9 @@ variable "env_description" {
 variable "network_description" {
   type = "string"
   default = "Modern Business Network - Built on Kaleido"
+}
+
+variable "prefunded_accounts" {
+  type = "map"
+  default = {}
 }
