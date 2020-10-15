@@ -36,7 +36,6 @@ resource "kaleido_environment" "env" {
   env_type = "${var.provider}"
   consensus_type = "${var.consensus}"
   description = "${var.env_description}"
-  prefunded_accounts = "${var.prefunded_accounts}"
 }
 
 /*
