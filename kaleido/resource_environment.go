@@ -86,7 +86,11 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	prefundedAccounts := d.Get("prefunded_accounts").(map[string]interface{})
 	prefundedAccountsStringified := map[string]string{}
 	for key, val := range prefundedAccounts {
-		prefundedAccountsStringified[key] = val.(string)
+		valStr, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("Unable to read balance of pre-funded account: %s", key)
+		}
+		prefundedAccountsStringified[key] = valStr
 	}
 
 	if consortiumID == "" {
