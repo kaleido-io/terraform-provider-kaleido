@@ -37,11 +37,17 @@ func TestKaleidoAppKeyResource(t *testing.T) {
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAppKeyConfig_basic(&consortium, &membership, &environment),
+				Config: testAccAppKeyConfig(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAppKeyExists(consResource, membershipResource, envResource, appKeyResource),
 					resource.TestCheckResourceAttrSet(appKeyResource, "username"),
 					resource.TestCheckResourceAttrSet(appKeyResource, "password"),
+				),
+			},
+			{
+				Config: testAccAppKeyConfigWithName(&consortium, &membership, &environment),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckAppKeyExists(consResource, membershipResource, envResource, appKeyResource),
 					resource.TestCheckResourceAttrSet(appKeyResource, "name"),
 					resource.TestCheckResourceAttr(appKeyResource, "name", "terrAppKey"),
 				),
@@ -86,7 +92,35 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 	}
 }
 
-func testAccAppKeyConfig_basic(consortium *kaleido.Consortium, membership *kaleido.Membership, environment *kaleido.Environment) string {
+func testAccAppKeyConfig(consortium *kaleido.Consortium, membership *kaleido.Membership, environment *kaleido.Environment) string {
+	return fmt.Sprintf(`resource "kaleido_consortium" "terrAppKey" {
+    name = "%s",
+    description = "%s",
+    }
+    resource "kaleido_membership" "kaleido" {
+      consortium_id = "${kaleido_consortium.terrAppKey.id}"
+      org_name = "%s"
+    }
+
+    resource "kaleido_environment" "appKeyEnv" {
+      consortium_id = "${kaleido_consortium.terrAppKey.id}"
+      name = "%s"
+      description = "%s"
+      env_type = "%s"
+      consensus_type = "%s"
+    }
+
+    resource "kaleido_app_creds" "key" {
+      consortium_id = "${kaleido_consortium.terrAppKey.id}"
+      environment_id = "${kaleido_environment.appKeyEnv.id}"
+      membership_id = "${kaleido_membership.kaleido.id}"
+    }
+    `, consortium.Name, consortium.Description,
+		membership.OrgName,
+		environment.Name, environment.Description, environment.Provider, environment.ConsensusType)
+}
+
+func testAccAppKeyConfigWithName(consortium *kaleido.Consortium, membership *kaleido.Membership, environment *kaleido.Environment) string {
 	return fmt.Sprintf(`resource "kaleido_consortium" "terrAppKey" {
     name = "%s",
     description = "%s",
