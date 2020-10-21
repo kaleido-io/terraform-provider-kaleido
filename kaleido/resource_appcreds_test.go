@@ -42,6 +42,8 @@ func TestKaleidoAppKeyResource(t *testing.T) {
 					testAccCheckAppKeyExists(consResource, membershipResource, envResource, appKeyResource),
 					resource.TestCheckResourceAttrSet(appKeyResource, "username"),
 					resource.TestCheckResourceAttrSet(appKeyResource, "password"),
+					resource.TestCheckResourceAttrSet(appKeyResource, "name"),
+					resource.TestCheckResourceAttr(appKeyResource, "name", "terrAppKey"),
 				),
 			},
 		},
@@ -106,6 +108,7 @@ func testAccAppKeyConfig_basic(consortium *kaleido.Consortium, membership *kalei
       consortium_id = "${kaleido_consortium.terrAppKey.id}"
       environment_id = "${kaleido_environment.appKeyEnv.id}"
       membership_id = "${kaleido_membership.kaleido.id}"
+      name = "terrAppKey"
     }
     `, consortium.Name, consortium.Description,
 		membership.OrgName,

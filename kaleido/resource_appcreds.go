@@ -41,6 +41,11 @@ func resourceAppCreds() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"name": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
 			"username": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
@@ -62,7 +67,14 @@ func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 	consortiumID := d.Get("consortium_id").(string)
 	envID := d.Get("environment_id").(string)
 	membershipID := d.Get("membership_id").(string)
-	appKey := kaleido.NewAppCreds(membershipID)
+	name := d.Get("name").(string)
+
+	var appKey kaleido.AppCreds
+	if name == "" {
+		appKey = kaleido.NewAppCreds(membershipID)
+	} else {
+		appKey = kaleido.NewAppCredsWithName(membershipID, name)
+	}
 
 	res, err := client.CreateAppCreds(consortiumID, envID, &appKey)
 
