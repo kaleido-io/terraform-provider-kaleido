@@ -19,8 +19,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	gock "gopkg.in/h2non/gock.v1"
 )

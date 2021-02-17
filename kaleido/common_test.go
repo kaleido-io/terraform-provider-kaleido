@@ -211,8 +211,8 @@ func testIPFSServiceGocks(service *kaleido.Service) {
 	serviceGetResponse2 := jsonClone(serviceCreateResponse)
 	serviceGetResponse2["state"] = "started"
 	serviceGetResponse2["urls"] = map[string]string{
-		"http": "http://test-http.example.com",
-		"webui": "http://test-http.example.com",
+		"http":          "http://test-http.example.com",
+		"webui":         "http://test-http.example.com",
 		"websocket_url": "http://test-http.example.com",
 	}
 
