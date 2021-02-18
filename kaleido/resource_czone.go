@@ -26,12 +26,12 @@ func resourceCZone() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceCZoneCreate,
 		Read:   resourceCZoneRead,
+		Update: resourceCZoneUpdate,
 		Delete: resourceCZoneDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 			},
 			"consortium_id": &schema.Schema{
 				Type:     schema.TypeString,
@@ -72,8 +72,8 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create czone %s in consortium %s in environment %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, czone.ID, consortiumID, status, res.String())
+		msg := "Could not create czone in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, consortiumID, status, res.String())
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
@@ -97,6 +97,27 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(czone.ID)
+
+	return nil
+}
+
+func resourceCZoneUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	czoneID := d.Id()
+	czone := kaleido.NewCZone(d.Get("name").(string), "", "")
+
+	res, err := client.UpdateCZone(consortiumID, czoneID, &czone)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Could not update czone %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, czoneID, consortiumID, status, res.String())
+	}
 
 	return nil
 }

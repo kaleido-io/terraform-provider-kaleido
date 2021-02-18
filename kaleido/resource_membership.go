@@ -25,6 +25,7 @@ func resourceMembership() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceMembershipCreate,
 		Read:   resourceMembershipRead,
+		Update: resourceMembershipUpdate,
 		Delete: resourceMembershipDelete,
 		Schema: map[string]*schema.Schema{
 			"consortium_id": &schema.Schema{
@@ -35,7 +36,6 @@ func resourceMembership() *schema.Resource {
 			"org_name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -59,6 +59,27 @@ func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(membership.ID)
+	return nil
+}
+
+func resourceMembershipUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	membership := kaleido.NewMembership(d.Get("org_name").(string))
+	consortiumID := d.Get("consortium_id").(string)
+	membershipID := d.Id()
+
+	res, err := client.UpdateMembership(consortiumID, membershipID, &membership)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Failed to update membership %s for %s in consortium %s with status %d"
+		return fmt.Errorf(msg, membershipID, membership.OrgName, consortiumID, status)
+	}
+
 	return nil
 }
 

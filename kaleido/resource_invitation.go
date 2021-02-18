@@ -24,6 +24,7 @@ func resourceInvitation() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceInvitationCreate,
 		Read:   resourceInvitationRead,
+		Update: resourceInvitationUpdate,
 		Delete: resourceInvitationDelete,
 		Schema: map[string]*schema.Schema{
 			"consortium_id": &schema.Schema{
@@ -34,12 +35,10 @@ func resourceInvitation() *schema.Resource {
 			"org_name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"email": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -63,6 +62,27 @@ func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(invitation.ID)
+	return nil
+}
+
+func resourceInvitationUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	invitation := kaleido.NewInvitation(d.Get("org_name").(string), d.Get("email").(string))
+	consortiumID := d.Get("consortium_id").(string)
+	inviteID := d.Id()
+
+	res, err := client.UpdateInvitation(consortiumID, inviteID, &invitation)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Failed to update invitation %s for %s in consortium %s with status %d"
+		return fmt.Errorf(msg, inviteID, invitation.OrgName, consortiumID, status)
+	}
+
 	return nil
 }
 

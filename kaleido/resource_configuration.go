@@ -25,12 +25,12 @@ func resourceConfiguration() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceConfigurationCreate,
 		Read:   resourceConfigurationRead,
+		Update: resourceConfigurationUpdate,
 		Delete: resourceConfigurationDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"type": &schema.Schema{
 				Type:     schema.TypeString,
@@ -55,7 +55,6 @@ func resourceConfiguration() *schema.Resource {
 			"details": &schema.Schema{
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
 			},
 		},
 		Timeouts: &schema.ResourceTimeout{
@@ -84,7 +83,7 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Could not create configuration %s in consortium %s in environment %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, configuration.ID, consortiumID, environmentID, status, res.String())
+		return fmt.Errorf(msg, configuration.Type, consortiumID, environmentID, status, res.String())
 	}
 
 	res, err = client.GetConfiguration(consortiumID, environmentID, configuration.ID, &configuration)
@@ -99,6 +98,29 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	}
 
 	d.SetId(configuration.ID)
+
+	return nil
+}
+
+func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	details := d.Get("details").(map[string]interface{})
+	configuration := kaleido.NewConfiguration(d.Get("name").(string), "", "", details)
+	configID := d.Id()
+
+	res, err := client.UpdateConfiguration(consortiumID, environmentID, configID, &configuration)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Could not update configuration %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, configID, consortiumID, environmentID, status, res.String())
+	}
 
 	return nil
 }

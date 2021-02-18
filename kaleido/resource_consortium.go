@@ -24,17 +24,16 @@ func resourceConsortium() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceConsortiumCreate,
 		Read:   resourceConsortiumRead,
+		Update: resourceAppCredUpdate,
 		Delete: resourceConsortiumDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"description": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -54,6 +53,26 @@ func resourceConsortiumCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(consortium.ID)
+
+	return nil
+}
+
+func resourceConsortiumUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortium := kaleido.NewConsortium(
+		d.Get("name").(string),
+		d.Get("description").(string),
+	)
+	consortiumID := d.Id()
+
+	res, err := client.UpdateConsortium(consortiumID, &consortium)
+	if err != nil {
+		return err
+	}
+	status := res.StatusCode()
+	if status != 200 {
+		return fmt.Errorf("Failed to update consortium %s with status: %d", consortiumID, status)
+	}
 
 	return nil
 }

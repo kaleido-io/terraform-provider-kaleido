@@ -26,12 +26,12 @@ func resourceEZone() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceEZoneCreate,
 		Read:   resourceEZoneRead,
+		Update: resourceEZoneUpdate,
 		Delete: resourceEZoneDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 			},
 			"consortium_id": &schema.Schema{
 				Type:     schema.TypeString,
@@ -78,8 +78,8 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create ezone %s in consortium %s in environment %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, ezone.ID, consortiumID, environmentID, status, res.String())
+		msg := "Could not create ezone in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, consortiumID, environmentID, status, res.String())
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
@@ -103,6 +103,28 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(ezone.ID)
+
+	return nil
+}
+
+func resourceEZoneUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	ezoneID := d.Id()
+	ezone := kaleido.NewEZone(d.Get("name").(string), "", "")
+
+	res, err := client.UpdateEZone(consortiumID, environmentID, ezoneID, &ezone)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Could not update ezone %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, ezoneID, consortiumID, environmentID, status, res.String())
+	}
 
 	return nil
 }

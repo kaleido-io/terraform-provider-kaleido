@@ -26,12 +26,12 @@ func resourceService() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceServiceCreate,
 		Read:   resourceServiceRead,
+		Update: resourceServiceUpdate,
 		Delete: resourceServiceDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"service_type": &schema.Schema{
 				Type:     schema.TypeString,
@@ -58,10 +58,13 @@ func resourceService() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"size": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 			"details": &schema.Schema{
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
 			},
 			"https_url": &schema.Schema{
 				Type:     schema.TypeString,
@@ -84,30 +87,9 @@ func resourceService() *schema.Resource {
 	}
 }
 
-func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	membershipID := d.Get("membership_id").(string)
-	serviceType := d.Get("service_type").(string)
-	details := d.Get("details").(map[string]interface{})
-	zoneID := d.Get("zone_id").(string)
-	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
-
-	res, err := client.CreateService(consortiumID, environmentID, &service)
-
-	if err != nil {
-		return err
-	}
-
-	status := res.StatusCode()
-	if status != 201 {
-		msg := "Could not create service %s in consortium %s in environment %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status, res.String())
-	}
-
-	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetService(consortiumID, environmentID, service.ID, &service)
+func waitUntilServiceStarted(op, consortiumID, environmentID, serviceID string, service *kaleido.Service, d *schema.ResourceData, client kaleido.KaleidoClient) error {
+	return resource.Retry(d.Timeout(op), func() *resource.RetryError {
+		res, retryErr := client.GetService(consortiumID, environmentID, service.ID, service)
 
 		if retryErr != nil {
 			return resource.NonRetryableError(retryErr)
@@ -128,6 +110,32 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 
 		return nil
 	})
+}
+
+func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	membershipID := d.Get("membership_id").(string)
+	serviceType := d.Get("service_type").(string)
+	details := d.Get("details").(map[string]interface{})
+	zoneID := d.Get("zone_id").(string)
+	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
+	service.Size = d.Get("size").(string)
+
+	res, err := client.CreateService(consortiumID, environmentID, &service)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 201 {
+		msg := "Could not create service %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status, res.String())
+	}
+
+	err = waitUntilServiceStarted("Create", consortiumID, environmentID, service.ID, &service, d, client)
 
 	if err != nil {
 		return err
@@ -141,6 +149,36 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	if webuiURL, ok := service.Urls["webui"]; ok {
 		d.Set("webui_url", webuiURL)
 	}
+	return nil
+}
+
+func resourceServiceUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	details := d.Get("details").(map[string]interface{})
+	service := kaleido.NewService(d.Get("name").(string), "", "", "", details)
+	service.Size = d.Get("size").(string)
+	serviceID := d.Id()
+
+	res, err := client.UpdateService(consortiumID, environmentID, serviceID, &service)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Could not update service %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
+	}
+
+	err = waitUntilServiceStarted("Update", consortiumID, environmentID, serviceID, &service, d, client)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
