@@ -41,7 +41,7 @@ variable "block_period" {
 
 variable "node_size" {
   type = string
-  default = "small"
+  default = "medium"
   description = "Size of the node"
 }
 

@@ -26,7 +26,7 @@ func resourceNode() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceNodeCreate,
 		Read:   resourceNodeRead,
-		Update: resourceAppCredUpdate,
+		Update: resourceNodeUpdate,
 		Delete: resourceNodeDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
