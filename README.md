@@ -21,10 +21,7 @@ provider_installation {
 
 ## Examples
 
-End to end example in [examples/simple_env](examples/simple_env)
-
-Additional examples for different Kaleido REST resource types are in the unit/acceptance tests, for example:
-[kaleido/resource_service_test.go](kaleido/resource_service_test.go#L108)
+End to end example in [examples/multi_region_with_b2b](examples/multi_region_with_b2b)
 
 ## Cross Compiling
 
