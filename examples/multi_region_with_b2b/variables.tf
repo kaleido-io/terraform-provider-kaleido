@@ -53,7 +53,7 @@ variable "member_count" {
 
 variable "consortium_name" {
   type = string
-  default = "My Business Network"
+  default = "My Business Network1"
 }
 
 variable "env_name" {

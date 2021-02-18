@@ -130,7 +130,7 @@ resource "kaleido_destination" "a2a_dest1" {
   membership_id = element(kaleido_membership.member.*.id, count.index)
   service_type = "app2app"
   service_id = element(kaleido_service.app2app.*.id, count.index)
-  name = "dest1"
+  name = "a2a_dest1"
   kaleido_managed = true
   auto_verify_membership = true
   idregistry_id = kaleido_service.idregistry.id
@@ -146,7 +146,7 @@ resource "kaleido_destination" "a2a_dest2" {
   membership_id = element(kaleido_membership.member.*.id, count.index)
   service_type = "app2app"
   service_id = element(kaleido_service.app2app.*.id, count.index)
-  name = "dest2"
+  name = "a2a_dest2"
   kaleido_managed = true
   auto_verify_membership = true
   idregistry_id = kaleido_service.idregistry.id
@@ -162,7 +162,7 @@ resource "kaleido_destination" "docstore_dest1" {
   membership_id = element(kaleido_membership.member.*.id, count.index)
   service_type = "documentstore"
   service_id = element(kaleido_service.docstore.*.id, count.index)
-  name = "dest1"
+  name = "docstore_dest1"
   kaleido_managed = true
   auto_verify_membership = true
   idregistry_id = kaleido_service.idregistry.id
@@ -178,7 +178,7 @@ resource "kaleido_destination" "docstore_dest2" {
   membership_id = element(kaleido_membership.member.*.id, count.index)
   service_type = "documentstore"
   service_id = element(kaleido_service.docstore.*.id, count.index)
-  name = "dest2"
+  name = "docstore_dest2"
   kaleido_managed = true
   auto_verify_membership = true
   idregistry_id = kaleido_service.idregistry.id

@@ -132,7 +132,34 @@ func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, membershipID, status, res.String())
 	}
 
-	d.SetId(destination.URI)
+	var destinations []kaleido.Destination
+	res, err = client.ListDestinations(serviceType, serviceID, &destinations)
+
+	if err != nil {
+		return err
+	}
+
+	status = res.StatusCode()
+	if status != 200 {
+		msg := "Failed to query newly created destination %s in %s service %s for membership %s with status %d: %s"
+		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, membershipID, status, res.String())
+	}
+
+	var createdDest *kaleido.Destination
+	for _, d := range destinations {
+		if d.Name == destination.Name {
+			createdDest = &d
+			break
+		}
+	}
+
+	if createdDest == nil {
+		msg := "Failed to find newly created destination %s in %s service %s for membership %s"
+		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, membershipID)
+	}
+
+	d.SetId(createdDest.URI)
+
 	return nil
 }
 
@@ -141,9 +168,10 @@ func resourceDestinationRead(d *schema.ResourceData, meta interface{}) error {
 	serviceType := d.Get("service_type").(string)
 	serviceID := d.Get("service_id").(string)
 	destName := d.Get("name").(string)
+	destURI := d.Id()
 
-	var destination kaleido.Destination
-	res, err := client.GetDestination(serviceType, serviceID, destName, &destination)
+	var destinations []kaleido.Destination
+	res, err := client.ListDestinations(serviceType, serviceID, &destinations)
 
 	if err != nil {
 		return err
@@ -151,8 +179,21 @@ func resourceDestinationRead(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to find destination %s in %s service %s with status %d: %s"
-		return fmt.Errorf(msg, destName, serviceType, serviceID, status, res.String())
+		msg := "Failed to list destinations in %s service %s with status %d: %s"
+		return fmt.Errorf(msg, destName, serviceID, status, res.String())
+	}
+
+	var destination *kaleido.Destination
+	for _, d := range destinations {
+		if d.URI == destURI {
+			destination = &d
+			break
+		}
+	}
+
+	if destination == nil {
+		msg := "Failed to find destination %s in %s service %s"
+		return fmt.Errorf(msg, destination.URI, serviceType, serviceID)
 	}
 
 	return nil
