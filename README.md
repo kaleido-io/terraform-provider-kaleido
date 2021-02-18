@@ -8,6 +8,19 @@ make
 
 ## Using
 
+To install the provider from a local build with Terraform 0.14, configure your `~/.terraformrc` with:
+
+```
+provider_installation {
+  dev_overrides {
+    "registry.terraform.io/kaleido/kaleido" = "/path/to/terraform-provider-kaleido"
+  }
+  direct {}
+}
+```
+
+## Examples
+
 End to end example in [examples/simple_env](examples/simple_env)
 
 Additional examples for different Kaleido REST resource types are in the unit/acceptance tests, for example:
