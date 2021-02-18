@@ -173,6 +173,15 @@ func resourceServiceUpdate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
 	}
 
+	res, err = client.ResetService(consortiumID, environmentID, service.ID)
+	if err != nil {
+		return err
+	}
+	if status != 200 {
+		msg := "Could not reset service %s in consortium %s in environment %s, status was: %d, error: %s"
+		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
+	}
+
 	err = waitUntilServiceStarted("Update", consortiumID, environmentID, serviceID, &service, d, client)
 
 	if err != nil {
