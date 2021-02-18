@@ -24,7 +24,7 @@ func resourceConsortium() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceConsortiumCreate,
 		Read:   resourceConsortiumRead,
-		Update: resourceAppCredUpdate,
+		Update: resourceConsortiumUpdate,
 		Delete: resourceConsortiumDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
