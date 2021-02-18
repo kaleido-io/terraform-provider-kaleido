@@ -43,6 +43,7 @@ func Provider() *schema.Provider {
 			"kaleido_czone":         resourceCZone(),
 			"kaleido_ezone":         resourceEZone(),
 			"kaleido_configuration": resourceConfiguration(),
+			"kaleido_destination":   resourceDestination(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

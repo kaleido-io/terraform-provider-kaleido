@@ -72,7 +72,7 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create czone in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not create czone in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, consortiumID, status, res.String())
 	}
 
@@ -85,7 +85,7 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching czone %s state failed: %d", czone.ID, statusCode)
+			msg := fmt.Errorf("Fetching czone %s state failed with status %d: %s", czone.ID, statusCode, res.String())
 			return resource.NonRetryableError(msg)
 		}
 
@@ -115,7 +115,7 @@ func resourceCZoneUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Could not update czone %s in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not update czone %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, czoneID, consortiumID, status, res.String())
 	}
 
@@ -141,8 +141,8 @@ func resourceCZoneRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find czone %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, czoneID, consortiumID, status)
+		msg := "Could not find czone %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, czoneID, consortiumID, status, res.String())
 	}
 
 	d.Set("name", czone.Name)

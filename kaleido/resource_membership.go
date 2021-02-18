@@ -54,8 +54,8 @@ func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Failed to create membership %s in consortium %s with status %d"
-		return fmt.Errorf(msg, membership.OrgName, consortiumID, status)
+		msg := "Failed to create membership %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, membership.OrgName, consortiumID, status, res.String())
 	}
 
 	d.SetId(membership.ID)
@@ -76,8 +76,8 @@ func resourceMembershipUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to update membership %s for %s in consortium %s with status %d"
-		return fmt.Errorf(msg, membershipID, membership.OrgName, consortiumID, status)
+		msg := "Failed to update membership %s for %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, membershipID, membership.OrgName, consortiumID, status, res.String())
 	}
 
 	return nil
@@ -96,8 +96,8 @@ func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to find membership %s in consortium %s with status %d"
-		return fmt.Errorf(msg, membership.OrgName, consortiumID, status)
+		msg := "Failed to find membership %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, membership.OrgName, consortiumID, status, res.String())
 	}
 
 	d.Set("org_name", membership.OrgName)
@@ -121,8 +121,8 @@ func resourceMembershipDelete(d *schema.ResourceData, meta interface{}) error {
 			msg := fmt.Errorf("deletion of membership %s failed: %d", membershipID, statusCode)
 			return resource.NonRetryableError(msg)
 		} else if statusCode != 204 {
-			msg := "Failed to delete membership %s in consortium %s with status: %d"
-			return resource.RetryableError(fmt.Errorf(msg, membershipID, consortiumID, statusCode))
+			msg := "Failed to delete membership %s in consortium %s with status %d: %s"
+			return resource.RetryableError(fmt.Errorf(msg, membershipID, consortiumID, statusCode, res.String()))
 		}
 
 		return nil

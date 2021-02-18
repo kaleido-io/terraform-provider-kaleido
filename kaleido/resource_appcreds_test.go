@@ -76,8 +76,8 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 		}
 
 		if res.StatusCode() != 200 {
-			msg := "Could not find AppKey %s in consortium %s in environment %s. Status: %d"
-			return fmt.Errorf(msg, appKey.ID, consortRs.Primary.ID, envRs.Primary.ID, res.StatusCode())
+			msg := "Could not find AppKey %s in consortium %s in environment %s with status %d: %s"
+			return fmt.Errorf(msg, appKey.ID, consortRs.Primary.ID, envRs.Primary.ID, res.StatusCode(), res.String())
 		}
 
 		return nil

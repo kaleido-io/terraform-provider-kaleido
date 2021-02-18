@@ -57,8 +57,8 @@ func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Failed to create invitation %s in consortium %s with status %d"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status)
+		msg := "Failed to create invitation %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status, res.String())
 	}
 
 	d.SetId(invitation.ID)
@@ -79,8 +79,8 @@ func resourceInvitationUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to update invitation %s for %s in consortium %s with status %d"
-		return fmt.Errorf(msg, inviteID, invitation.OrgName, consortiumID, status)
+		msg := "Failed to update invitation %s for %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, inviteID, invitation.OrgName, consortiumID, status, res.String())
 	}
 
 	return nil
@@ -99,8 +99,8 @@ func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to find invitation %s in consortium %s with status %d"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status)
+		msg := "Failed to find invitation %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status, res.String())
 	}
 
 	d.Set("org_name", invitation.OrgName)
@@ -121,8 +121,8 @@ func resourceInvitationDelete(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 204 {
-		msg := "Failed to delete invitation %s in consortium %s with status: %d"
-		return fmt.Errorf(msg, invitationID, consortiumID, status)
+		msg := "Failed to delete invitation %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, invitationID, consortiumID, status, res.String())
 	}
 
 	d.SetId("")

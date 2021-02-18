@@ -148,7 +148,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create node %s in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not create node %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, node.Name, consortiumID, environmentID, status, res.String())
 	}
 
@@ -187,7 +187,7 @@ func resourceNodeUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Could not update node %s in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not update node %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, nodeID, consortiumID, environmentID, status, res.String())
 	}
 
@@ -196,7 +196,7 @@ func resourceNodeUpdate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	if status != 200 {
-		msg := "Could not reset node %s in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not reset node %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, nodeID, consortiumID, environmentID, status, res.String())
 	}
 
@@ -228,8 +228,8 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find node %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, nodeID, consortiumID, environmentID, status)
+		msg := "Could not find node %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, nodeID, consortiumID, environmentID, status, res.String())
 	}
 
 	d.Set("name", node.Name)

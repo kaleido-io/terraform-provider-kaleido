@@ -69,6 +69,7 @@ func resourceEnvironment() *schema.Resource {
 			"prefunded_accounts": &schema.Schema{
 				Type:     schema.TypeMap,
 				Optional: true,
+				Computed: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -113,7 +114,7 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 201 {
-		msg := "Could not create environment %s for consortia %s, status was: %d, error: %s"
+		msg := "Could not create environment %s for consortia %s with status %d: %s"
 		return fmt.Errorf(msg, environment.Name, consortiumID, res.StatusCode(), res.String())
 	}
 
@@ -166,7 +167,7 @@ func resourceEnvironmentUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	statusCode := res.StatusCode()
 	if statusCode != 200 {
-		msg := "Failed to update environment %s, in consortium %s, status was: %d, error: %s"
+		msg := "Failed to update environment %s, in consortium %s with status %d: %s"
 		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
 	}
 
@@ -186,7 +187,7 @@ func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
 
 	statusCode := res.StatusCode()
 	if statusCode != 202 && statusCode != 204 {
-		msg := "Failed to delete environment %s, in consortium %s, status was: %d, error: %s"
+		msg := "Failed to delete environment %s, in consortium %s with status %d: %s"
 		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
 	}
 
@@ -208,7 +209,7 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 200 {
-		msg := "Failed to get environment %s, from consortium %s status was: %d, error: %s"
+		msg := "Failed to get environment %s, from consortium %s with status %d: %s"
 		return fmt.Errorf(msg, environmentID, consortiumID, res.StatusCode(), res.String())
 	}
 

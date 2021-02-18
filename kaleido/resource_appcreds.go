@@ -77,8 +77,8 @@ func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 201 {
-		msg := "Could not create AppKey in consortium %s, in environment %s, with membership %s. Status: %d"
-		return fmt.Errorf(msg, consortiumID, envID, membershipID, res.StatusCode())
+		msg := "Could not create AppKey in consortium %s, in environment %s, with membership %s with status %d: %s"
+		return fmt.Errorf(msg, consortiumID, envID, membershipID, res.StatusCode(), res.String())
 	}
 
 	d.SetId(appKey.ID)
@@ -105,8 +105,8 @@ func resourceAppCredUpdate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 200 {
-		msg := "Could not update AppKey %s in consortium %s, in environment %s, with membership %s. Status: %d"
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, membershipID, res.StatusCode())
+		msg := "Could not update AppKey %s in consortium %s, in environment %s, with membership %s with status %d: %s"
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, membershipID, res.StatusCode(), res.String())
 	}
 
 	return nil
@@ -126,8 +126,8 @@ func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 200 {
-		msg := "Could not fetch AppKey %s in consortium %s, in environment %s. Status: %d."
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode())
+		msg := "Could not fetch AppKey %s in consortium %s, in environment %s with status %d: %s"
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode(), res.String())
 	}
 
 	d.Set("auth_type", appKey.AuthType)
@@ -147,8 +147,8 @@ func resourceAppCredDelete(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 204 {
-		msg := "Could not delete AppKey %s in consortium %s, in environment %s. Status: %d."
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode())
+		msg := "Could not delete AppKey %s in consortium %s, in environment %s with status %d: %s"
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode(), res.String())
 	}
 
 	d.SetId("")

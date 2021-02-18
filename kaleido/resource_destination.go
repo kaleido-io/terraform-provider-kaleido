@@ -59,7 +59,7 @@ func resourceDestination() *schema.Resource {
 			},
 			"idregistry_id": &schema.Schema{
 				Type:     schema.TypeString,
-				Required: false,
+				Optional: true,
 				ForceNew: true,
 			},
 			"auto_verify_membership": &schema.Schema{
@@ -80,6 +80,7 @@ func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
 	membershipID := d.Get("membership_id").(string)
 	serviceType := d.Get("service_type").(string)
 	serviceID := d.Get("service_id").(string)
+	idregistryID := d.Get("idregistry_id").(string)
 
 	var membership kaleido.Membership
 	res, err := client.GetMembership(consortiumID, membershipID, &membership)
@@ -89,8 +90,8 @@ func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to get membership %s in consortium %s with status %d"
-		return fmt.Errorf(msg, membershipID, consortiumID, status)
+		msg := "Failed to get membership %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, membershipID, consortiumID, status, res.String())
 	}
 
 	if d.Get("auto_verify_membership").(bool) {
@@ -101,19 +102,21 @@ func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
 			if err != nil {
 				return err
 			}
+			status = res.StatusCode()
 			if status != 200 {
-				msg := "Failed to auto create self-signed membership verification proof for membership %s in consortium %s with status %d"
-				return fmt.Errorf(msg, membershipID, consortiumID, status)
+				msg := "Failed to auto create self-signed membership verification proof for membership %s in consortium %s with status %d: %s"
+				return fmt.Errorf(msg, membershipID, consortiumID, status, res.String())
 			}
 		}
 
-		res, err = client.RegisterMembershipIdentity(consortiumID, membershipID)
+		res, err = client.RegisterMembershipIdentity(idregistryID, membershipID)
 		if err != nil {
 			return err
 		}
+		status = res.StatusCode()
 		if status != 200 && status != 409 /* already registered */ {
-			msg := "Failed to auto register membership verification for membership %s in consortium %s with status %d"
-			return fmt.Errorf(msg, membershipID, consortiumID, status)
+			msg := "Failed to auto register membership verification for membership %s in consortium %s using idregistry %s with status %d: %s"
+			return fmt.Errorf(msg, membershipID, consortiumID, idregistryID, status, res.String())
 		}
 	}
 
@@ -125,8 +128,8 @@ func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status = res.StatusCode()
 	if status != 200 {
-		msg := "Failed to create destination %s in %s service %s with status %d"
-		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, status)
+		msg := "Failed to create destination %s in %s service %s for membership %s with status %d: %s"
+		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, membershipID, status, res.String())
 	}
 
 	d.SetId(destination.URI)
@@ -148,8 +151,8 @@ func resourceDestinationRead(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to find destination %s in %s service %s with status %d"
-		return fmt.Errorf(msg, destName, serviceType, serviceID, status)
+		msg := "Failed to find destination %s in %s service %s with status %d: %s"
+		return fmt.Errorf(msg, destName, serviceType, serviceID, status, res.String())
 	}
 
 	return nil
@@ -169,8 +172,8 @@ func resourceDestinationDelete(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 204 {
-		msg := "Failed to delete destination %s in %s service %s with status: %d"
-		return fmt.Errorf(msg, destName, serviceType, serviceID, status)
+		msg := "Failed to delete destination %s in %s service %s with status %d: %s"
+		return fmt.Errorf(msg, destName, serviceType, serviceID, status, res.String())
 	}
 
 	d.SetId("")

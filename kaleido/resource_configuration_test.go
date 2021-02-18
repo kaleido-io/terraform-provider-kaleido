@@ -28,9 +28,12 @@ import (
 func TestKaleidoConfigResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraConfig", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("configEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{})
+	environment := kaleido.NewEnvironment("configEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{
+		"3ae37053826acbf0cf8dbc5c2ff344a9576b9cf5": "1000000000000000000000000000",
+	})
 	ezone := kaleido.NewEZone("configZone", "us-east-2", "aws")
-	configuration := kaleido.NewConfiguration("theConfig", "member1", "node_config", map[string]interface{}{
+	configuration := kaleido.NewConfiguration("theConfig", "member1", "node_config", map[string]interface {
+	}{
 		"gas_price": "1",
 	})
 	node := kaleido.NewNode("node1", "member1", "zone1")
@@ -147,6 +150,9 @@ func testAccConfigConfig_basic(consortium *kaleido.Consortium, membership *kalei
       description = "%s"
       env_type = "%s"
       consensus_type = "%s"
+			prefunded_accounts = {
+				"3ae37053826acbf0cf8dbc5c2ff344a9576b9cf5" = "1000000000000000000000000000"
+			}
     }
 
 		resource "kaleido_ezone" "theZone" {

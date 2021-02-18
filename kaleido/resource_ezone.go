@@ -78,7 +78,7 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create ezone in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not create ezone in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, consortiumID, environmentID, status, res.String())
 	}
 
@@ -91,7 +91,7 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching ezone %s state failed: %d", ezone.ID, statusCode)
+			msg := fmt.Errorf("Fetching ezone %s state failed with status %d: %s", ezone.ID, statusCode, res.String())
 			return resource.NonRetryableError(msg)
 		}
 
@@ -122,7 +122,7 @@ func resourceEZoneUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Could not update ezone %s in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not update ezone %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, ezoneID, consortiumID, environmentID, status, res.String())
 	}
 
@@ -149,8 +149,8 @@ func resourceEZoneRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find ezone %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, ezoneID, consortiumID, environmentID, status)
+		msg := "Could not find ezone %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, ezoneID, consortiumID, environmentID, status, res.String())
 	}
 
 	d.Set("name", ezone.Name)

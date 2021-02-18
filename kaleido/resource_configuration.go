@@ -82,7 +82,7 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create configuration %s in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not create configuration %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, configuration.Type, consortiumID, environmentID, status, res.String())
 	}
 
@@ -118,7 +118,7 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Could not update configuration %s in consortium %s in environment %s, status was: %d, error: %s"
+		msg := "Could not update configuration %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, configID, consortiumID, environmentID, status, res.String())
 	}
 
@@ -145,8 +145,8 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find configuration %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status)
+		msg := "Could not find configuration %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
 	}
 
 	d.Set("name", configuration.Name)
@@ -169,8 +169,8 @@ func resourceConfigurationDelete(d *schema.ResourceData, meta interface{}) error
 
 	statusCode := res.StatusCode()
 	if statusCode != 202 && statusCode != 204 {
-		msg := "Failed to delete configuration %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, environmentID, consortiumID, statusCode)
+		msg := "Failed to delete configuration %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
 	}
 
 	d.SetId("")
