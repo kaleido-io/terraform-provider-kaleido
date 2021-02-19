@@ -19,8 +19,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	gock "gopkg.in/h2non/gock.v1"
 )
@@ -28,7 +28,9 @@ import (
 func TestKaleidoServiceResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraService", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
-	environment := kaleido.NewEnvironment("serviceEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{})
+	environment := kaleido.NewEnvironment("serviceEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{
+		"3ae37053826acbf0cf8dbc5c2ff344a9576b9cf5": "1000000000000000000000000000",
+	})
 	ezone := kaleido.NewEZone("serviceZone", "us-east-2", "aws")
 	service := kaleido.NewService("service1", "hdwallet", "member1", "zone1", map[string]interface{}{
 		"backup_id":     "backupid1",
@@ -130,8 +132,8 @@ func testAccCheckServiceExists(consResource, membershipResource, envResource, se
 
 		status := res.StatusCode()
 		if status != 200 {
-			msg := "Did not find service %s in consortia %s and environment %s, status was: %d"
-			return fmt.Errorf(msg, serviceID, consID, envID, status)
+			msg := "Did not find service %s in consortia %s and environment %s with status %d: %s"
+			return fmt.Errorf(msg, serviceID, consID, envID, status, res.String())
 		}
 
 		return nil
@@ -154,6 +156,9 @@ func testAccServiceConfig_basic(consortium *kaleido.Consortium, membership *kale
       description = "%s"
       env_type = "%s"
       consensus_type = "%s"
+			prefunded_accounts = {
+				"3ae37053826acbf0cf8dbc5c2ff344a9576b9cf5" = "1000000000000000000000000000"
+			}
     }
 
 		resource "kaleido_ezone" "theZone" {

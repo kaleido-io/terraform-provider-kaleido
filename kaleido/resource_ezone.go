@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -26,12 +26,12 @@ func resourceEZone() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceEZoneCreate,
 		Read:   resourceEZoneRead,
+		Update: resourceEZoneUpdate,
 		Delete: resourceEZoneDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 			},
 			"consortium_id": &schema.Schema{
 				Type:     schema.TypeString,
@@ -70,7 +70,23 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	cloud := d.Get("cloud").(string)
 	ezone := kaleido.NewEZone(d.Get("name").(string), region, cloud)
 
-	res, err := client.CreateEZone(consortiumID, environmentID, &ezone)
+	var existing []kaleido.EZone
+	res, err := client.ListEZones(consortiumID, environmentID, &existing)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode() != 200 {
+		return fmt.Errorf("Failed to list existing environment zones with status %d: %s", res.StatusCode(), res.String())
+	}
+	for _, e := range existing {
+		if e.Cloud == cloud && e.Region == region {
+			// Already exists, just re-use
+			d.SetId(e.ID)
+			return resourceEZoneRead(d, meta)
+		}
+	}
+
+	res, err = client.CreateEZone(consortiumID, environmentID, &ezone)
 
 	if err != nil {
 		return err
@@ -78,8 +94,8 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Could not create ezone %s in consortium %s in environment %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, ezone.ID, consortiumID, environmentID, status, res.String())
+		msg := "Could not create ezone in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, consortiumID, environmentID, status, res.String())
 	}
 
 	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
@@ -91,7 +107,7 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching ezone %s state failed: %d", ezone.ID, statusCode)
+			msg := fmt.Errorf("Fetching ezone %s state failed with status %d: %s", ezone.ID, statusCode, res.String())
 			return resource.NonRetryableError(msg)
 		}
 
@@ -103,6 +119,28 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(ezone.ID)
+
+	return nil
+}
+
+func resourceEZoneUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	ezoneID := d.Id()
+	ezone := kaleido.NewEZone(d.Get("name").(string), "", "")
+
+	res, err := client.UpdateEZone(consortiumID, environmentID, ezoneID, &ezone)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Could not update ezone %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, ezoneID, consortiumID, environmentID, status, res.String())
+	}
 
 	return nil
 }
@@ -127,8 +165,8 @@ func resourceEZoneRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find ezone %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, ezoneID, consortiumID, environmentID, status)
+		msg := "Could not find ezone %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, ezoneID, consortiumID, environmentID, status, res.String())
 	}
 
 	d.Set("name", ezone.Name)

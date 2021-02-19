@@ -159,6 +159,12 @@ func testEZoneGocks(ezone *kaleido.EZone) {
 		JSON(ezoneGetResponse1)
 
 	gock.New("http://example.com").
+		Get("/api/v1/consortia/cons1/environments/env1/zones").
+		Persist().
+		Reply(200).
+		JSON([]*kaleido.EZone{})
+
+	gock.New("http://example.com").
 		Delete("/api/v1/consortia/cons1/environments/env1/zones/zone1").
 		Reply(204)
 
@@ -211,8 +217,8 @@ func testIPFSServiceGocks(service *kaleido.Service) {
 	serviceGetResponse2 := jsonClone(serviceCreateResponse)
 	serviceGetResponse2["state"] = "started"
 	serviceGetResponse2["urls"] = map[string]string{
-		"http": "http://test-http.example.com",
-		"webui": "http://test-http.example.com",
+		"http":          "http://test-http.example.com",
+		"webui":         "http://test-http.example.com",
 		"websocket_url": "http://test-http.example.com",
 	}
 

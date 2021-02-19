@@ -14,7 +14,7 @@
 package kaleido
 
 import (
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -43,6 +43,7 @@ func Provider() *schema.Provider {
 			"kaleido_czone":         resourceCZone(),
 			"kaleido_ezone":         resourceEZone(),
 			"kaleido_configuration": resourceConfiguration(),
+			"kaleido_destination":   resourceDestination(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

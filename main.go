@@ -17,8 +17,8 @@ package main
 import (
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido"
 
-	"github.com/hashicorp/terraform/plugin"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/plugin"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 func main() {

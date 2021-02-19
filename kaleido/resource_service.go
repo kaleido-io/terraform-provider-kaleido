@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -26,12 +26,12 @@ func resourceService() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceServiceCreate,
 		Read:   resourceServiceRead,
+		Update: resourceServiceUpdate,
 		Delete: resourceServiceDelete,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"service_type": &schema.Schema{
 				Type:     schema.TypeString,
@@ -58,10 +58,19 @@ func resourceService() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"shared_deployment": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "The decentralized nature of Kaleido means a utility service might be shared with other accounts. When true only create if service_type does not exist, and delete becomes a no-op.",
+			},
+			"size": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 			"details": &schema.Schema{
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
 			},
 			"https_url": &schema.Schema{
 				Type:     schema.TypeString,
@@ -75,7 +84,6 @@ func resourceService() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -85,30 +93,9 @@ func resourceService() *schema.Resource {
 	}
 }
 
-func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	membershipID := d.Get("membership_id").(string)
-	serviceType := d.Get("service_type").(string)
-	details := d.Get("details").(map[string]interface{})
-	zoneID := d.Get("zone_id").(string)
-	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
-
-	res, err := client.CreateService(consortiumID, environmentID, &service)
-
-	if err != nil {
-		return err
-	}
-
-	status := res.StatusCode()
-	if status != 201 {
-		msg := "Could not create service %s in consortium %s in environment %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status, res.String())
-	}
-
-	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetService(consortiumID, environmentID, service.ID, &service)
+func waitUntilServiceStarted(op, consortiumID, environmentID, serviceID string, service *kaleido.Service, d *schema.ResourceData, client kaleido.KaleidoClient) error {
+	return resource.Retry(d.Timeout(op), func() *resource.RetryError {
+		res, retryErr := client.GetService(consortiumID, environmentID, service.ID, service)
 
 		if retryErr != nil {
 			return resource.NonRetryableError(retryErr)
@@ -129,6 +116,50 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 
 		return nil
 	})
+}
+
+func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	membershipID := d.Get("membership_id").(string)
+	serviceType := d.Get("service_type").(string)
+	details := d.Get("details").(map[string]interface{})
+	zoneID := d.Get("zone_id").(string)
+	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
+	service.Size = d.Get("size").(string)
+
+	if d.Get("shared_deployment").(bool) {
+		var existing []kaleido.Service
+		res, err := client.ListServices(consortiumID, environmentID, &existing)
+		if err != nil {
+			return err
+		}
+		if res.StatusCode() != 200 {
+			return fmt.Errorf("Failed to list existing services with status %d: %s", res.StatusCode(), res.String())
+		}
+		for _, e := range existing {
+			if e.Service == service.Service {
+				// Already exists, just re-use
+				d.SetId(e.ID)
+				return resourceServiceRead(d, meta)
+			}
+		}
+	}
+
+	res, err := client.CreateService(consortiumID, environmentID, &service)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 201 {
+		msg := "Could not create service %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status, res.String())
+	}
+
+	err = waitUntilServiceStarted("Create", consortiumID, environmentID, service.ID, &service, d, client)
 
 	if err != nil {
 		return err
@@ -142,6 +173,45 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	if webuiURL, ok := service.Urls["webui"]; ok {
 		d.Set("webui_url", webuiURL)
 	}
+	return nil
+}
+
+func resourceServiceUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	details := d.Get("details").(map[string]interface{})
+	service := kaleido.NewService(d.Get("name").(string), "", "", "", details)
+	service.Size = d.Get("size").(string)
+	serviceID := d.Id()
+
+	res, err := client.UpdateService(consortiumID, environmentID, serviceID, &service)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Could not update service %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
+	}
+
+	res, err = client.ResetService(consortiumID, environmentID, service.ID)
+	if err != nil {
+		return err
+	}
+	if status != 200 {
+		msg := "Could not reset service %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
+	}
+
+	err = waitUntilServiceStarted("Update", consortiumID, environmentID, serviceID, &service, d, client)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -165,8 +235,8 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 	if status != 200 {
-		msg := "Could not find service %s in consortium %s in environment %s, status: %d"
-		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status)
+		msg := "Could not find service %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
 	}
 
 	d.Set("name", service.Name)
@@ -182,6 +252,30 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceServiceDelete(d *schema.ResourceData, meta interface{}) error {
+	if d.Get("shared_deployment").(bool) {
+		// Cannot safely delete if this is shared with other terraform deployments
+		d.SetId("")
+		return nil
+	}
+
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	serviceID := d.Id()
+
+	res, err := client.DeleteService(consortiumID, environmentID, serviceID)
+
+	if err != nil {
+		return err
+	}
+
+	statusCode := res.StatusCode()
+	if res.IsError() && statusCode != 404 {
+		msg := "Failed to delete service %s in environment %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, serviceID, environmentID, consortiumID, statusCode, res.String())
+	}
+
 	d.SetId("")
+
 	return nil
 }

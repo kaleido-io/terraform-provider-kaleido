@@ -16,7 +16,7 @@ package kaleido
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -24,6 +24,7 @@ func resourceAppCreds() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceAppCredCreate,
 		Read:   resourceAppCredRead,
+		Update: resourceAppCredUpdate,
 		Delete: resourceAppCredDelete,
 		Schema: map[string]*schema.Schema{
 			"membership_id": &schema.Schema{
@@ -40,6 +41,10 @@ func resourceAppCreds() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
+			},
+			"name": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
 			},
 			"username": &schema.Schema{
 				Type:     schema.TypeString,
@@ -63,6 +68,7 @@ func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 	envID := d.Get("environment_id").(string)
 	membershipID := d.Get("membership_id").(string)
 	appKey := kaleido.NewAppCreds(membershipID)
+	appKey.Name = d.Get("name").(string)
 
 	res, err := client.CreateAppCreds(consortiumID, envID, &appKey)
 
@@ -71,14 +77,37 @@ func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 201 {
-		msg := "Could not create AppKey in consortium %s, in environment %s, with membership %s. Status: %d"
-		return fmt.Errorf(msg, consortiumID, envID, membershipID, res.StatusCode())
+		msg := "Could not create AppKey in consortium %s, in environment %s, with membership %s with status %d: %s"
+		return fmt.Errorf(msg, consortiumID, envID, membershipID, res.StatusCode(), res.String())
 	}
 
 	d.SetId(appKey.ID)
 	d.Set("username", appKey.Username)
 	d.Set("password", appKey.Password)
 	d.Set("auth_type", appKey.AuthType)
+
+	return nil
+}
+
+func resourceAppCredUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	envID := d.Get("environment_id").(string)
+	membershipID := d.Get("membership_id").(string)
+	appKeyID := d.Id()
+	appKey := kaleido.NewAppCreds("")
+	appKey.Name = d.Get("name").(string)
+
+	res, err := client.UpdateAppCreds(consortiumID, envID, appKeyID, &appKey)
+
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode() != 200 {
+		msg := "Could not update AppKey %s in consortium %s, in environment %s, with membership %s with status %d: %s"
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, membershipID, res.StatusCode(), res.String())
+	}
 
 	return nil
 }
@@ -97,8 +126,8 @@ func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 200 {
-		msg := "Could not fetch AppKey %s in consortium %s, in environment %s. Status: %d."
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode())
+		msg := "Could not fetch AppKey %s in consortium %s, in environment %s with status %d: %s"
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode(), res.String())
 	}
 
 	d.Set("auth_type", appKey.AuthType)
@@ -118,8 +147,8 @@ func resourceAppCredDelete(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 204 {
-		msg := "Could not delete AppKey %s in consortium %s, in environment %s. Status: %d."
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode())
+		msg := "Could not delete AppKey %s in consortium %s, in environment %s with status %d: %s"
+		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode(), res.String())
 	}
 
 	d.SetId("")

@@ -16,8 +16,8 @@ package kaleido
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -25,6 +25,7 @@ func resourceEnvironment() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceEnvironmentCreate,
 		Read:   resourceEnvironmentRead,
+		Update: resourceEnvironmentUpdate,
 		Delete: resourceEnvironmentDelete,
 		Schema: map[string]*schema.Schema{
 			"consortium_id": &schema.Schema{
@@ -35,12 +36,18 @@ func resourceEnvironment() *schema.Resource {
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"description": &schema.Schema{
 				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Required: false,
+				Default:  "",
+				Optional: true,
+			},
+			"shared_deployment": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "The decentralized nature of Kaleido means an environment might be shared with other accounts. When true only create if name does not exist, and delete becomes a no-op.",
 			},
 			"env_type": &schema.Schema{
 				Type:     schema.TypeString,
@@ -56,22 +63,19 @@ func resourceEnvironment() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 				Optional: true,
-				ForceNew: true,
 			},
 			"multi_region": &schema.Schema{
 				Type:     schema.TypeBool,
 				Optional: true,
-				ForceNew: true,
 			},
 			"block_period": &schema.Schema{
 				Type:     schema.TypeInt,
 				Optional: true,
-				ForceNew: true,
 			},
 			"prefunded_accounts": &schema.Schema{
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
+				Computed: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -109,6 +113,25 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	if ok {
 		environment.ReleaseID = releaseID.(string)
 	}
+
+	if d.Get("shared_deployment").(bool) {
+		var environments []kaleido.Environment
+		res, err := client.ListEnvironments(consortiumID, &environments)
+		if err != nil {
+			return err
+		}
+		if res.StatusCode() != 200 {
+			return fmt.Errorf("Failed to list existing environments with status %d: %s", res.StatusCode(), res.String())
+		}
+		for _, e := range environments {
+			if e.Name == environment.Name {
+				// Already exists, just re-use
+				d.SetId(e.ID)
+				return resourceEnvironmentRead(d, meta)
+			}
+		}
+	}
+
 	res, err := client.CreateEnvironment(consortiumID, &environment)
 
 	if err != nil {
@@ -116,7 +139,7 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 201 {
-		msg := "Could not create environment %s for consortia %s, status was: %d, error: %s"
+		msg := "Could not create environment %s for consortia %s with status %d: %s"
 		return fmt.Errorf(msg, environment.Name, consortiumID, res.StatusCode(), res.String())
 	}
 
@@ -147,6 +170,63 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
+func resourceEnvironmentUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Id()
+
+	environment := kaleido.NewEnvironment(
+		d.Get("name").(string),
+		d.Get("description").(string),
+		"",    // cannot change
+		"",    // cannot change
+		false, // cannot change
+		0,     // cannot change
+		nil)
+
+	res, err := client.UpdateEnvironment(consortiumID, environmentID, &environment)
+
+	if err != nil {
+		return err
+	}
+
+	statusCode := res.StatusCode()
+	if statusCode != 200 {
+		msg := "Failed to update environment %s, in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
+	}
+
+	return nil
+}
+
+func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
+	if d.Get("shared_deployment").(bool) {
+		// Cannot safely delete if this is shared with other terraform deployments
+		d.SetId("")
+		return nil
+	}
+
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Id()
+
+	res, err := client.DeleteEnvironment(consortiumID, environmentID)
+
+	if err != nil {
+		return err
+	}
+
+	statusCode := res.StatusCode()
+	if statusCode != 202 && statusCode != 204 {
+		msg := "Failed to delete environment %s, in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
+	}
+
+	d.SetId("")
+
+	return nil
+}
+
 func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
@@ -160,7 +240,7 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if res.StatusCode() != 200 {
-		msg := "Failed to get environment %s, from consortium %s status was: %d, error: %s"
+		msg := "Failed to get environment %s, from consortium %s with status %d: %s"
 		return fmt.Errorf(msg, environmentID, consortiumID, res.StatusCode(), res.String())
 	}
 
@@ -184,28 +264,6 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 		balances[account] = balanceStr
 	}
 	d.Set("prefunded_accounts", balances)
-
-	return nil
-}
-
-func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Id()
-
-	res, err := client.DeleteEnvironment(consortiumID, environmentID)
-
-	if err != nil {
-		return err
-	}
-
-	statusCode := res.StatusCode()
-	if statusCode != 202 && statusCode != 204 {
-		msg := "Failed to delete environment %s, in consortium %s, status was: %d, error: %s"
-		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
-	}
-
-	d.SetId("")
 
 	return nil
 }

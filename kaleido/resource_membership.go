@@ -16,8 +16,8 @@ package kaleido
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -25,6 +25,7 @@ func resourceMembership() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceMembershipCreate,
 		Read:   resourceMembershipRead,
+		Update: resourceMembershipUpdate,
 		Delete: resourceMembershipDelete,
 		Schema: map[string]*schema.Schema{
 			"consortium_id": &schema.Schema{
@@ -35,7 +36,6 @@ func resourceMembership() *schema.Resource {
 			"org_name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -54,11 +54,32 @@ func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Failed to create membership %s in consortium %s with status %d"
-		return fmt.Errorf(msg, membership.OrgName, consortiumID, status)
+		msg := "Failed to create membership %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, membership.OrgName, consortiumID, status, res.String())
 	}
 
 	d.SetId(membership.ID)
+	return nil
+}
+
+func resourceMembershipUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	membership := kaleido.NewMembership(d.Get("org_name").(string))
+	consortiumID := d.Get("consortium_id").(string)
+	membershipID := d.Id()
+
+	res, err := client.UpdateMembership(consortiumID, membershipID, &membership)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Failed to update membership %s for %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, membershipID, membership.OrgName, consortiumID, status, res.String())
+	}
+
 	return nil
 }
 
@@ -75,8 +96,8 @@ func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to find membership %s in consortium %s with status %d"
-		return fmt.Errorf(msg, membership.OrgName, consortiumID, status)
+		msg := "Failed to find membership %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, membership.OrgName, consortiumID, status, res.String())
 	}
 
 	d.Set("org_name", membership.OrgName)
@@ -100,8 +121,8 @@ func resourceMembershipDelete(d *schema.ResourceData, meta interface{}) error {
 			msg := fmt.Errorf("deletion of membership %s failed: %d", membershipID, statusCode)
 			return resource.NonRetryableError(msg)
 		} else if statusCode != 204 {
-			msg := "Failed to delete membership %s in consortium %s with status: %d"
-			return resource.RetryableError(fmt.Errorf(msg, membershipID, consortiumID, statusCode))
+			msg := "Failed to delete membership %s in consortium %s with status %d: %s"
+			return resource.RetryableError(fmt.Errorf(msg, membershipID, consortiumID, statusCode, res.String()))
 		}
 
 		return nil

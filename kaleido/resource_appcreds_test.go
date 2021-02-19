@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -76,8 +76,8 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 		}
 
 		if res.StatusCode() != 200 {
-			msg := "Could not find AppKey %s in consortium %s in environment %s. Status: %d"
-			return fmt.Errorf(msg, appKey.ID, consortRs.Primary.ID, envRs.Primary.ID, res.StatusCode())
+			msg := "Could not find AppKey %s in consortium %s in environment %s with status %d: %s"
+			return fmt.Errorf(msg, appKey.ID, consortRs.Primary.ID, envRs.Primary.ID, res.StatusCode(), res.String())
 		}
 
 		return nil

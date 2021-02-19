@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -97,8 +97,8 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 
 		status := res.StatusCode()
 		if status != 200 {
-			msg := "Did not find node %s in consortia %s and environment %s, status was: %d"
-			return fmt.Errorf(msg, nodeID, consID, envID, status)
+			msg := "Did not find node %s in consortia %s and environment %s with status %d: %s"
+			return fmt.Errorf(msg, nodeID, consID, envID, status, res.String())
 		}
 
 		return nil

@@ -16,7 +16,7 @@ package kaleido
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -24,6 +24,7 @@ func resourceInvitation() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceInvitationCreate,
 		Read:   resourceInvitationRead,
+		Update: resourceInvitationUpdate,
 		Delete: resourceInvitationDelete,
 		Schema: map[string]*schema.Schema{
 			"consortium_id": &schema.Schema{
@@ -34,12 +35,10 @@ func resourceInvitation() *schema.Resource {
 			"org_name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"email": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -58,11 +57,32 @@ func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 201 {
-		msg := "Failed to create invitation %s in consortium %s with status %d"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status)
+		msg := "Failed to create invitation %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status, res.String())
 	}
 
 	d.SetId(invitation.ID)
+	return nil
+}
+
+func resourceInvitationUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(kaleido.KaleidoClient)
+	invitation := kaleido.NewInvitation(d.Get("org_name").(string), d.Get("email").(string))
+	consortiumID := d.Get("consortium_id").(string)
+	inviteID := d.Id()
+
+	res, err := client.UpdateInvitation(consortiumID, inviteID, &invitation)
+
+	if err != nil {
+		return err
+	}
+
+	status := res.StatusCode()
+	if status != 200 {
+		msg := "Failed to update invitation %s for %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, inviteID, invitation.OrgName, consortiumID, status, res.String())
+	}
+
 	return nil
 }
 
@@ -79,8 +99,8 @@ func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to find invitation %s in consortium %s with status %d"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status)
+		msg := "Failed to find invitation %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status, res.String())
 	}
 
 	d.Set("org_name", invitation.OrgName)
@@ -101,8 +121,8 @@ func resourceInvitationDelete(d *schema.ResourceData, meta interface{}) error {
 
 	status := res.StatusCode()
 	if status != 204 {
-		msg := "Failed to delete invitation %s in consortium %s with status: %d"
-		return fmt.Errorf(msg, invitationID, consortiumID, status)
+		msg := "Failed to delete invitation %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, invitationID, consortiumID, status, res.String())
 	}
 
 	d.SetId("")
