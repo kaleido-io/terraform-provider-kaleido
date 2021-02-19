@@ -239,6 +239,25 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceNodeDelete(d *schema.ResourceData, meta interface{}) error {
+
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	nodeID := d.Id()
+
+	res, err := client.DeleteNode(consortiumID, environmentID, nodeID)
+
+	if err != nil {
+		return err
+	}
+
+	statusCode := res.StatusCode()
+	if res.IsError() && statusCode != 404 {
+		msg := "Failed to delete node %s in environment %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, nodeID, environmentID, consortiumID, statusCode, res.String())
+	}
+
 	d.SetId("")
+
 	return nil
 }

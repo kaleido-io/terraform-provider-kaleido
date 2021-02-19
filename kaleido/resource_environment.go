@@ -47,7 +47,7 @@ func resourceEnvironment() *schema.Resource {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: "The decentralized nature of Kaleido means an environment might be shared with other accounts. When ture only create if name does not exist, and delete becomes a no-op.",
+				Description: "The decentralized nature of Kaleido means an environment might be shared with other accounts. When true only create if name does not exist, and delete becomes a no-op.",
 			},
 			"env_type": &schema.Schema{
 				Type:     schema.TypeString,

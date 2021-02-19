@@ -58,6 +58,12 @@ func resourceService() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"shared_deployment": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "The decentralized nature of Kaleido means a utility service might be shared with other accounts. When true only create if service_type does not exist, and delete becomes a no-op.",
+			},
 			"size": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
@@ -122,6 +128,24 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	zoneID := d.Get("zone_id").(string)
 	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
 	service.Size = d.Get("size").(string)
+
+	if d.Get("shared_deployment").(bool) {
+		var existing []kaleido.Service
+		res, err := client.ListServices(consortiumID, environmentID, &existing)
+		if err != nil {
+			return err
+		}
+		if res.StatusCode() != 200 {
+			return fmt.Errorf("Failed to list existing services with status %d: %s", res.StatusCode(), res.String())
+		}
+		for _, e := range existing {
+			if e.Service == service.Service {
+				// Already exists, just re-use
+				d.SetId(e.ID)
+				return resourceServiceRead(d, meta)
+			}
+		}
+	}
 
 	res, err := client.CreateService(consortiumID, environmentID, &service)
 
@@ -228,6 +252,30 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceServiceDelete(d *schema.ResourceData, meta interface{}) error {
+	if d.Get("shared_deployment").(bool) {
+		// Cannot safely delete if this is shared with other terraform deployments
+		d.SetId("")
+		return nil
+	}
+
+	client := meta.(kaleido.KaleidoClient)
+	consortiumID := d.Get("consortium_id").(string)
+	environmentID := d.Get("environment_id").(string)
+	serviceID := d.Id()
+
+	res, err := client.DeleteService(consortiumID, environmentID, serviceID)
+
+	if err != nil {
+		return err
+	}
+
+	statusCode := res.StatusCode()
+	if res.IsError() && statusCode != 404 {
+		msg := "Failed to delete service %s in environment %s in consortium %s with status %d: %s"
+		return fmt.Errorf(msg, serviceID, environmentID, consortiumID, statusCode, res.String())
+	}
+
 	d.SetId("")
+
 	return nil
 }
