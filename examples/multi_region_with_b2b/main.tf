@@ -7,7 +7,6 @@ terraform {
   required_providers {
     kaleido = {
       source = "kaleido-io/kaleido"
-      version = "0.2.1"
     }
   }
 }
