@@ -3,6 +3,15 @@ This creates suite of environments using all available
 environment types and consensus methods.
 */
 
+terraform {
+  required_providers {
+    kaleido = {
+      source = "kaleido-io/kaleido"
+      version = "0.2.1"
+    }
+  }
+}
+
 provider "kaleido" {
   api = var.kaleido_api_url
   api_key = var.kaleido_api_key
