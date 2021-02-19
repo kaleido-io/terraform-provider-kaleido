@@ -212,7 +212,7 @@ func resourceDestinationDelete(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	status := res.StatusCode()
-	if status != 204 {
+	if status != 204 && status != 404 {
 		msg := "Failed to delete destination %s in %s service %s with status %d: %s"
 		return fmt.Errorf(msg, destName, serviceType, serviceID, status, res.String())
 	}

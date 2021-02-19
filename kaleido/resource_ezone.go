@@ -70,7 +70,23 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	cloud := d.Get("cloud").(string)
 	ezone := kaleido.NewEZone(d.Get("name").(string), region, cloud)
 
-	res, err := client.CreateEZone(consortiumID, environmentID, &ezone)
+	var existing []kaleido.EZone
+	res, err := client.ListEZones(consortiumID, environmentID, &existing)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode() != 200 {
+		return fmt.Errorf("Failed to list existing environment zones with status %d: %s", res.StatusCode(), res.String())
+	}
+	for _, e := range existing {
+		if e.Cloud == cloud && e.Region == region {
+			// Already exists, just re-use
+			d.SetId(e.ID)
+			return resourceEZoneRead(d, meta)
+		}
+	}
+
+	res, err = client.CreateEZone(consortiumID, environmentID, &ezone)
 
 	if err != nil {
 		return err

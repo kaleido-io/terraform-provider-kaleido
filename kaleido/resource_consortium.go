@@ -35,21 +35,48 @@ func resourceConsortium() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"shared_deployment": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "The decentralized nature of Kaleido means a consortium might be shared with other accounts. When ture only create if name does not exist, and delete becomes a no-op.",
+			},
 		},
 	}
 }
 
 func resourceConsortiumCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortium := kaleido.NewConsortium(d.Get("name").(string),
-		d.Get("description").(string))
+	consortium := kaleido.NewConsortium(
+		d.Get("name").(string),
+		d.Get("description").(string),
+	)
+
+	if d.Get("shared_deployment").(bool) {
+		var consortia []kaleido.Consortium
+		res, err := client.ListConsortium(&consortia)
+		if err != nil {
+			return err
+		}
+		if res.StatusCode() != 200 {
+			return fmt.Errorf("Failed to list existing consortia with status %d: %s", res.StatusCode(), res.String())
+		}
+		for _, c := range consortia {
+			if c.Name == consortium.Name {
+				// Already exists, just re-use
+				d.SetId(c.ID)
+				return resourceConsortiumRead(d, meta)
+			}
+		}
+	}
+
 	res, err := client.CreateConsortium(&consortium)
 	if err != nil {
 		return err
 	}
 	status := res.StatusCode()
 	if status != 201 {
-		return fmt.Errorf("Failed to create consortium with status: %d", status)
+		return fmt.Errorf("Failed to create consortium with status %d", status)
 	}
 
 	d.SetId(consortium.ID)
@@ -94,10 +121,18 @@ func resourceConsortiumRead(d *schema.ResourceData, meta interface{}) error {
 		}
 		return fmt.Errorf("Failed to read consortium with id %s status was: %d, error: %s", d.Id(), status, res.String())
 	}
+	d.Set("name", consortium.Name)
+	d.Set("description", consortium.Description)
 	return nil
 }
 
 func resourceConsortiumDelete(d *schema.ResourceData, meta interface{}) error {
+	if d.Get("shared_deployment").(bool) {
+		// Cannot safely delete if this is shared with other terraform deployments
+		d.SetId("")
+		return nil
+	}
+
 	client := meta.(kaleido.KaleidoClient)
 	res, err := client.DeleteConsortium(d.Id())
 

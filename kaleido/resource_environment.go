@@ -43,6 +43,12 @@ func resourceEnvironment() *schema.Resource {
 				Default:  "",
 				Optional: true,
 			},
+			"shared_deployment": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "The decentralized nature of Kaleido means an environment might be shared with other accounts. When ture only create if name does not exist, and delete becomes a no-op.",
+			},
 			"env_type": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -107,6 +113,25 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	if ok {
 		environment.ReleaseID = releaseID.(string)
 	}
+
+	if d.Get("shared_deployment").(bool) {
+		var environments []kaleido.Environment
+		res, err := client.ListEnvironments(consortiumID, &environments)
+		if err != nil {
+			return err
+		}
+		if res.StatusCode() != 200 {
+			return fmt.Errorf("Failed to list existing environments with status %d: %s", res.StatusCode(), res.String())
+		}
+		for _, e := range environments {
+			if e.Name == environment.Name {
+				// Already exists, just re-use
+				d.SetId(e.ID)
+				return resourceEnvironmentRead(d, meta)
+			}
+		}
+	}
+
 	res, err := client.CreateEnvironment(consortiumID, &environment)
 
 	if err != nil {
@@ -175,6 +200,12 @@ func resourceEnvironmentUpdate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
+	if d.Get("shared_deployment").(bool) {
+		// Cannot safely delete if this is shared with other terraform deployments
+		d.SetId("")
+		return nil
+	}
+
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Id()

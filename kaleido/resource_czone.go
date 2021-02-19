@@ -64,7 +64,23 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	cloud := d.Get("cloud").(string)
 	czone := kaleido.NewCZone(d.Get("name").(string), region, cloud)
 
-	res, err := client.CreateCZone(consortiumID, &czone)
+	var existing []kaleido.CZone
+	res, err := client.ListCZones(consortiumID, &existing)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode() != 200 {
+		return fmt.Errorf("Failed to list existing consortia zones with status %d: %s", res.StatusCode(), res.String())
+	}
+	for _, e := range existing {
+		if e.Cloud == cloud && e.Region == region {
+			// Already exists, just re-use
+			d.SetId(e.ID)
+			return resourceCZoneRead(d, meta)
+		}
+	}
+
+	res, err = client.CreateCZone(consortiumID, &czone)
 
 	if err != nil {
 		return err

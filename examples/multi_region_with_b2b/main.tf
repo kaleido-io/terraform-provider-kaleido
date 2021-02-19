@@ -23,6 +23,7 @@ This represents a Consortia. Give italeido_environment a name and a description.
 resource "kaleido_consortium" "consortium" {
   name = var.consortium_name
   description = var.network_description
+  shared_deployment = true
 }
 
 /*
@@ -35,9 +36,7 @@ resource "kaleido_membership" "member" {
 }
 
 /*
-This whitelists a region into the consortium for deployment
-This is only required if deploying to a zone that is not the home zone
-of the API URL - otherwise you will get a 409 conflict on deployment
+This whitelists a region into the consortium for deployment (automatically re-uses an existing one if it exists)
 */
 resource "kaleido_czone" "allowed_region" {
   consortium_id = kaleido_consortium.consortium.id
@@ -56,12 +55,11 @@ resource "kaleido_environment" "env" {
   consensus_type = var.consensus
   description = var.env_description
   block_period = var.block_period
+  shared_deployment = true
 }
 
 /*
-This creates the first deployment zone for your environment.
-For this sample we refer to it explicitly when deploying nodes, showing how
-you could have multiple deployment zones in a single environment if required
+This creates the deployment zone for your environment (automatically re-uses an existing one if it exists)
 */
 resource "kaleido_ezone" "deployment_zone" {
   consortium_id = kaleido_consortium.consortium.id

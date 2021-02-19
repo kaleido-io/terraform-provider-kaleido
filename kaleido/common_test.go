@@ -159,6 +159,12 @@ func testEZoneGocks(ezone *kaleido.EZone) {
 		JSON(ezoneGetResponse1)
 
 	gock.New("http://example.com").
+		Get("/api/v1/consortia/cons1/environments/env1/zones").
+		Persist().
+		Reply(200).
+		JSON([]*kaleido.EZone{})
+
+	gock.New("http://example.com").
 		Delete("/api/v1/consortia/cons1/environments/env1/zones/zone1").
 		Reply(204)
 
