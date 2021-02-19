@@ -15,6 +15,7 @@ package kaleido
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
@@ -139,7 +140,10 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 			return fmt.Errorf("Failed to list existing services with status %d: %s", res.StatusCode(), res.String())
 		}
 		for _, e := range existing {
-			if e.Service == service.Service {
+			if e.Service == service.Service && !strings.Contains(e.State, "delete") {
+				if e.ServiceType != "utility" {
+					return fmt.Errorf("The shared_deployment option only applies to utility services. %s service %s is a '%s' service", service.Service, service.ID, service.ServiceType)
+				}
 				// Already exists, just re-use
 				d.SetId(e.ID)
 				return resourceServiceRead(d, meta)

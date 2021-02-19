@@ -15,6 +15,7 @@ package kaleido
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -124,7 +125,7 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 			return fmt.Errorf("Failed to list existing environments with status %d: %s", res.StatusCode(), res.String())
 		}
 		for _, e := range environments {
-			if e.Name == environment.Name {
+			if e.Name == environment.Name && !strings.Contains(e.State, "delete") {
 				// Already exists, just re-use
 				d.SetId(e.ID)
 				return resourceEnvironmentRead(d, meta)

@@ -15,6 +15,7 @@ package kaleido
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
@@ -62,7 +63,7 @@ func resourceConsortiumCreate(d *schema.ResourceData, meta interface{}) error {
 			return fmt.Errorf("Failed to list existing consortia with status %d: %s", res.StatusCode(), res.String())
 		}
 		for _, c := range consortia {
-			if c.Name == consortium.Name {
+			if c.Name == consortium.Name && !strings.Contains(c.State, "delete") {
 				// Already exists, just re-use
 				d.SetId(c.ID)
 				return resourceConsortiumRead(d, meta)

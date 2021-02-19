@@ -31,7 +31,7 @@ require (
 	github.com/hashicorp/terraform-svchost v0.0.0-20191119180714-d2e4933b9136 // indirect
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20210218081223-55d6261db229
+	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20210219180449-3dedb144f197
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 // indirect
 	github.com/karalabe/xgo v0.0.0-20191115072854-c5ccff8648a7 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
