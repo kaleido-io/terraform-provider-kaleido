@@ -3,14 +3,6 @@ This creates suite of environments using all available
 environment types and consensus methods.
 */
 
-terraform {
-  required_providers {
-    kaleido = {
-      source = "kaleido/kaleido"
-    }
-  }
-}
-
 provider "kaleido" {
   api = var.kaleido_api_url
   api_key = var.kaleido_api_key
@@ -91,6 +83,7 @@ resource "kaleido_service" "idregistry" {
   name = "On-chain registry"
   service_type = "idregistry"
   depends_on = [kaleido_node.node]
+  shared_deployment = true
 }
 
 /*
