@@ -15,6 +15,7 @@ package kaleido
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
@@ -124,7 +125,7 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	environmentID := d.Get("environment_id").(string)
 	membershipID := d.Get("membership_id").(string)
 	serviceType := d.Get("service_type").(string)
-	details := d.Get("details").(map[string]interface{})
+	details := duplicateDetails(d.Get("details").(map[string]interface{}))
 	zoneID := d.Get("zone_id").(string)
 	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
 	service.Size = d.Get("size").(string)
@@ -139,7 +140,10 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 			return fmt.Errorf("Failed to list existing services with status %d: %s", res.StatusCode(), res.String())
 		}
 		for _, e := range existing {
-			if e.Service == service.Service {
+			if e.Service == service.Service && !strings.Contains(e.State, "delete") {
+				if e.ServiceType != "utility" {
+					return fmt.Errorf("The shared_deployment option only applies to utility services. %s service %s is a '%s' service", service.Service, service.ID, service.ServiceType)
+				}
 				// Already exists, just re-use
 				d.SetId(e.ID)
 				return resourceServiceRead(d, meta)
@@ -176,11 +180,22 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
+func duplicateDetails(detailsSubmitted map[string]interface{}) map[string]interface{} {
+	// We do not want to save back updates that come back over the rest API into the terraform
+	// state, otherwise we will think there is a difference between any generated sub-fields
+	// inside of the details structure, and the next terraform apply will attempt to perform an update.
+	details := make(map[string]interface{})
+	for k, v := range detailsSubmitted {
+		details[k] = v
+	}
+	return details
+}
+
 func resourceServiceUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
-	details := d.Get("details").(map[string]interface{})
+	details := duplicateDetails(d.Get("details").(map[string]interface{}))
 	service := kaleido.NewService(d.Get("name").(string), "", "", "", details)
 	service.Size = d.Get("size").(string)
 	serviceID := d.Id()

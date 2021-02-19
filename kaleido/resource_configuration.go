@@ -71,7 +71,7 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	environmentID := d.Get("environment_id").(string)
 	membershipID := d.Get("membership_id").(string)
 	configurationType := d.Get("type").(string)
-	details := d.Get("details").(map[string]interface{})
+	details := duplicateDetails(d.Get("details").(map[string]interface{}))
 	configuration := kaleido.NewConfiguration(d.Get("name").(string), membershipID, configurationType, details)
 
 	res, err := client.CreateConfiguration(consortiumID, environmentID, &configuration)
@@ -106,7 +106,7 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
-	details := d.Get("details").(map[string]interface{})
+	details := duplicateDetails(d.Get("details").(map[string]interface{}))
 	configuration := kaleido.NewConfiguration(d.Get("name").(string), "", "", details)
 	configID := d.Id()
 
