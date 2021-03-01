@@ -33,6 +33,7 @@ resource "kaleido_membership" "member" {
   count = var.member_count
   consortium_id = kaleido_consortium.consortium.id
   org_name = "Org ${count.index + 1}"
+  shared_deployment = true
 }
 
 /*
