@@ -37,14 +37,40 @@ func resourceMembership() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"pre_existing": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "In a decentalized consortium memberships are driven by invitation, and will be pre-existing at the point of deploying infrastructure.",
+			},
 		},
 	}
 }
 
 func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	membership := kaleido.NewMembership(d.Get("org_name").(string))
+	orgName := d.Get("org_name").(string)
+	membership := kaleido.NewMembership(orgName)
 	consortiumID := d.Get("consortium_id").(string)
+
+	if d.Get("pre_existing").(bool) {
+		var memberships []kaleido.Membership
+		res, err := client.ListMemberships(consortiumID, &memberships)
+		if err != nil {
+			return err
+		}
+		if res.StatusCode() != 200 {
+			return fmt.Errorf("Failed to list existing memberships with status %d: %s", res.StatusCode(), res.String())
+		}
+		for _, e := range memberships {
+			if e.OrgName == orgName {
+				d.SetId(e.ID)
+				return resourceMembershipRead(d, meta)
+			}
+		}
+		msg := "pre_existing set and no existing membership found with org_name '%s'"
+		return fmt.Errorf(msg, orgName)
+	}
 
 	res, err := client.CreateMembership(consortiumID, &membership)
 
@@ -105,6 +131,12 @@ func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceMembershipDelete(d *schema.ResourceData, meta interface{}) error {
+	if d.Get("pre_existing").(bool) {
+		// Cannot safely delete if this is shared with other terraform deployments
+		d.SetId("")
+		return nil
+	}
+
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	membershipID := d.Id()
