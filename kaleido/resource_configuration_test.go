@@ -38,6 +38,7 @@ func TestKaleidoConfigResource(t *testing.T) {
 	})
 	node := kaleido.NewNode("node1", "member1", "zone1")
 	node.NodeConfigID = "cfg1"
+	node.Role = "validator"
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
