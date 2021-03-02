@@ -62,6 +62,10 @@ func resourceNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"first_user_account": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"zone_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
@@ -167,6 +171,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	d.SetId(node.ID)
 	d.Set("websocket_url", node.Urls.WSS)
 	d.Set("https_url", node.Urls.RPC)
+	d.Set("first_user_account", node.FirstUserAccount)
 
 	return nil
 }
@@ -243,6 +248,7 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("role", node.Role)
 	d.Set("websocket_url", node.Urls.WSS)
 	d.Set("https_url", node.Urls.RPC)
+	d.Set("first_user_account", node.FirstUserAccount)
 	return nil
 }
 
