@@ -39,6 +39,7 @@ func TestKaleidoServiceResource(t *testing.T) {
 	})
 	ipfs_service := kaleido.NewService("ipfs_service1", "ipfs", "member1", "zone1", map[string]interface{}{})
 	node := kaleido.NewNode("node1", "member1", "zone1")
+	node.Role = "validator"
 
 	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName

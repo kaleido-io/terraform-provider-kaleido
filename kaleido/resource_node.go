@@ -48,11 +48,21 @@ func resourceNode() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"role": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+				Default:  "validator",
+			},
 			"websocket_url": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"https_url": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"first_user_account": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -139,6 +149,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	node.NetworkingID = d.Get("networking_id").(string)
 	node.NodeConfigID = d.Get("node_config_id").(string)
 	node.BafID = d.Get("baf_id").(string)
+	node.Role = d.Get("role").(string)
 
 	res, err := client.CreateNode(consortiumID, environmentID, &node)
 
@@ -160,6 +171,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	d.SetId(node.ID)
 	d.Set("websocket_url", node.Urls.WSS)
 	d.Set("https_url", node.Urls.RPC)
+	d.Set("first_user_account", node.FirstUserAccount)
 
 	return nil
 }
@@ -233,8 +245,10 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.Set("name", node.Name)
+	d.Set("role", node.Role)
 	d.Set("websocket_url", node.Urls.WSS)
 	d.Set("https_url", node.Urls.RPC)
+	d.Set("first_user_account", node.FirstUserAccount)
 	return nil
 }
 
