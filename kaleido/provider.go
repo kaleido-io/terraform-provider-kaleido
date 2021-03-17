@@ -1,4 +1,4 @@
-// Copyright 2018 Kaleido, a ConsenSys business
+// Copyright © Kaleido, Inc. 2018, 2021
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,9 @@ func Provider() *schema.Provider {
 			"kaleido_destination":   resourceDestination(),
 		},
 		ConfigureFunc: providerConfigure,
+		DataSourcesMap: map[string]*schema.Resource{
+			"kaleido_privatestack_bridge": resourcePrivateStackBridge(),
+		},
 	}
 }
 
