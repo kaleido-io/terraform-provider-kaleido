@@ -38,6 +38,16 @@ func resourcePrivateStackBridge() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"appcred_id": &schema.Schema{
+				Description: "Optionally provide an application credential to inject into the downloaded config, making it ready for use",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
+			"appcred_secret": &schema.Schema{
+				Description: "Optionally provide an application credential to inject into the downloaded config, making it ready for use",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
 			"config_json": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,
@@ -61,6 +71,24 @@ func resourcePrivateStackBridgeRead(d *schema.ResourceData, meta interface{}) er
 	if status != 200 {
 		return fmt.Errorf("Failed to read config with id %s status was: %d, error: %s", d.Id(), status, res.String())
 	}
+
+	appcredID := d.Get("appcred_id").(string)
+	appcredSecret := d.Get("appcred_secret").(string)
+	if appcredID != "" && appcredSecret != "" {
+		if nodesEntry, ok := conf["nodes"]; ok {
+			if nodesArray, ok := nodesEntry.([]interface{}); ok {
+				for _, nodeInterface := range nodesArray {
+					if node, ok := nodeInterface.(map[string]interface{}); ok {
+						node["auth"] = map[string]string{
+							"user":   appcredID,
+							"secret": appcredSecret,
+						}
+					}
+				}
+			}
+		}
+	}
+
 	d.SetId(d.Get("service_id").(string))
 	confstr, _ := json.MarshalIndent(conf, "", "  ")
 	d.Set("config_json", string(confstr))

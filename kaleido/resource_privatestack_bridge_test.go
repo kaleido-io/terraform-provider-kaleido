@@ -32,14 +32,23 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 	os.Setenv("KALEIDO_API", "http://api.example.com/api/v1")
 	os.Setenv("KALEIDO_API_KEY", "ut_apikey")
 
-	mockConfig := map[string]interface{}{
-		"nested": map[string]interface{}{
-			"arrays": []int{
-				1, 2, 3, 4, 5,
-			},
-		},
-		"simple": "stringvalue",
-	}
+	mockConfigJSON := []byte(`
+	{
+		"id": "zzqbpgi4xb-zzsvij4k8v-client",
+		"nodes": [
+			{
+				"role": "server",
+				"id": "zzqbpgi4xb-zzsvij4k8v-server",
+				"address": "wss://zzqbpgi4xb-zzsvij4k8v.xyz.kaleido.io",
+				"auth": {
+					"user": "xxx",
+					"secret": "yyy"
+				}
+			}
+		]
+	}`)
+	var mockConfig map[string]interface{}
+	json.Unmarshal(mockConfigJSON, &mockConfig)
 
 	gock.New("http://api.example.com").
 		Get("/api/v1/consortia/cons1/environments/env1/services/svc1/tunneler_config").
@@ -49,7 +58,24 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 
 	pstackBridgeResource := "data.kaleido_privatestack_bridge.test"
 
-	expectedConf, _ := json.MarshalIndent(mockConfig, "", "  ")
+	expectedConfJSONUnFormatted := []byte(`
+	{
+		"id": "zzqbpgi4xb-zzsvij4k8v-client",
+		"nodes": [
+			{
+				"role": "server",
+				"id": "zzqbpgi4xb-zzsvij4k8v-server",
+				"address": "wss://zzqbpgi4xb-zzsvij4k8v.xyz.kaleido.io",
+				"auth": {
+					"user": "user_abc",
+					"secret": "password_abc"
+				}
+			}
+		]
+	}`)
+	var expectedConfig map[string]interface{}
+	json.Unmarshal(expectedConfJSONUnFormatted, &expectedConfig)
+	expectedConfJSON, _ := json.MarshalIndent(expectedConfig, "", "  ")
 
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:                true,
@@ -61,7 +87,7 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 				Config: testPrivateStackBridgeConfigFetch_tf(),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testPrivateStackBridgeConfigFetch(pstackBridgeResource),
-					resource.TestCheckResourceAttr(pstackBridgeResource, "config_json", string(expectedConf)),
+					resource.TestCheckResourceAttr(pstackBridgeResource, "config_json", string(expectedConfJSON)),
 				),
 			},
 		},
@@ -71,8 +97,6 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 
 func testPrivateStackBridgeConfigFetch(pstackBridgeResource string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		r := s.RootModule().Resources
-		fmt.Printf("RETURNED: %+v", r)
 
 		configRs, ok := s.RootModule().Resources[pstackBridgeResource]
 
@@ -95,6 +119,8 @@ func testPrivateStackBridgeConfigFetch_tf() string {
 			consortium_id = "cons1"
 			environment_id = "env1"
 			service_id = "svc1"
+			appcred_id = "user_abc"
+			appcred_secret = "password_abc"
 		}
 	
     `)
