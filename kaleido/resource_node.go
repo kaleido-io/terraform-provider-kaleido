@@ -1,4 +1,4 @@
-// Copyright 2018 Kaleido, a ConsenSys business
+// Copyright © Kaleido, Inc. 2018, 2021
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,6 +60,10 @@ func resourceNode() *schema.Resource {
 			},
 			"https_url": &schema.Schema{
 				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"urls": &schema.Schema{
+				Type:     schema.TypeMap,
 				Computed: true,
 			},
 			"first_user_account": &schema.Schema{
@@ -133,6 +137,16 @@ func waitUntilNodeStarted(op, consortiumID, environmentID, nodeID string, node *
 	})
 }
 
+func setNodeUrls(d *schema.ResourceData, node *kaleido.Node) {
+	urls := make(map[string]string)
+	for name, urlValue := range node.Urls {
+		if urlString, ok := urlValue.(string); ok {
+			urls[name] = urlString
+		}
+	}
+	d.Set("urls", urls)
+}
+
 func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
@@ -169,8 +183,9 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(node.ID)
-	d.Set("websocket_url", node.Urls.WSS)
-	d.Set("https_url", node.Urls.RPC)
+	setNodeUrls(d, &node)
+	d.Set("websocket_url", node.Urls["wss"])
+	d.Set("https_url", node.Urls["rpc"])
 	d.Set("first_user_account", node.FirstUserAccount)
 
 	return nil
@@ -246,8 +261,9 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", node.Name)
 	d.Set("role", node.Role)
-	d.Set("websocket_url", node.Urls.WSS)
-	d.Set("https_url", node.Urls.RPC)
+	setNodeUrls(d, &node)
+	d.Set("websocket_url", node.Urls["wss"])
+	d.Set("https_url", node.Urls["rpc"])
 	d.Set("first_user_account", node.FirstUserAccount)
 	return nil
 }

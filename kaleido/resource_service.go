@@ -1,4 +1,4 @@
-// Copyright 2018 Kaleido, a ConsenSys business
+// Copyright © Kaleido, Inc. 2018, 2021
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,6 +85,10 @@ func resourceService() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"urls": &schema.Schema{
+				Type:     schema.TypeMap,
+				Computed: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -117,6 +121,16 @@ func waitUntilServiceStarted(op, consortiumID, environmentID, serviceID string, 
 
 		return nil
 	})
+}
+
+func setServiceUrls(d *schema.ResourceData, service *kaleido.Service) {
+	urls := make(map[string]string)
+	for name, urlValue := range service.Urls {
+		if urlString, ok := urlValue.(string); ok {
+			urls[name] = urlString
+		}
+	}
+	d.Set("urls", urls)
 }
 
 func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
@@ -170,6 +184,7 @@ func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(service.ID)
+	setServiceUrls(d, &service)
 	d.Set("https_url", service.Urls["http"])
 	if wsURL, ok := service.Urls["ws"]; ok {
 		d.Set("websocket_url", wsURL)
@@ -256,6 +271,7 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", service.Name)
 	d.Set("service_type", service.Service)
+	setServiceUrls(d, &service)
 	d.Set("https_url", service.Urls["http"])
 	if wsURL, ok := service.Urls["ws"]; ok {
 		d.Set("websocket_url", wsURL)
