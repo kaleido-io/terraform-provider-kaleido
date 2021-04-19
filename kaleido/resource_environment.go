@@ -14,6 +14,7 @@
 package kaleido
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -81,8 +82,26 @@ func resourceEnvironment() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"test_features_json": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 		},
 	}
+}
+
+func setTestFeatures(d *schema.ResourceData, client kaleido.KaleidoClient, environment *kaleido.Environment) error {
+	testFeaturesJSON := d.Get("test_features_json").(string)
+	if testFeaturesJSON != "" {
+		var testFeatures map[string]interface{}
+		if err := json.Unmarshal([]byte(testFeaturesJSON), &testFeatures); err != nil {
+			return fmt.Errorf("Failed to parse test_features_json: %s", err)
+		}
+		for k, v := range testFeatures {
+			environment.TestFeatures[k] = v
+		}
+	}
+	return nil
 }
 
 func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
@@ -108,6 +127,10 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Get("multi_region").(bool),
 		d.Get("block_period").(int),
 		prefundedAccountsStringified)
+
+	if err := setTestFeatures(d, client, &environment); err != nil {
+		return err
+	}
 
 	releaseID, ok := d.GetOk("release_id")
 
@@ -184,6 +207,10 @@ func resourceEnvironmentUpdate(d *schema.ResourceData, meta interface{}) error {
 		false, // cannot change
 		0,     // cannot change
 		nil)
+
+	if err := setTestFeatures(d, client, &environment); err != nil {
+		return err
+	}
 
 	res, err := client.UpdateEnvironment(consortiumID, environmentID, &environment)
 
