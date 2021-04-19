@@ -14,6 +14,7 @@
 package kaleido
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -56,6 +57,10 @@ func resourceConfiguration() *schema.Resource {
 				Type:     schema.TypeMap,
 				Optional: true,
 			},
+			"details_json": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -71,7 +76,15 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	environmentID := d.Get("environment_id").(string)
 	membershipID := d.Get("membership_id").(string)
 	configurationType := d.Get("type").(string)
-	details := duplicateDetails(d.Get("details").(map[string]interface{}))
+	detailsMap := d.Get("details").(map[string]interface{})
+	detailsJSON := d.Get("details_json").(string)
+	if detailsJSON != "" {
+		if err := json.Unmarshal([]byte(detailsJSON), &detailsMap); err != nil {
+			msg := "Could not parse details_json of %s %s in consortium %s in environment %s: %s"
+			return fmt.Errorf(msg, d.Get("type"), d.Get("name"), consortiumID, environmentID, err)
+		}
+	}
+	details := duplicateDetails(detailsMap)
 	configuration := kaleido.NewConfiguration(d.Get("name").(string), membershipID, configurationType, details)
 
 	res, err := client.CreateConfiguration(consortiumID, environmentID, &configuration)
