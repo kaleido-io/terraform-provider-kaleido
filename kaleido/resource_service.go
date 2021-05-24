@@ -89,6 +89,10 @@ func resourceService() *schema.Resource {
 				Type:     schema.TypeMap,
 				Computed: true,
 			},
+			"hybrid_port_allocation": &schema.Schema{
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -279,6 +283,7 @@ func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
 	if webuiURL, ok := service.Urls["webui"]; ok {
 		d.Set("webui_url", webuiURL)
 	}
+	d.Set("hybrid_port_allocation", service.HybridPortAllocation)
 	return nil
 }
 

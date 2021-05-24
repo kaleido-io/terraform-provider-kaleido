@@ -103,6 +103,10 @@ func resourceNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"hybrid_port_allocation": &schema.Schema{
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -265,6 +269,7 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("websocket_url", node.Urls["wss"])
 	d.Set("https_url", node.Urls["rpc"])
 	d.Set("first_user_account", node.FirstUserAccount)
+	d.Set("hybrid_port_allocation", node.HybridPortAllocation)
 	return nil
 }
 
