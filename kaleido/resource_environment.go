@@ -86,6 +86,10 @@ func resourceEnvironment() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"chain_id": &schema.Schema{
+				Type:     schema.TypeInt,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -126,7 +130,8 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Get("consensus_type").(string),
 		d.Get("multi_region").(bool),
 		d.Get("block_period").(int),
-		prefundedAccountsStringified)
+		prefundedAccountsStringified,
+		uint(d.Get("chain_id").(int)))
 
 	if err := setTestFeatures(d, client, &environment); err != nil {
 		return err
@@ -206,7 +211,8 @@ func resourceEnvironmentUpdate(d *schema.ResourceData, meta interface{}) error {
 		"",    // cannot change
 		false, // cannot change
 		0,     // cannot change
-		nil)
+		nil,
+		0) // cannot change
 
 	if err := setTestFeatures(d, client, &environment); err != nil {
 		return err
@@ -292,6 +298,7 @@ func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
 		balances[account] = balanceStr
 	}
 	d.Set("prefunded_accounts", balances)
+	d.Set("chain_id", environment.ChainID)
 
 	return nil
 }
