@@ -2,9 +2,9 @@ name: Go
 
 on:
   push:
-    branches: [chain-id]
+    branches: [master]
   pull_request:
-    branches: [chain-id]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
