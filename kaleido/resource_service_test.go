@@ -30,7 +30,7 @@ func TestKaleidoServiceResource(t *testing.T) {
 	membership := kaleido.NewMembership("kaleido")
 	environment := kaleido.NewEnvironment("serviceEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{
 		"3ae37053826acbf0cf8dbc5c2ff344a9576b9cf5": "1000000000000000000000000000",
-	})
+	}, 0)
 	ezone := kaleido.NewEZone("serviceZone", "us-east-2", "aws")
 	service := kaleido.NewService("service1", "hdwallet", "member1", "zone1", map[string]interface{}{
 		"backup_id":     "backupid1",

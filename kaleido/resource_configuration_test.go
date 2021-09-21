@@ -30,7 +30,7 @@ func TestKaleidoConfigResource(t *testing.T) {
 	membership := kaleido.NewMembership("kaleido")
 	environment := kaleido.NewEnvironment("configEnv", "terraforming", "quorum", "raft", false, 0, map[string]string{
 		"3ae37053826acbf0cf8dbc5c2ff344a9576b9cf5": "1000000000000000000000000000",
-	})
+	}, 0)
 	ezone := kaleido.NewEZone("configZone", "us-east-2", "aws")
 	configuration := kaleido.NewConfiguration("theConfig", "member1", "node_config", map[string]interface {
 	}{
