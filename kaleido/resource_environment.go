@@ -88,6 +88,7 @@ func resourceEnvironment() *schema.Resource {
 			},
 			"chain_id": &schema.Schema{
 				Type:     schema.TypeInt,
+				Computed: true,
 				Optional: true,
 			},
 		},
@@ -124,6 +125,7 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	if consortiumID == "" {
 		return fmt.Errorf("Consortium missing id.")
 	}
+	chainID := uint(d.Get("chain_id").(int))
 	environment := kaleido.NewEnvironment(d.Get("name").(string),
 		d.Get("description").(string),
 		d.Get("env_type").(string),
@@ -131,7 +133,7 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Get("multi_region").(bool),
 		d.Get("block_period").(int),
 		prefundedAccountsStringified,
-		uint(d.Get("chain_id").(int)))
+		chainID)
 
 	if err := setTestFeatures(d, client, &environment); err != nil {
 		return err
@@ -196,6 +198,10 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	if environment.ReleaseID != "" {
 		d.Set("release_id", environment.ReleaseID)
 	}
+	if chainID != environment.ChainID {
+		d.Set("chain_id", environment.ChainID)
+	}
+
 	return nil
 }
 
