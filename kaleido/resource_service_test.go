@@ -166,6 +166,7 @@ func testAccServiceConfig_basic(consortium *kaleido.Consortium, membership *kale
 			name = "serviceZone"
 			consortium_id = "${kaleido_consortium.terraService.id}"
 			environment_id = "${kaleido_environment.serviceEnv.id}"
+			type = "kaleido"
 			cloud = "aws"
 			region = "us-east-2"
 		}
