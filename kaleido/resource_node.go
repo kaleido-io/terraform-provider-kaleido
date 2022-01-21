@@ -79,6 +79,11 @@ func resourceNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"remote": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 			"kms_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
@@ -168,6 +173,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	node.NodeConfigID = d.Get("node_config_id").(string)
 	node.BafID = d.Get("baf_id").(string)
 	node.Role = d.Get("role").(string)
+	isRemote := d.Get("remote").(bool)
 
 	res, err := client.CreateNode(consortiumID, environmentID, &node)
 
@@ -181,9 +187,12 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf(msg, node.Name, consortiumID, environmentID, status, res.String())
 	}
 
-	err = waitUntilNodeStarted("Create", consortiumID, environmentID, node.ID, &node, d, client)
-	if err != nil {
-		return err
+	if !isRemote {
+		// Do not wait for remote PrivateStack nodes to initialize
+		err = waitUntilNodeStarted("Create", consortiumID, environmentID, node.ID, &node, d, client)
+		if err != nil {
+			return err
+		}
 	}
 
 	d.SetId(node.ID)
@@ -210,6 +219,7 @@ func resourceNodeUpdate(d *schema.ResourceData, meta interface{}) error {
 	node.NodeConfigID = d.Get("node_config_id").(string)
 	node.BafID = d.Get("baf_id").(string)
 	nodeID := d.Id()
+	isRemote := d.Get("remote").(bool)
 
 	res, err := client.UpdateNode(consortiumID, environmentID, nodeID, &node)
 	if err != nil {
@@ -231,9 +241,12 @@ func resourceNodeUpdate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf(msg, nodeID, consortiumID, environmentID, status, res.String())
 	}
 
-	err = waitUntilNodeStarted("Update", consortiumID, environmentID, node.ID, &node, d, client)
-	if err != nil {
-		return err
+	if !isRemote {
+		// Do not wait for remote PrivateStack nodes to initialize
+		err = waitUntilNodeStarted("Update", consortiumID, environmentID, node.ID, &node, d, client)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
