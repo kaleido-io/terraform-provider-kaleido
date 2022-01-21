@@ -53,6 +53,16 @@ func resourceEZone() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"bridge_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"type": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "kaleido",
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -69,6 +79,8 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	region := d.Get("region").(string)
 	cloud := d.Get("cloud").(string)
 	ezone := kaleido.NewEZone(d.Get("name").(string), region, cloud)
+	ezone.Type = d.Get("type").(string)
+	ezone.BridgeID = d.Get("bridge_id").(string)
 
 	var existing []kaleido.EZone
 	res, err := client.ListEZones(consortiumID, environmentID, &existing)
@@ -170,6 +182,7 @@ func resourceEZoneRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.Set("name", ezone.Name)
+	d.Set("type", ezone.Type)
 	return nil
 }
 
