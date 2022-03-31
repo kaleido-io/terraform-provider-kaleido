@@ -119,7 +119,15 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
-	details := duplicateDetails(d.Get("details").(map[string]interface{}))
+	detailsMap := d.Get("details").(map[string]interface{})
+	detailsJSON := d.Get("details_json").(string)
+	if detailsJSON != "" {
+		if err := json.Unmarshal([]byte(detailsJSON), &detailsMap); err != nil {
+			msg := "Could not parse details_json of %s %s in consortium %s in environment %s: %s"
+			return fmt.Errorf(msg, d.Get("type"), d.Get("name"), consortiumID, environmentID, err)
+		}
+	}
+	details := duplicateDetails(detailsMap)
 	configuration := kaleido.NewConfiguration(d.Get("name").(string), "", "", details)
 	configID := d.Id()
 
@@ -164,6 +172,15 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", configuration.Name)
 	d.Set("type", configuration.Type)
+	d.Set("details", configuration.Details)
+
+	detailsJSON, err := json.Marshal(configuration.Details)
+	if err != nil {
+		msg := "Could parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
+		return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
+	}
+	d.Set("details_json", string(detailsJSON))
+
 	return nil
 }
 
