@@ -13,7 +13,7 @@ To install the provider from a local build with Terraform 0.14, configure your `
 ```
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/kaleido/kaleido" = "/path/to/terraform-provider-kaleido"
+    "registry.terraform.io/kaleido-io/kaleido" = "/path/to/terraform-provider-kaleido"
   }
   direct {}
 }
