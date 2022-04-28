@@ -176,7 +176,7 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 
 	detailsJSON, err := json.Marshal(configuration.Details)
 	if err != nil {
-		msg := "Could parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
+		msg := "Could not parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
 	}
 	d.Set("details_json", string(detailsJSON))
