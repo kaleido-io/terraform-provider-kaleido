@@ -28,6 +28,8 @@ deps:
 build-linux:
 		GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_LIN) -v
 build-mac:
+		GOOS=darwin GOARCH=arm64 $(GOBUILD) -o $(BINARY_MAC) -v
+build-mac-legacy:
 		GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BINARY_MAC) -v
 build-win:
 		GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BINARY_WIN) -v
