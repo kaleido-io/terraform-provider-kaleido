@@ -13,6 +13,8 @@ LDFLAGS="-X main.buildDate=`date -u +\"%Y-%m-%dT%H:%M:%SZ\"` -X main.buildVersio
 DEPS=https://gmplib.org/download/gmp/gmp-6.0.0a.tar.bz2
 TARGETS="windows-10.0/*,darwin-10.10/*"
 
+.PHONY: test
+
 all: deps build test
 build:
 	$(GOBUILD) -o ${BINARY_NAME}

@@ -174,12 +174,16 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("type", configuration.Type)
 	d.Set("details", configuration.Details)
 
-	detailsJSON, err := json.Marshal(configuration.Details)
-	if err != nil {
-		msg := "Could not parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
+	// if details_json is set, we need it to reflect the state for diffing
+	detailsJSON := d.Get("details_json").(string)
+	if detailsJSON != "" {
+		detailsJSON, err := json.Marshal(configuration.Details)
+		if err != nil {
+			msg := "Could not parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
+			return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
+		}
+		d.Set("details_json", string(detailsJSON))
 	}
-	d.Set("details_json", string(detailsJSON))
 
 	return nil
 }
