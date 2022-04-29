@@ -61,7 +61,12 @@ func resourceConfiguration() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"last_updated": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
 		},
+
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
@@ -111,6 +116,7 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	}
 
 	d.SetId(configuration.ID)
+	d.Set("last_updated", time.Now().UnixNano())
 
 	return nil
 }
@@ -142,6 +148,8 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 		msg := "Could not update configuration %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, configID, consortiumID, environmentID, status, res.String())
 	}
+
+	d.Set("last_updated", time.Now().UnixNano())
 
 	return nil
 }
