@@ -16,6 +16,7 @@ package kaleido
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -66,7 +67,13 @@ func resourceConfiguration() *schema.Resource {
 				Computed: true,
 			},
 		},
-
+		CustomizeDiff: customdiff.All(
+			customdiff.ComputedIf("last_updated", func(d *schema.ResourceDiff, meta interface{}) bool {
+				return d.HasChange("name") || d.HasChange("details") || d.HasChange("details_json") ||
+					d.HasChange("type") || d.HasChange("membership_id") ||
+					d.HasChange("environment_id") || d.HasChange("consortium_id")
+			}),
+		),
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
