@@ -16,6 +16,7 @@ package kaleido
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -61,7 +62,18 @@ func resourceConfiguration() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"last_updated": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
 		},
+		CustomizeDiff: customdiff.All(
+			customdiff.ComputedIf("last_updated", func(d *schema.ResourceDiff, meta interface{}) bool {
+				return d.HasChange("name") || d.HasChange("details") || d.HasChange("details_json") ||
+					d.HasChange("type") || d.HasChange("membership_id") ||
+					d.HasChange("environment_id") || d.HasChange("consortium_id")
+			}),
+		),
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
@@ -111,6 +123,7 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	}
 
 	d.SetId(configuration.ID)
+	d.Set("last_updated", time.Now().UnixNano())
 
 	return nil
 }
@@ -119,7 +132,15 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
-	details := duplicateDetails(d.Get("details").(map[string]interface{}))
+	detailsMap := d.Get("details").(map[string]interface{})
+	detailsJSON := d.Get("details_json").(string)
+	if detailsJSON != "" {
+		if err := json.Unmarshal([]byte(detailsJSON), &detailsMap); err != nil {
+			msg := "Could not parse details_json of %s %s in consortium %s in environment %s: %s"
+			return fmt.Errorf(msg, d.Get("type"), d.Get("name"), consortiumID, environmentID, err)
+		}
+	}
+	details := duplicateDetails(detailsMap)
 	configuration := kaleido.NewConfiguration(d.Get("name").(string), "", "", details)
 	configID := d.Id()
 
@@ -134,6 +155,8 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 		msg := "Could not update configuration %s in consortium %s in environment %s with status %d: %s"
 		return fmt.Errorf(msg, configID, consortiumID, environmentID, status, res.String())
 	}
+
+	d.Set("last_updated", time.Now().UnixNano())
 
 	return nil
 }
@@ -164,6 +187,19 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", configuration.Name)
 	d.Set("type", configuration.Type)
+	d.Set("details", configuration.Details)
+
+	// if details_json is set, we need it to reflect the state for diffing
+	detailsJSON := d.Get("details_json").(string)
+	if detailsJSON != "" {
+		detailsJSON, err := json.Marshal(configuration.Details)
+		if err != nil {
+			msg := "Could not parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
+			return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
+		}
+		d.Set("details_json", string(detailsJSON))
+	}
+
 	return nil
 }
 

@@ -13,6 +13,8 @@ LDFLAGS="-X main.buildDate=`date -u +\"%Y-%m-%dT%H:%M:%SZ\"` -X main.buildVersio
 DEPS=https://gmplib.org/download/gmp/gmp-6.0.0a.tar.bz2
 TARGETS="windows-10.0/*,darwin-10.10/*"
 
+.PHONY: test
+
 all: deps build test
 build:
 	$(GOBUILD) -o ${BINARY_NAME}
@@ -28,6 +30,8 @@ deps:
 build-linux:
 		GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_LIN) -v
 build-mac:
+		GOOS=darwin GOARCH=arm64 $(GOBUILD) -o $(BINARY_MAC) -v
+build-mac-legacy:
 		GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BINARY_MAC) -v
 build-win:
 		GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BINARY_WIN) -v

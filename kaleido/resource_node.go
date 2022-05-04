@@ -112,6 +112,10 @@ func resourceNode() *schema.Resource {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
+			"update_trigger": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),

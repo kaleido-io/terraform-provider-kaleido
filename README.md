@@ -10,14 +10,22 @@ make
 
 To install the provider from a local build with Terraform 0.14, configure your `~/.terraformrc` with:
 
-```
+```hcl
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/kaleido/kaleido" = "/path/to/terraform-provider-kaleido"
+    "registry.terraform.io/kaleido-io/kaleido" = "/path/to/terraform-provider-kaleido"
   }
   direct {}
 }
 ```
+
+then be sure to build the binary you are testing using:
+
+```shell
+make build
+```
+
+> NOTE: binaries built via `make build-${OS}` will not be detected by Terraform's `dev_overrides`.
 
 ## Examples
 
