@@ -116,6 +116,10 @@ func resourceNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"database_type": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
@@ -178,6 +182,8 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	node.BafID = d.Get("baf_id").(string)
 	node.Role = d.Get("role").(string)
 	isRemote := d.Get("remote").(bool)
+	node.database_type := d.Get("database_type").(string)
+
 
 	res, err := client.CreateNode(consortiumID, environmentID, &node)
 
