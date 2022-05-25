@@ -181,7 +181,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	node.NodeConfigID = d.Get("node_config_id").(string)
 	node.BafID = d.Get("baf_id").(string)
 	node.Role = d.Get("role").(string)
-	node.database_type := d.Get("database_type").(string)
+	node.DatabaseType = d.Get("database_type").(string)
 	isRemote := d.Get("remote").(bool)
 
 	res, err := client.CreateNode(consortiumID, environmentID, &node)
