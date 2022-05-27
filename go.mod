@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk v1.7.0
 	github.com/hashicorp/terraform-svchost v0.0.0-20191119180714-d2e4933b9136 // indirect
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d // indirect
-	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20220121141659-7ae803fd1e99
+	github.com/kaleido-io/kaleido-sdk-go v0.0.0-20220527154448-e74b3fbc26c9
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mitchellh/cli v1.1.1 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
