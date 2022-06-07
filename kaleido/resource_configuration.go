@@ -16,8 +16,9 @@ package kaleido
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
@@ -29,6 +30,14 @@ func resourceConfiguration() *schema.Resource {
 		Read:   resourceConfigurationRead,
 		Update: resourceConfigurationUpdate,
 		Delete: resourceConfigurationDelete,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceConfigurationInstanceResourceV0().CoreConfigSchema().EmptyValue().Type(),
+				Upgrade: resourceConfigurationInstanceStateUpgradeV0,
+				Version: 0,
+			},
+		},
+		SchemaVersion: 1,
 		Schema: map[string]*schema.Schema{
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
@@ -53,10 +62,6 @@ func resourceConfiguration() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
-			},
-			"details": &schema.Schema{
-				Type:     schema.TypeMap,
-				Optional: true,
 			},
 			"details_json": &schema.Schema{
 				Type:     schema.TypeString,
@@ -187,7 +192,6 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", configuration.Name)
 	d.Set("type", configuration.Type)
-	d.Set("details", configuration.Details)
 
 	// if details_json is set, we need it to reflect the state for diffing
 	detailsJSON := d.Get("details_json").(string)
@@ -198,6 +202,8 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 			return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
 		}
 		d.Set("details_json", string(detailsJSON))
+	} else {
+		d.Set("details", configuration.Details)
 	}
 
 	return nil
@@ -225,4 +231,53 @@ func resourceConfigurationDelete(d *schema.ResourceData, meta interface{}) error
 	d.SetId("")
 
 	return nil
+}
+
+func resourceConfigurationInstanceResourceV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"name": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"type": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			"consortium_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			"environment_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			"membership_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			"details": &schema.Schema{
+				Type:     schema.TypeMap,
+				Optional: true,
+			},
+			"details_json": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"last_updated": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+		},
+	}
+}
+
+func resourceConfigurationInstanceStateUpgradeV0(rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
+	rawState["details"] = nil
+
+	return rawState, nil
 }
