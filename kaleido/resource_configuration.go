@@ -16,8 +16,9 @@ package kaleido
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
@@ -125,7 +126,7 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	d.SetId(configuration.ID)
 	d.Set("last_updated", time.Now().UnixNano())
 
-	return nil
+	return resourceConfigurationRead(d, meta)
 }
 
 func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error {
@@ -158,7 +159,7 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 
 	d.Set("last_updated", time.Now().UnixNano())
 
-	return nil
+	return resourceConfigurationRead(d, meta)
 }
 
 func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
@@ -187,7 +188,6 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", configuration.Name)
 	d.Set("type", configuration.Type)
-	d.Set("details", configuration.Details)
 
 	// if details_json is set, we need it to reflect the state for diffing
 	detailsJSON := d.Get("details_json").(string)
@@ -197,9 +197,15 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 			msg := "Could not parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
 			return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
 		}
+		// if details is also set, set to nil and use details_json only
 		d.Set("details_json", string(detailsJSON))
+		details := d.Get("details").(map[string]interface{})
+		if len(details) != 0 {
+			d.Set("details", nil)
+		}
+	} else {
+		d.Set("details", configuration.Details)
 	}
-
 	return nil
 }
 
