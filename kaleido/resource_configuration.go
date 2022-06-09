@@ -197,12 +197,15 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 			msg := "Could not parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
 			return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
 		}
+		// if details is also set, set to nil and use details_json only
 		d.Set("details_json", string(detailsJSON))
-		d.Set("details", nil)
+		details := d.Get("details").(map[string]interface{})
+		if len(details) != 0 {
+			d.Set("details", nil)
+		}
 	} else {
 		d.Set("details", configuration.Details)
 	}
-
 	return nil
 }
 
