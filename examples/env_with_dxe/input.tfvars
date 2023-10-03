@@ -1,0 +1,10 @@
+consortium_name = "test-consortium"
+kaleido_api_key = ""
+env_name = "test-environment"
+provider = "pantheon"
+consensus = "ibft"
+multi_region = "true"
+node_count = 1
+block_period = 2
+gc_mode = "archive"
+service_count = 4
