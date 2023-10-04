@@ -68,6 +68,7 @@ func resourceEnvironment() *schema.Resource {
 			},
 			"multi_region": &schema.Schema{
 				Type:     schema.TypeBool,
+				Default: true,
 				Optional: true,
 			},
 			"block_period": &schema.Schema{
