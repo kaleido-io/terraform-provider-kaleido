@@ -23,7 +23,7 @@ variable "consensus" {
 
 variable "multi_region" {
   type = "string"
-  default = false
+  default = true
   description = "Make the environment multi-region compatible to support additional regions, now or in the future"
 }
 
