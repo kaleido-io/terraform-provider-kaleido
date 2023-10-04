@@ -36,7 +36,6 @@ resource "kaleido_environment" "env" {
   env_type = "${var.provider}"
   consensus_type = "${var.consensus}"
   description = "${var.env_description}"
-  prefunded_accounts = "${var.prefunded_accounts}"
 }
 
 /*
@@ -66,7 +65,8 @@ resource "kaleido_service" "kaleido" {
 }
 
 /*
-Create DXE service
+Create DXE service - please contact Kaleido support if you're interested in using DataExchange Enterprise for FireFly multi-party networks
+https://hyperledger.github.io/firefly/v1.2.2/overview/multiparty/data_exchange.html
 */
 resource "kaleido_service" "dxe" {
   count = "${var.service_count}"
@@ -74,6 +74,6 @@ resource "kaleido_service" "dxe" {
   environment_id = "${kaleido_environment.env.id}"
   membership_id = "${element(kaleido_membership.member.*.id, count.index)}"
   service_type = "dataexchange"
-  name = "IPFS ${count.index + 1}"
+  name = "DXE ${count.index + 1}"
   size = "small"
 }
