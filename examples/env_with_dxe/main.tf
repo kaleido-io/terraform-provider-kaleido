@@ -2,6 +2,13 @@
 This creates suite of environments using all available
 environment types and consensus methods.
 */
+terraform {
+  required_providers {
+    kaleido = {
+      source = "kaleido-io/kaleido"
+    }
+  }
+}
 
 provider "kaleido" {
   api = "https://console${var.kaleido_region}.kaleido.io/api/v1"
@@ -33,7 +40,7 @@ resource "kaleido_environment" "env" {
   consortium_id = "${kaleido_consortium.consortium.id}"
   multi_region = "${var.multi_region}"
   name = "${var.env_name}"
-  env_type = "${var.provider}"
+  env_type = "${var.provider_type}"
   consensus_type = "${var.consensus}"
   description = "${var.env_description}"
 }
