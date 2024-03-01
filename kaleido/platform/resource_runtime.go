@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,67 +11,68 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package kaleido
+package platform
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceConsortium() resource.Resource {
+type Runtime struct {
+	ResourceCommon
+	Type                string                 `json:"type"`
+	Name                string                 `json:"name"`
+	Config              map[string]interface{} `json:"config"`
+	LogLevel            string                 `json:"loglevel"`
+	Size                string                 `json:"size"`
+	EnvironmentMemberID string                 `json:"environmentMemberId"`
+	//read only
+	Status          string `json:"status"`
+	Deleted         bool   `json:"deleted"`
+	ExplicitStopped bool   `json:"stopped"`
+}
+
+func ResourceRuntime() resource.Resource {
 	return &resource.Resource{
-		Create: resourceConsortiumCreate,
-		Read:   resourceConsortiumRead,
-		Update: resourceConsortiumUpdate,
-		Delete: resourceConsortiumDelete,
-		Schema: map[string]*schema.Schema{
+		Create: resourceRuntimeCreate,
+		Read:   resourceRuntimeRead,
+		Update: resourceRuntimeUpdate,
+		Delete: resourceRuntimeDelete,
+		Schema: withCommon(map[string]*schema.Schema{
+			"type": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+			},
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"description": &schema.Schema{
+			"environmentMemberId": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"shared_deployment": &schema.Schema{
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				Description: "The decentralized nature of Kaleido means a consortium might be shared with other accounts. When true only create if name does not exist, and delete becomes a no-op.",
+			"config": &schema.Schema{
+				Type:     schema.TypeMap,
+				Required: false,
 			},
-		},
+			"loglevel": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: false,
+			},
+			"size": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: false,
+			},
+		}),
 	}
 }
 
-func resourceConsortiumCreate(d *resource.ResourceData, meta interface{}) error {
+func resourceRuntimeCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortium := kaleido.NewConsortium(
-		d.Get("name").(string),
-		d.Get("description").(string),
-	)
 
-	if d.Get("shared_deployment").(bool) {
-		var consortia []kaleido.Consortium
-		res, err := client.ListConsortium(&consortia)
-		if err != nil {
-			return err
-		}
-		if res.StatusCode() != 200 {
-			return fmt.Errorf("Failed to list existing consortia with status %d: %s", res.StatusCode(), res.String())
-		}
-		for _, c := range consortia {
-			if c.Name == consortium.Name && !strings.Contains(c.State, "delete") {
-				// Already exists, just re-use
-				d.SetId(c.ID)
-				return resourceConsortiumRead(d, meta)
-			}
-		}
-	}
-
-	res, err := client.CreateConsortium(&consortium)
+	res, err := createCommon(&consortium)
 	if err != nil {
 		return err
 	}
@@ -85,15 +86,15 @@ func resourceConsortiumCreate(d *resource.ResourceData, meta interface{}) error 
 	return nil
 }
 
-func resourceConsortiumUpdate(d *resource.ResourceData, meta interface{}) error {
+func resourceRuntimeUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	consortium := kaleido.NewConsortium(
+	consortium := kaleido.NewRuntime(
 		d.Get("name").(string),
 		d.Get("description").(string),
 	)
 	consortiumID := d.Id()
 
-	res, err := client.UpdateConsortium(consortiumID, &consortium)
+	res, err := client.UpdateRuntime(consortiumID, &consortium)
 	if err != nil {
 		return err
 	}
@@ -105,10 +106,10 @@ func resourceConsortiumUpdate(d *resource.ResourceData, meta interface{}) error 
 	return nil
 }
 
-func resourceConsortiumRead(d *resource.ResourceData, meta interface{}) error {
+func resourceRuntimeRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
-	var consortium kaleido.Consortium
-	res, err := client.GetConsortium(d.Id(), &consortium)
+	var consortium kaleido.Runtime
+	res, err := client.GetRuntime(d.Id(), &consortium)
 
 	if err != nil {
 		return err
@@ -127,7 +128,7 @@ func resourceConsortiumRead(d *resource.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceConsortiumDelete(d *resource.ResourceData, meta interface{}) error {
+func resourceRuntimeDelete(d *resource.ResourceData, meta interface{}) error {
 	if d.Get("shared_deployment").(bool) {
 		// Cannot safely delete if this is shared with other terraform deployments
 		d.SetId("")
@@ -135,7 +136,7 @@ func resourceConsortiumDelete(d *resource.ResourceData, meta interface{}) error 
 	}
 
 	client := meta.(kaleido.KaleidoClient)
-	res, err := client.DeleteConsortium(d.Id())
+	res, err := client.DeleteRuntime(d.Id())
 
 	if err != nil {
 		return err

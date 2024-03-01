@@ -14,308 +14,316 @@
 package kaleido
 
 import (
+	"context"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceService() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceServiceCreate,
-		Read:   resourceServiceRead,
-		Update: resourceServiceUpdate,
-		Delete: resourceServiceDelete,
-		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
+type resourceService struct {
+	baasBaseResource
+}
+
+func ResourceServiceFactory(client *kaleido.KaleidoClient) func() resource.Resource {
+	return func() resource.Resource {
+		return &resourceService{}
+	}
+}
+
+type ServiceResourceModel struct {
+	ID                   types.String `tfsdk:"id"`
+	Name                 types.String `tfsdk:"name"`
+	ServiceType          types.String `tfsdk:"service_type"`
+	ConsortiumID         types.String `tfsdk:"consortium_id"`
+	EnvironmentID        types.String `tfsdk:"environment_id"`
+	MembershipID         types.String `tfsdk:"membership_id"`
+	ZoneID               types.String `tfsdk:"zone_id"`
+	SharedDeployment     types.Bool   `tfsdk:"shared_deployment"`
+	Size                 types.String `tfsdk:"size"`
+	Details              types.Map    `tfsdk:"details"`
+	HttpsURL             types.String `tfsdk:"https_url"`
+	WebSocketURL         types.String `tfsdk:"websocket_url"`
+	WebUiURL             types.String `tfsdk:"webui_url"`
+	URLs                 types.Map    `tfsdk:"urls"`
+	HybridPortAllocation types.Int64  `tfsdk:"hybrid_port_allocation"`
+	UpdateTrigger        types.String `tfsdk:"update_trigger"`
+}
+
+func (r *resourceService) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_service"
+}
+
+func (r *resourceService) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"name": &schema.StringAttribute{
 				Required: true,
 			},
-			"service_type": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"service_type": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"consortium_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"environment_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"environment_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"membership_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"membership_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"zone_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+			"zone_id": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"shared_deployment": &schema.Schema{
-				Type:        schema.TypeBool,
+			"shared_deployment": &schema.BoolAttribute{
 				Optional:    true,
-				Default:     false,
+				Default:     booldefault.StaticBool(false),
 				Description: "The decentralized nature of Kaleido means a utility service might be shared with other accounts. When true only create if service_type does not exist, and delete becomes a no-op.",
 			},
-			"size": &schema.Schema{
-				Type:     schema.TypeString,
+			"size": &schema.StringAttribute{
 				Optional: true,
 			},
-			"details": &schema.Schema{
-				Type:     schema.TypeMap,
+			"details": &schema.MapAttribute{
 				Optional: true,
 			},
-			"https_url": &schema.Schema{
-				Type:     schema.TypeString,
+			"https_url": &schema.StringAttribute{
 				Computed: true,
 			},
-			"websocket_url": &schema.Schema{
-				Type:     schema.TypeString,
+			"websocket_url": &schema.StringAttribute{
 				Computed: true,
 			},
-			"webui_url": &schema.Schema{
-				Type:     schema.TypeString,
+			"webui_url": &schema.StringAttribute{
 				Computed: true,
 			},
-			"urls": &schema.Schema{
-				Type:     schema.TypeMap,
+			"urls": &schema.MapAttribute{
 				Computed: true,
 			},
-			"hybrid_port_allocation": &schema.Schema{
-				Type:     schema.TypeInt,
+			"hybrid_port_allocation": &schema.Int64Attribute{
 				Computed: true,
 			},
-			"update_trigger": {
-				Type:     schema.TypeString,
+			"update_trigger": &schema.StringAttribute{
 				Optional: true,
 			},
-		},
-		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(10 * time.Minute),
-			Update: schema.DefaultTimeout(10 * time.Minute),
-			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 	}
 }
 
-func waitUntilServiceStarted(op, consortiumID, environmentID, serviceID string, service *kaleido.Service, d *schema.ResourceData, client kaleido.KaleidoClient) error {
-	return resource.Retry(d.Timeout(op), func() *resource.RetryError {
-		res, retryErr := client.GetService(consortiumID, environmentID, service.ID, service)
-
-		if retryErr != nil {
-			return resource.NonRetryableError(retryErr)
+func (r *resourceService) waitUntilServiceStarted(ctx context.Context, op, consortiumID, environmentID, serviceID string, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics diag.Diagnostics) error {
+	return Retry.Do(ctx, op, func(attempt int) (retry bool, err error) {
+		res, getErr := r.client.GetService(consortiumID, environmentID, apiModel.ID, apiModel)
+		if getErr != nil {
+			return false, getErr
 		}
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching service %s state failed: %d", service.ID, statusCode)
-			return resource.NonRetryableError(msg)
+			return false, fmt.Errorf("Fetching service %s state failed: %d", apiModel.ID, statusCode)
 		}
 
-		if service.State != "started" {
+		if apiModel.State != "started" {
 			msg := "Service %s in environment %s in consortium %s" +
 				"took too long to enter state 'started'. Final state was '%s'."
-			retryErr := fmt.Errorf(msg, service.ID, environmentID, consortiumID, service.State)
-			return resource.RetryableError(retryErr)
+			return true, fmt.Errorf(msg, apiModel.ID, environmentID, consortiumID, apiModel.State)
 		}
-
-		return nil
+		r.copyServiceData(ctx, apiModel, data, diagnostics)
+		return false, nil
 	})
 }
 
-func setServiceUrls(d *schema.ResourceData, service *kaleido.Service) {
-	urls := make(map[string]string)
-	for name, urlValue := range service.Urls {
-		if urlString, ok := urlValue.(string); ok {
-			urls[name] = urlString
-		}
+func (r *resourceService) copyServiceData(ctx context.Context, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics diag.Diagnostics) {
+	data.ID = types.StringValue(apiModel.ID)
+	mapValue, diag := types.MapValueFrom(ctx, types.StringType, data.URLs)
+	diagnostics.Append(diag...)
+	data.URLs = mapValue
+	if httpURL, ok := apiModel.Urls["http"]; ok {
+		data.HttpsURL = types.StringValue(httpURL.(string))
 	}
-	d.Set("urls", urls)
+	if wsURL, ok := apiModel.Urls["ws"]; ok {
+		data.WebSocketURL = types.StringValue(wsURL.(string))
+	}
+	if webuiURL, ok := apiModel.Urls["webui"]; ok {
+		data.WebSocketURL = types.StringValue(webuiURL.(string))
+	}
+	data.HybridPortAllocation = types.Int64Value(apiModel.HybridPortAllocation)
 }
 
-func resourceServiceCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	membershipID := d.Get("membership_id").(string)
-	serviceType := d.Get("service_type").(string)
-	details := duplicateDetails(d.Get("details").(map[string]interface{}))
-	zoneID := d.Get("zone_id").(string)
-	service := kaleido.NewService(d.Get("name").(string), serviceType, membershipID, zoneID, details)
-	service.Size = d.Get("size").(string)
+func (r *resourceService) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	if d.Get("shared_deployment").(bool) {
+	var data ServiceResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.Service{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	apiModel.MembershipID = data.MembershipID.ValueString()
+	apiModel.Service = data.ServiceType.ValueString()
+	apiModel.ZoneID = data.ZoneID.ValueString()
+	apiModel.Size = data.Size.ValueString()
+
+	apiModel.Details = make(map[string]interface{})
+	resp.Diagnostics.Append(data.Details.ElementsAs(ctx, &apiModel.Details, true)...)
+
+	sharedExisting := false
+	if data.SharedDeployment.ValueBool() {
 		var existing []kaleido.Service
-		res, err := client.ListServices(consortiumID, environmentID, &existing)
+		res, err := r.client.ListServices(consortiumID, environmentID, &existing)
 		if err != nil {
-			return err
+			resp.Diagnostics.AddError("failed to list services", err.Error())
+			return
 		}
 		if res.StatusCode() != 200 {
-			return fmt.Errorf("Failed to list existing services with status %d: %s", res.StatusCode(), res.String())
+			resp.Diagnostics.AddError("failed to list services", fmt.Sprintf("Failed to list existing services with status %d: %s", res.StatusCode(), res.String()))
+			return
 		}
 		for _, e := range existing {
-			if e.Service == service.Service && !strings.Contains(e.State, "delete") {
+			if data.SharedDeployment.ValueBool() && e.Service == apiModel.Service && !strings.Contains(e.State, "delete") {
 				if e.ServiceType != "utility" {
-					return fmt.Errorf("The shared_deployment option only applies to utility services. %s service %s is a '%s' service", service.Service, service.ID, service.ServiceType)
+					resp.Diagnostics.AddError("shared_deployment not valid", fmt.Sprintf("The shared_deployment option only applies to utility services. %s service %s is a '%s' service", apiModel.Service, apiModel.ID, apiModel.ServiceType))
 				}
 				// Already exists, just re-use
-				d.SetId(e.ID)
-				return resourceServiceRead(d, meta)
+				sharedExisting = true
+				apiModel = e
 			}
 		}
 	}
+	if !sharedExisting {
+		res, err := r.client.CreateService(consortiumID, environmentID, &apiModel)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to create service", err.Error())
+			return
+		}
 
-	res, err := client.CreateService(consortiumID, environmentID, &service)
+		status := res.StatusCode()
+		if status != 201 {
+			msg := "Could not create service %s in consortium %s in environment %s with status %d: %s"
+			resp.Diagnostics.AddError("failed to create service", fmt.Sprintf(msg, apiModel.ID, consortiumID, environmentID, status, res.String()))
+			return
+		}
 
+	}
+
+	err := r.waitUntilServiceStarted(ctx, "Create", consortiumID, environmentID, apiModel.ID, &apiModel, &data, resp.Diagnostics)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query service status", err.Error())
+		return
 	}
 
-	status := res.StatusCode()
-	if status != 201 {
-		msg := "Could not create service %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, service.ID, consortiumID, environmentID, status, res.String())
-	}
-
-	err = waitUntilServiceStarted("Create", consortiumID, environmentID, service.ID, &service, d, client)
-
-	if err != nil {
-		return err
-	}
-
-	d.SetId(service.ID)
-	setServiceUrls(d, &service)
-	d.Set("https_url", service.Urls["http"])
-	if wsURL, ok := service.Urls["ws"]; ok {
-		d.Set("websocket_url", wsURL)
-	}
-	if webuiURL, ok := service.Urls["webui"]; ok {
-		d.Set("webui_url", webuiURL)
-	}
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func duplicateDetails(detailsSubmitted map[string]interface{}) map[string]interface{} {
-	// We do not want to save back updates that come back over the rest API into the terraform
-	// state, otherwise we will think there is a difference between any generated sub-fields
-	// inside of the details structure, and the next terraform apply will attempt to perform an update.
-	details := make(map[string]interface{})
-	for k, v := range detailsSubmitted {
-		details[k] = v
-	}
-	return details
-}
+func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ServiceResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-func resourceServiceUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	details := duplicateDetails(d.Get("details").(map[string]interface{}))
-	service := kaleido.NewService(d.Get("name").(string), "", "", "", details)
-	service.Size = d.Get("size").(string)
-	serviceID := d.Id()
+	apiModel := kaleido.Service{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	apiModel.Size = data.Size.ValueString()
+	serviceID := data.ID.ValueString()
 
-	res, err := client.UpdateService(consortiumID, environmentID, serviceID, &service)
+	apiModel.Details = make(map[string]interface{})
+	resp.Diagnostics.Append(data.Details.ElementsAs(ctx, &apiModel.Details, true)...)
 
+	res, err := r.client.UpdateService(consortiumID, environmentID, serviceID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to update service", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Could not update service %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
+		resp.Diagnostics.AddError("failed to update service", fmt.Sprintf(msg, serviceID, consortiumID, environmentID, status, res.String()))
+		return
 	}
 
-	res, err = client.ResetService(consortiumID, environmentID, service.ID)
+	res, err = r.client.ResetService(consortiumID, environmentID, apiModel.ID)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to reset service", err.Error())
+		return
 	}
 	if status != 200 {
 		msg := "Could not reset service %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
+		resp.Diagnostics.AddError("failed to update service", fmt.Sprintf(msg, serviceID, consortiumID, environmentID, status, res.String()))
+		return
 	}
 
-	err = waitUntilServiceStarted("Update", consortiumID, environmentID, serviceID, &service, d, client)
-
+	err = r.waitUntilServiceStarted(ctx, "Update", consortiumID, environmentID, serviceID, &apiModel, &data, resp.Diagnostics)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query service status", err.Error())
+		return
 	}
 
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceServiceRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	serviceID := d.Id()
+func (r *resourceService) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ServiceResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var service kaleido.Service
-	res, err := client.GetService(consortiumID, environmentID, serviceID, &service)
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	serviceID := data.ID.ValueString()
 
+	var apiModel kaleido.Service
+	res, err := r.client.GetService(consortiumID, environmentID, serviceID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query service", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
-
 	if status == 404 {
-		d.SetId("")
-		return nil
+		resp.State.RemoveResource(ctx)
+		return
 	}
 	if status != 200 {
 		msg := "Could not find service %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, serviceID, consortiumID, environmentID, status, res.String())
+		resp.Diagnostics.AddError("failed to query service", fmt.Sprintf(msg, serviceID, consortiumID, environmentID, status, res.String()))
+		return
 	}
 
-	d.Set("name", service.Name)
-	d.Set("service_type", service.Service)
-	setServiceUrls(d, &service)
-	d.Set("https_url", service.Urls["http"])
-	if wsURL, ok := service.Urls["ws"]; ok {
-		d.Set("websocket_url", wsURL)
-	}
-	if webuiURL, ok := service.Urls["webui"]; ok {
-		d.Set("webui_url", webuiURL)
-	}
-	d.Set("hybrid_port_allocation", service.HybridPortAllocation)
-	return nil
+	r.copyServiceData(ctx, &apiModel, &data, resp.Diagnostics)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceServiceDelete(d *schema.ResourceData, meta interface{}) error {
-	if d.Get("shared_deployment").(bool) {
+func (r *resourceService) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ServiceResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if data.SharedDeployment.ValueBool() {
 		// Cannot safely delete if this is shared with other terraform deployments
-		d.SetId("")
-		return nil
+		// Pretend we deleted it
+		return
 	}
 
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	serviceID := d.Id()
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	serviceID := data.ID.ValueString()
 
-	res, err := client.DeleteService(consortiumID, environmentID, serviceID)
-
+	res, err := r.client.DeleteService(consortiumID, environmentID, serviceID)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query service", err.Error())
+		return
 	}
 
 	statusCode := res.StatusCode()
 	if res.IsError() && statusCode != 404 {
 		msg := "Failed to delete service %s in environment %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, serviceID, environmentID, consortiumID, statusCode, res.String())
+		resp.Diagnostics.AddError("failed to query service", fmt.Sprintf(msg, serviceID, environmentID, consortiumID, statusCode, res.String()))
+		return
 	}
-
-	d.SetId("")
-
-	return nil
 }

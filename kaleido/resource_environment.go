@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceEnvironment() *schema.Resource {
-	return &schema.Resource{
+func resourceEnvironment() resource.Resource {
+	return &resource.Resource{
 		Create: resourceEnvironmentCreate,
 		Read:   resourceEnvironmentRead,
 		Update: resourceEnvironmentUpdate,
@@ -95,7 +95,7 @@ func resourceEnvironment() *schema.Resource {
 	}
 }
 
-func setTestFeatures(d *schema.ResourceData, client kaleido.KaleidoClient, environment *kaleido.Environment) error {
+func setTestFeatures(d *resource.ResourceData, client kaleido.KaleidoClient, environment *kaleido.Environment) error {
 	testFeaturesJSON := d.Get("test_features_json").(string)
 	if testFeaturesJSON != "" {
 		var testFeatures map[string]interface{}
@@ -109,7 +109,7 @@ func setTestFeatures(d *schema.ResourceData, client kaleido.KaleidoClient, envir
 	return nil
 }
 
-func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceEnvironmentCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	prefundedAccounts := d.Get("prefunded_accounts").(map[string]interface{})
@@ -205,7 +205,7 @@ func resourceEnvironmentCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceEnvironmentUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceEnvironmentUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Id()
@@ -239,7 +239,7 @@ func resourceEnvironmentUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceEnvironmentDelete(d *resource.ResourceData, meta interface{}) error {
 	if d.Get("shared_deployment").(bool) {
 		// Cannot safely delete if this is shared with other terraform deployments
 		d.SetId("")
@@ -267,7 +267,7 @@ func resourceEnvironmentDelete(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceEnvironmentRead(d *schema.ResourceData, meta interface{}) error {
+func resourceEnvironmentRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Id()

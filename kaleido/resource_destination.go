@@ -16,12 +16,12 @@ package kaleido
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceDestination() *schema.Resource {
-	return &schema.Resource{
+func resourceDestination() resource.Resource {
+	return &resource.Resource{
 		Create: resourceDestinationCreate,
 		Read:   resourceDestinationRead,
 		Update: resourceDestinationCreate, /* upsert/PUT semantics */
@@ -72,7 +72,7 @@ func resourceDestination() *schema.Resource {
 	}
 }
 
-func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceDestinationCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	destination := kaleido.NewDestination(d.Get("name").(string))
 	destination.KaleidoManaged = d.Get("kaleido_managed").(bool)
@@ -163,7 +163,7 @@ func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceDestinationRead(d *schema.ResourceData, meta interface{}) error {
+func resourceDestinationRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	serviceType := d.Get("service_type").(string)
 	serviceID := d.Get("service_id").(string)
@@ -199,7 +199,7 @@ func resourceDestinationRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceDestinationDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceDestinationDelete(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	serviceType := d.Get("service_type").(string)
 	serviceID := d.Get("service_id").(string)

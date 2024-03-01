@@ -16,12 +16,13 @@ package kaleido
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceInvitation() *schema.Resource {
-	return &schema.Resource{
+func resourceInvitation() resource.Resource {
+	return &resource.Resource{
 		Create: resourceInvitationCreate,
 		Read:   resourceInvitationRead,
 		Update: resourceInvitationUpdate,
@@ -44,7 +45,7 @@ func resourceInvitation() *schema.Resource {
 	}
 }
 
-func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceInvitationCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	invitation := kaleido.NewInvitation(d.Get("org_name").(string), d.Get("email").(string))
 	consortiumID := d.Get("consortium_id").(string)
@@ -65,7 +66,7 @@ func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceInvitationUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceInvitationUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	invitation := kaleido.NewInvitation(d.Get("org_name").(string), d.Get("email").(string))
 	consortiumID := d.Get("consortium_id").(string)
@@ -86,7 +87,7 @@ func resourceInvitationUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
+func resourceInvitationRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 
@@ -108,7 +109,7 @@ func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceInvitationDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceInvitationDelete(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	invitationID := d.Id()

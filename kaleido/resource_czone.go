@@ -17,13 +17,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceCZone() *schema.Resource {
-	return &schema.Resource{
+func resourceCZone() resource.Resource {
+	return &resource.Resource{
 		Create: resourceCZoneCreate,
 		Read:   resourceCZoneRead,
 		Update: resourceCZoneUpdate,
@@ -49,7 +49,7 @@ func resourceCZone() *schema.Resource {
 				ForceNew: true,
 			},
 		},
-		Timeouts: &schema.ResourceTimeout{
+		Timeouts: &resource.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
@@ -57,7 +57,7 @@ func resourceCZone() *schema.Resource {
 	}
 }
 
-func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceCZoneCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	region := d.Get("region").(string)
@@ -117,7 +117,7 @@ func resourceCZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceCZoneUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceCZoneUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	czoneID := d.Id()
@@ -138,7 +138,7 @@ func resourceCZoneUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceCZoneRead(d *schema.ResourceData, meta interface{}) error {
+func resourceCZoneRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	czoneID := d.Id()
@@ -165,7 +165,7 @@ func resourceCZoneRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceCZoneDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceCZoneDelete(d *resource.ResourceData, meta interface{}) error {
 	d.SetId("")
 	return nil
 }

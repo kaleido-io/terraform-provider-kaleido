@@ -16,12 +16,13 @@ package kaleido
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceAppCreds() *schema.Resource {
-	return &schema.Resource{
+func resourceAppCreds() resource.Resource {
+	return &resource.Resource{
 		Create: resourceAppCredCreate,
 		Read:   resourceAppCredRead,
 		Update: resourceAppCredUpdate,
@@ -62,7 +63,7 @@ func resourceAppCreds() *schema.Resource {
 	}
 }
 
-func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceAppCredCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	envID := d.Get("environment_id").(string)
@@ -89,7 +90,7 @@ func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceAppCredUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceAppCredUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	envID := d.Get("environment_id").(string)
@@ -112,7 +113,7 @@ func resourceAppCredUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
+func resourceAppCredRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	envID := d.Get("environment_id").(string)
@@ -134,7 +135,7 @@ func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceAppCredDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceAppCredDelete(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	envID := d.Get("environment_id").(string)

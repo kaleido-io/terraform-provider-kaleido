@@ -4,8 +4,8 @@ environment types and consensus methods.
 */
 
 provider "kaleido" {
-  "api" = "${var.kaleido_api_url}"
-  "api_key" = "${var.kaleido_api_key}"
+  api = "${var.kaleido_api_url}"
+  api_key = "${var.kaleido_api_key}"
 }
 
 /*

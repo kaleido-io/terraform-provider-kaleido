@@ -17,13 +17,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceNode() *schema.Resource {
-	return &schema.Resource{
+func resourceNode() resource.Resource {
+	return &resource.Resource{
 		Create: resourceNodeCreate,
 		Read:   resourceNodeRead,
 		Update: resourceNodeUpdate,
@@ -121,7 +121,7 @@ func resourceNode() *schema.Resource {
 				Optional: true,
 			},
 		},
-		Timeouts: &schema.ResourceTimeout{
+		Timeouts: &resource.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
@@ -129,7 +129,7 @@ func resourceNode() *schema.Resource {
 	}
 }
 
-func waitUntilNodeStarted(op, consortiumID, environmentID, nodeID string, node *kaleido.Node, d *schema.ResourceData, client kaleido.KaleidoClient) error {
+func waitUntilNodeStarted(op, consortiumID, environmentID, nodeID string, node *kaleido.Node, d *resource.ResourceData, client kaleido.KaleidoClient) error {
 	return resource.Retry(d.Timeout(op), func() *resource.RetryError {
 		res, retryErr := client.GetNode(consortiumID, environmentID, nodeID, node)
 
@@ -154,7 +154,7 @@ func waitUntilNodeStarted(op, consortiumID, environmentID, nodeID string, node *
 	})
 }
 
-func setNodeUrls(d *schema.ResourceData, node *kaleido.Node) {
+func setNodeUrls(d *resource.ResourceData, node *kaleido.Node) {
 	urls := make(map[string]string)
 	for name, urlValue := range node.Urls {
 		if urlString, ok := urlValue.(string); ok {
@@ -164,7 +164,7 @@ func setNodeUrls(d *schema.ResourceData, node *kaleido.Node) {
 	d.Set("urls", urls)
 }
 
-func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceNodeCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -213,7 +213,7 @@ func resourceNodeCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceNodeUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceNodeUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -261,7 +261,7 @@ func resourceNodeUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
+func resourceNodeRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -295,7 +295,7 @@ func resourceNodeRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceNodeDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceNodeDelete(d *resource.ResourceData, meta interface{}) error {
 
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)

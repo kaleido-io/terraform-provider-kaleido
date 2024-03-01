@@ -17,12 +17,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourcePrivateStackBridge() *schema.Resource {
-	return &schema.Resource{
+func resourcePrivateStackBridge() resource.Resource {
+	return &resource.Resource{
 		Read: resourcePrivateStackBridgeRead,
 
 		Schema: map[string]*schema.Schema{
@@ -56,7 +57,7 @@ func resourcePrivateStackBridge() *schema.Resource {
 	}
 }
 
-func resourcePrivateStackBridgeRead(d *schema.ResourceData, meta interface{}) error {
+func resourcePrivateStackBridgeRead(d *resource.ResourceData, meta interface{}) error {
 
 	client := meta.(kaleido.KaleidoClient)
 

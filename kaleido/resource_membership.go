@@ -16,13 +16,13 @@ package kaleido
 import (
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceMembership() *schema.Resource {
-	return &schema.Resource{
+func resourceMembership() resource.Resource {
+	return &resource.Resource{
 		Create: resourceMembershipCreate,
 		Read:   resourceMembershipRead,
 		Update: resourceMembershipUpdate,
@@ -47,7 +47,7 @@ func resourceMembership() *schema.Resource {
 	}
 }
 
-func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceMembershipCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	orgName := d.Get("org_name").(string)
 	membership := kaleido.NewMembership(orgName)
@@ -88,7 +88,7 @@ func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceMembershipUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceMembershipUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	membership := kaleido.NewMembership(d.Get("org_name").(string))
 	consortiumID := d.Get("consortium_id").(string)
@@ -109,7 +109,7 @@ func resourceMembershipUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
+func resourceMembershipRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 
@@ -130,7 +130,7 @@ func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceMembershipDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceMembershipDelete(d *resource.ResourceData, meta interface{}) error {
 	if d.Get("pre_existing").(bool) {
 		// Cannot safely delete if this is shared with other terraform deployments
 		d.SetId("")

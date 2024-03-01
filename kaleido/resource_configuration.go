@@ -20,12 +20,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceConfiguration() *schema.Resource {
-	return &schema.Resource{
+func resourceConfiguration() resource.Resource {
+	return &resource.Resource{
 		Create: resourceConfigurationCreate,
 		Read:   resourceConfigurationRead,
 		Update: resourceConfigurationUpdate,
@@ -69,13 +69,13 @@ func resourceConfiguration() *schema.Resource {
 			},
 		},
 		CustomizeDiff: customdiff.All(
-			customdiff.ComputedIf("last_updated", func(d *schema.ResourceDiff, meta interface{}) bool {
+			customdiff.ComputedIf("last_updated", func(d *resource.ResourceDiff, meta interface{}) bool {
 				return d.HasChange("name") || d.HasChange("details") || d.HasChange("details_json") ||
 					d.HasChange("type") || d.HasChange("membership_id") ||
 					d.HasChange("environment_id") || d.HasChange("consortium_id")
 			}),
 		),
-		Timeouts: &schema.ResourceTimeout{
+		Timeouts: &resource.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
@@ -83,7 +83,7 @@ func resourceConfiguration() *schema.Resource {
 	}
 }
 
-func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceConfigurationCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -129,7 +129,7 @@ func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error
 	return resourceConfigurationRead(d, meta)
 }
 
-func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceConfigurationUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -162,7 +162,7 @@ func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error
 	return resourceConfigurationRead(d, meta)
 }
 
-func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
+func resourceConfigurationRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -209,7 +209,7 @@ func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceConfigurationDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceConfigurationDelete(d *resource.ResourceData, meta interface{}) error {
 
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)

@@ -17,13 +17,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceEZone() *schema.Resource {
-	return &schema.Resource{
+func resourceEZone() resource.Resource {
+	return &resource.Resource{
 		Create: resourceEZoneCreate,
 		Read:   resourceEZoneRead,
 		Update: resourceEZoneUpdate,
@@ -64,7 +64,7 @@ func resourceEZone() *schema.Resource {
 				Default:  "kaleido",
 			},
 		},
-		Timeouts: &schema.ResourceTimeout{
+		Timeouts: &resource.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
@@ -72,7 +72,7 @@ func resourceEZone() *schema.Resource {
 	}
 }
 
-func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceEZoneCreate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -135,7 +135,7 @@ func resourceEZoneCreate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceEZoneUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceEZoneUpdate(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -157,7 +157,7 @@ func resourceEZoneUpdate(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceEZoneRead(d *schema.ResourceData, meta interface{}) error {
+func resourceEZoneRead(d *resource.ResourceData, meta interface{}) error {
 	client := meta.(kaleido.KaleidoClient)
 	consortiumID := d.Get("consortium_id").(string)
 	environmentID := d.Get("environment_id").(string)
@@ -186,7 +186,7 @@ func resourceEZoneRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceEZoneDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceEZoneDelete(d *resource.ResourceData, meta interface{}) error {
 	d.SetId("")
 	return nil
 }
