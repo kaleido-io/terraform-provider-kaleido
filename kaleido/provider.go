@@ -37,7 +37,7 @@ var (
 )
 
 type kaleidoProviderData struct {
-	client *kaleido.KaleidoClient
+	baas *kaleido.KaleidoClient
 }
 
 type ProviderModel struct {
@@ -97,18 +97,20 @@ func (p *kaleidoProvider) Configure(ctx context.Context, req provider.ConfigureR
 	var data ProviderModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
-	api := data.API.ValueString()
+	pd := newProviderData(data.API.ValueString(), data.APIKey.ValueString())
+	resp.DataSourceData = pd
+	resp.ResourceData = pd
+}
+
+func newProviderData(api string, apiKey string) *kaleidoProviderData {
 	if api == "" {
 		api = os.Getenv("KALEIDO_API")
 	}
-	apiKey := data.APIKey.ValueString()
 	if apiKey == "" {
 		apiKey = os.Getenv("KALEIDO_API_KEY")
 	}
 	kc := kaleido.NewClient(api, apiKey)
-	pd := &kaleidoProviderData{client: &kc}
-	resp.DataSourceData = pd
-	resp.ResourceData = pd
+	return &kaleidoProviderData{baas: &kc}
 }
 
 // DataSources defines the data sources implemented in the provider.
@@ -135,8 +137,6 @@ func (p *kaleidoProvider) Resources(_ context.Context) []func() resource.Resourc
 	}
 }
 
-func New(version string) func() provider.Provider {
-	return func() provider.Provider {
-		return &kaleidoProvider{}
-	}
+func New(version string) provider.Provider {
+	return &kaleidoProvider{version: version}
 }

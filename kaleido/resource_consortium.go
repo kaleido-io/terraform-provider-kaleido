@@ -74,7 +74,7 @@ func (r *resourceConsortium) Create(ctx context.Context, req resource.CreateRequ
 	sharedExisting := false
 	if data.SharedDeployment.ValueBool() {
 		var consortia []kaleido.Consortium
-		res, err := r.client.ListConsortium(&consortia)
+		res, err := r.baas.ListConsortium(&consortia)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to list consortia", err.Error())
 			return
@@ -93,7 +93,7 @@ func (r *resourceConsortium) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	if !sharedExisting {
-		res, err := r.client.CreateConsortium(&apiModel)
+		res, err := r.baas.CreateConsortium(&apiModel)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to create consortium", err.Error())
 			return
@@ -119,7 +119,7 @@ func (r *resourceConsortium) Update(ctx context.Context, req resource.UpdateRequ
 	apiModel.Description = data.Description.ValueString()
 	consortiumID := data.ID.ValueString()
 
-	res, err := r.client.UpdateConsortium(consortiumID, &apiModel)
+	res, err := r.baas.UpdateConsortium(consortiumID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update consortium", err.Error())
 		return
@@ -139,7 +139,7 @@ func (r *resourceConsortium) Read(ctx context.Context, req resource.ReadRequest,
 
 	var apiModel kaleido.Consortium
 	consortiumID := data.ID.ValueString()
-	res, err := r.client.GetConsortium(consortiumID, &apiModel)
+	res, err := r.baas.GetConsortium(consortiumID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query consortium", err.Error())
 		return
@@ -172,7 +172,7 @@ func (r *resourceConsortium) Delete(ctx context.Context, req resource.DeleteRequ
 	}
 
 	consortiumID := data.ID.ValueString()
-	res, err := r.client.DeleteConsortium(consortiumID)
+	res, err := r.baas.DeleteConsortium(consortiumID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete consortium", err.Error())
 		return

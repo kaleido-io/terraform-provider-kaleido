@@ -79,7 +79,7 @@ func (r *resourceCZone) Create(ctx context.Context, req resource.CreateRequest, 
 	apiModel.Cloud = data.Cloud.ValueString()
 
 	var existing []kaleido.CZone
-	res, err := r.client.ListCZones(consortiumID, &existing)
+	res, err := r.baas.ListCZones(consortiumID, &existing)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to list consortium zones", err.Error())
 		return
@@ -98,7 +98,7 @@ func (r *resourceCZone) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 	if !exists {
 
-		res, err = r.client.CreateCZone(consortiumID, &apiModel)
+		res, err = r.baas.CreateCZone(consortiumID, &apiModel)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to create consortium zone", err.Error())
 			return
@@ -125,7 +125,7 @@ func (r *resourceCZone) Update(ctx context.Context, req resource.UpdateRequest, 
 	czoneID := data.ID.ValueString()
 	apiModel.Name = data.Name.ValueString()
 
-	res, err := r.client.UpdateCZone(consortiumID, czoneID, &apiModel)
+	res, err := r.baas.UpdateCZone(consortiumID, czoneID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update consortium zone", err.Error())
 		return
@@ -148,7 +148,7 @@ func (r *resourceCZone) Read(ctx context.Context, req resource.ReadRequest, resp
 	consortiumID := data.ConsortiumID.ValueString()
 	czoneID := data.ID.ValueString()
 
-	res, err := r.client.GetCZone(consortiumID, czoneID, &apiModel)
+	res, err := r.baas.GetCZone(consortiumID, czoneID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query consortium zone", err.Error())
 		return

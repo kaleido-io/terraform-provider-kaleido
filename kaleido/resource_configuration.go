@@ -125,7 +125,7 @@ func (r *resourceConfiguration) Create(ctx context.Context, req resource.CreateR
 	environmentID := data.EnvironmentID.ValueString()
 	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
 
-	res, err := r.client.CreateConfiguration(consortiumID, environmentID, &apiModel)
+	res, err := r.baas.CreateConfiguration(consortiumID, environmentID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create configuration", err.Error())
 		return
@@ -153,7 +153,7 @@ func (r *resourceConfiguration) Update(ctx context.Context, req resource.UpdateR
 	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
 	configID := data.ID.String()
 
-	res, err := r.client.UpdateConfiguration(consortiumID, environmentID, configID, &apiModel)
+	res, err := r.baas.UpdateConfiguration(consortiumID, environmentID, configID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update configuration", err.Error())
 		return
@@ -180,7 +180,7 @@ func (r *resourceConfiguration) Read(ctx context.Context, req resource.ReadReque
 	environmentID := data.EnvironmentID.ValueString()
 	configID := data.ID.String()
 
-	res, err := r.client.GetConfiguration(consortiumID, environmentID, configID, &apiModel)
+	res, err := r.baas.GetConfiguration(consortiumID, environmentID, configID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query configuration", err.Error())
 		return
@@ -210,7 +210,7 @@ func (r *resourceConfiguration) Delete(ctx context.Context, req resource.DeleteR
 	environmentID := data.EnvironmentID.ValueString()
 	configID := data.ID.String()
 
-	res, err := r.client.DeleteConfiguration(consortiumID, environmentID, configID)
+	res, err := r.baas.DeleteConfiguration(consortiumID, environmentID, configID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete configuration", err.Error())
 		return

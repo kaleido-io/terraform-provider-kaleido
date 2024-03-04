@@ -71,7 +71,7 @@ func (r *resourceInvitation) Create(ctx context.Context, req resource.CreateRequ
 	apiModel.OrgName = data.OrgName.ValueString()
 	apiModel.Email = data.Email.ValueString()
 
-	res, err := r.client.CreateInvitation(consortiumID, &apiModel)
+	res, err := r.baas.CreateInvitation(consortiumID, &apiModel)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create invitation", err.Error())
@@ -100,7 +100,7 @@ func (r *resourceInvitation) Update(ctx context.Context, req resource.UpdateRequ
 	consortiumID := data.ConsortiumID.ValueString()
 	inviteID := data.ID.ValueString()
 
-	res, err := r.client.UpdateInvitation(consortiumID, inviteID, &apiModel)
+	res, err := r.baas.UpdateInvitation(consortiumID, inviteID, &apiModel)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update invitation", err.Error())
@@ -125,7 +125,7 @@ func (r *resourceInvitation) Read(ctx context.Context, req resource.ReadRequest,
 	inviteID := data.ID.ValueString()
 
 	var apiModel kaleido.Invitation
-	res, err := r.client.GetInvitation(consortiumID, inviteID, &apiModel)
+	res, err := r.baas.GetInvitation(consortiumID, inviteID, &apiModel)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query invitation", err.Error())
@@ -156,7 +156,7 @@ func (r *resourceInvitation) Delete(ctx context.Context, req resource.DeleteRequ
 	consortiumID := data.ConsortiumID.ValueString()
 	invitationID := data.ID.ValueString()
 
-	res, err := r.client.DeleteInvitation(consortiumID, invitationID)
+	res, err := r.baas.DeleteInvitation(consortiumID, invitationID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete invitation", err.Error())
 		return

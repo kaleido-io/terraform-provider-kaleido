@@ -106,7 +106,7 @@ func (r *resourceDestination) Create(ctx context.Context, req resource.CreateReq
 	idregistryID := data.IDRegistryID.ValueString()
 
 	var membership kaleido.Membership
-	res, err := r.client.GetMembership(consortiumID, membershipID, &membership)
+	res, err := r.baas.GetMembership(consortiumID, membershipID, &membership)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query membership", err.Error())
 		return
@@ -120,7 +120,7 @@ func (r *resourceDestination) Create(ctx context.Context, req resource.CreateReq
 
 	if data.AutoVerifyMembership.ValueBool() {
 		if membership.VerificationProof == "" {
-			res, err = r.client.CreateMembershipVerification(consortiumID, membershipID, &kaleido.MembershipVerification{
+			res, err = r.baas.CreateMembershipVerification(consortiumID, membershipID, &kaleido.MembershipVerification{
 				TestCertificate: true,
 			})
 			if err != nil {
@@ -135,7 +135,7 @@ func (r *resourceDestination) Create(ctx context.Context, req resource.CreateReq
 			}
 		}
 
-		res, err = r.client.RegisterMembershipIdentity(idregistryID, membershipID)
+		res, err = r.baas.RegisterMembershipIdentity(idregistryID, membershipID)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to auto register membership verification", err.Error())
 			return
@@ -148,7 +148,7 @@ func (r *resourceDestination) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	res, err = r.client.CreateDestination(serviceType, serviceID, &apiModel)
+	res, err = r.baas.CreateDestination(serviceType, serviceID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create destination", err.Error())
 		return
@@ -162,7 +162,7 @@ func (r *resourceDestination) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	var destinations []kaleido.Destination
-	res, err = r.client.ListDestinations(serviceType, serviceID, &destinations)
+	res, err = r.baas.ListDestinations(serviceType, serviceID, &destinations)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to list destinations", err.Error())
@@ -210,7 +210,7 @@ func (r *resourceDestination) Read(ctx context.Context, req resource.ReadRequest
 	destURI := data.ID.ValueString()
 
 	var destinations []kaleido.Destination
-	res, err := r.client.ListDestinations(serviceType, serviceID, &destinations)
+	res, err := r.baas.ListDestinations(serviceType, serviceID, &destinations)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to list destinations", err.Error())
@@ -234,7 +234,7 @@ func (r *resourceDestination) Read(ctx context.Context, req resource.ReadRequest
 
 	if destination == nil {
 		msg := "Failed to find destination %s in %s service %s"
-		resp.Diagnostics.AddError("failed to find destination", fmt.Sprintf(msg, destination.URI, serviceType, serviceID))
+		resp.Diagnostics.AddError("failed to find destination", fmt.Sprintf(msg, destURI, serviceType, serviceID))
 		return
 	}
 
@@ -248,7 +248,7 @@ func (r *resourceDestination) Delete(ctx context.Context, req resource.DeleteReq
 	serviceID := data.ServiceID.ValueString()
 	destName := data.Name.ValueString()
 
-	res, err := r.client.DeleteDestination(serviceType, serviceID, destName)
+	res, err := r.baas.DeleteDestination(serviceType, serviceID, destName)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete destination", err.Error())
 		return

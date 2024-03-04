@@ -19,8 +19,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	gock "gopkg.in/h2non/gock.v1"
 )
@@ -63,7 +63,7 @@ func TestKaleidoConfigResource(t *testing.T) {
 		IsUnitTest:                true,
 		PreventPostDestroyRefresh: true,
 		PreCheck:                  func() { testAccPreCheck(t) },
-		Providers:                 testAccProviders,
+		ProtoV6ProviderFactories:  testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccConfigConfig_basic(&consortium, &membership, &environment),
@@ -117,7 +117,7 @@ func testAccCheckConfigExists(consResource, membershipResource, envResource, con
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newProviderData("", "").baas
 		var config kaleido.Configuration
 		res, err := client.GetConfiguration(consID, envID, configID, &config)
 

@@ -90,7 +90,7 @@ func (r *resourceAppCreds) Create(ctx context.Context, req resource.CreateReques
 	apiModel.MembershipID = data.MembershipID.ValueString()
 	apiModel.Name = data.Name.ValueString()
 
-	res, err := r.client.CreateAppCreds(consortiumID, environmentID, &apiModel)
+	res, err := r.baas.CreateAppCreds(consortiumID, environmentID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create app credential", err.Error())
 		return
@@ -121,7 +121,7 @@ func (r *resourceAppCreds) Update(ctx context.Context, req resource.UpdateReques
 	apiModel.Name = data.Name.ValueString()
 	appKeyID := data.ID.ValueString()
 
-	res, err := r.client.UpdateAppCreds(consortiumID, environmentID, appKeyID, &apiModel)
+	res, err := r.baas.UpdateAppCreds(consortiumID, environmentID, appKeyID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update app credential", err.Error())
 		return
@@ -149,7 +149,7 @@ func (r *resourceAppCreds) Read(ctx context.Context, req resource.ReadRequest, r
 	environmentID := data.EnvironmentID.ValueString()
 	appKeyID := data.ID.ValueString()
 
-	res, err := r.client.GetAppCreds(consortiumID, environmentID, appKeyID, &apiModel)
+	res, err := r.baas.GetAppCreds(consortiumID, environmentID, appKeyID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query app credential", err.Error())
 		return
@@ -176,7 +176,7 @@ func (r *resourceAppCreds) Delete(ctx context.Context, req resource.DeleteReques
 	environmentID := data.EnvironmentID.ValueString()
 	appKeyID := data.ID.ValueString()
 
-	res, err := r.client.DeleteAppCreds(consortiumID, environmentID, appKeyID)
+	res, err := r.baas.DeleteAppCreds(consortiumID, environmentID, appKeyID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete app credential", err.Error())
 		return

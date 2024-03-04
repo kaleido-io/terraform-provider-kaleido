@@ -139,7 +139,7 @@ func (r *resourceEnvironment) Create(ctx context.Context, req resource.CreateReq
 	sharedExisting := false
 	if data.SharedDeployment.ValueBool() {
 		var environments []kaleido.Environment
-		res, err := r.client.ListEnvironments(consortiumID, &environments)
+		res, err := r.baas.ListEnvironments(consortiumID, &environments)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to list environments", err.Error())
 			return
@@ -157,7 +157,7 @@ func (r *resourceEnvironment) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 	if !sharedExisting {
-		res, err := r.client.CreateEnvironment(consortiumID, &apiModel)
+		res, err := r.baas.CreateEnvironment(consortiumID, &apiModel)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to create environment", err.Error())
 			return
@@ -191,7 +191,7 @@ func (r *resourceEnvironment) Update(ctx context.Context, req resource.UpdateReq
 		_ = json.Unmarshal([]byte(data.TestFeaturesJSON.ValueString()), &apiModel.TestFeatures)
 	}
 
-	res, err := r.client.UpdateEnvironment(consortiumID, environmentID, &apiModel)
+	res, err := r.baas.UpdateEnvironment(consortiumID, environmentID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update environment", err.Error())
 		return
@@ -215,7 +215,7 @@ func (r *resourceEnvironment) Read(ctx context.Context, req resource.ReadRequest
 	environmentID := data.ID.ValueString()
 
 	var apiModel kaleido.Environment
-	res, err := r.client.GetEnvironment(consortiumID, environmentID, &apiModel)
+	res, err := r.baas.GetEnvironment(consortiumID, environmentID, &apiModel)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query environment", err.Error())
@@ -258,7 +258,7 @@ func (r *resourceEnvironment) Delete(ctx context.Context, req resource.DeleteReq
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.ID.ValueString()
 
-	res, err := r.client.DeleteEnvironment(consortiumID, environmentID)
+	res, err := r.baas.DeleteEnvironment(consortiumID, environmentID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete environment", err.Error())
 		return
