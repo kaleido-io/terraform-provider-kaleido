@@ -30,10 +30,8 @@ type resourceEZone struct {
 	baasBaseResource
 }
 
-func ResourceEZoneFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceEZone{}
-	}
+func ResourceEZoneFactory() resource.Resource {
+	return &resourceEZone{}
 }
 
 type EZoneResourceModel struct {

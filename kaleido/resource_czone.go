@@ -29,10 +29,8 @@ type resourceCZone struct {
 	baasBaseResource
 }
 
-func ResourceCZoneFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceCZone{}
-	}
+func ResourceCZoneFactory() resource.Resource {
+	return &resourceCZone{}
 }
 
 type CZoneResourceModel struct {
@@ -108,7 +106,7 @@ func (r *resourceCZone) Create(ctx context.Context, req resource.CreateRequest, 
 
 		status := res.StatusCode()
 		if status != 201 {
-			msg := "Could not create czone in consortium %s in environment %s with status %d: %s"
+			msg := "Could not create czone in consortium %s with status %d: %s"
 			resp.Diagnostics.AddError("failed to create consortium zone", fmt.Sprintf(msg, consortiumID, status, res.String()))
 			return
 		}
@@ -135,7 +133,7 @@ func (r *resourceCZone) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Could not update czone %s in consortium %s in environment %s with status %d: %s"
+		msg := "Could not update czone %s in consortium %s with status %d: %s"
 		resp.Diagnostics.AddError("failed to update consortium zone", fmt.Sprintf(msg, czoneID, consortiumID, status, res.String()))
 	}
 
@@ -162,7 +160,7 @@ func (r *resourceCZone) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 	if status != 200 {
-		msg := "Could not find czone %s in consortium %s in environment %s with status %d: %s"
+		msg := "Could not find czone %s in consortium %s with status %d: %s"
 		resp.Diagnostics.AddError("failed to query consortium zone", fmt.Sprintf(msg, czoneID, consortiumID, status, res.String()))
 	}
 

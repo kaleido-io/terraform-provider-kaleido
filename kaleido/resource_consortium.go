@@ -29,10 +29,8 @@ type resourceConsortium struct {
 	baasBaseResource
 }
 
-func ResourceConsortiumFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceConsortium{}
-	}
+func ResourceConsortiumFactory() resource.Resource {
+	return &resourceConsortium{}
 }
 
 type ConsortiumResourceModel struct {

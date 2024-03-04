@@ -16,6 +16,7 @@ package kaleido
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -23,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -36,6 +38,11 @@ var (
 
 type kaleidoProviderData struct {
 	client *kaleido.KaleidoClient
+}
+
+type ProviderModel struct {
+	API    types.String `tfsdk:"api"`
+	APIKey types.String `tfsdk:"api_key"`
 }
 
 type baasBaseResource struct {
@@ -59,7 +66,7 @@ func configureProviderData(providerData any, diagnostics diag.Diagnostics) *kale
 	if !ok {
 		diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected %T, got: %T. Please report this issue to the provider developers.", r.kaleidoProviderData, req.ProviderData),
+			fmt.Sprintf("Expected %T, got: %T. Please report this issue to the provider developers.", kaleidoProviderData, providerData),
 		)
 		return nil
 	}
@@ -87,6 +94,17 @@ func (p *kaleidoProvider) Schema(ctx context.Context, _ provider.SchemaRequest, 
 
 // Configure prepares a HashiCups API client for data sources and resources.
 func (p *kaleidoProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var data ProviderModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+
+	api := data.API.ValueString()
+	if api == "" {
+		api = os.Getenv("KALEIDO_API")
+	}
+	apiKey := data.APIKey.ValueString()
+	if apiKey == "" {
+		apiKey = os.Getenv("KALEIDO_API_KEY")
+	}
 	kc := kaleido.NewClient(api, apiKey)
 	pd := &kaleidoProviderData{client: &kc}
 	resp.DataSourceData = pd
@@ -96,24 +114,24 @@ func (p *kaleidoProvider) Configure(ctx context.Context, req provider.ConfigureR
 // DataSources defines the data sources implemented in the provider.
 func (p *kaleidoProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		"kaleido_privatestack_bridge": resourcePrivateStackBridge,
+		DatasourcePrivateStackBridgeFactory,
 	}
 }
 
 // Resources defines the resources implemented in the provider.
 func (p *kaleidoProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		"kaleido_consortium":    resourceConsortium,
-		"kaleido_environment":   resourceEnvironment,
-		"kaleido_membership":    resourceMembership,
-		"kaleido_node":          resourceNode,
-		"kaleido_service":       NewResourceService,
-		"kaleido_app_creds":     resourceAppCreds,
-		"kaleido_invitation":    resourceInvitation,
-		"kaleido_czone":         resourceCZone,
-		"kaleido_ezone":         resourceEZone,
-		"kaleido_configuration": resourceConfiguration,
-		"kaleido_destination":   resourceDestination,
+		ResourceConsortiumFactory,
+		ResourceEnvironmentFactory,
+		ResourceMembershipFactory,
+		ResourceNodeFactory,
+		ResourceServiceFactory,
+		ResourceAppCredsFactory,
+		ResourceInvitationFactory,
+		ResourceCZoneFactory,
+		ResourceEZoneFactory,
+		ResourceConfigurationFactory,
+		ResourceDestinationFactory,
 	}
 }
 
@@ -121,11 +139,4 @@ func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &kaleidoProvider{}
 	}
-}
-
-func providerConfigure(d *resource.ResourceData) (interface{}, error) {
-	api := d.Get("api").(string)
-	apiKey := d.Get("api_key").(string)
-	client := kaleido.NewClient(api, apiKey)
-	return client, nil
 }

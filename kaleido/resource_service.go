@@ -32,10 +32,8 @@ type resourceService struct {
 	baasBaseResource
 }
 
-func ResourceServiceFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceService{}
-	}
+func ResourceServiceFactory() resource.Resource {
+	return &resourceService{}
 }
 
 type ServiceResourceModel struct {
@@ -129,12 +127,12 @@ func (r *resourceService) waitUntilServiceStarted(ctx context.Context, op, conso
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			return false, fmt.Errorf("Fetching service %s state failed: %d", apiModel.ID, statusCode)
+			return false, fmt.Errorf("fetching service %s state failed: %d", apiModel.ID, statusCode)
 		}
 
 		if apiModel.State != "started" {
-			msg := "Service %s in environment %s in consortium %s" +
-				"took too long to enter state 'started'. Final state was '%s'."
+			msg := "service %s in environment %s in consortium %s" +
+				"took too long to enter state 'started'. Final state was '%s'"
 			return true, fmt.Errorf(msg, apiModel.ID, environmentID, consortiumID, apiModel.State)
 		}
 		r.copyServiceData(ctx, apiModel, data, diagnostics)

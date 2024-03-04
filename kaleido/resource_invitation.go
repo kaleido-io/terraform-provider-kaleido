@@ -29,10 +29,8 @@ type resourceInvitation struct {
 	baasBaseResource
 }
 
-func ResourceInvitationFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceInvitation{}
-	}
+func ResourceInvitationFactory() resource.Resource {
+	return &resourceInvitation{}
 }
 
 type InvitationResourceModel struct {

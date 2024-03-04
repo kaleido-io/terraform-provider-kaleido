@@ -30,10 +30,8 @@ type resourceMembership struct {
 	baasBaseResource
 }
 
-func ResourceMembershipFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceMembership{}
-	}
+func ResourceMembershipFactory() resource.Resource {
+	return &resourceMembership{}
 }
 
 type MembershipResourceModel struct {
@@ -192,7 +190,7 @@ func (r *resourceMembership) Delete(ctx context.Context, req resource.DeleteRequ
 			err := fmt.Errorf("deletion of membership %s failed: %d", membershipID, statusCode)
 			return true, err
 		} else if statusCode != 204 {
-			msg := "Failed to delete membership %s in consortium %s with status %d: %s"
+			msg := "failed to delete membership %s in consortium %s with status %d: %s"
 			return true, fmt.Errorf(msg, membershipID, consortiumID, statusCode, res.String())
 		}
 

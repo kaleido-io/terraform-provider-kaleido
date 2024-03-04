@@ -29,10 +29,8 @@ type resourceAppCreds struct {
 	baasBaseResource
 }
 
-func ResourceAppCredsFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceAppCreds{}
-	}
+func ResourceAppCredsFactory() resource.Resource {
+	return &resourceAppCreds{}
 }
 
 type AppCredsResourceModel struct {

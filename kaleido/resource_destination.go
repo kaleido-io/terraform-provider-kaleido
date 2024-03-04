@@ -31,10 +31,8 @@ type resourceDestination struct {
 	baasBaseResource
 }
 
-func ResourceDestinationFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceDestination{}
-	}
+func ResourceDestinationFactory() resource.Resource {
+	return &resourceDestination{}
 }
 
 type DestinationResourceModel struct {

@@ -21,17 +21,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 type datasourcePrivateStackBridge struct {
 	baasBaseDatasource
 }
 
-func ResourcePrivateStackBridgeFactory(client *kaleido.KaleidoClient) func() datasource.DataSource {
-	return func() datasource.DataSource {
-		return &datasourcePrivateStackBridge{}
-	}
+func DatasourcePrivateStackBridgeFactory() datasource.DataSource {
+	return &datasourcePrivateStackBridge{}
 }
 
 type PrivateStackBridgeResourceModel struct {

@@ -32,10 +32,8 @@ type resourceConfiguration struct {
 	baasBaseResource
 }
 
-func ResourceConfigurationFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceConfiguration{}
-	}
+func ResourceConfigurationFactory() resource.Resource {
+	return &resourceConfiguration{}
 }
 
 type ConfigurationResourceModel struct {
@@ -221,7 +219,7 @@ func (r *resourceConfiguration) Delete(ctx context.Context, req resource.DeleteR
 	statusCode := res.StatusCode()
 	if statusCode != 202 && statusCode != 204 {
 		msg := "Failed to delete configuration %s in consortium %s in environment %s with status %d: %s"
-		resp.Diagnostics.AddError("failed to delete configuration", fmt.Sprintf(msg, environmentID, consortiumID, statusCode, res.String()))
+		resp.Diagnostics.AddError("failed to delete configuration", fmt.Sprintf(msg, configID, environmentID, consortiumID, statusCode, res.String()))
 		return
 	}
 

@@ -32,10 +32,8 @@ type resourceEnvironment struct {
 	baasBaseResource
 }
 
-func ResourceEnvironmentFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceEnvironment{}
-	}
+func ResourceEnvironmentFactory() resource.Resource {
+	return &resourceEnvironment{}
 }
 
 type EnvironmentResourceModel struct {
@@ -129,7 +127,7 @@ func (r *resourceEnvironment) Create(ctx context.Context, req resource.CreateReq
 	apiModel.ConsensusType = data.ConsensusType.ValueString()
 	apiModel.TestFeatures = map[string]interface{}{}
 	if !data.TestFeaturesJSON.IsNull() {
-		_ = json.Unmarshal([]byte(data.TestFeaturesJSON.ValueString()), &data.TestFeaturesJSON)
+		_ = json.Unmarshal([]byte(data.TestFeaturesJSON.ValueString()), &apiModel.TestFeatures)
 	}
 	if data.MultiRegion.ValueBool() {
 		apiModel.TestFeatures["multi_region"] = true
@@ -190,7 +188,7 @@ func (r *resourceEnvironment) Update(ctx context.Context, req resource.UpdateReq
 	apiModel.Description = data.Description.ValueString()
 	if !data.TestFeaturesJSON.IsNull() {
 		apiModel.TestFeatures = map[string]interface{}{}
-		_ = json.Unmarshal([]byte(data.TestFeaturesJSON.ValueString()), &data.TestFeaturesJSON)
+		_ = json.Unmarshal([]byte(data.TestFeaturesJSON.ValueString()), &apiModel.TestFeatures)
 	}
 
 	res, err := r.client.UpdateEnvironment(consortiumID, environmentID, &apiModel)

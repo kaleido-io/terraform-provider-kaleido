@@ -32,10 +32,8 @@ type resourceNode struct {
 	baasBaseResource
 }
 
-func ResourceNodeFactory(client *kaleido.KaleidoClient) func() resource.Resource {
-	return func() resource.Resource {
-		return &resourceNode{}
-	}
+func ResourceNodeFactory() resource.Resource {
+	return &resourceNode{}
 }
 
 type NodeResourceModel struct {
@@ -153,12 +151,12 @@ func (r *resourceNode) waitUntilNodeStarted(ctx context.Context, op, consortiumI
 
 		statusCode := res.StatusCode()
 		if statusCode != 200 {
-			return false, fmt.Errorf("Fetching node %s state failed: %d", apiModel.ID, statusCode)
+			return false, fmt.Errorf("fetching node %s state failed: %d", apiModel.ID, statusCode)
 		}
 
 		if apiModel.State != "started" {
-			msg := "Node %s in environment %s in consortium %s" +
-				"took too long to enter state 'started'. Final state was '%s'."
+			msg := "node %s in environment %s in consortium %s" +
+				"took too long to enter state 'started'. Final state was '%s'"
 			return true, fmt.Errorf(msg, apiModel.ID, environmentID, consortiumID, apiModel.State)
 		}
 		r.copyNodeData(ctx, apiModel, data, diagnostics)
