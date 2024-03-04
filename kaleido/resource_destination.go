@@ -54,6 +54,9 @@ func (r *resourceDestination) Metadata(_ context.Context, _ resource.MetadataReq
 func (r *resourceDestination) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"service_type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -68,6 +71,7 @@ func (r *resourceDestination) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"kaleido_managed": &schema.BoolAttribute{
 				Optional: true,
+				Computed: true,
 				Default:  booldefault.StaticBool(true),
 			},
 			"consortium_id": &schema.StringAttribute{
@@ -84,6 +88,7 @@ func (r *resourceDestination) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"auto_verify_membership": &schema.BoolAttribute{
 				Optional:      true,
+				Computed:      true,
 				Default:       booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 			},

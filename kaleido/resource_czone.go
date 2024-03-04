@@ -48,6 +48,9 @@ func (r *resourceCZone) Metadata(_ context.Context, _ resource.MetadataRequest, 
 func (r *resourceCZone) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"name": &schema.StringAttribute{
 				Optional: true,
 			},

@@ -83,8 +83,13 @@ func (p *kaleidoProvider) Metadata(_ context.Context, _ provider.MetadataRequest
 func (p *kaleidoProvider) Schema(ctx context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"api":     schema.StringAttribute{},
-			"api_key": schema.StringAttribute{},
+			"api": schema.StringAttribute{
+				Required: true,
+			},
+			"api_key": schema.StringAttribute{
+				Sensitive: true,
+				Required:  true,
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.BlockAll(ctx),

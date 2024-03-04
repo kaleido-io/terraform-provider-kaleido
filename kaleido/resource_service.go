@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -62,6 +63,9 @@ func (r *resourceService) Metadata(_ context.Context, _ resource.MetadataRequest
 func (r *resourceService) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"name": &schema.StringAttribute{
 				Required: true,
 			},
@@ -87,14 +91,16 @@ func (r *resourceService) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"shared_deployment": &schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 				Description: "The decentralized nature of Kaleido means a utility service might be shared with other accounts. When true only create if service_type does not exist, and delete becomes a no-op.",
 			},
 			"size": &schema.StringAttribute{
 				Optional: true,
 			},
-			"details": &schema.MapAttribute{
-				Optional: true,
+			"details": &schema.ObjectAttribute{
+				Optional:   true,
+				CustomType: basetypes.ObjectType{},
 			},
 			"https_url": &schema.StringAttribute{
 				Computed: true,
@@ -106,7 +112,8 @@ func (r *resourceService) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed: true,
 			},
 			"urls": &schema.MapAttribute{
-				Computed: true,
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 			"hybrid_port_allocation": &schema.Int64Attribute{
 				Computed: true,

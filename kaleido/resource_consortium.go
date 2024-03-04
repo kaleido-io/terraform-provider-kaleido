@@ -47,14 +47,18 @@ func (r *resourceConsortium) Metadata(_ context.Context, _ resource.MetadataRequ
 func (r *resourceConsortium) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"name": &schema.StringAttribute{
 				Required: true,
 			},
-			"description": &schema.BoolAttribute{
+			"description": &schema.StringAttribute{
 				Optional: true,
 			},
 			"shared_deployment": &schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 				Description: "The decentralized nature of Kaleido means a consortium might be shared with other accounts. When true only create if name does not exist, and delete becomes a no-op.",
 			},

@@ -68,6 +68,9 @@ func (r *resourceNode) Metadata(_ context.Context, _ resource.MetadataRequest, r
 func (r *resourceNode) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"name": &schema.StringAttribute{
 				Required: true,
 			},
@@ -85,6 +88,7 @@ func (r *resourceNode) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"role": &schema.StringAttribute{
 				Optional:      true,
+				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Default:       stringdefault.StaticString("validator"),
 			},
@@ -95,7 +99,8 @@ func (r *resourceNode) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Computed: true,
 			},
 			"urls": &schema.MapAttribute{
-				Computed: true,
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 			"first_user_account": &schema.StringAttribute{
 				Computed: true,
@@ -109,6 +114,7 @@ func (r *resourceNode) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 			"remote": &schema.BoolAttribute{
 				Optional: true,
+				Computed: true,
 				Default:  booldefault.StaticBool(false),
 			},
 			"kms_id": &schema.StringAttribute{

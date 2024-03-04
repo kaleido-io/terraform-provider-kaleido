@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -49,12 +50,15 @@ type ConfigurationResourceModel struct {
 }
 
 func (r *resourceConfiguration) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_environment"
+	resp.TypeName = "kaleido_configuration"
 }
 
 func (r *resourceConfiguration) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"name": &schema.StringAttribute{
 				Required: true,
 			},
@@ -74,8 +78,9 @@ func (r *resourceConfiguration) Schema(_ context.Context, _ resource.SchemaReque
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"details": &schema.MapAttribute{
-				Optional: true,
+			"details": &schema.ObjectAttribute{
+				Optional:   true,
+				CustomType: basetypes.ObjectType{},
 			},
 			"details_json": &schema.StringAttribute{
 				Optional: true,

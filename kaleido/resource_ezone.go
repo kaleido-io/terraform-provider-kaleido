@@ -52,6 +52,9 @@ func (r *resourceEZone) Metadata(_ context.Context, _ resource.MetadataRequest, 
 func (r *resourceEZone) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"name": &schema.StringAttribute{
 				Optional: true,
 			},
@@ -77,6 +80,7 @@ func (r *resourceEZone) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"type": &schema.StringAttribute{
 				Optional: true,
+				Computed: true,
 				Default:  stringdefault.StaticString("kaleido"),
 			},
 		},

@@ -59,6 +59,9 @@ func (r *resourceEnvironment) Metadata(_ context.Context, _ resource.MetadataReq
 func (r *resourceEnvironment) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"consortium_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -72,6 +75,7 @@ func (r *resourceEnvironment) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"shared_deployment": &schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 				Description: "The decentralized nature of Kaleido means an environment might be shared with other accounts. When true only create if name does not exist, and delete becomes a no-op.",
 			},

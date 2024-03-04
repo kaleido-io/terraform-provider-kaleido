@@ -48,6 +48,9 @@ func (r *resourceMembership) Metadata(_ context.Context, _ resource.MetadataRequ
 func (r *resourceMembership) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
+			},
 			"consortium_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -57,6 +60,7 @@ func (r *resourceMembership) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"pre_existing": &schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 				Description: "In a decentalized consortium memberships are driven by invitation, and will be pre-existing at the point of deploying infrastructure.",
 			},
