@@ -16,7 +16,6 @@ package kaleido
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -72,9 +71,10 @@ func TestKaleidoServiceResource(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckServiceExists(consResource, membershipResource, envResource, serviceResource),
 					testAccCheckServiceExists(consResource, membershipResource, envResource, ipfsServiceResource),
-					resource.TestMatchResourceAttr(serviceResource, "details.kms_id", regexp.MustCompile("kms1")),
-					resource.TestMatchResourceAttr(serviceResource, "details.backup_id", regexp.MustCompile("backupid1")),
-					resource.TestMatchResourceAttr(serviceResource, "details.networking_id", regexp.MustCompile("networking1")),
+					// TODO: REINSTATE BELOW AFTER https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+					// resource.TestMatchResourceAttr(serviceResource, "details.kms_id", regexp.MustCompile("kms1")),
+					// resource.TestMatchResourceAttr(serviceResource, "details.backup_id", regexp.MustCompile("backupid1")),
+					// resource.TestMatchResourceAttr(serviceResource, "details.networking_id", regexp.MustCompile("networking1")),
 				),
 			},
 		},
@@ -185,11 +185,12 @@ func testAccServiceConfig_basic(consortium *kaleido.Consortium, membership *kale
 			zone_id = "${kaleido_ezone.theZone.id}"
       service_type = "hdwallet"
 			name = "service1"
-			details = {
+			# TODO: REINSTATE DETAILS ONCE https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+			details_json = jsonencode({
 				backup_id = "backupid1"
 				kms_id = "kms1"
 				networking_id = "networking1"
-			}
+			})
     }
     
 	resource "kaleido_service" "ipfs_service" {

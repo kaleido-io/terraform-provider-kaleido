@@ -177,11 +177,15 @@ func (r *resourceNode) copyNodeData(ctx context.Context, apiModel *kaleido.Node,
 	mapValue, diag := types.MapValueFrom(ctx, types.StringType, apiModel.Urls)
 	diagnostics.Append(diag...)
 	data.URLs = mapValue
-	if httpURL, ok := apiModel.Urls["http"]; ok {
+	if httpURL, ok := apiModel.Urls["rpc"]; ok {
 		data.HttpsURL = types.StringValue(httpURL.(string))
+	} else {
+		data.HttpsURL = types.StringValue("")
 	}
-	if wsURL, ok := apiModel.Urls["ws"]; ok {
+	if wsURL, ok := apiModel.Urls["wss"]; ok {
 		data.WebSocketURL = types.StringValue(wsURL.(string))
+	} else {
+		data.WebSocketURL = types.StringValue("")
 	}
 	data.HybridPortAllocation = types.Int64Value(apiModel.HybridPortAllocation)
 	data.FirstUserAccount = types.StringValue(apiModel.FirstUserAccount)
@@ -195,6 +199,7 @@ func (r *resourceNode) Create(ctx context.Context, req resource.CreateRequest, r
 	apiModel := kaleido.Node{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
+	apiModel.Name = data.Name.ValueString()
 	apiModel.MembershipID = data.MembershipID.ValueString()
 	apiModel.ZoneID = data.ZoneID.ValueString()
 	apiModel.Size = data.Size.ValueString()

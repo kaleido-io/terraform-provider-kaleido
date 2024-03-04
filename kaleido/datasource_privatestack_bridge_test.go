@@ -29,7 +29,7 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 
 	gock.Observe(gock.DumpRequest)
 
-	os.Setenv("KALEIDO_API", "http://api.example.com/api/v1")
+	os.Setenv("KALEIDO_API", "http://example.com/api/v1")
 	os.Setenv("KALEIDO_API_KEY", "ut_apikey")
 
 	mockConfigJSON := []byte(`
@@ -50,7 +50,7 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 	var mockConfig map[string]interface{}
 	json.Unmarshal(mockConfigJSON, &mockConfig)
 
-	gock.New("http://api.example.com").
+	gock.New("http://example.com").
 		Get("/api/v1/consortia/cons1/environments/env1/services/svc1/tunneler_config").
 		Persist().
 		Reply(200).

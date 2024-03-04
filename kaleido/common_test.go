@@ -15,6 +15,7 @@ package kaleido
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -290,6 +291,9 @@ func testConfigurationGocks(configuration *kaleido.Configuration) {
 	configurationCreateResponse := jsonClone(configurationCreateRequest)
 	configurationCreateResponse["_id"] = "cfg1"
 	configurationGetResponse1 := jsonClone(configurationCreateResponse)
+
+	t, _ := json.Marshal(configurationCreateRequest)
+	fmt.Printf("ENV: %s", t)
 
 	gock.New("http://example.com").
 		Post("/api/v1/consortia/cons1/environments/env1/configurations").

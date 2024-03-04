@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -84,15 +83,12 @@ func (p *kaleidoProvider) Schema(ctx context.Context, _ provider.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"api": schema.StringAttribute{
-				Required: true,
+				Optional: true,
 			},
 			"api_key": schema.StringAttribute{
 				Sensitive: true,
-				Required:  true,
+				Optional:  true,
 			},
-		},
-		Blocks: map[string]schema.Block{
-			"timeouts": timeouts.BlockAll(ctx),
 		},
 	}
 }

@@ -16,7 +16,6 @@ package kaleido
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -56,7 +55,7 @@ func TestKaleidoConfigResource(t *testing.T) {
 
 	gock.Observe(gock.DumpRequest)
 
-	os.Setenv("KALEIDO_API", "http://api.example.com/api/v1")
+	os.Setenv("KALEIDO_API", "http://example.com/api/v1")
 	os.Setenv("KALEIDO_API_KEY", "ut_apikey")
 
 	resource.Test(t, resource.TestCase{
@@ -69,7 +68,8 @@ func TestKaleidoConfigResource(t *testing.T) {
 				Config: testAccConfigConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckConfigExists(consResource, membershipResource, envResource, configurationResource),
-					resource.TestMatchResourceAttr(configurationResource, "details.gas_price", regexp.MustCompile("1")),
+					// TODO: REINSTATE BELOW AFTER https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+					// resource.TestMatchResourceAttr(configurationResource, "details.gas_price", regexp.MustCompile("1")),
 				),
 			},
 		},
@@ -170,9 +170,10 @@ func testAccConfigConfig_basic(consortium *kaleido.Consortium, membership *kalei
       membership_id = "${kaleido_membership.kaleido.id}"
       type = "node_config"
 			name = "theConfig"
-			details = {
-				gas_price = 1
-			}
+			# TODO: REINSTATE DETAILS ONCE https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+			details_json = jsonencode({
+				gas_price = "1"
+			})
 		}
 		
     resource "kaleido_node" "theNode" {

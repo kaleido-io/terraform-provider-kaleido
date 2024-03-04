@@ -15,6 +15,7 @@ package kaleido
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -48,6 +48,7 @@ type ServiceResourceModel struct {
 	SharedDeployment     types.Bool   `tfsdk:"shared_deployment"`
 	Size                 types.String `tfsdk:"size"`
 	Details              types.Map    `tfsdk:"details"`
+	DetailsJSON          types.String `tfsdk:"details_json"`
 	HttpsURL             types.String `tfsdk:"https_url"`
 	WebSocketURL         types.String `tfsdk:"websocket_url"`
 	WebUiURL             types.String `tfsdk:"webui_url"`
@@ -98,9 +99,13 @@ func (r *resourceService) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"size": &schema.StringAttribute{
 				Optional: true,
 			},
-			"details": &schema.ObjectAttribute{
-				Optional:   true,
-				CustomType: basetypes.ObjectType{},
+			"details": &schema.MapAttribute{
+				// TODO: PLACEHOLDER until https://github.com/hashicorp/terraform-plugin-framework/pull/931 available in 1.7.0
+				Optional:    true,
+				ElementType: types.StringType, // TODO: Placeholder
+			},
+			"details_json": &schema.StringAttribute{
+				Optional: true,
 			},
 			"https_url": &schema.StringAttribute{
 				Computed: true,
@@ -155,14 +160,39 @@ func (r *resourceService) copyServiceData(ctx context.Context, apiModel *kaleido
 	data.URLs = mapValue
 	if httpURL, ok := apiModel.Urls["http"]; ok {
 		data.HttpsURL = types.StringValue(httpURL.(string))
+	} else {
+		data.HttpsURL = types.StringValue("")
 	}
 	if wsURL, ok := apiModel.Urls["ws"]; ok {
 		data.WebSocketURL = types.StringValue(wsURL.(string))
+	} else {
+		data.WebSocketURL = types.StringValue("")
 	}
 	if webuiURL, ok := apiModel.Urls["webui"]; ok {
-		data.WebSocketURL = types.StringValue(webuiURL.(string))
+		data.WebUiURL = types.StringValue(webuiURL.(string))
+	} else {
+		data.WebUiURL = types.StringValue("")
 	}
 	data.HybridPortAllocation = types.Int64Value(apiModel.HybridPortAllocation)
+}
+
+func (r *resourceService) dataToAPIModel(_ context.Context, data *ServiceResourceModel, apiModel *kaleido.Service, diagnostics diag.Diagnostics) {
+	apiModel.Name = data.Name.ValueString()
+	apiModel.Service = data.ServiceType.ValueString()
+	apiModel.MembershipID = data.MembershipID.ValueString()
+	apiModel.ZoneID = data.ZoneID.ValueString()
+	apiModel.Size = data.Size.ValueString()
+	if !data.DetailsJSON.IsNull() {
+		apiModel.Details = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(data.DetailsJSON.ValueString()), &apiModel.Details); err != nil {
+			msg := "Could not parse details_json of %s in consortium %s in environment %s: %s"
+			diagnostics.AddError("failed to parse details_json", fmt.Sprintf(msg, apiModel.Service, data.ConsortiumID.ValueString(), data.EnvironmentID.ValueString(), err))
+			return
+		}
+	}
+	// if !data.DetailsJSON.IsNull() {
+	// 	// TODO: REINSTATE OBJECT INPUT SUPPORT ONCE WE GET https://github.com/hashicorp/terraform-plugin-framework/pull/931
+	// }
 }
 
 func (r *resourceService) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -173,13 +203,7 @@ func (r *resourceService) Create(ctx context.Context, req resource.CreateRequest
 	apiModel := kaleido.Service{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	apiModel.MembershipID = data.MembershipID.ValueString()
-	apiModel.Service = data.ServiceType.ValueString()
-	apiModel.ZoneID = data.ZoneID.ValueString()
-	apiModel.Size = data.Size.ValueString()
-
-	apiModel.Details = make(map[string]interface{})
-	resp.Diagnostics.Append(data.Details.ElementsAs(ctx, &apiModel.Details, true)...)
+	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
 
 	sharedExisting := false
 	if data.SharedDeployment.ValueBool() {
@@ -236,11 +260,8 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 	apiModel := kaleido.Service{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	apiModel.Size = data.Size.ValueString()
 	serviceID := data.ID.ValueString()
-
-	apiModel.Details = make(map[string]interface{})
-	resp.Diagnostics.Append(data.Details.ElementsAs(ctx, &apiModel.Details, true)...)
+	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
 
 	res, err := r.baas.UpdateService(consortiumID, environmentID, serviceID, &apiModel)
 	if err != nil {

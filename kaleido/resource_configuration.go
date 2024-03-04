@@ -25,7 +25,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -78,9 +77,10 @@ func (r *resourceConfiguration) Schema(_ context.Context, _ resource.SchemaReque
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"details": &schema.ObjectAttribute{
-				Optional:   true,
-				CustomType: basetypes.ObjectType{},
+			"details": &schema.MapAttribute{
+				// TODO: PLACEHOLDER until https://github.com/hashicorp/terraform-plugin-framework/pull/931 available in 1.7.0
+				Optional:    true,
+				ElementType: types.StringType, // TODO: Placeholder
 			},
 			"details_json": &schema.StringAttribute{
 				Optional: true,
@@ -92,18 +92,13 @@ func (r *resourceConfiguration) Schema(_ context.Context, _ resource.SchemaReque
 	}
 }
 
-func (r *resourceConfiguration) copyConfigurationData(ctx context.Context, apiModel *kaleido.Configuration, data *ConfigurationResourceModel, diagnostics diag.Diagnostics) {
+func (r *resourceConfiguration) copyConfigurationData(_ context.Context, apiModel *kaleido.Configuration, data *ConfigurationResourceModel, _ diag.Diagnostics) {
 	data.ID = types.StringValue(apiModel.ID)
 	data.Name = types.StringValue(apiModel.Name)
-	mapValue, diag := types.MapValueFrom(ctx, types.StringType, apiModel.Details)
-	diagnostics.Append(diag...)
-	data.Details = mapValue
-	valueStr, _ := json.MarshalIndent(apiModel.Details, "", "  ")
-	data.DetailsJSON = types.StringValue(string(valueStr))
 	data.LastUpdated = types.Int64Value(time.Now().UnixNano())
 }
 
-func (r *resourceConfiguration) dataToAPIModel(ctx context.Context, data *ConfigurationResourceModel, apiModel *kaleido.Configuration, diagnostics diag.Diagnostics) {
+func (r *resourceConfiguration) dataToAPIModel(_ context.Context, data *ConfigurationResourceModel, apiModel *kaleido.Configuration, diagnostics diag.Diagnostics) {
 	apiModel.MembershipID = data.MembershipID.ValueString()
 	apiModel.Name = data.Name.ValueString()
 	apiModel.Type = data.Type.ValueString()
@@ -115,9 +110,9 @@ func (r *resourceConfiguration) dataToAPIModel(ctx context.Context, data *Config
 			return
 		}
 	}
-	if !data.DetailsJSON.IsNull() {
-		diagnostics.Append(data.Details.ElementsAs(ctx, &apiModel.Details, true)...)
-	}
+	// if !data.DetailsJSON.IsNull() {
+	// 	// TODO: REINSTATE OBJECT INPUT SUPPORT ONCE WE GET https://github.com/hashicorp/terraform-plugin-framework/pull/931
+	// }
 }
 
 func (r *resourceConfiguration) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -183,7 +178,7 @@ func (r *resourceConfiguration) Read(ctx context.Context, req resource.ReadReque
 	apiModel := kaleido.Configuration{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	configID := data.ID.String()
+	configID := data.ID.ValueString()
 
 	res, err := r.baas.GetConfiguration(consortiumID, environmentID, configID, &apiModel)
 	if err != nil {
@@ -213,7 +208,7 @@ func (r *resourceConfiguration) Delete(ctx context.Context, req resource.DeleteR
 
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	configID := data.ID.String()
+	configID := data.ID.ValueString()
 
 	res, err := r.baas.DeleteConfiguration(consortiumID, environmentID, configID)
 	if err != nil {

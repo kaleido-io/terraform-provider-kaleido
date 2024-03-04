@@ -121,19 +121,27 @@ func (r *resourceEnvironment) Create(ctx context.Context, req resource.CreateReq
 	apiModel := kaleido.Environment{}
 	consortiumID := data.ConsortiumID.ValueString()
 	if !data.PrefundedAccounts.IsNull() {
-		apiModel.PrefundedAccounts = make(map[string]interface{})
-		resp.Diagnostics.Append(data.PrefundedAccounts.ElementsAs(ctx, &apiModel.PrefundedAccounts, true)...)
+		pfa := map[string]string{}
+		resp.Diagnostics.Append(data.PrefundedAccounts.ElementsAs(ctx, &pfa, true)...)
+		apiModel.PrefundedAccounts = map[string]interface{}{}
+		for k, v := range pfa {
+			apiModel.PrefundedAccounts[k] = map[string]interface{}{
+				"balance": v,
+			}
+		}
 	}
 	apiModel.ChainID = uint(data.ChainID.ValueInt64())
 	apiModel.Name = data.Name.ValueString()
 	apiModel.Description = data.Description.ValueString()
 	apiModel.Provider = data.EnvType.ValueString()
 	apiModel.ConsensusType = data.ConsensusType.ValueString()
-	apiModel.TestFeatures = map[string]interface{}{}
 	if !data.TestFeaturesJSON.IsNull() {
 		_ = json.Unmarshal([]byte(data.TestFeaturesJSON.ValueString()), &apiModel.TestFeatures)
 	}
 	if data.MultiRegion.ValueBool() {
+		if apiModel.TestFeatures == nil {
+			apiModel.TestFeatures = map[string]interface{}{}
+		}
 		apiModel.TestFeatures["multi_region"] = true
 	}
 	apiModel.BlockPeriod = int(data.BlockPeriod.ValueInt64())
@@ -241,7 +249,16 @@ func (r *resourceEnvironment) Read(ctx context.Context, req resource.ReadRequest
 	data.EnvType = types.StringValue(apiModel.Provider)
 	data.ConsensusType = types.StringValue(apiModel.ConsensusType)
 	data.ReleaseID = types.StringValue(apiModel.ReleaseID)
-	mapValue, diag := types.MapValueFrom(ctx, types.StringType, apiModel.PrefundedAccounts)
+	pfa := make(map[string]string)
+	for account, v := range apiModel.PrefundedAccounts {
+		if vmp, ok := v.(map[string]interface{}); ok {
+			balance := vmp["balance"]
+			if bstr, ok := balance.(string); ok {
+				pfa[account] = bstr
+			}
+		}
+	}
+	mapValue, diag := types.MapValueFrom(ctx, types.StringType, pfa)
 	resp.Diagnostics.Append(diag...)
 	data.PrefundedAccounts = mapValue
 	data.ChainID = types.Int64Value(int64(apiModel.ChainID))
