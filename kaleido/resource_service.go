@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,7 +144,8 @@ func (r *resourceService) waitUntilServiceStarted(ctx context.Context, op, conso
 
 func (r *resourceService) copyServiceData(ctx context.Context, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics diag.Diagnostics) {
 	data.ID = types.StringValue(apiModel.ID)
-	mapValue, diag := types.MapValueFrom(ctx, types.StringType, data.URLs)
+	data.Name = types.StringValue(apiModel.Name)
+	mapValue, diag := types.MapValueFrom(ctx, types.StringType, apiModel.Urls)
 	diagnostics.Append(diag...)
 	data.URLs = mapValue
 	if httpURL, ok := apiModel.Urls["http"]; ok {
@@ -249,7 +250,7 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	res, err = r.client.ResetService(consortiumID, environmentID, apiModel.ID)
+	res, err = r.client.ResetService(consortiumID, environmentID, serviceID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to reset service", err.Error())
 		return
@@ -316,14 +317,14 @@ func (r *resourceService) Delete(ctx context.Context, req resource.DeleteRequest
 
 	res, err := r.client.DeleteService(consortiumID, environmentID, serviceID)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to query service", err.Error())
+		resp.Diagnostics.AddError("failed to delete service", err.Error())
 		return
 	}
 
 	statusCode := res.StatusCode()
 	if res.IsError() && statusCode != 404 {
 		msg := "Failed to delete service %s in environment %s in consortium %s with status %d: %s"
-		resp.Diagnostics.AddError("failed to query service", fmt.Sprintf(msg, serviceID, environmentID, consortiumID, statusCode, res.String()))
+		resp.Diagnostics.AddError("failed to delete service", fmt.Sprintf(msg, serviceID, environmentID, consortiumID, statusCode, res.String()))
 		return
 	}
 }

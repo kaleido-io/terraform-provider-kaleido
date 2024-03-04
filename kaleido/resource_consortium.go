@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,136 +14,175 @@
 package kaleido
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceConsortium() resource.Resource {
-	return &resource.Resource{
-		Create: resourceConsortiumCreate,
-		Read:   resourceConsortiumRead,
-		Update: resourceConsortiumUpdate,
-		Delete: resourceConsortiumDelete,
-		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
+type resourceConsortium struct {
+	baasBaseResource
+}
+
+func ResourceConsortiumFactory(client *kaleido.KaleidoClient) func() resource.Resource {
+	return func() resource.Resource {
+		return &resourceConsortium{}
+	}
+}
+
+type ConsortiumResourceModel struct {
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Description      types.String `tfsdk:"description"`
+	SharedDeployment types.Bool   `tfsdk:"shared_deployment"`
+}
+
+func (r *resourceConsortium) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_consortium"
+}
+
+func (r *resourceConsortium) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"name": &schema.StringAttribute{
 				Required: true,
 			},
-			"description": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+			"description": &schema.BoolAttribute{
+				Optional: true,
 			},
-			"shared_deployment": &schema.Schema{
-				Type:        schema.TypeBool,
+			"shared_deployment": &schema.BoolAttribute{
 				Optional:    true,
-				Default:     false,
+				Default:     booldefault.StaticBool(false),
 				Description: "The decentralized nature of Kaleido means a consortium might be shared with other accounts. When true only create if name does not exist, and delete becomes a no-op.",
 			},
 		},
 	}
 }
 
-func resourceConsortiumCreate(d *resource.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortium := kaleido.NewConsortium(
-		d.Get("name").(string),
-		d.Get("description").(string),
-	)
+func (r *resourceConsortium) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	if d.Get("shared_deployment").(bool) {
+	var data ConsortiumResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.Consortium{}
+	apiModel.Name = data.Name.ValueString()
+	apiModel.Description = data.Description.ValueString()
+
+	sharedExisting := false
+	if data.SharedDeployment.ValueBool() {
 		var consortia []kaleido.Consortium
-		res, err := client.ListConsortium(&consortia)
+		res, err := r.client.ListConsortium(&consortia)
 		if err != nil {
-			return err
+			resp.Diagnostics.AddError("failed to list consortia", err.Error())
+			return
 		}
 		if res.StatusCode() != 200 {
-			return fmt.Errorf("Failed to list existing consortia with status %d: %s", res.StatusCode(), res.String())
+			resp.Diagnostics.AddError("failed to list consortia", fmt.Sprintf("Failed to list existing consortia with status %d: %s", res.StatusCode(), res.String()))
+			return
 		}
 		for _, c := range consortia {
-			if c.Name == consortium.Name && !strings.Contains(c.State, "delete") {
+			if c.Name == data.Name.ValueString() && !strings.Contains(c.State, "delete") {
 				// Already exists, just re-use
-				d.SetId(c.ID)
-				return resourceConsortiumRead(d, meta)
+				sharedExisting = true
+				apiModel = c
 			}
 		}
 	}
 
-	res, err := client.CreateConsortium(&consortium)
-	if err != nil {
-		return err
-	}
-	status := res.StatusCode()
-	if status != 201 {
-		return fmt.Errorf("Failed to create consortium with status %d", status)
-	}
-
-	d.SetId(consortium.ID)
-
-	return nil
-}
-
-func resourceConsortiumUpdate(d *resource.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortium := kaleido.NewConsortium(
-		d.Get("name").(string),
-		d.Get("description").(string),
-	)
-	consortiumID := d.Id()
-
-	res, err := client.UpdateConsortium(consortiumID, &consortium)
-	if err != nil {
-		return err
-	}
-	status := res.StatusCode()
-	if status != 200 {
-		return fmt.Errorf("Failed to update consortium %s with status: %d", consortiumID, status)
-	}
-
-	return nil
-}
-
-func resourceConsortiumRead(d *resource.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	var consortium kaleido.Consortium
-	res, err := client.GetConsortium(d.Id(), &consortium)
-
-	if err != nil {
-		return err
-	}
-
-	status := res.StatusCode()
-	if status != 200 {
-		if status == 404 {
-			d.SetId("")
-			return nil
+	if !sharedExisting {
+		res, err := r.client.CreateConsortium(&apiModel)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to create consortium", err.Error())
+			return
 		}
-		return fmt.Errorf("Failed to read consortium with id %s status was: %d, error: %s", d.Id(), status, res.String())
+		status := res.StatusCode()
+		if status != 201 {
+			resp.Diagnostics.AddError("failed to create consortium", fmt.Sprintf("Failed to create consortium with status %d", status))
+			return
+		}
 	}
-	d.Set("name", consortium.Name)
-	d.Set("description", consortium.Description)
-	return nil
+
+	data.ID = types.StringValue(apiModel.ID)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceConsortiumDelete(d *resource.ResourceData, meta interface{}) error {
-	if d.Get("shared_deployment").(bool) {
-		// Cannot safely delete if this is shared with other terraform deployments
-		d.SetId("")
-		return nil
+func (r *resourceConsortium) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ConsortiumResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.Consortium{}
+	apiModel.Name = data.Name.ValueString()
+	apiModel.Description = data.Description.ValueString()
+	consortiumID := data.ID.ValueString()
+
+	res, err := r.client.UpdateConsortium(consortiumID, &apiModel)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to update consortium", err.Error())
+		return
+	}
+	status := res.StatusCode()
+	if status != 200 {
+		resp.Diagnostics.AddError("failed to update consortium", fmt.Sprintf("Failed to update consortium %s with status: %d", consortiumID, status))
+		return
 	}
 
-	client := meta.(kaleido.KaleidoClient)
-	res, err := client.DeleteConsortium(d.Id())
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
 
+func (r *resourceConsortium) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ConsortiumResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	var apiModel kaleido.Consortium
+	consortiumID := data.ID.ValueString()
+	res, err := r.client.GetConsortium(consortiumID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query consortium", err.Error())
+		return
+	}
+
+	status := res.StatusCode()
+	if status == 404 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if status != 200 {
+		resp.Diagnostics.AddError("failed to query consortium", fmt.Sprintf("Failed to read consortium with id %s status was: %d, error: %s", consortiumID, status, res.String()))
+		return
+	}
+
+	data.Name = types.StringValue(apiModel.Name)
+	data.Description = types.StringValue(apiModel.Description)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *resourceConsortium) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ConsortiumResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if data.SharedDeployment.ValueBool() {
+		// Cannot safely delete if this is shared with other terraform deployments
+		// Pretend we deleted it
+		return
+	}
+
+	consortiumID := data.ID.ValueString()
+	res, err := r.client.DeleteConsortium(consortiumID)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to delete consortium", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 202 {
-		return fmt.Errorf("failed to delete consortium with id %s status was %d, error: %s", d.Id(), status, res.String())
+		resp.Diagnostics.AddError("failed to delete consortium", fmt.Sprintf("failed to delete consortium with id %s status was %d, error: %s", consortiumID, status, res.String()))
+		return
 	}
-	return nil
 }

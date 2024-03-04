@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,67 +14,88 @@
 package kaleido
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourcePrivateStackBridge() resource.Resource {
-	return &resource.Resource{
-		Read: resourcePrivateStackBridgeRead,
+type datasourcePrivateStackBridge struct {
+	baasBaseDatasource
+}
 
-		Schema: map[string]*schema.Schema{
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
+func ResourcePrivateStackBridgeFactory(client *kaleido.KaleidoClient) func() datasource.DataSource {
+	return func() datasource.DataSource {
+		return &datasourcePrivateStackBridge{}
+	}
+}
+
+type PrivateStackBridgeResourceModel struct {
+	ID            types.String `tfsdk:"id"`
+	ConsortiumID  types.String `tfsdk:"consortium_id"`
+	EnvironmentID types.String `tfsdk:"environment_id"`
+	ServiceID     types.String `tfsdk:"service_id"`
+	AppCredID     types.String `tfsdk:"appcred_id"`
+	AppCredSecret types.String `tfsdk:"appcred_secret"`
+	ConfigJSON    types.String `tfsdk:"config_json"`
+}
+
+func (d *datasourcePrivateStackBridge) Metadata(_ context.Context, _ datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = "kaleido_privatestack_bridge"
+}
+
+func (d *datasourcePrivateStackBridge) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"consortium_id": &schema.StringAttribute{
 				Required: true,
 			},
-			"environment_id": &schema.Schema{
-				Type:     schema.TypeString,
+			"environment_id": &schema.StringAttribute{
 				Required: true,
 			},
-			"service_id": &schema.Schema{
-				Type:     schema.TypeString,
+			"service_id": &schema.StringAttribute{
 				Required: true,
 			},
-			"appcred_id": &schema.Schema{
+			"appcred_id": &schema.StringAttribute{
 				Description: "Optionally provide an application credential to inject into the downloaded config, making it ready for use",
-				Type:        schema.TypeString,
 				Optional:    true,
 			},
-			"appcred_secret": &schema.Schema{
+			"appcred_secret": &schema.StringAttribute{
 				Description: "Optionally provide an application credential to inject into the downloaded config, making it ready for use",
-				Type:        schema.TypeString,
 				Optional:    true,
+				Sensitive:   true,
 			},
-			"config_json": &schema.Schema{
-				Type:     schema.TypeString,
+			"config_json": &schema.StringAttribute{
 				Computed: true,
 			},
 		},
 	}
 }
 
-func resourcePrivateStackBridgeRead(d *resource.ResourceData, meta interface{}) error {
+func (d *datasourcePrivateStackBridge) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 
-	client := meta.(kaleido.KaleidoClient)
+	var data PrivateStackBridgeResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
 	var conf map[string]interface{}
-	res, err := client.GetPrivateStackBridgeConfig(d.Get("consortium_id").(string), d.Get("environment_id").(string), d.Get("service_id").(string), &conf)
+	res, err := d.client.GetPrivateStackBridgeConfig(data.ConsortiumID.ValueString(), data.EnvironmentID.ValueString(), data.ServiceID.ValueString(), &conf)
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to get config", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
-		return fmt.Errorf("Failed to read config with id %s status was: %d, error: %s", d.Id(), status, res.String())
+		resp.Diagnostics.AddError("failed to list services", fmt.Sprintf("Failed to read config with id %s status was: %d, error: %s", data.ServiceID.ValueString(), status, res.String()))
 	}
 
-	appcredID := d.Get("appcred_id").(string)
-	appcredSecret := d.Get("appcred_secret").(string)
+	appcredID := data.AppCredID.ValueString()
+	appcredSecret := data.AppCredSecret.ValueString()
 	if appcredID != "" && appcredSecret != "" {
 		if nodesEntry, ok := conf["nodes"]; ok {
 			if nodesArray, ok := nodesEntry.([]interface{}); ok {
@@ -90,8 +111,9 @@ func resourcePrivateStackBridgeRead(d *resource.ResourceData, meta interface{}) 
 		}
 	}
 
-	d.SetId(d.Get("service_id").(string))
+	data.ID = types.StringValue(data.ServiceID.ValueString())
 	confstr, _ := json.MarshalIndent(conf, "", "  ")
-	d.Set("config_json", string(confstr))
-	return nil
+	data.ConfigJSON = types.StringValue(string(confstr))
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

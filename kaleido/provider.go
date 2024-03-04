@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -41,16 +42,28 @@ type baasBaseResource struct {
 	*kaleidoProviderData
 }
 
+type baasBaseDatasource struct {
+	*kaleidoProviderData
+}
+
 func (r *baasBaseResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	var ok bool
-	r.kaleidoProviderData, ok = req.ProviderData.(*kaleidoProviderData)
+	r.kaleidoProviderData = configureProviderData(req.ProviderData, resp.Diagnostics)
+}
+
+func (d *baasBaseDatasource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	d.kaleidoProviderData = configureProviderData(req.ProviderData, resp.Diagnostics)
+}
+
+func configureProviderData(providerData any, diagnostics diag.Diagnostics) *kaleidoProviderData {
+	kaleidoProviderData, ok := providerData.(*kaleidoProviderData)
 	if !ok {
-		resp.Diagnostics.AddError(
+		diagnostics.AddError(
 			"Unexpected Resource Configure Type",
 			fmt.Sprintf("Expected %T, got: %T. Please report this issue to the provider developers.", r.kaleidoProviderData, req.ProviderData),
 		)
-		return
+		return nil
 	}
+	return kaleidoProviderData
 }
 
 // Metadata returns the provider type name.

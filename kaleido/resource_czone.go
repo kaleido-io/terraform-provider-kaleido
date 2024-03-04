@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,158 +14,163 @@
 package kaleido
 
 import (
+	"context"
 	"fmt"
-	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceCZone() resource.Resource {
-	return &resource.Resource{
-		Create: resourceCZoneCreate,
-		Read:   resourceCZoneRead,
-		Update: resourceCZoneUpdate,
-		Delete: resourceCZoneDelete,
-		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
+type resourceCZone struct {
+	baasBaseResource
+}
+
+func ResourceCZoneFactory(client *kaleido.KaleidoClient) func() resource.Resource {
+	return func() resource.Resource {
+		return &resourceCZone{}
+	}
+}
+
+type CZoneResourceModel struct {
+	ID           types.String `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	ConsortiumID types.String `tfsdk:"consortium_id"`
+	Region       types.String `tfsdk:"region"`
+	Cloud        types.String `tfsdk:"cloud"`
+}
+
+func (r *resourceCZone) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_czone"
+}
+
+func (r *resourceCZone) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"name": &schema.StringAttribute{
 				Optional: true,
 			},
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"consortium_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"region": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"region": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"cloud": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"cloud": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-		},
-		Timeouts: &resource.ResourceTimeout{
-			Create: schema.DefaultTimeout(10 * time.Minute),
-			Update: schema.DefaultTimeout(10 * time.Minute),
-			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 	}
 }
 
-func resourceCZoneCreate(d *resource.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	region := d.Get("region").(string)
-	cloud := d.Get("cloud").(string)
-	czone := kaleido.NewCZone(d.Get("name").(string), region, cloud)
+func (r *resourceCZone) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+
+	var data CZoneResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.CZone{}
+	consortiumID := data.ConsortiumID.ValueString()
+	apiModel.Name = data.Name.ValueString()
+	apiModel.Region = data.Region.ValueString()
+	apiModel.Cloud = data.Cloud.ValueString()
 
 	var existing []kaleido.CZone
-	res, err := client.ListCZones(consortiumID, &existing)
+	res, err := r.client.ListCZones(consortiumID, &existing)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to list consortium zones", err.Error())
+		return
 	}
 	if res.StatusCode() != 200 {
-		return fmt.Errorf("Failed to list existing consortia zones with status %d: %s", res.StatusCode(), res.String())
+		resp.Diagnostics.AddError("failed to list consortium zones", fmt.Sprintf("Failed to list existing consortia zones with status %d: %s", res.StatusCode(), res.String()))
+		return
 	}
+	exists := false
 	for _, e := range existing {
-		if e.Cloud == cloud && e.Region == region {
+		if e.Cloud == data.Cloud.ValueString() && e.Region == data.Region.ValueString() {
 			// Already exists, just re-use
-			d.SetId(e.ID)
-			return resourceCZoneRead(d, meta)
+			apiModel = e
+			exists = true
+		}
+	}
+	if !exists {
+
+		res, err = r.client.CreateCZone(consortiumID, &apiModel)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to create consortium zone", err.Error())
+			return
+		}
+
+		status := res.StatusCode()
+		if status != 201 {
+			msg := "Could not create czone in consortium %s in environment %s with status %d: %s"
+			resp.Diagnostics.AddError("failed to create consortium zone", fmt.Sprintf(msg, consortiumID, status, res.String()))
+			return
 		}
 	}
 
-	res, err = client.CreateCZone(consortiumID, &czone)
-
-	if err != nil {
-		return err
-	}
-
-	status := res.StatusCode()
-	if status != 201 {
-		msg := "Could not create czone in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, consortiumID, status, res.String())
-	}
-
-	err = resource.Retry(d.Timeout("Create"), func() *resource.RetryError {
-		res, retryErr := client.GetCZone(consortiumID, czone.ID, &czone)
-
-		if retryErr != nil {
-			return resource.NonRetryableError(retryErr)
-		}
-
-		statusCode := res.StatusCode()
-		if statusCode != 200 {
-			msg := fmt.Errorf("Fetching czone %s state failed with status %d: %s", czone.ID, statusCode, res.String())
-			return resource.NonRetryableError(msg)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	d.SetId(czone.ID)
-
-	return nil
+	data.ID = types.StringValue(apiModel.ID)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceCZoneUpdate(d *resource.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	czoneID := d.Id()
-	czone := kaleido.NewCZone(d.Get("name").(string), "", "")
+func (r *resourceCZone) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data CZoneResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	res, err := client.UpdateCZone(consortiumID, czoneID, &czone)
+	apiModel := kaleido.CZone{}
+	consortiumID := data.ConsortiumID.ValueString()
+	czoneID := data.ID.ValueString()
+	apiModel.Name = data.Name.ValueString()
 
+	res, err := r.client.UpdateCZone(consortiumID, czoneID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to update consortium zone", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Could not update czone %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, czoneID, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to update consortium zone", fmt.Sprintf(msg, czoneID, consortiumID, status, res.String()))
 	}
 
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceCZoneRead(d *resource.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	czoneID := d.Id()
+func (r *resourceCZone) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data CZoneResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var czone kaleido.CZone
-	res, err := client.GetCZone(consortiumID, czoneID, &czone)
+	var apiModel kaleido.CZone
+	consortiumID := data.ConsortiumID.ValueString()
+	czoneID := data.ID.ValueString()
 
+	res, err := r.client.GetCZone(consortiumID, czoneID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query consortium zone", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
-
 	if status == 404 {
-		d.SetId("")
-		return nil
+		resp.State.RemoveResource(ctx)
+		return
 	}
 	if status != 200 {
 		msg := "Could not find czone %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, czoneID, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to query consortium zone", fmt.Sprintf(msg, czoneID, consortiumID, status, res.String()))
 	}
 
-	d.Set("name", czone.Name)
-	return nil
+	data.Name = types.StringValue(apiModel.Name)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceCZoneDelete(d *resource.ResourceData, meta interface{}) error {
-	d.SetId("")
-	return nil
+func (r *resourceCZone) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// Treated as a no-op
 }
