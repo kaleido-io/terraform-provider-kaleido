@@ -149,7 +149,7 @@ func (r *resourceNode) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	}
 }
 
-func (r *resourceNode) waitUntilNodeStarted(ctx context.Context, op, consortiumID, environmentID, nodeID string, apiModel *kaleido.Node, data *NodeResourceModel, diagnostics diag.Diagnostics) error {
+func (r *resourceNode) waitUntilNodeStarted(ctx context.Context, op, consortiumID, environmentID, nodeID string, apiModel *kaleido.Node, data *NodeResourceModel, diagnostics *diag.Diagnostics) error {
 	return kaleidobase.Retry.Do(ctx, op, func(attempt int) (retry bool, err error) {
 		res, getErr := r.BaaS.GetNode(consortiumID, environmentID, nodeID, apiModel)
 		if getErr != nil {
@@ -171,7 +171,7 @@ func (r *resourceNode) waitUntilNodeStarted(ctx context.Context, op, consortiumI
 	})
 }
 
-func (r *resourceNode) copyNodeData(ctx context.Context, apiModel *kaleido.Node, data *NodeResourceModel, diagnostics diag.Diagnostics) {
+func (r *resourceNode) copyNodeData(ctx context.Context, apiModel *kaleido.Node, data *NodeResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(apiModel.ID)
 	data.Name = types.StringValue(apiModel.Name)
 	data.Role = types.StringValue(apiModel.Role)
@@ -229,7 +229,7 @@ func (r *resourceNode) Create(ctx context.Context, req resource.CreateRequest, r
 
 	if !isRemote {
 		// Do not wait for remote PrivateStack nodes to initialize
-		err = r.waitUntilNodeStarted(ctx, "Create", consortiumID, environmentID, apiModel.ID, &apiModel, &data, resp.Diagnostics)
+		err = r.waitUntilNodeStarted(ctx, "Create", consortiumID, environmentID, apiModel.ID, &apiModel, &data, &resp.Diagnostics)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to query node status", err.Error())
 			return
@@ -281,7 +281,7 @@ func (r *resourceNode) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	if !isRemote {
 		// Do not wait for remote PrivateStack nodes to initialize
-		err = r.waitUntilNodeStarted(ctx, "Update", consortiumID, environmentID, nodeID, &apiModel, &data, resp.Diagnostics)
+		err = r.waitUntilNodeStarted(ctx, "Update", consortiumID, environmentID, nodeID, &apiModel, &data, &resp.Diagnostics)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to query node status", err.Error())
 			return
@@ -317,7 +317,7 @@ func (r *resourceNode) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	r.copyNodeData(ctx, &apiModel, &data, resp.Diagnostics)
+	r.copyNodeData(ctx, &apiModel, &data, &resp.Diagnostics)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 

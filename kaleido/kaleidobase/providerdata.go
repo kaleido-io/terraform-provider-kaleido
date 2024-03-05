@@ -36,7 +36,7 @@ type ProviderModel struct {
 	PlatformPassword types.String `tfsdk:"platform_password"`
 }
 
-func ConfigureProviderData(providerData any, diagnostics diag.Diagnostics) *ProviderData {
+func ConfigureProviderData(providerData any, diagnostics *diag.Diagnostics) *ProviderData {
 	kaleidoProviderData, ok := providerData.(*ProviderData)
 	if !ok {
 		diagnostics.AddError(

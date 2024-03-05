@@ -92,13 +92,13 @@ func (r *resourceConfiguration) Schema(_ context.Context, _ resource.SchemaReque
 	}
 }
 
-func (r *resourceConfiguration) copyConfigurationData(_ context.Context, apiModel *kaleido.Configuration, data *ConfigurationResourceModel, _ diag.Diagnostics) {
+func (r *resourceConfiguration) copyConfigurationData(_ context.Context, apiModel *kaleido.Configuration, data *ConfigurationResourceModel, _ *diag.Diagnostics) {
 	data.ID = types.StringValue(apiModel.ID)
 	data.Name = types.StringValue(apiModel.Name)
 	data.LastUpdated = types.Int64Value(time.Now().UnixNano())
 }
 
-func (r *resourceConfiguration) dataToAPIModel(_ context.Context, data *ConfigurationResourceModel, apiModel *kaleido.Configuration, diagnostics diag.Diagnostics) {
+func (r *resourceConfiguration) dataToAPIModel(_ context.Context, data *ConfigurationResourceModel, apiModel *kaleido.Configuration, diagnostics *diag.Diagnostics) {
 	apiModel.MembershipID = data.MembershipID.ValueString()
 	apiModel.Name = data.Name.ValueString()
 	apiModel.Type = data.Type.ValueString()
@@ -123,7 +123,7 @@ func (r *resourceConfiguration) Create(ctx context.Context, req resource.CreateR
 	apiModel := kaleido.Configuration{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
+	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
 
 	res, err := r.BaaS.CreateConfiguration(consortiumID, environmentID, &apiModel)
 	if err != nil {
@@ -138,7 +138,7 @@ func (r *resourceConfiguration) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	r.copyConfigurationData(ctx, &apiModel, &data, resp.Diagnostics)
+	r.copyConfigurationData(ctx, &apiModel, &data, &resp.Diagnostics)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -150,7 +150,7 @@ func (r *resourceConfiguration) Update(ctx context.Context, req resource.UpdateR
 	apiModel := kaleido.Configuration{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
+	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
 	configID := data.ID.String()
 
 	res, err := r.BaaS.UpdateConfiguration(consortiumID, environmentID, configID, &apiModel)
@@ -166,7 +166,7 @@ func (r *resourceConfiguration) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	r.copyConfigurationData(ctx, &apiModel, &data, resp.Diagnostics)
+	r.copyConfigurationData(ctx, &apiModel, &data, &resp.Diagnostics)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -197,7 +197,7 @@ func (r *resourceConfiguration) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
-	r.copyConfigurationData(ctx, &apiModel, &data, resp.Diagnostics)
+	r.copyConfigurationData(ctx, &apiModel, &data, &resp.Diagnostics)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

@@ -131,7 +131,7 @@ func (r *resourceService) Schema(_ context.Context, _ resource.SchemaRequest, re
 	}
 }
 
-func (r *resourceService) waitUntilServiceStarted(ctx context.Context, op, consortiumID, environmentID, serviceID string, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics diag.Diagnostics) error {
+func (r *resourceService) waitUntilServiceStarted(ctx context.Context, op, consortiumID, environmentID, serviceID string, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics *diag.Diagnostics) error {
 	return kaleidobase.Retry.Do(ctx, op, func(attempt int) (retry bool, err error) {
 		res, getErr := r.BaaS.GetService(consortiumID, environmentID, serviceID, apiModel)
 		if getErr != nil {
@@ -153,7 +153,7 @@ func (r *resourceService) waitUntilServiceStarted(ctx context.Context, op, conso
 	})
 }
 
-func (r *resourceService) copyServiceData(ctx context.Context, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics diag.Diagnostics) {
+func (r *resourceService) copyServiceData(ctx context.Context, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(apiModel.ID)
 	data.Name = types.StringValue(apiModel.Name)
 	mapValue, diag := types.MapValueFrom(ctx, types.StringType, apiModel.Urls)
@@ -177,7 +177,7 @@ func (r *resourceService) copyServiceData(ctx context.Context, apiModel *kaleido
 	data.HybridPortAllocation = types.Int64Value(apiModel.HybridPortAllocation)
 }
 
-func (r *resourceService) dataToAPIModel(_ context.Context, data *ServiceResourceModel, apiModel *kaleido.Service, diagnostics diag.Diagnostics) {
+func (r *resourceService) dataToAPIModel(_ context.Context, data *ServiceResourceModel, apiModel *kaleido.Service, diagnostics *diag.Diagnostics) {
 	apiModel.Name = data.Name.ValueString()
 	apiModel.Service = data.ServiceType.ValueString()
 	apiModel.MembershipID = data.MembershipID.ValueString()
@@ -204,7 +204,7 @@ func (r *resourceService) Create(ctx context.Context, req resource.CreateRequest
 	apiModel := kaleido.Service{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
+	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
 
 	sharedExisting := false
 	if data.SharedDeployment.ValueBool() {
@@ -245,7 +245,7 @@ func (r *resourceService) Create(ctx context.Context, req resource.CreateRequest
 
 	}
 
-	err := r.waitUntilServiceStarted(ctx, "Create", consortiumID, environmentID, apiModel.ID, &apiModel, &data, resp.Diagnostics)
+	err := r.waitUntilServiceStarted(ctx, "Create", consortiumID, environmentID, apiModel.ID, &apiModel, &data, &resp.Diagnostics)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query service status", err.Error())
 		return
@@ -262,7 +262,7 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
 	serviceID := data.ID.ValueString()
-	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
+	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
 
 	res, err := r.BaaS.UpdateService(consortiumID, environmentID, serviceID, &apiModel)
 	if err != nil {
@@ -288,7 +288,7 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	err = r.waitUntilServiceStarted(ctx, "Update", consortiumID, environmentID, serviceID, &apiModel, &data, resp.Diagnostics)
+	err = r.waitUntilServiceStarted(ctx, "Update", consortiumID, environmentID, serviceID, &apiModel, &data, &resp.Diagnostics)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query service status", err.Error())
 		return
@@ -323,7 +323,7 @@ func (r *resourceService) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	r.copyServiceData(ctx, &apiModel, &data, resp.Diagnostics)
+	r.copyServiceData(ctx, &apiModel, &data, &resp.Diagnostics)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

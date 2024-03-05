@@ -5,8 +5,8 @@ go 1.21
 toolchain go1.21.6
 
 require (
+	github.com/go-resty/resty/v2 v2.11.0
 	github.com/hashicorp/terraform-plugin-framework v1.6.0
-	github.com/hashicorp/terraform-plugin-framework-timeouts v0.4.1
 	github.com/hashicorp/terraform-plugin-go v0.22.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.6.0
@@ -21,7 +21,6 @@ require (
 	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/go-resty/resty/v2 v2.11.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
@@ -40,7 +39,6 @@ require (
 	github.com/hashicorp/logutils v1.0.0 // indirect
 	github.com/hashicorp/terraform-exec v0.19.0 // indirect
 	github.com/hashicorp/terraform-json v0.18.0 // indirect
-	github.com/hashicorp/terraform-plugin-framework-jsontypes v0.1.0 // indirect
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.30.0 // indirect
 	github.com/hashicorp/terraform-registry-address v0.2.3 // indirect
 	github.com/hashicorp/terraform-svchost v0.1.1 // indirect
