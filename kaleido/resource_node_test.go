@@ -87,7 +87,7 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
-		client := newProviderData("", "").baas
+		client := newTestProviderData().BaaS
 		var node kaleido.Node
 		res, err := client.GetNode(consID, envID, nodeID, &node)
 

@@ -102,7 +102,7 @@ func (r *resourceEZone) Create(ctx context.Context, req resource.CreateRequest, 
 	apiModel.BridgeID = data.BridgeID.ValueString()
 
 	var existing []kaleido.EZone
-	res, err := r.baas.ListEZones(consortiumID, environmentID, &existing)
+	res, err := r.BaaS.ListEZones(consortiumID, environmentID, &existing)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to list environment zones", err.Error())
 		return
@@ -120,7 +120,7 @@ func (r *resourceEZone) Create(ctx context.Context, req resource.CreateRequest, 
 		}
 	}
 	if !exists {
-		res, err = r.baas.CreateEZone(consortiumID, environmentID, &apiModel)
+		res, err = r.BaaS.CreateEZone(consortiumID, environmentID, &apiModel)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to create environment zone", err.Error())
 			return
@@ -148,7 +148,7 @@ func (r *resourceEZone) Update(ctx context.Context, req resource.UpdateRequest, 
 	ezoneID := data.ID.ValueString()
 	apiModel.Name = data.Name.ValueString()
 
-	res, err := r.baas.UpdateEZone(consortiumID, environmentID, ezoneID, &apiModel)
+	res, err := r.BaaS.UpdateEZone(consortiumID, environmentID, ezoneID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update environment zone", err.Error())
 		return
@@ -172,7 +172,7 @@ func (r *resourceEZone) Read(ctx context.Context, req resource.ReadRequest, resp
 	environmentID := data.EnvironmentID.ValueString()
 	ezoneID := data.ID.ValueString()
 
-	res, err := r.baas.GetEZone(consortiumID, environmentID, ezoneID, &apiModel)
+	res, err := r.BaaS.GetEZone(consortiumID, environmentID, ezoneID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query environment zone", err.Error())
 		return

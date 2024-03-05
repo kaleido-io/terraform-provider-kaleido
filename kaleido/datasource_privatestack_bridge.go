@@ -82,7 +82,7 @@ func (d *datasourcePrivateStackBridge) Read(ctx context.Context, req datasource.
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
 	var conf map[string]interface{}
-	res, err := d.baas.GetPrivateStackBridgeConfig(data.ConsortiumID.ValueString(), data.EnvironmentID.ValueString(), data.ServiceID.ValueString(), &conf)
+	res, err := d.BaaS.GetPrivateStackBridgeConfig(data.ConsortiumID.ValueString(), data.EnvironmentID.ValueString(), data.ServiceID.ValueString(), &conf)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to get config", err.Error())

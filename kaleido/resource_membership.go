@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
 type resourceMembership struct {
@@ -79,7 +80,7 @@ func (r *resourceMembership) Create(ctx context.Context, req resource.CreateRequ
 
 	if data.PreExisting.ValueBool() {
 		var memberships []kaleido.Membership
-		res, err := r.baas.ListMemberships(consortiumID, &memberships)
+		res, err := r.BaaS.ListMemberships(consortiumID, &memberships)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to list memberships", err.Error())
 			return
@@ -102,7 +103,7 @@ func (r *resourceMembership) Create(ctx context.Context, req resource.CreateRequ
 			return
 		}
 	} else {
-		res, err := r.baas.CreateMembership(consortiumID, &apiModel)
+		res, err := r.BaaS.CreateMembership(consortiumID, &apiModel)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to create membership", err.Error())
 			return
@@ -129,7 +130,7 @@ func (r *resourceMembership) Update(ctx context.Context, req resource.UpdateRequ
 	consortiumID := data.ConsortiumID.ValueString()
 	membershipID := data.ID.ValueString()
 
-	res, err := r.baas.UpdateMembership(consortiumID, membershipID, &apiModel)
+	res, err := r.BaaS.UpdateMembership(consortiumID, membershipID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update membership", err.Error())
 		return
@@ -151,7 +152,7 @@ func (r *resourceMembership) Read(ctx context.Context, req resource.ReadRequest,
 
 	var apiModel kaleido.Membership
 	consortiumID := data.ConsortiumID.ValueString()
-	res, err := r.baas.GetMembership(consortiumID, data.ID.ValueString(), &apiModel)
+	res, err := r.BaaS.GetMembership(consortiumID, data.ID.ValueString(), &apiModel)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query membership", err.Error())
@@ -183,8 +184,8 @@ func (r *resourceMembership) Delete(ctx context.Context, req resource.DeleteRequ
 	consortiumID := data.ConsortiumID.ValueString()
 	membershipID := data.ID.ValueString()
 
-	err := Retry.Do(ctx, "Delete", func(attempt int) (retry bool, err error) {
-		res, deleteErr := r.baas.DeleteMembership(consortiumID, membershipID)
+	err := kaleidobase.Retry.Do(ctx, "Delete", func(attempt int) (retry bool, err error) {
+		res, deleteErr := r.BaaS.DeleteMembership(consortiumID, membershipID)
 		if deleteErr != nil {
 			return false, deleteErr
 		}

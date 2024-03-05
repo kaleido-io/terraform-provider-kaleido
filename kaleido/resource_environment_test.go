@@ -91,7 +91,7 @@ func testAccCheckEnvironmentExists(envResource, consortiumResource string) resou
 			return fmt.Errorf("Terraform id mismatch for environment %s and %s", envID, rs.Primary.ID)
 		}
 
-		client := newProviderData("", "").baas
+		client := newTestProviderData().BaaS
 		var environment kaleido.Environment
 		res, err := client.GetEnvironment(consortium.Primary.ID, envID, &environment)
 

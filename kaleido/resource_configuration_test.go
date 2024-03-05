@@ -117,7 +117,7 @@ func testAccCheckConfigExists(consResource, membershipResource, envResource, con
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
-		client := newProviderData("", "").baas
+		client := newTestProviderData().BaaS
 		var config kaleido.Configuration
 		res, err := client.GetConfiguration(consID, envID, configID, &config)
 

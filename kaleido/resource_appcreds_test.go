@@ -67,7 +67,7 @@ func testAccCheckAppKeyExists(consResource, envResource, appKeyResource string) 
 			return fmt.Errorf("Not found: %s.", envResource)
 		}
 
-		client := newProviderData("", "").baas
+		client := newTestProviderData().BaaS
 		var appKey kaleido.AppCreds
 		res, err := client.GetAppCreds(consortRs.Primary.ID, envRs.Primary.ID, appKeyRs.Primary.ID, &appKey)
 		if err != nil {

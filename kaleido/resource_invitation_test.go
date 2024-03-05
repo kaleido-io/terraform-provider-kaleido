@@ -71,7 +71,7 @@ func testAccCheckInvitationExists(invResName string) resource.TestCheckFunc {
 			return fmt.Errorf("No terraform resource instance for %s", invResName)
 		}
 
-		client := newProviderData("", "").baas
+		client := newTestProviderData().BaaS
 		consortiaID := invRs.Primary.Attributes["consortium_id"]
 		var invitation kaleido.Invitation
 		res, err := client.GetInvitation(consortiaID, invRs.Primary.ID, &invitation)

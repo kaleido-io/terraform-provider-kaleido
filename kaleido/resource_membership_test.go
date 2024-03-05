@@ -68,7 +68,7 @@ func testAccCheckMembershipExists(memResName string) resource.TestCheckFunc {
 			return fmt.Errorf("No terraform resource instance for %s", memResName)
 		}
 
-		client := newProviderData("", "").baas
+		client := newTestProviderData().BaaS
 		consortiaID := memRs.Primary.Attributes["consortium_id"]
 		var membership kaleido.Membership
 		res, err := client.GetMembership(consortiaID, memRs.Primary.ID, &membership)

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package kaleido
+package kaleidobase
 
 import (
 	"context"
@@ -22,20 +22,20 @@ import (
 )
 
 // Note: https://discuss.hashicorp.com/t/terraform-plugin-framework-what-is-the-replacement-for-waitforstate-or-retrycontext/45538
-type retry struct {
+type CustomRetry struct {
 	InitialDelay time.Duration
 	MaximumDelay time.Duration
 	Factor       float64
 }
 
-var Retry = &retry{
+var Retry = &CustomRetry{
 	InitialDelay: 500 * time.Millisecond,
 	MaximumDelay: 5 * time.Second,
 	Factor:       2.0,
 }
 
 // Simple retry handler
-func (r *retry) Do(ctx context.Context, logDescription string, f func(attempt int) (retry bool, err error)) error {
+func (r *CustomRetry) Do(ctx context.Context, logDescription string, f func(attempt int) (retry bool, err error)) error {
 	attempt := 0
 	delay := r.InitialDelay
 	factor := r.Factor

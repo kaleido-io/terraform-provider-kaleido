@@ -15,16 +15,13 @@ package kaleido
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/platform"
 )
 
 type kaleidoProvider struct {
@@ -35,41 +32,20 @@ var (
 	_ provider.Provider = &kaleidoProvider{}
 )
 
-type kaleidoProviderData struct {
-	baas *kaleido.KaleidoClient
-}
-
-type ProviderModel struct {
-	API    types.String `tfsdk:"api"`
-	APIKey types.String `tfsdk:"api_key"`
-}
-
 type baasBaseResource struct {
-	*kaleidoProviderData
+	*kaleidobase.ProviderData
 }
 
 type baasBaseDatasource struct {
-	*kaleidoProviderData
+	*kaleidobase.ProviderData
 }
 
 func (r *baasBaseResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	r.kaleidoProviderData = configureProviderData(req.ProviderData, resp.Diagnostics)
+	r.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, resp.Diagnostics)
 }
 
 func (d *baasBaseDatasource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
-	d.kaleidoProviderData = configureProviderData(req.ProviderData, resp.Diagnostics)
-}
-
-func configureProviderData(providerData any, diagnostics diag.Diagnostics) *kaleidoProviderData {
-	kaleidoProviderData, ok := providerData.(*kaleidoProviderData)
-	if !ok {
-		diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected %T, got: %T. Please report this issue to the provider developers.", kaleidoProviderData, providerData),
-		)
-		return nil
-	}
-	return kaleidoProviderData
+	d.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, resp.Diagnostics)
 }
 
 // Metadata returns the provider type name.
@@ -89,29 +65,32 @@ func (p *kaleidoProvider) Schema(ctx context.Context, _ provider.SchemaRequest, 
 				Sensitive: true,
 				Optional:  true,
 			},
+			"platform_api": schema.StringAttribute{
+				Optional: true,
+			},
+			"platform_username": schema.StringAttribute{
+				Optional: true,
+			},
+			"platform_password": schema.StringAttribute{
+				Sensitive: true,
+				Optional:  true,
+			},
 		},
 	}
 }
 
 // Configure prepares a HashiCups API client for data sources and resources.
 func (p *kaleidoProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data ProviderModel
+	var data kaleidobase.ProviderModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
-	pd := newProviderData(data.API.ValueString(), data.APIKey.ValueString())
+	pd := kaleidobase.NewProviderData(&data)
 	resp.DataSourceData = pd
 	resp.ResourceData = pd
 }
 
-func newProviderData(api string, apiKey string) *kaleidoProviderData {
-	if api == "" {
-		api = os.Getenv("KALEIDO_API")
-	}
-	if apiKey == "" {
-		apiKey = os.Getenv("KALEIDO_API_KEY")
-	}
-	kc := kaleido.NewClient(api, apiKey)
-	return &kaleidoProviderData{baas: &kc}
+func newTestProviderData() *kaleidobase.ProviderData {
+	return kaleidobase.NewProviderData(&kaleidobase.ProviderModel{})
 }
 
 // DataSources defines the data sources implemented in the provider.
@@ -124,6 +103,7 @@ func (p *kaleidoProvider) DataSources(_ context.Context) []func() datasource.Dat
 // Resources defines the resources implemented in the provider.
 func (p *kaleidoProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		// BaaS
 		ResourceConsortiumFactory,
 		ResourceEnvironmentFactory,
 		ResourceMembershipFactory,
@@ -135,6 +115,8 @@ func (p *kaleidoProvider) Resources(_ context.Context) []func() resource.Resourc
 		ResourceEZoneFactory,
 		ResourceConfigurationFactory,
 		ResourceDestinationFactory,
+		// Platform
+		platform.RuntimeResourceFactory,
 	}
 }
 

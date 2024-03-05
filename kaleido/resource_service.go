@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
 type resourceService struct {
@@ -131,8 +132,8 @@ func (r *resourceService) Schema(_ context.Context, _ resource.SchemaRequest, re
 }
 
 func (r *resourceService) waitUntilServiceStarted(ctx context.Context, op, consortiumID, environmentID, serviceID string, apiModel *kaleido.Service, data *ServiceResourceModel, diagnostics diag.Diagnostics) error {
-	return Retry.Do(ctx, op, func(attempt int) (retry bool, err error) {
-		res, getErr := r.baas.GetService(consortiumID, environmentID, serviceID, apiModel)
+	return kaleidobase.Retry.Do(ctx, op, func(attempt int) (retry bool, err error) {
+		res, getErr := r.BaaS.GetService(consortiumID, environmentID, serviceID, apiModel)
 		if getErr != nil {
 			return false, getErr
 		}
@@ -208,7 +209,7 @@ func (r *resourceService) Create(ctx context.Context, req resource.CreateRequest
 	sharedExisting := false
 	if data.SharedDeployment.ValueBool() {
 		var existing []kaleido.Service
-		res, err := r.baas.ListServices(consortiumID, environmentID, &existing)
+		res, err := r.BaaS.ListServices(consortiumID, environmentID, &existing)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to list services", err.Error())
 			return
@@ -229,7 +230,7 @@ func (r *resourceService) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 	if !sharedExisting {
-		res, err := r.baas.CreateService(consortiumID, environmentID, &apiModel)
+		res, err := r.BaaS.CreateService(consortiumID, environmentID, &apiModel)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to create service", err.Error())
 			return
@@ -263,7 +264,7 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 	serviceID := data.ID.ValueString()
 	r.dataToAPIModel(ctx, &data, &apiModel, resp.Diagnostics)
 
-	res, err := r.baas.UpdateService(consortiumID, environmentID, serviceID, &apiModel)
+	res, err := r.BaaS.UpdateService(consortiumID, environmentID, serviceID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update service", err.Error())
 		return
@@ -276,7 +277,7 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	res, err = r.baas.ResetService(consortiumID, environmentID, serviceID)
+	res, err = r.BaaS.ResetService(consortiumID, environmentID, serviceID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to reset service", err.Error())
 		return
@@ -305,7 +306,7 @@ func (r *resourceService) Read(ctx context.Context, req resource.ReadRequest, re
 	serviceID := data.ID.ValueString()
 
 	var apiModel kaleido.Service
-	res, err := r.baas.GetService(consortiumID, environmentID, serviceID, &apiModel)
+	res, err := r.BaaS.GetService(consortiumID, environmentID, serviceID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query service", err.Error())
 		return
@@ -341,7 +342,7 @@ func (r *resourceService) Delete(ctx context.Context, req resource.DeleteRequest
 	environmentID := data.EnvironmentID.ValueString()
 	serviceID := data.ID.ValueString()
 
-	res, err := r.baas.DeleteService(consortiumID, environmentID, serviceID)
+	res, err := r.BaaS.DeleteService(consortiumID, environmentID, serviceID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete service", err.Error())
 		return

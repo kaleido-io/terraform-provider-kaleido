@@ -50,7 +50,7 @@ func testAccConsortiumConfig_basic(consortium *kaleido.Consortium) string {
 }
 
 func testAccCheckConsortiumDestroy(s *terraform.State) error {
-	client := newProviderData("", "").baas
+	client := newTestProviderData().BaaS
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "kaleido_consortium" || rs.Primary.ID == "" {
@@ -78,7 +78,7 @@ func testAccCheckConsortiumExists(resourceName string) resource.TestCheckFunc {
 			return fmt.Errorf("Terraform resource instance missing consortium id.")
 		}
 
-		client := newProviderData("", "").baas
+		client := newTestProviderData().BaaS
 		var consortium kaleido.Consortium
 		res, err := client.GetConsortium(consortiumID, &consortium)
 

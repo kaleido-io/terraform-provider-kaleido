@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
 type resourceNode struct {
@@ -149,8 +150,8 @@ func (r *resourceNode) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 }
 
 func (r *resourceNode) waitUntilNodeStarted(ctx context.Context, op, consortiumID, environmentID, nodeID string, apiModel *kaleido.Node, data *NodeResourceModel, diagnostics diag.Diagnostics) error {
-	return Retry.Do(ctx, op, func(attempt int) (retry bool, err error) {
-		res, getErr := r.baas.GetNode(consortiumID, environmentID, nodeID, apiModel)
+	return kaleidobase.Retry.Do(ctx, op, func(attempt int) (retry bool, err error) {
+		res, getErr := r.BaaS.GetNode(consortiumID, environmentID, nodeID, apiModel)
 		if getErr != nil {
 			return false, getErr
 		}
@@ -214,7 +215,7 @@ func (r *resourceNode) Create(ctx context.Context, req resource.CreateRequest, r
 	apiModel.DatabaseType = data.DatabaseType.ValueString()
 	isRemote := data.Remote.ValueBool()
 
-	res, err := r.baas.CreateNode(consortiumID, environmentID, &apiModel)
+	res, err := r.BaaS.CreateNode(consortiumID, environmentID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create node", err.Error())
 		return
@@ -255,7 +256,7 @@ func (r *resourceNode) Update(ctx context.Context, req resource.UpdateRequest, r
 	nodeID := data.ID.ValueString()
 	isRemote := data.Remote.ValueBool()
 
-	res, err := r.baas.UpdateNode(consortiumID, environmentID, nodeID, &apiModel)
+	res, err := r.BaaS.UpdateNode(consortiumID, environmentID, nodeID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update node", err.Error())
 		return
@@ -267,7 +268,7 @@ func (r *resourceNode) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	res, err = r.baas.ResetNode(consortiumID, environmentID, nodeID)
+	res, err = r.BaaS.ResetNode(consortiumID, environmentID, nodeID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to reset node", err.Error())
 		return
@@ -299,7 +300,7 @@ func (r *resourceNode) Read(ctx context.Context, req resource.ReadRequest, resp 
 	nodeID := data.ID.ValueString()
 
 	var apiModel kaleido.Node
-	res, err := r.baas.GetNode(consortiumID, environmentID, nodeID, &apiModel)
+	res, err := r.BaaS.GetNode(consortiumID, environmentID, nodeID, &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query node", err.Error())
 		return
@@ -330,7 +331,7 @@ func (r *resourceNode) Delete(ctx context.Context, req resource.DeleteRequest, r
 	environmentID := data.EnvironmentID.ValueString()
 	nodeID := data.ID.ValueString()
 
-	res, err := r.baas.DeleteNode(consortiumID, environmentID, nodeID)
+	res, err := r.BaaS.DeleteNode(consortiumID, environmentID, nodeID)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete node", err.Error())
 		return
