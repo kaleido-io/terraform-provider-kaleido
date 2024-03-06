@@ -17,8 +17,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
 var testAccProviders map[string]func() (tfprotov6.ProviderServer, error)
@@ -35,8 +37,10 @@ provider "kaleido" {
 }
 
 func init() {
-	kaleidoProvider := New(
+	kaleidoProvider := kaleidobase.New(
 		"0.0.1-unittest",
+		Resources(),
+		[]func() datasource.DataSource{},
 	)
 	testAccProviders = map[string]func() (tfprotov6.ProviderServer, error){
 		"kaleido": providerserver.NewProtocol6WithError(kaleidoProvider),

@@ -123,6 +123,7 @@ func (mp *mockPlatform) postRuntime(res http.ResponseWriter, req *http.Request) 
 	now := time.Now()
 	rt.Created = &now
 	rt.Updated = &now
+	rt.EnvironmentMemberID = nanoid.New()
 	if rt.LogLevel == "" {
 		rt.LogLevel = "info"
 	}

@@ -116,5 +116,6 @@ func (r *commonResource) waitForReadyStatus(ctx context.Context, path string, di
 func Resources() []func() resource.Resource {
 	return []func() resource.Resource{
 		RuntimeResourceFactory,
+		ServiceResourceFactory,
 	}
 }

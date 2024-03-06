@@ -34,6 +34,7 @@ type mockPlatform struct {
 	router   *mux.Router
 	server   *httptest.Server
 	runtimes map[string]*RuntimeAPIModel
+	services map[string]*ServiceAPIModel
 	calls    []string
 }
 
@@ -41,6 +42,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
 		t:        t,
 		runtimes: make(map[string]*RuntimeAPIModel),
+		services: make(map[string]*ServiceAPIModel),
 		router:   mux.NewRouter(),
 		calls:    []string{},
 	}
@@ -49,6 +51,13 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/runtimes/{runtime}", http.MethodGet, mp.getRuntime)
 	mp.register("/api/v1/environments/{env}/runtimes/{runtime}", http.MethodPut, mp.putRuntime)
 	mp.register("/api/v1/environments/{env}/runtimes/{runtime}", http.MethodDelete, mp.deleteRuntime)
+
+	// See service_test.go
+	mp.register("/api/v1/environments/{env}/services", http.MethodPost, mp.postService)
+	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodGet, mp.getService)
+	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodPut, mp.putService)
+	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodDelete, mp.deleteService)
+
 	mp.server = httptest.NewServer(mp.router)
 	return mp
 }
