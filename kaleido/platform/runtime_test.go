@@ -14,6 +14,7 @@
 package platform
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
 
 	_ "embed"
@@ -99,6 +101,36 @@ func TestRuntime1(t *testing.T) {
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `trace`),
 					resource.TestCheckResourceAttr(runtime1Resource, "size", `large`),
 					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `true`),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[runtime1Resource].Primary.Attributes["id"]
+						rt := mp.runtimes[fmt.Sprintf("env1/%s", id)]
+						testJSONEqual(t, rt, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "besu",
+							"name": "runtime1",
+							"config": {
+								"setting1": "value1",
+								"setting2": "value2"
+							},
+							"loglevel": "trace",
+							"size": "large",
+							"environmentMemberId": "%[4]s",
+							"status": "ready",
+							"stopped": true
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							rt.Created.UTC().Format(time.RFC3339Nano),
+							rt.Updated.UTC().Format(time.RFC3339Nano),
+							rt.EnvironmentMemberID,
+						))
+						return nil
+					},
 				),
 			},
 		},
@@ -120,7 +152,7 @@ func (mp *mockPlatform) postRuntime(res http.ResponseWriter, req *http.Request) 
 	var rt RuntimeAPIModel
 	mp.getBody(req, &rt)
 	rt.ID = nanoid.New()
-	now := time.Now()
+	now := time.Now().UTC()
 	rt.Created = &now
 	rt.Updated = &now
 	rt.EnvironmentMemberID = nanoid.New()
@@ -142,7 +174,7 @@ func (mp *mockPlatform) putRuntime(res http.ResponseWriter, req *http.Request) {
 	mp.getBody(req, &newRT)
 	assert.Equal(mp.t, rt.ID, newRT.ID)                 // expected behavior of provider
 	assert.Equal(mp.t, rt.ID, mux.Vars(req)["runtime"]) // expected behavior of provider
-	now := time.Now()
+	now := time.Now().UTC()
 	newRT.Created = rt.Created
 	newRT.Updated = &now
 	newRT.Status = "pending"

@@ -23,6 +23,7 @@ import (
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
 
 	_ "embed"
@@ -134,6 +135,86 @@ func TestService1(t *testing.T) {
 					resource.TestCheckResourceAttr(service1Resource, "name", `service1`),
 					resource.TestCheckResourceAttr(service1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(service1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[service1Resource].Primary.Attributes["id"]
+						svc := mp.services[fmt.Sprintf("env1/%s", id)]
+						testJSONEqual(t, svc, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "besu",
+							"name": "service1",
+							"runtime": {
+								"id": "runtime1"
+							},
+							"environmentMemberId": "%[4]s",
+							"status": "ready",
+							"config": {
+								"setting1": "value1",
+								"setting2": "value2"
+							},
+							"endpoints": {
+								"api": {
+									"type": "http",
+									"urls": [
+										"https://example.com/api/v1/environments/env1/services/%[1]s"
+									]
+								}
+							},
+							"hostnames": {
+								"host1": [
+									"api",
+									"ws"
+								]
+							},
+							"fileSets": {
+								"fs1": {
+									"name": "fs1",
+									"files": {
+										"goodbye.txt": {
+											"type": "text/plain",
+											"data": {
+												"base64": "Y3J1ZWwgd29ybGQK"
+											}
+										},
+										"hello.txt": {
+											"type": "text/plain",
+											"data": {
+												"text": "world"
+											}
+										}
+									}
+								}
+							},
+							"credSets": {
+								"auth1": {
+									"name": "auth1",
+									"type": "basic_auth",
+									"basicAuth": {
+										"username": "user1",
+										"password": "pass1"
+									}
+								},
+								"key1": {
+									"name": "key1",
+									"type": "key",
+									"key": {
+										"value": "abce12345"
+									}
+								}
+							}
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							svc.Created.UTC().Format(time.RFC3339Nano),
+							svc.Updated.UTC().Format(time.RFC3339Nano),
+							svc.EnvironmentMemberID,
+						))
+						return nil
+					},
 				),
 			},
 		},
@@ -155,7 +236,7 @@ func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) 
 	var svc ServiceAPIModel
 	mp.getBody(req, &svc)
 	svc.ID = nanoid.New()
-	now := time.Now()
+	now := time.Now().UTC()
 	svc.Created = &now
 	svc.Updated = &now
 	svc.EnvironmentMemberID = nanoid.New()
@@ -177,7 +258,7 @@ func (mp *mockPlatform) putService(res http.ResponseWriter, req *http.Request) {
 	mp.getBody(req, &newSVC)
 	assert.Equal(mp.t, svc.ID, newSVC.ID)                // expected behavior of provider
 	assert.Equal(mp.t, svc.ID, mux.Vars(req)["service"]) // expected behavior of provider
-	now := time.Now()
+	now := time.Now().UTC()
 	newSVC.Created = svc.Created
 	newSVC.Updated = &now
 	newSVC.Status = "pending"

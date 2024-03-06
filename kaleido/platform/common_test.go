@@ -14,6 +14,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
+	"github.com/stretchr/testify/assert"
 )
 
 var testAccProviders map[string]func() (tfprotov6.ProviderServer, error)
@@ -45,4 +47,12 @@ func init() {
 	testAccProviders = map[string]func() (tfprotov6.ProviderServer, error){
 		"kaleido": providerserver.NewProtocol6WithError(kaleidoProvider),
 	}
+}
+
+func testJSONEqual(t *testing.T, obj interface{}, expected string) {
+	assert.NotNil(t, obj)
+	jsonObj, err := json.Marshal(obj)
+	assert.NoError(t, err)
+	t.Logf("%s\n", jsonObj)
+	assert.JSONEq(t, expected, string(jsonObj))
 }
