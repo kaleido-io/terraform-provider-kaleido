@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,8 +28,6 @@ import (
 
 type RuntimeResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
-	Created             types.String `tfsdk:"created"`
-	Updated             types.String `tfsdk:"updated"`
 	Environment         types.String `tfsdk:"environment"`
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
@@ -36,24 +35,22 @@ type RuntimeResourceModel struct {
 	LogLevel            types.String `tfsdk:"log_level"`
 	Size                types.String `tfsdk:"size"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
-	Status              types.String `tfsdk:"status"`
-	Deleted             types.String `tfsdk:"deleted"`
-	ExplicitStopped     types.String `tfsdk:"stopped"`
+	Stopped             types.Bool   `tfsdk:"stopped"`
 }
 
 type RuntimeAPIModel struct {
-	ID                  string                 `json:"id"`
-	Created             time.Time              `json:"created"`
-	Updated             time.Time              `json:"updated"`
+	ID                  string                 `json:"id,omitempty"`
+	Created             *time.Time             `json:"created,omitempty"`
+	Updated             *time.Time             `json:"updated,omitempty"`
 	Type                string                 `json:"type"`
 	Name                string                 `json:"name"`
-	Config              map[string]interface{} `json:"config"`
-	LogLevel            string                 `json:"loglevel"`
-	Size                string                 `json:"size"`
-	EnvironmentMemberID string                 `json:"environmentMemberId"`
-	Status              string                 `json:"status"`
-	Deleted             bool                   `json:"deleted"`
-	ExplicitStopped     bool                   `json:"stopped"`
+	Config              map[string]interface{} `json:"config,omitempty"`
+	LogLevel            string                 `json:"loglevel,omitempty"`
+	Size                string                 `json:"size,omitempty"`
+	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
+	Status              string                 `json:"status,omitempty"`
+	Deleted             bool                   `json:"deleted,omitempty"`
+	Stopped             bool                   `json:"stopped,omitempty"`
 }
 
 func RuntimeResourceFactory() resource.Resource {
@@ -72,12 +69,6 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
-				Computed: true,
-			},
-			"created": &schema.StringAttribute{
-				Computed: true,
-			},
-			"updated": &schema.StringAttribute{
 				Computed: true,
 			},
 			"type": &schema.StringAttribute{
@@ -104,38 +95,36 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional: true,
 				Computed: true,
 			},
-			"deleted": &schema.StringAttribute{
-				Computed: true,
-			},
-			"stopped": &schema.StringAttribute{
-				Computed: true,
-			},
-			"status": &schema.StringAttribute{
+			"stopped": &schema.BoolAttribute{
+				Optional: true,
 				Computed: true,
 			},
 		},
 	}
 }
 
-func (data *RuntimeResourceModel) toAPI() *RuntimeAPIModel {
-	var config map[string]interface{}
+func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
+	// required fields
+	api.Type = data.Type.ValueString()
+	api.Name = data.Name.ValueString()
+	// optional fields
 	if !data.ConfigJSON.IsNull() {
+		var config map[string]interface{}
 		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &config)
+		api.Config = config
 	}
-	return &RuntimeAPIModel{
-		ID:                  data.ID.ValueString(),
-		Created:             stringToTime(data.ConfigJSON),
-		Updated:             stringToTime(data.Updated),
-		Type:                data.Type.ValueString(),
-		EnvironmentMemberID: data.EnvironmentMemberID.ValueString(),
-		Name:                data.Name.ValueString(),
-		Config:              config,
-		LogLevel:            data.LogLevel.ValueString(),
-		Size:                data.Size.ValueString(),
+	if !data.LogLevel.IsNull() {
+		api.LogLevel = data.LogLevel.ValueString()
+	}
+	if !data.Size.IsNull() {
+		api.Size = data.Size.ValueString()
+	}
+	if !data.Stopped.IsNull() {
+		api.Stopped = data.Stopped.ValueBool()
 	}
 }
 
-func (api *RuntimeAPIModel) toData() *RuntimeResourceModel {
+func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
 	var config string
 	if api.Config != nil {
 		d, err := json.Marshal(api.Config)
@@ -143,17 +132,20 @@ func (api *RuntimeAPIModel) toData() *RuntimeResourceModel {
 			config = string(d)
 		}
 	}
-	return &RuntimeResourceModel{
-		ID:                  types.StringValue(api.ID),
-		Created:             timeToString(api.Created),
-		Updated:             timeToString(api.Updated),
-		Type:                types.StringValue(api.Type),
-		EnvironmentMemberID: types.StringValue(api.EnvironmentMemberID),
-		Name:                types.StringValue(api.Name),
-		ConfigJSON:          types.StringValue(config),
-		LogLevel:            types.StringValue(api.LogLevel),
-		Size:                types.StringValue(api.Size),
+	data.ID = types.StringValue(api.ID)
+	data.ConfigJSON = types.StringValue(config)
+	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+	data.LogLevel = types.StringValue(api.LogLevel)
+	data.Size = types.StringValue(api.Size)
+	data.Stopped = types.BoolValue(api.Stopped)
+}
+
+func (r *runtimeResource) apiPath(data *RuntimeResourceModel) string {
+	path := fmt.Sprintf("/api/v1/environments/%s/runtimes", data.Environment.ValueString())
+	if data.ID.ValueString() != "" {
+		path = path + "/" + data.ID.ValueString()
 	}
+	return path
 }
 
 func (r *runtimeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -161,15 +153,16 @@ func (r *runtimeResource) Create(ctx context.Context, req resource.CreateRequest
 	var data RuntimeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	api := data.toAPI()
-	ok, _ := r.apiRequest(ctx, http.MethodPost, "/api/v1/runtimes", api, &api, &resp.Diagnostics)
+	var api RuntimeAPIModel
+	data.toAPI(&api)
+	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	r.waitForReadyStatus(ctx, fmt.Sprintf("/api/v1/runtimes/%s", api.ID), &resp.Diagnostics)
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, api.toData())...)
+	api.toData(&data)
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
 
@@ -177,25 +170,32 @@ func (r *runtimeResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	var data RuntimeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
-	api := data.toAPI()
-	ok, _ := r.apiRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/runtimes/%s", api.ID), api, &api, &resp.Diagnostics)
-	if !ok {
+	// Read full current object
+	var api RuntimeAPIModel
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
-	r.waitForReadyStatus(ctx, fmt.Sprintf("/api/v1/runtimes/%s", api.ID), &resp.Diagnostics)
+	// Update from plan
+	data.toAPI(&api)
+	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+		return
+	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, api.toData())...)
-
+	api.toData(&data)
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
 func (r *runtimeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data RuntimeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	api := data.toAPI()
-	ok, status := r.apiRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/runtimes/%s", api.ID), nil, &api, &resp.Diagnostics, Allow404)
+	var api RuntimeAPIModel
+	api.ID = data.ID.ValueString()
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404)
 	if !ok {
 		return
 	}
@@ -204,13 +204,14 @@ func (r *runtimeResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, api.toData())...)
+	api.toData(&data)
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
 func (r *runtimeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data RuntimeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/runtimes/%s", data.ID.ValueString()), nil, nil, &resp.Diagnostics, Allow404)
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404)
 
 }

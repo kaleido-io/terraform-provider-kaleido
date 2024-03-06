@@ -14,21 +14,25 @@
 package platform
 
 import (
+	"fmt"
+	"testing"
+
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
 
 var testAccProviders map[string]func() (tfprotov6.ProviderServer, error)
 
-const (
-	providerConfig = `
-  provider "kaleido" {
-	platform_api = "http://api.example.com"
-	platform_username = "user12345"
-	platform_password = "pass12345"
-  }
-  `
-)
+func testSetup(t *testing.T) (mp *mockPlatform, providerConfig string) {
+	mp = startMockPlatformServer(t)
+	providerConfig = fmt.Sprintf(`
+provider "kaleido" {
+	platform_api = "%s"
+}
+`,
+		mp.server.URL)
+	return
+}
 
 func init() {
 	kaleidoProvider := New(

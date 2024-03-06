@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -121,9 +122,10 @@ func (r *resourceConsortium) Update(ctx context.Context, req resource.UpdateRequ
 	apiModel := kaleido.Consortium{}
 	apiModel.Name = data.Name.ValueString()
 	apiModel.Description = data.Description.ValueString()
-	consortiumID := data.ID.ValueString()
+	var consortiumID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &consortiumID)...)
 
-	res, err := r.BaaS.UpdateConsortium(consortiumID, &apiModel)
+	res, err := r.BaaS.UpdateConsortium(consortiumID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update consortium", err.Error())
 		return

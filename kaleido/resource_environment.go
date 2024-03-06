@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -195,15 +196,16 @@ func (r *resourceEnvironment) Update(ctx context.Context, req resource.UpdateReq
 
 	apiModel := kaleido.Environment{}
 	consortiumID := data.ConsortiumID.ValueString()
-	environmentID := data.ID.ValueString()
 	apiModel.Name = data.Name.ValueString()
 	apiModel.Description = data.Description.ValueString()
 	if !data.TestFeaturesJSON.IsNull() {
 		apiModel.TestFeatures = map[string]interface{}{}
 		_ = json.Unmarshal([]byte(data.TestFeaturesJSON.ValueString()), &apiModel.TestFeatures)
 	}
+	var environmentID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &environmentID)...)
 
-	res, err := r.BaaS.UpdateEnvironment(consortiumID, environmentID, &apiModel)
+	res, err := r.BaaS.UpdateEnvironment(consortiumID, environmentID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update environment", err.Error())
 		return

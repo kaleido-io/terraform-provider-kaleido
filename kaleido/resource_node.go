@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -253,10 +254,11 @@ func (r *resourceNode) Update(ctx context.Context, req resource.UpdateRequest, r
 	apiModel.NetworkingID = data.NetworkingID.ValueString()
 	apiModel.NodeConfigID = data.NodeConfigID.ValueString()
 	apiModel.BafID = data.BafID.ValueString()
-	nodeID := data.ID.ValueString()
 	isRemote := data.Remote.ValueBool()
+	var nodeID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &nodeID)...)
 
-	res, err := r.BaaS.UpdateNode(consortiumID, environmentID, nodeID, &apiModel)
+	res, err := r.BaaS.UpdateNode(consortiumID, environmentID, nodeID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update node", err.Error())
 		return
@@ -268,7 +270,7 @@ func (r *resourceNode) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	res, err = r.BaaS.ResetNode(consortiumID, environmentID, nodeID)
+	res, err = r.BaaS.ResetNode(consortiumID, environmentID, nodeID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to reset node", err.Error())
 		return
@@ -281,7 +283,7 @@ func (r *resourceNode) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	if !isRemote {
 		// Do not wait for remote PrivateStack nodes to initialize
-		err = r.waitUntilNodeStarted(ctx, "Update", consortiumID, environmentID, nodeID, &apiModel, &data, &resp.Diagnostics)
+		err = r.waitUntilNodeStarted(ctx, "Update", consortiumID, environmentID, nodeID.ValueString(), &apiModel, &data, &resp.Diagnostics)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to query node status", err.Error())
 			return

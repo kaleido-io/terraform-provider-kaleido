@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -261,10 +262,11 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 	apiModel := kaleido.Service{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	serviceID := data.ID.ValueString()
 	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
+	var serviceID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &serviceID)...)
 
-	res, err := r.BaaS.UpdateService(consortiumID, environmentID, serviceID, &apiModel)
+	res, err := r.BaaS.UpdateService(consortiumID, environmentID, serviceID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update service", err.Error())
 		return
@@ -277,7 +279,7 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	res, err = r.BaaS.ResetService(consortiumID, environmentID, serviceID)
+	res, err = r.BaaS.ResetService(consortiumID, environmentID, serviceID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to reset service", err.Error())
 		return
@@ -288,7 +290,7 @@ func (r *resourceService) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	err = r.waitUntilServiceStarted(ctx, "Update", consortiumID, environmentID, serviceID, &apiModel, &data, &resp.Diagnostics)
+	err = r.waitUntilServiceStarted(ctx, "Update", consortiumID, environmentID, serviceID.ValueString(), &apiModel, &data, &resp.Diagnostics)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to query service status", err.Error())
 		return

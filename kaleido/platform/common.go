@@ -21,26 +21,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
-
-func stringToTime(s types.String) time.Time {
-	if s.IsNull() || s.ValueString() == "" {
-		return time.Time{}
-	}
-	t, _ := time.Parse(time.RFC3339Nano, s.ValueString())
-	return t
-}
-
-func timeToString(t time.Time) types.String {
-	return types.StringValue(t.UTC().Format(time.RFC3339Nano))
-}
 
 type HttpOptions int
 
@@ -57,7 +43,8 @@ func (r *commonResource) Configure(_ context.Context, req resource.ConfigureRequ
 }
 
 func (r *commonResource) apiRequest(ctx context.Context, method, path string, body, result interface{}, diagnostics *diag.Diagnostics, options ...HttpOptions) (bool, int) {
-	tflog.Debug(ctx, fmt.Sprintf("--> %s%s %s", method, r.Platform.BaseURL, path))
+	tflog.Debug(ctx, fmt.Sprintf("--> %s %s%s", method, r.Platform.BaseURL, path))
+
 	res, err := r.Platform.R().
 		SetContext(ctx).
 		SetBody(body).
@@ -71,7 +58,7 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 	} else {
 		statusString = strconv.Itoa(res.StatusCode())
 	}
-	tflog.Debug(ctx, fmt.Sprintf("<-- %s%s %s [%s]", method, r.Platform.BaseURL, path, statusString))
+	tflog.Debug(ctx, fmt.Sprintf("<-- %s %s%s [%s]", method, r.Platform.BaseURL, path, statusString))
 	if res != nil && res.RawResponse != nil {
 		defer res.RawResponse.Body.Close()
 		rawBytes, err = io.ReadAll(res.RawBody())

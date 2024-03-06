@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -128,9 +129,10 @@ func (r *resourceMembership) Update(ctx context.Context, req resource.UpdateRequ
 	apiModel := kaleido.Membership{}
 	apiModel.OrgName = data.OrgName.ValueString()
 	consortiumID := data.ConsortiumID.ValueString()
-	membershipID := data.ID.ValueString()
+	var membershipID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &membershipID)...)
 
-	res, err := r.BaaS.UpdateMembership(consortiumID, membershipID, &apiModel)
+	res, err := r.BaaS.UpdateMembership(consortiumID, membershipID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update membership", err.Error())
 		return

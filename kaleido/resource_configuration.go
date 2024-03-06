@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -151,9 +152,10 @@ func (r *resourceConfiguration) Update(ctx context.Context, req resource.UpdateR
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
 	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
-	configID := data.ID.String()
+	var configID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &configID)...)
 
-	res, err := r.BaaS.UpdateConfiguration(consortiumID, environmentID, configID, &apiModel)
+	res, err := r.BaaS.UpdateConfiguration(consortiumID, environmentID, configID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update configuration", err.Error())
 		return

@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -145,10 +146,11 @@ func (r *resourceEZone) Update(ctx context.Context, req resource.UpdateRequest, 
 	apiModel := kaleido.EZone{}
 	consortiumID := data.ConsortiumID.ValueString()
 	environmentID := data.EnvironmentID.ValueString()
-	ezoneID := data.ID.ValueString()
 	apiModel.Name = data.Name.ValueString()
+	var ezoneID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &ezoneID)...)
 
-	res, err := r.BaaS.UpdateEZone(consortiumID, environmentID, ezoneID, &apiModel)
+	res, err := r.BaaS.UpdateEZone(consortiumID, environmentID, ezoneID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update environment zone", err.Error())
 		return

@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -122,9 +123,10 @@ func (r *resourceAppCreds) Update(ctx context.Context, req resource.UpdateReques
 	environmentID := data.EnvironmentID.ValueString()
 	apiModel.MembershipID = data.MembershipID.ValueString()
 	apiModel.Name = data.Name.ValueString()
-	appKeyID := data.ID.ValueString()
+	var appKeyID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &appKeyID)...)
 
-	res, err := r.BaaS.UpdateAppCreds(consortiumID, environmentID, appKeyID, &apiModel)
+	res, err := r.BaaS.UpdateAppCreds(consortiumID, environmentID, appKeyID.ValueString(), &apiModel)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update app credential", err.Error())
 		return

@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -101,9 +102,10 @@ func (r *resourceInvitation) Update(ctx context.Context, req resource.UpdateRequ
 	apiModel.OrgName = data.OrgName.ValueString()
 	apiModel.Email = data.Email.ValueString()
 	consortiumID := data.ConsortiumID.ValueString()
-	inviteID := data.ID.ValueString()
+	var inviteID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &inviteID)...)
 
-	res, err := r.BaaS.UpdateInvitation(consortiumID, inviteID, &apiModel)
+	res, err := r.BaaS.UpdateInvitation(consortiumID, inviteID.ValueString(), &apiModel)
 
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update invitation", err.Error())

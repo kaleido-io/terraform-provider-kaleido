@@ -15,6 +15,7 @@ package kaleidobase
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/go-resty/resty/v2"
@@ -37,6 +38,13 @@ type ProviderModel struct {
 }
 
 func ConfigureProviderData(providerData any, diagnostics *diag.Diagnostics) *ProviderData {
+	if providerData == nil {
+		// This oddly happen where Configure is called on resources BEFORE Configure
+		// has been called on the provider. We have to handle it, otherwise we don't
+		// let things progress to the point that the Configure is called on the plugin.
+		// We can a subsequent call for each resource after that.
+		return nil
+	}
 	kaleidoProviderData, ok := providerData.(*ProviderData)
 	if !ok {
 		diagnostics.AddError(
@@ -73,8 +81,11 @@ func NewProviderData(conf *ProviderModel) *ProviderData {
 		platformPassword = os.Getenv("KALEIDO_PASSWORD")
 	}
 	platform := resty.New().
-		SetBaseURL(platformAPI).
-		SetBasicAuth(platformUsername, platformPassword)
+		SetTransport(http.DefaultTransport).
+		SetBaseURL(platformAPI)
+	if platformUsername != "" && platformPassword != "" {
+		platform = platform.SetBasicAuth(platformUsername, platformPassword)
+	}
 
 	return &ProviderData{
 		BaaS:     &baas,
