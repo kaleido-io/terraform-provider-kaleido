@@ -25,7 +25,7 @@ var testAccProviders map[string]func() (tfprotov6.ProviderServer, error)
 
 func init() {
 	testAccProviders = map[string]func() (tfprotov6.ProviderServer, error){
-		"kaleido": providerserver.NewProtocol6WithError(New("0.0.1-unittest")),
+		"kaleido": providerserver.NewProtocol6WithError(New("0.0.1-unittest")()),
 	}
 }
 

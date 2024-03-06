@@ -14,10 +14,28 @@
 
 package main
 
+import (
+	"context"
+	"log"
+
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido"
+)
+
+var (
+	// TODO: To be overwritten by a release process
+	version string = "dev"
+)
+
 func main() {
-	// plugin.Serve(&plugin.ServeOpts{
-	// 	ProviderFunc: func() terraform.ResourceProvider {
-	// 		return kaleido.Provider()
-	// 	},
-	// })
+	opts := providerserver.ServeOpts{
+		Address:         "registry.terraform.io/kaleido-io/terraform",
+		ProtocolVersion: 6,
+	}
+
+	err := providerserver.Serve(context.Background(), kaleido.New(version), opts)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }

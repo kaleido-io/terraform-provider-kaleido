@@ -43,24 +43,26 @@ func newTestProviderData() *kaleidobase.ProviderData {
 	return kaleidobase.NewProviderData(&kaleidobase.ProviderModel{})
 }
 
-func New(version string) provider.Provider {
-	return kaleidobase.New(
-		version,
-		append([]func() resource.Resource{
-			ResourceConsortiumFactory,
-			ResourceEnvironmentFactory,
-			ResourceMembershipFactory,
-			ResourceNodeFactory,
-			ResourceServiceFactory,
-			ResourceAppCredsFactory,
-			ResourceInvitationFactory,
-			ResourceCZoneFactory,
-			ResourceEZoneFactory,
-			ResourceConfigurationFactory,
-			ResourceDestinationFactory,
-		}, platform.Resources()...),
-		[]func() datasource.DataSource{
-			DatasourcePrivateStackBridgeFactory,
-		},
-	)
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return kaleidobase.New(
+			version,
+			append([]func() resource.Resource{
+				ResourceConsortiumFactory,
+				ResourceEnvironmentFactory,
+				ResourceMembershipFactory,
+				ResourceNodeFactory,
+				ResourceServiceFactory,
+				ResourceAppCredsFactory,
+				ResourceInvitationFactory,
+				ResourceCZoneFactory,
+				ResourceEZoneFactory,
+				ResourceConfigurationFactory,
+				ResourceDestinationFactory,
+			}, platform.Resources()...),
+			[]func() datasource.DataSource{
+				DatasourcePrivateStackBridgeFactory,
+			},
+		)
+	}
 }
