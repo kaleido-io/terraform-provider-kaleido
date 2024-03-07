@@ -154,5 +154,6 @@ func Resources() []func() resource.Resource {
 		NetworkResourceFactory,
 		KMSWalletResourceFactory,
 		KMSKeyResourceFactory,
+		CMSBuildResourceFactory,
 	}
 }

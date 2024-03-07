@@ -39,6 +39,7 @@ type mockPlatform struct {
 	networks     map[string]*NetworkAPIModel
 	kmsWallets   map[string]*KMSWalletAPIModel
 	kmsKeys      map[string]*KMSKeyAPIModel
+	cmsBuilds    map[string]*CMSBuildAPIModel
 	calls        []string
 }
 
@@ -51,6 +52,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		networks:     make(map[string]*NetworkAPIModel),
 		kmsWallets:   make(map[string]*KMSWalletAPIModel),
 		kmsKeys:      make(map[string]*KMSKeyAPIModel),
+		cmsBuilds:    make(map[string]*CMSBuildAPIModel),
 		router:       mux.NewRouter(),
 		calls:        []string{},
 	}
@@ -89,6 +91,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodGet, mp.getKMSKey)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodPatch, mp.patchKMSKey)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodDelete, mp.deleteKMSKey)
+
+	// See cms_build.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds", http.MethodPost, mp.postCMSBuild)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds/{build}", http.MethodGet, mp.getCMSBuild)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds/{build}", http.MethodPatch, mp.patchCMSBuild)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds/{build}", http.MethodDelete, mp.deleteCMSBuild)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp

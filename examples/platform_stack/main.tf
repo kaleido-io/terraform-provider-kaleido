@@ -32,18 +32,18 @@ resource "kaleido_platform_runtime" "bnr" {
   count = var.node_count
 }
 
-# resource "kaleido_platform_service" "bns" {
-#   type = "BesuNode"
-#   name = "bns_${count.index}"
-#   environment = kaleido_platform_environment.env_0.id
-#   runtime = kaleido_platform_runtime.bnr[count.index].id
-#   config_json = jsonencode({
-#     network = {
-#       id = kaleido_platform_network.net_0.id
-#     }
-#   })
-#   count = var.node_count
-# }
+resource "kaleido_platform_service" "bns" {
+  type = "BesuNode"
+  name = "bns_${count.index}"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.bnr[count.index].id
+  config_json = jsonencode({
+    network = {
+      id = kaleido_platform_network.net_0.id
+    }
+  })
+  count = var.node_count
+}
 
 resource "kaleido_platform_runtime" "kmr_0" {
   type = "KeyManager"

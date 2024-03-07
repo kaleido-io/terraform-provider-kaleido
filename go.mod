@@ -9,6 +9,7 @@ require (
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/terraform-plugin-framework v1.6.0
+	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0
 	github.com/hashicorp/terraform-plugin-go v0.22.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.6.0
