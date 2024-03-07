@@ -13,3 +13,17 @@ variable "kaleido_platform_password" {
 variable "environment" {
   type = string
 }
+
+variable "json_rpc_url" {
+  type = string
+}
+
+variable "json_rpc_username" {
+  type = string
+  default = ""
+}
+
+variable "json_rpc_password" {
+  type = string
+  default = ""
+}

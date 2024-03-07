@@ -47,10 +47,22 @@ resource "kaleido_platform_service" "tms_0" {
     type = "evm"
     evm = {
       connector = {
-
+        url = var.json_rpc_url
+        auth = {
+          credSetRef = "rpc_auth"
+        }
       }
     }
   })
+  cred_sets = {
+    "rpc_auth" = {
+      type = "basic_auth"
+      basic_auth = {
+        username = var.json_rpc_username
+        password = var.json_rpc_password
+      }
+    }
+  }
 }
 
 resource "kaleido_platform_runtime" "ffr_0" {
