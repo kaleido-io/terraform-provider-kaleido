@@ -148,8 +148,10 @@ func (r *commonResource) waitForRemoval(ctx context.Context, path string, diagno
 
 func Resources() []func() resource.Resource {
 	return []func() resource.Resource{
+		EnvironmentResourceFactory,
 		RuntimeResourceFactory,
 		ServiceResourceFactory,
+		NetworkResourceFactory,
 		KMSWalletResourceFactory,
 		KMSKeyResourceFactory,
 	}

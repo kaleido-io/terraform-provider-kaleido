@@ -29,27 +29,37 @@ import (
 )
 
 type mockPlatform struct {
-	t          *testing.T
-	lock       sync.Mutex
-	router     *mux.Router
-	server     *httptest.Server
-	runtimes   map[string]*RuntimeAPIModel
-	services   map[string]*ServiceAPIModel
-	kmsWallets map[string]*KMSWalletAPIModel
-	kmsKeys    map[string]*KMSKeyAPIModel
-	calls      []string
+	t            *testing.T
+	lock         sync.Mutex
+	router       *mux.Router
+	server       *httptest.Server
+	environments map[string]*EnvironmentAPIModel
+	runtimes     map[string]*RuntimeAPIModel
+	services     map[string]*ServiceAPIModel
+	networks     map[string]*NetworkAPIModel
+	kmsWallets   map[string]*KMSWalletAPIModel
+	kmsKeys      map[string]*KMSKeyAPIModel
+	calls        []string
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:          t,
-		runtimes:   make(map[string]*RuntimeAPIModel),
-		services:   make(map[string]*ServiceAPIModel),
-		kmsWallets: make(map[string]*KMSWalletAPIModel),
-		kmsKeys:    make(map[string]*KMSKeyAPIModel),
-		router:     mux.NewRouter(),
-		calls:      []string{},
+		t:            t,
+		environments: make(map[string]*EnvironmentAPIModel),
+		runtimes:     make(map[string]*RuntimeAPIModel),
+		services:     make(map[string]*ServiceAPIModel),
+		networks:     make(map[string]*NetworkAPIModel),
+		kmsWallets:   make(map[string]*KMSWalletAPIModel),
+		kmsKeys:      make(map[string]*KMSKeyAPIModel),
+		router:       mux.NewRouter(),
+		calls:        []string{},
 	}
+	// See environment_test.go
+	mp.register("/api/v1/environments", http.MethodPost, mp.postEnvironment)
+	mp.register("/api/v1/environments/{env}", http.MethodGet, mp.getEnvironment)
+	mp.register("/api/v1/environments/{env}", http.MethodPut, mp.putEnvironment)
+	mp.register("/api/v1/environments/{env}", http.MethodDelete, mp.deleteEnvironment)
+
 	// See runtime_test.go
 	mp.register("/api/v1/environments/{env}/runtimes", http.MethodPost, mp.postRuntime)
 	mp.register("/api/v1/environments/{env}/runtimes/{runtime}", http.MethodGet, mp.getRuntime)
@@ -61,6 +71,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodGet, mp.getService)
 	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodPut, mp.putService)
 	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodDelete, mp.deleteService)
+
+	// See network_test.go
+	mp.register("/api/v1/environments/{env}/networks", http.MethodPost, mp.postNetwork)
+	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodGet, mp.getNetwork)
+	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodPut, mp.putNetwork)
+	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodDelete, mp.deleteNetwork)
 
 	// See kms_wallet.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postKMSWallet)

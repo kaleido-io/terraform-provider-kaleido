@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -28,46 +29,41 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type RuntimeResourceModel struct {
+type NetworkResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
 	Environment         types.String `tfsdk:"environment"`
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
 	ConfigJSON          types.String `tfsdk:"config_json"`
-	LogLevel            types.String `tfsdk:"log_level"`
-	Size                types.String `tfsdk:"size"`
+	Info                types.Map    `tfsdk:"info"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
-	Stopped             types.Bool   `tfsdk:"stopped"`
 }
 
-type RuntimeAPIModel struct {
+type NetworkAPIModel struct {
 	ID                  string                 `json:"id,omitempty"`
 	Created             *time.Time             `json:"created,omitempty"`
 	Updated             *time.Time             `json:"updated,omitempty"`
 	Type                string                 `json:"type"`
 	Name                string                 `json:"name"`
 	Config              map[string]interface{} `json:"config"`
-	LogLevel            string                 `json:"loglevel,omitempty"`
-	Size                string                 `json:"size,omitempty"`
 	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
 	Status              string                 `json:"status,omitempty"`
 	Deleted             bool                   `json:"deleted,omitempty"`
-	Stopped             bool                   `json:"stopped,omitempty"`
 }
 
-func RuntimeResourceFactory() resource.Resource {
-	return &runtimeResource{}
+func NetworkResourceFactory() resource.Resource {
+	return &networkResource{}
 }
 
-type runtimeResource struct {
+type networkResource struct {
 	commonResource
 }
 
-func (r *runtimeResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_runtime"
+func (r *networkResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_network"
 }
 
-func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
@@ -90,23 +86,16 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"config_json": &schema.StringAttribute{
 				Required: true,
 			},
-			"log_level": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-			},
-			"size": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-			},
-			"stopped": &schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
+			"info": &schema.MapAttribute{
+				Description: "Top-level config captured from the network after creation, including generated values like the chain id",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}
 }
 
-func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
+func (data *NetworkResourceModel) toAPI(api *NetworkAPIModel) {
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
@@ -115,58 +104,56 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	if !data.ConfigJSON.IsNull() {
 		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
 	}
-	if !data.LogLevel.IsNull() {
-		api.LogLevel = data.LogLevel.ValueString()
-	}
-	if !data.Size.IsNull() {
-		api.Size = data.Size.ValueString()
-	}
-	if !data.Stopped.IsNull() {
-		api.Stopped = data.Stopped.ValueBool()
-	}
 }
 
-func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
+func (api *NetworkAPIModel) toData(data *NetworkResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
-	data.LogLevel = types.StringValue(api.LogLevel)
-	data.Size = types.StringValue(api.Size)
-	data.Stopped = types.BoolValue(api.Stopped)
+	info := make(map[string]attr.Value)
+	for k, v := range api.Config {
+		v, isString := v.(string)
+		if isString && v != "" {
+			info[k] = types.StringValue(v)
+		}
+	}
+	data.Info, _ = types.MapValue(types.StringType, info)
 }
 
-func (r *runtimeResource) apiPath(data *RuntimeResourceModel) string {
-	path := fmt.Sprintf("/api/v1/environments/%s/runtimes", data.Environment.ValueString())
+func (r *networkResource) apiPath(data *NetworkResourceModel) string {
+	path := fmt.Sprintf("/api/v1/environments/%s/networks", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
 	return path
 }
 
-func (r *runtimeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *networkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	var data RuntimeResourceModel
+	var data NetworkResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	var api RuntimeAPIModel
+	var api NetworkAPIModel
 	data.toAPI(&api)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	api.toData(&data)
+	api.toData(&data) // need the ID copied over
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	api.toData(&data) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
 
-func (r *runtimeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *networkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 
-	var data RuntimeResourceModel
+	var data NetworkResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
 	// Read full current object
-	var api RuntimeAPIModel
+	var api NetworkAPIModel
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
@@ -177,15 +164,17 @@ func (r *runtimeResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	api.toData(&data)
+	api.toData(&data) // need the ID copied over
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	api.toData(&data) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *runtimeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data RuntimeResourceModel
+func (r *networkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data NetworkResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var api RuntimeAPIModel
+	var api NetworkAPIModel
 	api.ID = data.ID.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404)
 	if !ok {
@@ -200,8 +189,8 @@ func (r *runtimeResource) Read(ctx context.Context, req resource.ReadRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *runtimeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data RuntimeResourceModel
+func (r *networkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data NetworkResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404)

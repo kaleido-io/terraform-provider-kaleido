@@ -308,19 +308,6 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 		keyAttrs := map[string]attr.Type{
 			"value": types.StringType,
 		}
-		// credSetAttrs := map[string]attr.Type{
-		// 	"type": types.StringType,
-		// 	"basic_auth": types.MapType{
-		// 		ElemType: types.ObjectType{
-		// 			AttrTypes: basicAuthAttrs,
-		// 		},
-		// 	},
-		// 	"key": types.MapType{
-		// 		ElemType: types.ObjectType{
-		// 			AttrTypes: keyAttrs,
-		// 		},
-		// 	},
-		// }
 		api.Credsets = make(map[string]*CredSetAPI)
 		tfCredsets := data.Credsets.Elements()
 		for credSetName, tfCredSetAttr := range tfCredsets {
@@ -356,15 +343,7 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 }
 
 func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag.Diagnostics) {
-	var config string
-	if api.Config != nil {
-		d, err := json.Marshal(api.Config)
-		if err == nil {
-			config = string(d)
-		}
-	}
 	data.ID = types.StringValue(api.ID)
-	data.ConfigJSON = types.StringValue(config)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	endpoints := map[string]attr.Value{}
 	endpointAttrTypes := map[string]attr.Type{
@@ -412,8 +391,9 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	api.toData(&data, &resp.Diagnostics)
+	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -436,8 +416,9 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	api.toData(&data, &resp.Diagnostics)
+	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 

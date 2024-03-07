@@ -10,8 +10,12 @@ variable "kaleido_platform_password" {
   type = string
 }
 
-variable "environment" {
+variable "environment_name" {
   type = string
+}
+
+variable "node_count" {
+  type = number
 }
 
 variable "json_rpc_url" {
