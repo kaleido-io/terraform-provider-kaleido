@@ -29,22 +29,26 @@ import (
 )
 
 type mockPlatform struct {
-	t        *testing.T
-	lock     sync.Mutex
-	router   *mux.Router
-	server   *httptest.Server
-	runtimes map[string]*RuntimeAPIModel
-	services map[string]*ServiceAPIModel
-	calls    []string
+	t          *testing.T
+	lock       sync.Mutex
+	router     *mux.Router
+	server     *httptest.Server
+	runtimes   map[string]*RuntimeAPIModel
+	services   map[string]*ServiceAPIModel
+	kmsWallets map[string]*KMSWalletAPIModel
+	kmsKeys    map[string]*KMSKeyAPIModel
+	calls      []string
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:        t,
-		runtimes: make(map[string]*RuntimeAPIModel),
-		services: make(map[string]*ServiceAPIModel),
-		router:   mux.NewRouter(),
-		calls:    []string{},
+		t:          t,
+		runtimes:   make(map[string]*RuntimeAPIModel),
+		services:   make(map[string]*ServiceAPIModel),
+		kmsWallets: make(map[string]*KMSWalletAPIModel),
+		kmsKeys:    make(map[string]*KMSKeyAPIModel),
+		router:     mux.NewRouter(),
+		calls:      []string{},
 	}
 	// See runtime_test.go
 	mp.register("/api/v1/environments/{env}/runtimes", http.MethodPost, mp.postRuntime)
@@ -58,12 +62,24 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodPut, mp.putService)
 	mp.register("/api/v1/environments/{env}/services/{service}", http.MethodDelete, mp.deleteService)
 
+	// See kms_wallet.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postKMSWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getKMSWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPut, mp.putKMSWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteKMSWallet)
+
+	// See kms_key.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys", http.MethodPut, mp.putKMSKey)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodGet, mp.getKMSKey)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodPatch, mp.patchKMSKey)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodDelete, mp.deleteKMSKey)
+
 	mp.server = httptest.NewServer(mp.router)
 	return mp
 }
 
 func (mp *mockPlatform) checkClearCalls(expected []string) {
-	assert.Equal(mp.t, mp.calls, expected)
+	assert.Equal(mp.t, expected, mp.calls)
 	mp.calls = []string{}
 }
 

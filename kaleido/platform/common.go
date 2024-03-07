@@ -150,5 +150,7 @@ func Resources() []func() resource.Resource {
 	return []func() resource.Resource{
 		RuntimeResourceFactory,
 		ServiceResourceFactory,
+		KMSWalletResourceFactory,
+		KMSKeyResourceFactory,
 	}
 }

@@ -2,7 +2,6 @@ terraform {
   required_providers {
     kaleido = {
       source = "kaleido-io/kaleido"
-      version = "0.2.15"
     }
   }
 }
@@ -26,6 +25,21 @@ resource "kaleido_platform_service" "kms_0" {
   environment = var.environment
   runtime = kaleido_platform_runtime.kmr_0.id
   config_json = jsonencode({})
+}
+
+resource "kaleido_platform_kms_wallet" "wallet_0" {
+  type = "hdwallet"
+  name = "wallet_0"
+  environment = var.environment
+  service = kaleido_platform_service.kms_0.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_kms_key" "key_0" {
+  name = "key_0"
+  environment = var.environment
+  service = kaleido_platform_service.kms_0.id
+  wallet = kaleido_platform_kms_wallet.wallet_0.id
 }
 
 resource "kaleido_platform_runtime" "tmr_0" {
@@ -78,6 +92,9 @@ resource "kaleido_platform_service" "ffs_0" {
   environment = var.environment
   runtime = kaleido_platform_runtime.ffr_0.id
   config_json = jsonencode({
-    transactionManager = kaleido_platform_service.tms_0.id
+    transactionManager = {
+      id = kaleido_platform_service.tms_0.id
+    }
+    key = kaleido_platform_kms_key.key_0.uri
   })
 }
