@@ -23,8 +23,8 @@ resource "kaleido_platform_runtime" "kmr_0" {
 resource "kaleido_platform_service" "kms_0" {
   type = "KeyManager"
   name = "kms_0"
-  environment = "Peter"
-  runtime = kaleido_platform_runtime.tmr_0.id
+  environment = var.environment
+  runtime = kaleido_platform_runtime.kmr_0.id
   config_json = jsonencode({})
 }
 
@@ -38,24 +38,32 @@ resource "kaleido_platform_runtime" "tmr_0" {
 resource "kaleido_platform_service" "tms_0" {
   type = "TransactionManager"
   name = "tms_0"
-  environment = "Peter"
+  environment = var.environment
   runtime = kaleido_platform_runtime.tmr_0.id
   config_json = jsonencode({
-    keyManager = kaleido_platform_service.kms_0.id
+    keyManager = {
+      id: kaleido_platform_service.kms_0.id
+    }
+    type = "evm"
+    evm = {
+      connector = {
+
+      }
+    }
   })
 }
 
 resource "kaleido_platform_runtime" "ffr_0" {
   type = "FireFly"
   name = "ffr_0"
-  environment = "Peter"
+  environment = var.environment
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_service" "ffs_0" {
   type = "FireFly"
   name = "ffs_0"
-  environment = "Peter"
+  environment = var.environment
   runtime = kaleido_platform_runtime.ffr_0.id
   config_json = jsonencode({
     transactionManager = kaleido_platform_service.tms_0.id
