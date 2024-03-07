@@ -55,7 +55,7 @@ type ServiceAPIModel struct {
 	EnvironmentMemberID string                        `json:"environmentMemberId,omitempty"`
 	Status              string                        `json:"status,omitempty"`
 	Deleted             bool                          `json:"deleted,omitempty"`
-	Config              map[string]interface{}        `json:"config,omitempty"`
+	Config              map[string]interface{}        `json:"config"`
 	Endpoints           map[string]ServiceAPIEndpoint `json:"endpoints,omitempty"`
 	Hostnames           map[string][]string           `json:"hostnames,omitempty"`
 	Filesets            map[string]*FileSetAPI        `json:"fileSets,omitempty"`
@@ -140,8 +140,7 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed: true,
 			},
 			"config_json": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Required: true,
 			},
 			"endpoints": &schema.MapNestedAttribute{
 				Computed: true,
@@ -235,11 +234,9 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
-	// optional fields
+	api.Config = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {
-		var config map[string]interface{}
-		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &config)
-		api.Config = config
+		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
 	}
 	// hostnames
 	if !data.Hostnames.IsNull() {
@@ -469,4 +466,5 @@ func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404)
 
+	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }

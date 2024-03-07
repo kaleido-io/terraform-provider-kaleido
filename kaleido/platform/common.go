@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -43,20 +43,36 @@ func (r *commonResource) Configure(_ context.Context, req resource.ConfigureRequ
 }
 
 func (r *commonResource) apiRequest(ctx context.Context, method, path string, body, result interface{}, diagnostics *diag.Diagnostics, options ...HttpOptions) (bool, int) {
-	tflog.Debug(ctx, fmt.Sprintf("--> %s %s%s", method, r.Platform.BaseURL, path))
+	var bodyBytes []byte
+	var err error
+	bodyString := ""
+	if body != nil {
+		bodyBytes, err = json.Marshal(body)
+		if err == nil {
+			bodyString = string(bodyBytes)
+		}
+	}
+	tflog.Debug(ctx, fmt.Sprintf("--> %s %s%s %s", method, r.Platform.BaseURL, path, bodyString))
 
-	res, err := r.Platform.R().
-		SetContext(ctx).
-		SetBody(body).
-		SetHeader("Content-type", "application/json").
-		SetDoNotParseResponse(true).
-		Execute(method, path)
+	var res *resty.Response
+	if err == nil {
+		req := r.Platform.R().
+			SetContext(ctx).
+			SetHeader("Content-type", "application/json").
+			SetDoNotParseResponse(true)
+		if bodyBytes != nil {
+			req = req.SetBody(bodyBytes)
+		}
+		res, err = req.Execute(method, path)
+	}
 	var statusString string
 	var rawBytes []byte
+	statusCode := -1
 	if err != nil {
 		statusString = err.Error()
 	} else {
-		statusString = strconv.Itoa(res.StatusCode())
+		statusCode = res.StatusCode()
+		statusString = fmt.Sprintf("%d %s", statusCode, res.Status())
 	}
 	tflog.Debug(ctx, fmt.Sprintf("<-- %s %s%s [%s]", method, r.Platform.BaseURL, path, statusString))
 	if res != nil && res.RawResponse != nil {
@@ -78,7 +94,7 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 		)
 	} else if !res.IsSuccess() {
 		isOk404 := false
-		if res.StatusCode() == 404 {
+		if statusCode == 404 {
 			for _, o := range options {
 				if o == Allow404 {
 					isOk404 = true
@@ -89,11 +105,11 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 			ok = false
 			diagnostics.AddError(
 				fmt.Sprintf("%s failed", method),
-				fmt.Sprintf("%s %s returned status code %d", method, path, res.StatusCode()),
+				fmt.Sprintf("%s %s returned status code %d: %s", method, path, statusCode, rawBytes),
 			)
 		}
 	}
-	return ok, res.StatusCode()
+	return ok, statusCode
 }
 
 func (r *commonResource) waitForReadyStatus(ctx context.Context, path string, diagnostics *diag.Diagnostics) {
@@ -108,6 +124,23 @@ func (r *commonResource) waitForReadyStatus(ctx context.Context, path string, di
 		}
 		if !strings.EqualFold(res.Status, "ready") {
 			return true, fmt.Errorf("not ready yet")
+		}
+		return false, nil
+	})
+}
+
+func (r *commonResource) waitForRemoval(ctx context.Context, path string, diagnostics *diag.Diagnostics) {
+	type statusResponse struct {
+		Status string `json:"status"`
+	}
+	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("ready-check %s", path), func(attempt int) (retry bool, err error) {
+		var res statusResponse
+		ok, status := r.apiRequest(ctx, http.MethodGet, path, nil, &res, diagnostics, Allow404)
+		if !ok {
+			return false, fmt.Errorf("ready-check failed") // already set in diag
+		}
+		if status != 404 {
+			return true, fmt.Errorf("not removed yet")
 		}
 		return false, nil
 	})

@@ -46,7 +46,7 @@ type RuntimeAPIModel struct {
 	Updated             *time.Time             `json:"updated,omitempty"`
 	Type                string                 `json:"type"`
 	Name                string                 `json:"name"`
-	Config              map[string]interface{} `json:"config,omitempty"`
+	Config              map[string]interface{} `json:"config"`
 	LogLevel            string                 `json:"loglevel,omitempty"`
 	Size                string                 `json:"size,omitempty"`
 	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
@@ -88,8 +88,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed: true,
 			},
 			"config_json": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Required: true,
 			},
 			"log_level": &schema.StringAttribute{
 				Optional: true,
@@ -112,10 +111,9 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
 	// optional fields
+	api.Config = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {
-		var config map[string]interface{}
-		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &config)
-		api.Config = config
+		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
 	}
 	if !data.LogLevel.IsNull() {
 		api.LogLevel = data.LogLevel.ValueString()
@@ -165,7 +163,6 @@ func (r *runtimeResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	api.toData(&data)
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -189,7 +186,6 @@ func (r *runtimeResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	api.toData(&data)
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -218,4 +214,5 @@ func (r *runtimeResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404)
 
+	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }

@@ -106,6 +106,7 @@ func TestService1(t *testing.T) {
 			"GET /api/v1/environments/{env}/services/{service}",
 			"GET /api/v1/environments/{env}/services/{service}",
 			"DELETE /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
 		})
 		mp.server.Close()
 	}()

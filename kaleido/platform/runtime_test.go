@@ -63,13 +63,10 @@ func TestRuntime1(t *testing.T) {
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
-			"GET /api/v1/environments/{env}/runtimes/{runtime}",
-			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"PUT /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
-			"GET /api/v1/environments/{env}/runtimes/{runtime}",
-			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"DELETE /api/v1/environments/{env}/runtimes/{runtime}",
+			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 		})
 		mp.server.Close()
 	}()
@@ -105,6 +102,8 @@ func TestRuntime1(t *testing.T) {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[runtime1Resource].Primary.Attributes["id"]
 						rt := mp.runtimes[fmt.Sprintf("env1/%s", id)]
+						// Note the pending status is allowed to remain in runtimes, as they require at least one
+						// service to be created to get out of pending.
 						testJSONEqual(t, rt, fmt.Sprintf(`
 						{
 							"id": "%[1]s",
@@ -119,7 +118,7 @@ func TestRuntime1(t *testing.T) {
 							"loglevel": "trace",
 							"size": "large",
 							"environmentMemberId": "%[4]s",
-							"status": "ready",
+							"status": "pending",
 							"stopped": true
 						}
 						`,
