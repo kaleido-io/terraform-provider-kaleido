@@ -100,7 +100,6 @@ func (r *evm_netinfoDatasource) Read(ctx context.Context, req datasource.ReadReq
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
 	reqID := 0
-	lastResult := ""
 	url := data.JsonRpcURL.ValueString()
 	client := resty.New()
 	if data.Username.ValueString() != "" && data.Password.ValueString() != "" {
@@ -133,36 +132,28 @@ func (r *evm_netinfoDatasource) Read(ctx context.Context, req datasource.ReadReq
 			res.RawBody().Close()
 		}
 		if err == nil && res.IsSuccess() {
-			err = json.Unmarshal(rawResponse, &jRes)
-		}
-		if err == nil && res.IsSuccess() {
-			var stringChainID string
-			err = json.Unmarshal(jRes.Result, &stringChainID)
-			if err == nil {
-				chainID, ok := new(big.Int).SetString(stringChainID, 0)
-				if !ok {
-					err = fmt.Errorf("invalid chainId in response: %s", rawResponse)
-				} else {
-					data.ChainID = types.Int64Value(chainID.Int64())
+			parseErr := json.Unmarshal(rawResponse, &jRes)
+			if parseErr == nil {
+				var stringChainID string
+				parseErr = json.Unmarshal(jRes.Result, &stringChainID)
+				if parseErr == nil {
+					chainID, ok := new(big.Int).SetString(stringChainID, 0)
+					if !ok {
+						// This upgrades to be the error
+						err = fmt.Errorf("invalid chainId in response: %s", rawResponse)
+					} else {
+						// Success!
+						data.ChainID = types.Int64Value(chainID.Int64())
+						return false, nil
+					}
 				}
 			}
 		}
+		// Retry on all paths where we've not parsed out a chain ID successfully
 		if err != nil {
-			errInfo := fmt.Sprintf("JSON/RPC call to %s failed: %s", url, err)
-			if lastResult != "" {
-				errInfo = fmt.Sprintf("%s (last result %s)", errInfo, lastResult)
-			}
-			resp.Diagnostics.AddError(
-				"EVM request failed",
-				errInfo,
-			)
-			return false, err
+			return true, fmt.Errorf("JSON/RPC call to %s failed: %s", url, err)
 		}
-		if res.IsSuccess() {
-			return false, nil
-		}
-		lastResult = fmt.Sprintf("[%d] %s", res.StatusCode(), string(rawResponse))
-		return true, fmt.Errorf(lastResult)
+		return true, fmt.Errorf("JSON/RPC call to %s returned [%d]: %s", url, res.StatusCode(), rawResponse)
 	})
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
