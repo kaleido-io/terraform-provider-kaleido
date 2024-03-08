@@ -45,6 +45,25 @@ resource "kaleido_platform_service" "bns" {
   count = var.node_count
 }
 
+resource "kaleido_platform_runtime" "gwr_0" {
+  type = "EVMGateway"
+  name = "gwr_0"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "gws_0" {
+  type = "EVMGateway"
+  name = "gws_0"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.gwr_0.id
+  config_json = jsonencode({
+    network = {
+      id =  kaleido_platform_network.net_0.id
+    }
+  })
+}
+
 resource "kaleido_platform_runtime" "kmr_0" {
   type = "KeyManager"
   name = "kmr_0"
@@ -94,22 +113,25 @@ resource "kaleido_platform_service" "tms_0" {
     type = "evm"
     evm = {
       connector = {
-        url = var.json_rpc_url
-        auth = {
-          credSetRef = "rpc_auth"
+        evmGateway = {
+          id =  kaleido_platform_service.gws_0.id
         }
+        # url = var.json_rpc_url
+        # auth = {
+        #   credSetRef = "rpc_auth"
+        # }
       }
     }
   })
-  cred_sets = {
-    "rpc_auth" = {
-      type = "basic_auth"
-      basic_auth = {
-        username = var.json_rpc_username
-        password = var.json_rpc_password
-      }
-    }
-  }
+  # cred_sets = {
+  #   "rpc_auth" = {
+  #     type = "basic_auth"
+  #     basic_auth = {
+  #       username = var.json_rpc_username
+  #       password = var.json_rpc_password
+  #     }
+  #   }
+  # }
 }
 
 resource "kaleido_platform_runtime" "ffr_0" {

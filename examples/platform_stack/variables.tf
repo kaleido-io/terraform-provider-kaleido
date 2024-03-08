@@ -17,17 +17,3 @@ variable "environment_name" {
 variable "node_count" {
   type = number
 }
-
-variable "json_rpc_url" {
-  type = string
-}
-
-variable "json_rpc_username" {
-  type = string
-  default = ""
-}
-
-variable "json_rpc_password" {
-  type = string
-  default = ""
-}
