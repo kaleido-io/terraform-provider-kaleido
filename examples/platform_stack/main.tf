@@ -131,3 +131,30 @@ resource "kaleido_platform_service" "ffs_0" {
     key = kaleido_platform_kms_key.key_0.uri
   })
 }
+
+resource "kaleido_platform_runtime" "cmr_0" {
+  type = "ContractManager"
+  name = "cmr_0"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "cms_0" {
+  type = "ContractManager"
+  name = "cmss_0"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.cmr_0.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_cms_build" "contract0" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.cms_0.id
+  type = "github"
+  name = "ff"
+  path = "firefly"
+	github = {
+		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
+		contract_name = "Firefly"
+	}
+}

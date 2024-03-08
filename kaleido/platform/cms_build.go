@@ -15,6 +15,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -80,9 +81,9 @@ type CMSBuildAPIModel struct {
 	SolcVersion  string                      `json:"solcVersion,omitempty"`
 	GitHub       *CMSBuildGithubAPIModel     `json:"github,omitempty"`
 	SourceCode   *CMSBuildSourceCodeAPIModel `json:"sourceCode,omitempty"`
-	ABI          string                      `json:"abi,omitempty"`
+	ABI          interface{}                 `json:"abi,omitempty"`
 	Bytecode     string                      `json:"bytecode,omitempty"`
-	DevDocs      string                      `json:"devDocs,omitempty"`
+	DevDocs      interface{}                 `json:"devDocs,omitempty"`
 	CompileError string                      `json:"compileError,omitempty"`
 	Status       string                      `json:"status,omitempty"`
 }
@@ -267,9 +268,9 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel) {
 	api.SolcVersion = data.SolcVersion.ValueString()
 	switch data.Type.ValueString() {
 	case "precompiled":
-		api.ABI = data.Precompiled.ABI.ValueString()
+		_ = json.Unmarshal(([]byte)(data.Precompiled.ABI.ValueString()), &api.ABI)
 		api.Bytecode = data.Precompiled.ABI.ValueString()
-		api.DevDocs = data.Precompiled.ABI.ValueString()
+		_ = json.Unmarshal(([]byte)(data.Precompiled.DevDocs.ValueString()), &api.DevDocs)
 	case "github":
 		api.GitHub = &CMSBuildGithubAPIModel{
 			ContractURL:  data.GitHub.ContractURL.ValueString(),
@@ -286,9 +287,11 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel) {
 
 func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 	data.ID = types.StringValue(api.ID)
-	data.ABI = types.StringValue(api.ABI)
+	abiBytes, _ := json.Marshal(api.ABI)
+	data.ABI = types.StringValue(string(abiBytes))
 	data.Bytecode = types.StringValue(api.Bytecode)
-	data.DevDocs = types.StringValue(api.DevDocs)
+	devDocsBytes, _ := json.Marshal(api.DevDocs)
+	data.DevDocs = types.StringValue(string(devDocsBytes))
 	if api.GitHub != nil {
 		data.CommitHash = types.StringValue(api.GitHub.CommitHash)
 	}
