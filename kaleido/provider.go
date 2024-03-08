@@ -60,9 +60,9 @@ func New(version string) func() provider.Provider {
 				ResourceConfigurationFactory,
 				ResourceDestinationFactory,
 			}, platform.Resources()...),
-			[]func() datasource.DataSource{
+			append([]func() datasource.DataSource{
 				DatasourcePrivateStackBridgeFactory,
-			},
+			}, platform.DataSources()...),
 		)
 	}
 }

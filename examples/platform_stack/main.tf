@@ -70,6 +70,11 @@ resource "kaleido_platform_service" "gws_0" {
   })
 }
 
+data "kaleido_platform_evm_netinfo" "gws_0" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.gws_0.id
+}
+
 resource "kaleido_platform_runtime" "kmr_0" {
   type = "KeyManager"
   name = "kmr_0"
@@ -197,4 +202,5 @@ resource "kaleido_platform_cms_action_deploy" "deploy0" {
   name = "deploy_0"
   firefly_namespace = kaleido_platform_service.ffs_0.name
   signing_key = kaleido_platform_kms_key.key_0.address
+  depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }

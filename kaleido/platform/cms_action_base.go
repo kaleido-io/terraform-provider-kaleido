@@ -60,11 +60,13 @@ func (r *cms_action_deployResource) apiPath(data *CMSActionDeployResourceModel) 
 
 func (r *cms_action_deployResource) waitForActionStatus(ctx context.Context, data *CMSActionDeployResourceModel, api *CMSActionDeployAPIModel, diagnostics *diag.Diagnostics) {
 	path := r.apiPath(data)
+	cancelInfo := APICancelInfo()
 	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("build-check %s", path), func(attempt int) (retry bool, err error) {
-		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, diagnostics)
+		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, diagnostics, cancelInfo)
 		if !ok {
 			return false, fmt.Errorf("action-check failed") // already set in diag
 		}
+		cancelInfo.CancelInfo = fmt.Sprintf("waiting for completion - status: %s", api.Output.Status)
 		switch api.Output.Status {
 		case "succeeded":
 			return false, nil

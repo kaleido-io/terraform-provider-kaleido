@@ -180,7 +180,7 @@ func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if !ok {
 		return
 	}
-	ok, status := r.apiRequest(ctx, http.MethodGet, apiPath, nil, &api, &resp.Diagnostics, Allow404)
+	ok, status := r.apiRequest(ctx, http.MethodGet, apiPath, nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -201,7 +201,7 @@ func (r *kms_keyResource) Delete(ctx context.Context, req resource.DeleteRequest
 	if !ok {
 		return
 	}
-	_, _ = r.apiRequest(ctx, http.MethodDelete, apiPath, nil, nil, &resp.Diagnostics, Allow404)
+	_, _ = r.apiRequest(ctx, http.MethodDelete, apiPath, nil, nil, &resp.Diagnostics, Allow404())
 
 	r.waitForRemoval(ctx, apiPath, &resp.Diagnostics)
 }

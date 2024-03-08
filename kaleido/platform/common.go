@@ -22,17 +22,18 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
-type HttpOptions int
-
-const (
-	Allow404 HttpOptions = iota
-)
+type APIRequestOption struct {
+	allow404         bool
+	captureLastError bool
+	CancelInfo       string
+}
 
 type commonResource struct {
 	*kaleidobase.ProviderData
@@ -42,7 +43,27 @@ func (r *commonResource) Configure(_ context.Context, req resource.ConfigureRequ
 	r.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, &resp.Diagnostics)
 }
 
-func (r *commonResource) apiRequest(ctx context.Context, method, path string, body, result interface{}, diagnostics *diag.Diagnostics, options ...HttpOptions) (bool, int) {
+type commonDataSource struct {
+	*kaleidobase.ProviderData
+}
+
+func (r *commonDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	r.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, &resp.Diagnostics)
+}
+
+func Allow404() *APIRequestOption {
+	return &APIRequestOption{
+		allow404: true,
+	}
+}
+
+func APICancelInfo() *APIRequestOption {
+	return &APIRequestOption{
+		captureLastError: true,
+	}
+}
+
+func (r *commonResource) apiRequest(ctx context.Context, method, path string, body, result interface{}, diagnostics *diag.Diagnostics, options ...*APIRequestOption) (bool, int) {
 	var bodyBytes []byte
 	var err error
 	bodyString := ""
@@ -88,24 +109,44 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 	ok := true
 	if err != nil {
 		ok = false
-		diagnostics.AddError(
-			fmt.Sprintf("%s failed", method),
-			fmt.Sprintf("%s %s failed with error: %s", method, path, err),
-		)
+		isCancelled := false
+		select {
+		case <-ctx.Done():
+			isCancelled = true
+		default:
+		}
+		errorInfo := fmt.Sprintf("%s %s failed with error: %s", method, path, err)
+		if isCancelled {
+			for _, o := range options {
+				if o.CancelInfo != "" {
+					errorInfo = fmt.Sprintf("%s %s", errorInfo, o.CancelInfo)
+				}
+			}
+			diagnostics.AddError(
+				fmt.Sprintf("%s cancelled", method),
+				errorInfo,
+			)
+		} else {
+			diagnostics.AddError(
+				fmt.Sprintf("%s failed", method),
+				errorInfo,
+			)
+		}
 	} else if !res.IsSuccess() {
 		isOk404 := false
 		if statusCode == 404 {
 			for _, o := range options {
-				if o == Allow404 {
+				if o.allow404 {
 					isOk404 = true
 				}
 			}
 		}
 		if !isOk404 {
 			ok = false
+			errorInfo := fmt.Sprintf("%s %s returned status code %d: %s", method, path, statusCode, rawBytes)
 			diagnostics.AddError(
 				fmt.Sprintf("%s failed", method),
-				fmt.Sprintf("%s %s returned status code %d: %s", method, path, statusCode, rawBytes),
+				errorInfo,
 			)
 		}
 	}
@@ -116,12 +157,14 @@ func (r *commonResource) waitForReadyStatus(ctx context.Context, path string, di
 	type statusResponse struct {
 		Status string `json:"status"`
 	}
+	cancelInfo := APICancelInfo()
 	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("ready-check %s", path), func(attempt int) (retry bool, err error) {
 		var res statusResponse
-		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &res, diagnostics)
+		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &res, diagnostics, cancelInfo)
 		if !ok {
 			return false, fmt.Errorf("ready-check failed") // already set in diag
 		}
+		cancelInfo.CancelInfo = fmt.Sprintf("(waiting for ready - status: %s)", res.Status)
 		if !strings.EqualFold(res.Status, "ready") {
 			return true, fmt.Errorf("not ready yet")
 		}
@@ -133,9 +176,11 @@ func (r *commonResource) waitForRemoval(ctx context.Context, path string, diagno
 	type statusResponse struct {
 		Status string `json:"status"`
 	}
+	cancelInfo := APICancelInfo()
+	cancelInfo.CancelInfo = "(waiting for removal)"
 	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("ready-check %s", path), func(attempt int) (retry bool, err error) {
 		var res statusResponse
-		ok, status := r.apiRequest(ctx, http.MethodGet, path, nil, &res, diagnostics, Allow404)
+		ok, status := r.apiRequest(ctx, http.MethodGet, path, nil, &res, diagnostics, Allow404(), cancelInfo)
 		if !ok {
 			return false, fmt.Errorf("ready-check failed") // already set in diag
 		}
@@ -144,6 +189,12 @@ func (r *commonResource) waitForRemoval(ctx context.Context, path string, diagno
 		}
 		return false, nil
 	})
+}
+
+func DataSources() []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		EVMNetInfoDataSourceFactory,
+	}
 }
 
 func Resources() []func() resource.Resource {

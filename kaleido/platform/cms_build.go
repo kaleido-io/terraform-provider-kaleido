@@ -307,11 +307,13 @@ func (r *cms_buildResource) apiPath(data *CMSBuildResourceModel) string {
 
 func (r *cms_buildResource) waitForBuildStatus(ctx context.Context, data *CMSBuildResourceModel, api *CMSBuildAPIModel, diagnostics *diag.Diagnostics) {
 	path := r.apiPath(data)
+	cancelInfo := APICancelInfo()
 	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("build-check %s", path), func(attempt int) (retry bool, err error) {
-		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, diagnostics)
+		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, diagnostics, cancelInfo)
 		if !ok {
 			return false, fmt.Errorf("build-check failed") // already set in diag
 		}
+		cancelInfo.CancelInfo = fmt.Sprintf("(waiting for completion - status: %s)", api.Status)
 		switch api.Status {
 		case "succeeded":
 			return false, nil
@@ -366,7 +368,7 @@ func (r *cms_buildResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	var api CMSBuildAPIModel
 	api.ID = data.ID.ValueString()
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404)
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -383,7 +385,7 @@ func (r *cms_buildResource) Delete(ctx context.Context, req resource.DeleteReque
 	var data CMSBuildResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404)
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }

@@ -52,7 +52,7 @@ func (r *CustomRetry) Do(ctx context.Context, logDescription string, f func(atte
 		// Check the context isn't canceled
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("context cancelled")
+			return fmt.Errorf("context cancelled (last error: %s)", err)
 		default:
 		}
 

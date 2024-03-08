@@ -164,7 +164,7 @@ func (r *kms_walletResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	var api KMSWalletAPIModel
 	api.ID = data.ID.ValueString()
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404)
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -181,7 +181,7 @@ func (r *kms_walletResource) Delete(ctx context.Context, req resource.DeleteRequ
 	var data KMSWalletResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404)
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }
