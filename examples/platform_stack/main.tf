@@ -20,7 +20,13 @@ resource "kaleido_platform_network" "net_0" {
   type = "Besu"
   name = "net_0"
   environment = kaleido_platform_environment.env_0.id
-  config_json = jsonencode({})
+  config_json = jsonencode({
+    bootstrapOptions = {
+      qbft = {
+        blockperiodseconds = 2
+      }
+    }
+  })
 }
 
 
@@ -112,6 +118,9 @@ resource "kaleido_platform_service" "tms_0" {
     }
     type = "evm"
     evm = {
+      confirmations = {
+        required = 0
+      }
       connector = {
         evmGateway = {
           id =  kaleido_platform_service.gws_0.id
@@ -163,13 +172,13 @@ resource "kaleido_platform_runtime" "cmr_0" {
 
 resource "kaleido_platform_service" "cms_0" {
   type = "ContractManager"
-  name = "cmss_0"
+  name = "cms_0"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.cmr_0.id
   config_json = jsonencode({})
 }
 
-resource "kaleido_platform_cms_build" "contract0" {
+resource "kaleido_platform_cms_build" "contract_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
   type = "github"
@@ -179,4 +188,13 @@ resource "kaleido_platform_cms_build" "contract0" {
 		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
 		contract_name = "Firefly"
 	}
+}
+
+resource "kaleido_platform_cms_action_deploy" "deploy0" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.cms_0.id
+  build = kaleido_platform_cms_build.contract_0.id
+  name = "deploy_0"
+  firefly_namespace = kaleido_platform_service.ffs_0.name
+  signing_key = kaleido_platform_kms_key.key_0.address
 }

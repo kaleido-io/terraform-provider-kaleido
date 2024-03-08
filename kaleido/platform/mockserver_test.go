@@ -40,6 +40,7 @@ type mockPlatform struct {
 	kmsWallets   map[string]*KMSWalletAPIModel
 	kmsKeys      map[string]*KMSKeyAPIModel
 	cmsBuilds    map[string]*CMSBuildAPIModel
+	cmsActions   map[string]CMSActionBaseAccessor
 	calls        []string
 }
 
@@ -53,6 +54,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		kmsWallets:   make(map[string]*KMSWalletAPIModel),
 		kmsKeys:      make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:    make(map[string]*CMSBuildAPIModel),
+		cmsActions:   make(map[string]CMSActionBaseAccessor),
 		router:       mux.NewRouter(),
 		calls:        []string{},
 	}
@@ -98,6 +100,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds/{build}", http.MethodPatch, mp.patchCMSBuild)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds/{build}", http.MethodDelete, mp.deleteCMSBuild)
 
+	// See cms_actions_base.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions", http.MethodPost, mp.postCMSAction)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{build}", http.MethodGet, mp.getCMSAction)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{build}", http.MethodPatch, mp.patchCMSAction)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{build}", http.MethodDelete, mp.deleteCMSAction)
+
 	mp.server = httptest.NewServer(mp.router)
 	return mp
 }
@@ -141,4 +149,12 @@ func (mp *mockPlatform) respond(res http.ResponseWriter, body interface{}, statu
 func (mp *mockPlatform) getBody(req *http.Request, body interface{}) {
 	err := json.NewDecoder(req.Body).Decode(&body)
 	assert.NoError(mp.t, err)
+}
+
+func (mp *mockPlatform) peekBody(req *http.Request, body interface{}) []byte {
+	rawBody, err := io.ReadAll(req.Body)
+	assert.NoError(mp.t, err)
+	err = json.Unmarshal(rawBody, &body)
+	assert.NoError(mp.t, err)
+	return rawBody
 }
