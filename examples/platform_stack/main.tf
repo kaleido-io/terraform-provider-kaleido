@@ -183,6 +183,25 @@ resource "kaleido_platform_service" "cms_0" {
   config_json = jsonencode({})
 }
 
+resource "kaleido_platform_runtime" "amr_0" {
+  type = "AssetManager"
+  name = "amr_0"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "ams_0" {
+  type = "AssetManager"
+  name = "ams_0"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.amr_0.id
+  config_json = jsonencode({
+    keyManager = {
+      id: kaleido_platform_service.kms_0.id
+    }
+  })
+}
+
 resource "kaleido_platform_cms_build" "contract_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
@@ -214,4 +233,18 @@ resource "kaleido_platform_cms_action_creatapi" "api_0" {
   api_name = "firefly"
   contract_address = kaleido_platform_cms_action_deploy.deploy_0.contract_address
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
+}
+
+resource "kaleido_platform_ams_task" "task_0" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.ams_0.id
+  task_yaml = <<EOT
+    name: task1
+    steps:
+    - name: demostep1
+      type: jsonata_template
+      options:
+        template: |-
+          "hello world"
+  EOT
 }

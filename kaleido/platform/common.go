@@ -27,11 +27,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
+	"gopkg.in/yaml.v3"
 )
 
 type APIRequestOption struct {
 	allow404         bool
 	captureLastError bool
+	yamlBody         bool
 	CancelInfo       string
 }
 
@@ -57,6 +59,12 @@ func Allow404() *APIRequestOption {
 	}
 }
 
+func YAMLBody() *APIRequestOption {
+	return &APIRequestOption{
+		yamlBody: true,
+	}
+}
+
 func APICancelInfo() *APIRequestOption {
 	return &APIRequestOption{
 		captureLastError: true,
@@ -67,8 +75,25 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 	var bodyBytes []byte
 	var err error
 	bodyString := ""
+	isYaml := false
+	for _, o := range options {
+		isYaml = isYaml || o.yamlBody
+	}
 	if body != nil {
-		bodyBytes, err = json.Marshal(body)
+		switch tBody := body.(type) {
+		case []byte:
+			bodyBytes = tBody
+			bodyString = string(tBody)
+		case string:
+			bodyBytes = []byte(tBody)
+			bodyString = tBody
+		default:
+			if isYaml {
+				bodyBytes, err = yaml.Marshal(body)
+			} else {
+				bodyBytes, err = json.Marshal(body)
+			}
+		}
 		if err == nil {
 			bodyString = string(bodyBytes)
 		}
@@ -79,8 +104,12 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 	if err == nil {
 		req := r.Platform.R().
 			SetContext(ctx).
-			SetHeader("Content-type", "application/json").
 			SetDoNotParseResponse(true)
+		if isYaml {
+			req = req.SetHeader("Content-type", "application/x-yaml")
+		} else {
+			req = req.SetHeader("Content-type", "application/json")
+		}
 		if bodyBytes != nil {
 			req = req.SetBody(bodyBytes)
 		}
@@ -208,5 +237,6 @@ func Resources() []func() resource.Resource {
 		CMSBuildResourceFactory,
 		CMSActionDeployResourceFactory,
 		CMSActionCreateAPIResourceFactory,
+		AMSTaskResourceFactory,
 	}
 }

@@ -20,12 +20,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 type mockPlatform struct {
@@ -41,6 +44,7 @@ type mockPlatform struct {
 	kmsKeys      map[string]*KMSKeyAPIModel
 	cmsBuilds    map[string]*CMSBuildAPIModel
 	cmsActions   map[string]CMSActionAPIBaseAccessor
+	amsTasks     map[string]*AMSTaskAPIModel
 	calls        []string
 }
 
@@ -55,6 +59,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		kmsKeys:      make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:    make(map[string]*CMSBuildAPIModel),
 		cmsActions:   make(map[string]CMSActionAPIBaseAccessor),
+		amsTasks:     make(map[string]*AMSTaskAPIModel),
 		router:       mux.NewRouter(),
 		calls:        []string{},
 	}
@@ -106,6 +111,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{action}", http.MethodPatch, mp.patchCMSAction)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{action}", http.MethodDelete, mp.deleteCMSAction)
 
+	// See ams_task.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodGet, mp.getAMSTask)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodPut, mp.putAMSTask)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodDelete, mp.deleteAMSTask)
+
 	mp.server = httptest.NewServer(mp.router)
 	return mp
 }
@@ -118,7 +128,18 @@ func (mp *mockPlatform) checkClearCalls(expected []string) {
 func (mp *mockPlatform) register(pathMatch, method string, handler http.HandlerFunc) {
 	mp.router.HandleFunc(pathMatch, func(res http.ResponseWriter, req *http.Request) {
 		mp.lock.Lock()
-		defer mp.lock.Unlock()
+		defer func() {
+			mp.lock.Unlock()
+			err := recover()
+			assert.Nil(mp.t, err)
+			if err != nil {
+				resString := fmt.Sprintf("%s", err)
+				res.Header().Set("Content-Length", strconv.Itoa(len(resString)))
+				res.WriteHeader(500)
+				res.Write([]byte(resString))
+				mp.t.Logf(resString + ": " + string(debug.Stack()))
+			}
+		}()
 		sniffed, err := io.ReadAll(req.Body)
 		assert.NoError(mp.t, err)
 		req.Body = io.NopCloser(bytes.NewBuffer(sniffed))
@@ -147,8 +168,13 @@ func (mp *mockPlatform) respond(res http.ResponseWriter, body interface{}, statu
 }
 
 func (mp *mockPlatform) getBody(req *http.Request, body interface{}) {
-	err := json.NewDecoder(req.Body).Decode(&body)
-	assert.NoError(mp.t, err)
+	if strings.HasPrefix(req.Header.Get("Content-Type"), "application/x-yaml") {
+		err := yaml.NewDecoder(req.Body).Decode(body)
+		assert.NoError(mp.t, err)
+	} else {
+		err := json.NewDecoder(req.Body).Decode(body)
+		assert.NoError(mp.t, err)
+	}
 }
 
 func (mp *mockPlatform) peekBody(req *http.Request, body interface{}) []byte {

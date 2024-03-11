@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 var testAccProviders map[string]func() (tfprotov6.ProviderServer, error)
@@ -54,4 +55,11 @@ func testJSONEqual(t *testing.T, obj interface{}, expected string) {
 	assert.NoError(t, err)
 	t.Logf("%s\n", jsonObj)
 	assert.JSONEq(t, expected, string(jsonObj))
+}
+
+func testYAMLEqual(t *testing.T, obj interface{}, expected string) {
+	assert.NotNil(t, obj)
+	yamlObj, err := yaml.Marshal(obj)
+	assert.NoError(t, err)
+	assert.YAMLEq(t, expected, string(yamlObj))
 }
