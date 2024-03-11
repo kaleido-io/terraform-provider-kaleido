@@ -40,7 +40,7 @@ type mockPlatform struct {
 	kmsWallets   map[string]*KMSWalletAPIModel
 	kmsKeys      map[string]*KMSKeyAPIModel
 	cmsBuilds    map[string]*CMSBuildAPIModel
-	cmsActions   map[string]CMSActionBaseAccessor
+	cmsActions   map[string]CMSActionAPIBaseAccessor
 	calls        []string
 }
 
@@ -54,7 +54,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		kmsWallets:   make(map[string]*KMSWalletAPIModel),
 		kmsKeys:      make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:    make(map[string]*CMSBuildAPIModel),
-		cmsActions:   make(map[string]CMSActionBaseAccessor),
+		cmsActions:   make(map[string]CMSActionAPIBaseAccessor),
 		router:       mux.NewRouter(),
 		calls:        []string{},
 	}
@@ -102,9 +102,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 
 	// See cms_actions_base.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions", http.MethodPost, mp.postCMSAction)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{build}", http.MethodGet, mp.getCMSAction)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{build}", http.MethodPatch, mp.patchCMSAction)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{build}", http.MethodDelete, mp.deleteCMSAction)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{action}", http.MethodGet, mp.getCMSAction)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{action}", http.MethodPatch, mp.patchCMSAction)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/actions/{action}", http.MethodDelete, mp.deleteCMSAction)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp

@@ -207,5 +207,6 @@ func Resources() []func() resource.Resource {
 		KMSKeyResourceFactory,
 		CMSBuildResourceFactory,
 		CMSActionDeployResourceFactory,
+		CMSActionCreateAPIResourceFactory,
 	}
 }

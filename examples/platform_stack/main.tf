@@ -195,12 +195,23 @@ resource "kaleido_platform_cms_build" "contract_0" {
 	}
 }
 
-resource "kaleido_platform_cms_action_deploy" "deploy0" {
+resource "kaleido_platform_cms_action_deploy" "deploy_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
   build = kaleido_platform_cms_build.contract_0.id
   name = "deploy_0"
   firefly_namespace = kaleido_platform_service.ffs_0.name
   signing_key = kaleido_platform_kms_key.key_0.address
+  depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
+}
+
+resource "kaleido_platform_cms_action_creatapi" "api_0" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.cms_0.id
+  build = kaleido_platform_cms_build.contract_0.id
+  name = "api_0"
+  firefly_namespace = kaleido_platform_service.ffs_0.name
+  api_name = "firefly"
+  contract_address = kaleido_platform_cms_action_deploy.deploy_0.contract_address
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
@@ -41,24 +42,29 @@ type cms_action_baseResource struct {
 	commonResource
 }
 
-type CMSActionBaseAccessor interface {
+type CMSActionAPIBaseAccessor interface {
 	ActionBase() *CMSActionBaseAPIModel
 	OutputBase() *CMSActionOutputBaseAPIModel
+}
+
+type CMSActionResourceBaseAccessor interface {
+	ResourceIdentifiers() (types.String, types.String, types.String)
 }
 
 func (a *CMSActionBaseAPIModel) ActionBase() *CMSActionBaseAPIModel {
 	return a
 }
 
-func (r *cms_action_deployResource) apiPath(data *CMSActionDeployResourceModel) string {
-	path := fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/actions", data.Environment.ValueString(), data.Service.ValueString())
-	if data.ID.ValueString() != "" {
-		path = path + "/" + data.ID.ValueString()
+func (r *cms_action_baseResource) apiPath(data CMSActionResourceBaseAccessor) string {
+	environment, service, id := data.ResourceIdentifiers()
+	path := fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/actions", environment.ValueString(), service.ValueString())
+	if id.ValueString() != "" {
+		path = path + "/" + id.ValueString()
 	}
 	return path
 }
 
-func (r *cms_action_deployResource) waitForActionStatus(ctx context.Context, data *CMSActionDeployResourceModel, api *CMSActionDeployAPIModel, diagnostics *diag.Diagnostics) {
+func (r *cms_action_baseResource) waitForActionStatus(ctx context.Context, data CMSActionResourceBaseAccessor, api CMSActionAPIBaseAccessor, diagnostics *diag.Diagnostics) {
 	path := r.apiPath(data)
 	cancelInfo := APICancelInfo()
 	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("build-check %s", path), func(attempt int) (retry bool, err error) {
@@ -66,12 +72,12 @@ func (r *cms_action_deployResource) waitForActionStatus(ctx context.Context, dat
 		if !ok {
 			return false, fmt.Errorf("action-check failed") // already set in diag
 		}
-		cancelInfo.CancelInfo = fmt.Sprintf("waiting for completion - status: %s", api.Output.Status)
-		switch api.Output.Status {
+		cancelInfo.CancelInfo = fmt.Sprintf("waiting for completion - status: %s", api.OutputBase().Status)
+		switch api.OutputBase().Status {
 		case "succeeded":
 			return false, nil
 		case "failed":
-			diagnostics.AddError("action failed", api.Output.Error)
+			diagnostics.AddError("action failed", api.OutputBase().Error)
 			return false, fmt.Errorf("action failed")
 		default:
 			return true, fmt.Errorf("not ready yet")

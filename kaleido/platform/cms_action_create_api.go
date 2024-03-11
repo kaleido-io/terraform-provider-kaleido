@@ -25,7 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type CMSActionDeployResourceModel struct {
+type CMSActionCreateAPIResourceModel struct {
 	ID               types.String `tfsdk:"id"`
 	Environment      types.String `tfsdk:"environment"`
 	Service          types.String `tfsdk:"service"`
@@ -33,68 +33,61 @@ type CMSActionDeployResourceModel struct {
 	Name             types.String `tfsdk:"name"`
 	Description      types.String `tfsdk:"description"`
 	FireFlyNamespace types.String `tfsdk:"firefly_namespace"`
-	SigningKey       types.String `tfsdk:"signing_key"`
-	TransactionID    types.String `tfsdk:"transaction_id"`
-	IdempotencyKey   types.String `tfsdk:"idempotency_key"`
-	OperationID      types.String `tfsdk:"operation_id"`
+	APIName          types.String `tfsdk:"api_name"`
 	ContractAddress  types.String `tfsdk:"contract_address"`
-	BlockNumber      types.String `tfsdk:"block_number"`
+	APIID            types.String `tfsdk:"api_id"`
 }
 
-type CMSActionDeployAPIModel struct {
+type CMSActionCreateAPIAPIModel struct {
 	CMSActionBaseAPIModel
-	Input  CMSDeployActionInputAPIModel   `json:"input,omitempty"`
-	Output *CMSDeployActionOutputAPIModel `json:"output,omitempty"`
+	Input  CMSCreateAPIActionInputAPIModel   `json:"input,omitempty"`
+	Output *CMSCreateAPIActionOutputAPIModel `json:"output,omitempty"`
 }
 
-type CMSDeployActionInputAPIModel struct {
-	Namespace         string                             `json:"namespace,omitempty"`
-	Build             *CMSActionDeployBuildInputAPIModel `json:"build,omitempty"`
-	SingingKey        string                             `json:"signingKey,omitempty"`
-	ConstructorParams interface{}                        `json:"constructorParams,omitempty"`
+type CMSCreateAPIActionInputAPIModel struct {
+	Namespace string                                   `json:"namespace,omitempty"`
+	Build     *CMSActionCreateAPIBuildInputAPIModel    `json:"build,omitempty"`
+	APIName   string                                   `json:"apiName,omitempty"`
+	Location  *CMSCreateAPIActionInputLocationAPIModel `json:"location,omitempty"`
 }
 
-type CMSDeployActionOutputAPIModel struct {
-	CMSActionOutputBaseAPIModel
-	TransactionID  string                                `json:"transactionId,omitempty"`
-	IdempotencyKey string                                `json:"idempotencyKey,omitempty"`
-	OperationID    string                                `json:"operationId,omitempty"`
-	Location       CMSDeployActionOutputLocationAPIModel `json:"location,omitempty"`
-	BlockNumber    string                                `json:"blockNumber,omitempty"`
-}
-
-type CMSDeployActionOutputLocationAPIModel struct {
+type CMSCreateAPIActionInputLocationAPIModel struct {
 	Address string `json:"address,omitempty"`
 }
 
-type CMSActionDeployBuildInputAPIModel struct {
+type CMSCreateAPIActionOutputAPIModel struct {
+	CMSActionOutputBaseAPIModel
+	APIID string `json:"apiId,omitempty"`
+}
+
+type CMSActionCreateAPIBuildInputAPIModel struct {
 	ID string `json:"id"`
 }
 
-func CMSActionDeployResourceFactory() resource.Resource {
-	return &cms_action_deployResource{}
+func CMSActionCreateAPIResourceFactory() resource.Resource {
+	return &cms_action_creatapiResource{}
 }
 
-func (data *CMSActionDeployResourceModel) ResourceIdentifiers() (types.String, types.String, types.String) {
+func (data *CMSActionCreateAPIResourceModel) ResourceIdentifiers() (types.String, types.String, types.String) {
 	return data.Environment, data.Service, data.ID
 }
 
-type cms_action_deployResource struct {
+type cms_action_creatapiResource struct {
 	cms_action_baseResource
 }
 
-func (a *CMSActionDeployAPIModel) OutputBase() *CMSActionOutputBaseAPIModel {
+func (a *CMSActionCreateAPIAPIModel) OutputBase() *CMSActionOutputBaseAPIModel {
 	if a.Output == nil {
 		return nil
 	}
 	return &a.Output.CMSActionOutputBaseAPIModel
 }
 
-func (r *cms_action_deployResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_cms_action_deploy"
+func (r *cms_action_creatapiResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_cms_action_creatapi"
 }
 
-func (r *cms_action_deployResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *cms_action_creatapiResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
@@ -122,59 +115,52 @@ func (r *cms_action_deployResource) Schema(_ context.Context, _ resource.SchemaR
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"signing_key": &schema.StringAttribute{
+			"api_name": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"transaction_id": &schema.StringAttribute{
-				Computed: true,
-			},
-			"idempotency_key": &schema.StringAttribute{
-				Computed: true,
-			},
-			"operation_id": &schema.StringAttribute{
-				Computed: true,
-			},
 			"contract_address": &schema.StringAttribute{
-				Computed: true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"block_number": &schema.StringAttribute{
+			"api_id": &schema.StringAttribute{
 				Computed: true,
 			},
 		},
 	}
 }
 
-func (data *CMSActionDeployResourceModel) toAPI(api *CMSActionDeployAPIModel) {
-	api.Type = "deploy"
+func (data *CMSActionCreateAPIResourceModel) toAPI(api *CMSActionCreateAPIAPIModel) {
+	api.Type = "createapi"
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
-	api.Input = CMSDeployActionInputAPIModel{
+	api.Input = CMSCreateAPIActionInputAPIModel{
 		Namespace: data.FireFlyNamespace.ValueString(),
-		Build: &CMSActionDeployBuildInputAPIModel{
+		Build: &CMSActionCreateAPIBuildInputAPIModel{
 			ID: data.Build.ValueString(),
 		},
-		SingingKey: data.SigningKey.ValueString(),
+		APIName: data.APIName.ValueString(),
+	}
+	if data.ContractAddress.ValueString() != "" {
+		api.Input.Location = &CMSCreateAPIActionInputLocationAPIModel{
+			Address: data.ContractAddress.ValueString(),
+		}
 	}
 }
 
-func (api *CMSActionDeployAPIModel) toData(data *CMSActionDeployResourceModel) {
+func (api *CMSActionCreateAPIAPIModel) toData(data *CMSActionCreateAPIResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	if api.Output != nil {
-		data.TransactionID = types.StringValue(api.Output.TransactionID)
-		data.IdempotencyKey = types.StringValue(api.Output.IdempotencyKey)
-		data.OperationID = types.StringValue(api.Output.OperationID)
-		data.ContractAddress = types.StringValue(api.Output.Location.Address)
-		data.BlockNumber = types.StringValue(api.Output.BlockNumber)
+		data.APIID = types.StringValue(api.Output.APIID)
 	}
 }
 
-func (r *cms_action_deployResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *cms_action_creatapiResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	var data CMSActionDeployResourceModel
+	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	var api CMSActionDeployAPIModel
+	var api CMSActionCreateAPIAPIModel
 	data.toAPI(&api)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
@@ -188,14 +174,14 @@ func (r *cms_action_deployResource) Create(ctx context.Context, req resource.Cre
 
 }
 
-func (r *cms_action_deployResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *cms_action_creatapiResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 
-	var data CMSActionDeployResourceModel
+	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
 	// Update from plan
-	var api CMSActionDeployAPIModel
+	var api CMSActionCreateAPIAPIModel
 	data.toAPI(&api)
 	if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
 		return
@@ -205,11 +191,11 @@ func (r *cms_action_deployResource) Update(ctx context.Context, req resource.Upd
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *cms_action_deployResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data CMSActionDeployResourceModel
+func (r *cms_action_creatapiResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var api CMSActionDeployAPIModel
+	var api CMSActionCreateAPIAPIModel
 	api.ID = data.ID.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
@@ -224,8 +210,8 @@ func (r *cms_action_deployResource) Read(ctx context.Context, req resource.ReadR
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *cms_action_deployResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data CMSActionDeployResourceModel
+func (r *cms_action_creatapiResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())

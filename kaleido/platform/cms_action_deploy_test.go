@@ -53,14 +53,14 @@ func TestCMSActionDeploy1(t *testing.T) {
 	defer func() {
 		mp.checkClearCalls([]string{
 			"POST /endpoint/{env}/{service}/rest/api/v1/actions",
-			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
-			"PATCH /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
 		})
 		mp.server.Close()
 	}()

@@ -24,7 +24,7 @@ import (
 )
 
 func (mp *mockPlatform) getCMSAction(res http.ResponseWriter, req *http.Request) {
-	obj := mp.cmsActions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["build"]]
+	obj := mp.cmsActions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["action"]]
 	if obj == nil {
 		mp.respond(res, nil, 404)
 	} else {
@@ -37,7 +37,7 @@ func (mp *mockPlatform) getCMSAction(res http.ResponseWriter, req *http.Request)
 
 func (mp *mockPlatform) postCMSAction(res http.ResponseWriter, req *http.Request) {
 	var base *CMSActionBaseAPIModel
-	var obj CMSActionBaseAccessor
+	var obj CMSActionAPIBaseAccessor
 	rawBody := mp.peekBody(req, &base)
 	switch base.Type {
 	case "deploy":
@@ -54,6 +54,14 @@ func (mp *mockPlatform) postCMSAction(res http.ResponseWriter, req *http.Request
 			BlockNumber: "12345",
 		}
 		obj = da
+	case "createapi":
+		da := &CMSActionCreateAPIAPIModel{}
+		err := json.Unmarshal(rawBody, &da)
+		assert.NoError(mp.t, err)
+		da.Output = &CMSCreateAPIActionOutputAPIModel{
+			APIID: nanoid.New(),
+		}
+		obj = da
 	}
 	base = obj.ActionBase()
 	base.ID = nanoid.New()
@@ -65,7 +73,7 @@ func (mp *mockPlatform) postCMSAction(res http.ResponseWriter, req *http.Request
 }
 
 func (mp *mockPlatform) patchCMSAction(res http.ResponseWriter, req *http.Request) {
-	obj := mp.cmsActions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["build"]] // expected behavior of provider is PUT only on exists
+	obj := mp.cmsActions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["action"]] // expected behavior of provider is PUT only on exists
 	assert.NotNil(mp.t, obj)
 	var updates CMSActionDeployAPIModel
 	mp.getBody(req, &updates)
@@ -78,8 +86,8 @@ func (mp *mockPlatform) patchCMSAction(res http.ResponseWriter, req *http.Reques
 }
 
 func (mp *mockPlatform) deleteCMSAction(res http.ResponseWriter, req *http.Request) {
-	obj := mp.cmsActions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["build"]]
+	obj := mp.cmsActions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["action"]]
 	assert.NotNil(mp.t, obj)
-	delete(mp.cmsActions, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["build"])
+	delete(mp.cmsActions, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["action"])
 	mp.respond(res, nil, 204)
 }
