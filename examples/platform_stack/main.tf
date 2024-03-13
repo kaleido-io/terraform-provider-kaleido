@@ -164,7 +164,6 @@ resource "kaleido_platform_service" "ffs_0" {
     transactionManager = {
       id = kaleido_platform_service.tms_0.id
     }
-    key = kaleido_platform_kms_key.key_0.uri
   })
 }
 
