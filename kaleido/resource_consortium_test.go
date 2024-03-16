@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -26,14 +26,14 @@ func TestKaleidoConsortiumResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraformConsort", "terraforming")
 	resourceName := "kaleido_consortium.basic"
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckConsortiumDestroy,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProviders,
+		CheckDestroy:             testAccCheckConsortiumDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccConsortiumConfig_basic(&consortium),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckConsortiumExists(resourceName, &consortium),
+					testAccCheckConsortiumExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "name", consortium.Name),
 					resource.TestCheckResourceAttr(resourceName, "description", consortium.Description),
 				),
@@ -50,7 +50,7 @@ func testAccConsortiumConfig_basic(consortium *kaleido.Consortium) string {
 }
 
 func testAccCheckConsortiumDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(kaleido.KaleidoClient)
+	client := newTestProviderData().BaaS
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "kaleido_consortium" || rs.Primary.ID == "" {
@@ -62,7 +62,7 @@ func testAccCheckConsortiumDestroy(s *terraform.State) error {
 }
 
 // testAccCheckConsortiumExists
-func testAccCheckConsortiumExists(resourceName string, consortium *kaleido.Consortium) resource.TestCheckFunc {
+func testAccCheckConsortiumExists(resourceName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
 		if !ok {
@@ -78,7 +78,7 @@ func testAccCheckConsortiumExists(resourceName string, consortium *kaleido.Conso
 			return fmt.Errorf("Terraform resource instance missing consortium id.")
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		var consortium kaleido.Consortium
 		res, err := client.GetConsortium(consortiumID, &consortium)
 

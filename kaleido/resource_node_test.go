@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -33,8 +33,8 @@ func TestKaleidoNodeResource(t *testing.T) {
 	nodeResource := "kaleido_node.theNode"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccNodeConfig_basic(&consortium, &membership, &environment),
@@ -87,7 +87,7 @@ func testAccCheckNodeExists(consResource, membershipResource, envResource, nodeR
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		var node kaleido.Node
 		res, err := client.GetNode(consID, envID, nodeID, &node)
 

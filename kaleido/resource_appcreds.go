@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,143 +14,182 @@
 package kaleido
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceAppCreds() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceAppCredCreate,
-		Read:   resourceAppCredRead,
-		Update: resourceAppCredUpdate,
-		Delete: resourceAppCredDelete,
-		Schema: map[string]*schema.Schema{
-			"membership_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
-			"environment_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"username": &schema.Schema{
-				Type:     schema.TypeString,
+type resourceAppCreds struct {
+	baasBaseResource
+}
+
+func ResourceAppCredsFactory() resource.Resource {
+	return &resourceAppCreds{}
+}
+
+type AppCredsResourceModel struct {
+	ID            types.String `tfsdk:"id"`
+	MembershipID  types.String `tfsdk:"membership_id"`
+	ConsortiumID  types.String `tfsdk:"consortium_id"`
+	EnvironmentID types.String `tfsdk:"environment_id"`
+	Name          types.String `tfsdk:"name"`
+	Username      types.String `tfsdk:"username"`
+	Password      types.String `tfsdk:"password"`
+	AuthType      types.String `tfsdk:"auth_type"`
+}
+
+func (r *resourceAppCreds) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
 				Computed: true,
 			},
-			"password": &schema.Schema{
-				Type:     schema.TypeString,
+			"membership_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"consortium_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"environment_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"name": &schema.StringAttribute{
+				Required: true,
+			},
+			"username": &schema.StringAttribute{
 				Computed: true,
 			},
-			"auth_type": &schema.Schema{
-				Type:     schema.TypeString,
+			"password": &schema.StringAttribute{
+				Sensitive: true,
+				Computed:  true,
+			},
+			"auth_type": &schema.StringAttribute{
 				Computed: true,
 			},
 		},
 	}
 }
 
-func resourceAppCredCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	envID := d.Get("environment_id").(string)
-	membershipID := d.Get("membership_id").(string)
-	appKey := kaleido.NewAppCreds(membershipID)
-	appKey.Name = d.Get("name").(string)
+func (r *resourceAppCreds) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_app_creds"
+}
 
-	res, err := client.CreateAppCreds(consortiumID, envID, &appKey)
+func (r *resourceAppCreds) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data AppCredsResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
+	apiModel := kaleido.AppCreds{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	apiModel.MembershipID = data.MembershipID.ValueString()
+	apiModel.Name = data.Name.ValueString()
+
+	res, err := r.BaaS.CreateAppCreds(consortiumID, environmentID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to create app credential", err.Error())
+		return
 	}
 
 	if res.StatusCode() != 201 {
 		msg := "Could not create AppKey in consortium %s, in environment %s, with membership %s with status %d: %s"
-		return fmt.Errorf(msg, consortiumID, envID, membershipID, res.StatusCode(), res.String())
+		resp.Diagnostics.AddError("failed to create app credential", fmt.Sprintf(msg, consortiumID, environmentID, apiModel.MembershipID, res.StatusCode(), res.String()))
+		return
 	}
 
-	d.SetId(appKey.ID)
-	d.Set("username", appKey.Username)
-	d.Set("password", appKey.Password)
-	d.Set("auth_type", appKey.AuthType)
+	data.ID = types.StringValue(apiModel.ID)
+	data.Username = types.StringValue(apiModel.Username)
+	data.Password = types.StringValue(apiModel.Password)
+	data.AuthType = types.StringValue(apiModel.AuthType)
 
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceAppCredUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	envID := d.Get("environment_id").(string)
-	membershipID := d.Get("membership_id").(string)
-	appKeyID := d.Id()
-	appKey := kaleido.NewAppCreds("")
-	appKey.Name = d.Get("name").(string)
+func (r *resourceAppCreds) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data AppCredsResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	res, err := client.UpdateAppCreds(consortiumID, envID, appKeyID, &appKey)
+	apiModel := kaleido.AppCreds{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	apiModel.MembershipID = data.MembershipID.ValueString()
+	apiModel.Name = data.Name.ValueString()
+	var appKeyID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &appKeyID)...)
 
+	res, err := r.BaaS.UpdateAppCreds(consortiumID, environmentID, appKeyID.ValueString(), &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to update app credential", err.Error())
+		return
 	}
 
 	if res.StatusCode() != 200 {
 		msg := "Could not update AppKey %s in consortium %s, in environment %s, with membership %s with status %d: %s"
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, membershipID, res.StatusCode(), res.String())
+		resp.Diagnostics.AddError("failed to update app credential", fmt.Sprintf(msg, appKeyID, consortiumID, environmentID, apiModel.MembershipID, res.StatusCode(), res.String()))
+		return
 	}
 
-	return nil
+	data.Username = types.StringValue(apiModel.Username)
+	data.Password = types.StringValue(apiModel.Password)
+	data.AuthType = types.StringValue(apiModel.AuthType)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceAppCredRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	envID := d.Get("environment_id").(string)
-	appKeyID := d.Id()
+func (r *resourceAppCreds) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data AppCredsResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var appKey kaleido.AppCreds
-	res, err := client.GetAppCreds(consortiumID, envID, appKeyID, &appKey)
+	apiModel := kaleido.AppCreds{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	appKeyID := data.ID.ValueString()
 
+	res, err := r.BaaS.GetAppCreds(consortiumID, environmentID, appKeyID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query app credential", err.Error())
+		return
 	}
 
 	if res.StatusCode() != 200 {
 		msg := "Could not fetch AppKey %s in consortium %s, in environment %s with status %d: %s"
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode(), res.String())
+		resp.Diagnostics.AddError("failed to app credential", fmt.Sprintf(msg, appKeyID, consortiumID, environmentID, res.StatusCode(), res.String()))
+		return
 	}
 
-	d.Set("auth_type", appKey.AuthType)
-	return nil
+	data.Username = types.StringValue(apiModel.Username)
+	data.Password = types.StringValue(apiModel.Password)
+	data.AuthType = types.StringValue(apiModel.AuthType)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceAppCredDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	envID := d.Get("environment_id").(string)
-	appKeyID := d.Id()
+func (r *resourceAppCreds) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data AppCredsResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	res, err := client.DeleteAppCreds(consortiumID, envID, appKeyID)
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	appKeyID := data.ID.ValueString()
 
+	res, err := r.BaaS.DeleteAppCreds(consortiumID, environmentID, appKeyID)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to delete app credential", err.Error())
+		return
 	}
 
 	if res.StatusCode() != 204 {
 		msg := "Could not delete AppKey %s in consortium %s, in environment %s with status %d: %s"
-		return fmt.Errorf(msg, appKeyID, consortiumID, envID, res.StatusCode(), res.String())
+		resp.Diagnostics.AddError("failed to delete app credential", fmt.Sprintf(msg, appKeyID, consortiumID, environmentID, res.StatusCode(), res.String()))
+		return
 	}
-
-	d.SetId("")
-	return nil
 }

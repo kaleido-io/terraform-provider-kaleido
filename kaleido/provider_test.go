@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,22 +17,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
 
-var testAccProvider *schema.Provider
-var testAccProviders map[string]terraform.ResourceProvider
+var testAccProviders map[string]func() (tfprotov6.ProviderServer, error)
 
 func init() {
-	testAccProvider = Provider()
-	testAccProviders = map[string]terraform.ResourceProvider{
-		"kaleido": testAccProvider,
+	testAccProviders = map[string]func() (tfprotov6.ProviderServer, error){
+		"kaleido": providerserver.NewProtocol6WithError(New("0.0.1-unittest")()),
 	}
-}
-
-func TestProvider_impl(t *testing.T) {
-	var _ terraform.ResourceProvider = Provider()
 }
 
 func testAccPreCheck(t *testing.T) {
@@ -41,10 +35,5 @@ func testAccPreCheck(t *testing.T) {
 	}
 	if v := os.Getenv("KALEIDO_API_KEY"); v == "" {
 		t.Fatal("KALEIDO_API_KEY must be set for acceptance tests")
-	}
-
-	err := testAccProvider.Configure(terraform.NewResourceConfigRaw(nil))
-	if err != nil {
-		t.Fatal(err)
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,156 +14,198 @@
 package kaleido
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
-func resourceMembership() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceMembershipCreate,
-		Read:   resourceMembershipRead,
-		Update: resourceMembershipUpdate,
-		Delete: resourceMembershipDelete,
-		Schema: map[string]*schema.Schema{
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+type resourceMembership struct {
+	baasBaseResource
+}
+
+func ResourceMembershipFactory() resource.Resource {
+	return &resourceMembership{}
+}
+
+type MembershipResourceModel struct {
+	ID           types.String `tfsdk:"id"`
+	ConsortiumID types.String `tfsdk:"consortium_id"`
+	OrgName      types.String `tfsdk:"org_name"`
+	PreExisting  types.Bool   `tfsdk:"pre_existing"`
+}
+
+func (r *resourceMembership) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_membership"
+}
+
+func (r *resourceMembership) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed: true,
 			},
-			"org_name": &schema.Schema{
-				Type:     schema.TypeString,
+			"consortium_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"org_name": &schema.StringAttribute{
 				Required: true,
 			},
-			"pre_existing": &schema.Schema{
-				Type:        schema.TypeBool,
+			"pre_existing": &schema.BoolAttribute{
 				Optional:    true,
-				Default:     false,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "In a decentalized consortium memberships are driven by invitation, and will be pre-existing at the point of deploying infrastructure.",
 			},
 		},
 	}
 }
 
-func resourceMembershipCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	orgName := d.Get("org_name").(string)
-	membership := kaleido.NewMembership(orgName)
-	consortiumID := d.Get("consortium_id").(string)
+func (r *resourceMembership) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	if d.Get("pre_existing").(bool) {
+	var data MembershipResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.Membership{}
+	consortiumID := data.ConsortiumID.ValueString()
+	apiModel.OrgName = data.OrgName.ValueString()
+
+	if data.PreExisting.ValueBool() {
 		var memberships []kaleido.Membership
-		res, err := client.ListMemberships(consortiumID, &memberships)
+		res, err := r.BaaS.ListMemberships(consortiumID, &memberships)
 		if err != nil {
-			return err
+			resp.Diagnostics.AddError("failed to list memberships", err.Error())
+			return
 		}
 		if res.StatusCode() != 200 {
-			return fmt.Errorf("Failed to list existing memberships with status %d: %s", res.StatusCode(), res.String())
+			resp.Diagnostics.AddError("failed to list memberships", fmt.Sprintf("Failed to list existing memberships with status %d: %s", res.StatusCode(), res.String()))
+			return
 		}
+		found := false
 		for _, e := range memberships {
-			if e.OrgName == orgName {
-				d.SetId(e.ID)
-				return resourceMembershipRead(d, meta)
+			if e.OrgName == data.OrgName.ValueString() {
+				apiModel = e
+				found = true
+				break
 			}
 		}
-		msg := "pre_existing set and no existing membership found with org_name '%s'"
-		return fmt.Errorf(msg, orgName)
+		if !found {
+			msg := "pre_existing set and no existing membership found with org_name '%s'"
+			resp.Diagnostics.AddError("membership not found", fmt.Sprintf(msg, data.OrgName.ValueString()))
+			return
+		}
+	} else {
+		res, err := r.BaaS.CreateMembership(consortiumID, &apiModel)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to create membership", err.Error())
+			return
+		}
+
+		status := res.StatusCode()
+		if status != 201 {
+			msg := "Failed to create membership %s in consortium %s with status %d: %s"
+			resp.Diagnostics.AddError("failed to create service", fmt.Sprintf(msg, apiModel.OrgName, consortiumID, status, res.String()))
+			return
+		}
 	}
 
-	res, err := client.CreateMembership(consortiumID, &membership)
-
-	if err != nil {
-		return err
-	}
-
-	status := res.StatusCode()
-	if status != 201 {
-		msg := "Failed to create membership %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, membership.OrgName, consortiumID, status, res.String())
-	}
-
-	d.SetId(membership.ID)
-	return nil
+	data.ID = types.StringValue(apiModel.ID)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceMembershipUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	membership := kaleido.NewMembership(d.Get("org_name").(string))
-	consortiumID := d.Get("consortium_id").(string)
-	membershipID := d.Id()
+func (r *resourceMembership) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data MembershipResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	res, err := client.UpdateMembership(consortiumID, membershipID, &membership)
+	apiModel := kaleido.Membership{}
+	apiModel.OrgName = data.OrgName.ValueString()
+	consortiumID := data.ConsortiumID.ValueString()
+	var membershipID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &membershipID)...)
 
+	res, err := r.BaaS.UpdateMembership(consortiumID, membershipID.ValueString(), &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to update membership", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Failed to update membership %s for %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, membershipID, membership.OrgName, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to update service", fmt.Sprintf(msg, membershipID, apiModel.OrgName, consortiumID, status, res.String()))
+		return
 	}
 
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceMembershipRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
+func (r *resourceMembership) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data MembershipResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var membership kaleido.Membership
-	res, err := client.GetMembership(consortiumID, d.Id(), &membership)
+	var apiModel kaleido.Membership
+	consortiumID := data.ConsortiumID.ValueString()
+	res, err := r.BaaS.GetMembership(consortiumID, data.ID.ValueString(), &apiModel)
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query membership", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Failed to find membership %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, membership.OrgName, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to query membership", fmt.Sprintf(msg, apiModel.OrgName, consortiumID, status, res.String()))
+		return
 	}
 
-	d.Set("org_name", membership.OrgName)
-	return nil
+	data.OrgName = types.StringValue(apiModel.OrgName)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceMembershipDelete(d *schema.ResourceData, meta interface{}) error {
-	if d.Get("pre_existing").(bool) {
+func (r *resourceMembership) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data MembershipResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if data.PreExisting.ValueBool() {
 		// Cannot safely delete if this is shared with other terraform deployments
-		d.SetId("")
-		return nil
+		// Pretend we deleted it
+		return
 	}
 
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	membershipID := d.Id()
+	consortiumID := data.ConsortiumID.ValueString()
+	membershipID := data.ID.ValueString()
 
-	err := resource.Retry(d.Timeout("Delete"), func() *resource.RetryError {
-		res, retryErr := client.DeleteMembership(consortiumID, membershipID)
-
-		if retryErr != nil {
-			return resource.NonRetryableError(retryErr)
+	err := kaleidobase.Retry.Do(ctx, "Delete", func(attempt int) (retry bool, err error) {
+		res, deleteErr := r.BaaS.DeleteMembership(consortiumID, membershipID)
+		if deleteErr != nil {
+			return false, deleteErr
 		}
 
 		statusCode := res.StatusCode()
 		if statusCode >= 500 {
-			msg := fmt.Errorf("deletion of membership %s failed: %d", membershipID, statusCode)
-			return resource.NonRetryableError(msg)
+			err := fmt.Errorf("deletion of membership %s failed: %d", membershipID, statusCode)
+			return true, err
 		} else if statusCode != 204 {
-			msg := "Failed to delete membership %s in consortium %s with status %d: %s"
-			return resource.RetryableError(fmt.Errorf(msg, membershipID, consortiumID, statusCode, res.String()))
+			msg := "failed to delete membership %s in consortium %s with status %d: %s"
+			return true, fmt.Errorf(msg, membershipID, consortiumID, statusCode, res.String())
 		}
 
-		return nil
+		return false, nil
 	})
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to delete membership", err.Error())
+		return
 	}
-
-	d.SetId("")
-	return nil
 }

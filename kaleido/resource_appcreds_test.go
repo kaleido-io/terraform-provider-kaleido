@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -28,18 +28,17 @@ func TestKaleidoAppKeyResource(t *testing.T) {
 	environment := kaleido.NewEnvironment("appKeyEnv", "appKey", "quorum", "raft", false, 0, map[string]string{}, 0)
 
 	consResource := "kaleido_consortium." + consortium.Name
-	membershipResource := "kaleido_membership." + membership.OrgName
 	envResource := "kaleido_environment." + environment.Name
 	appKeyResource := "kaleido_app_creds.key"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccAppKeyConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckAppKeyExists(consResource, membershipResource, envResource, appKeyResource),
+					testAccCheckAppKeyExists(consResource, envResource, appKeyResource),
 					resource.TestCheckResourceAttrSet(appKeyResource, "username"),
 					resource.TestCheckResourceAttrSet(appKeyResource, "password"),
 				),
@@ -48,7 +47,7 @@ func TestKaleidoAppKeyResource(t *testing.T) {
 	})
 }
 
-func testAccCheckAppKeyExists(consResource, membershipResource, envResource, appKeyResource string) resource.TestCheckFunc {
+func testAccCheckAppKeyExists(consResource, envResource, appKeyResource string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		appKeyRs, ok := s.RootModule().Resources[appKeyResource]
 
@@ -68,7 +67,7 @@ func testAccCheckAppKeyExists(consResource, membershipResource, envResource, app
 			return fmt.Errorf("Not found: %s.", envResource)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		var appKey kaleido.AppCreds
 		res, err := client.GetAppCreds(consortRs.Primary.ID, envRs.Primary.ID, appKeyRs.Primary.ID, &appKey)
 		if err != nil {

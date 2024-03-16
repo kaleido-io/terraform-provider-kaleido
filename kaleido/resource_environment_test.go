@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -31,9 +31,9 @@ func TestKaleidoEnvironmentResource(t *testing.T) {
 	envResourceName := "kaleido_environment.basicEnv"
 	consortiumResourceName := "kaleido_consortium.basic"
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckConsortiumDestroy,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProviders,
+		CheckDestroy:             testAccCheckConsortiumDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccEnvironmentConfig_basic(&consortium, &environment),
@@ -56,27 +56,6 @@ func testAccEnvironmentConfig_basic(consortium *kaleido.Consortium, environ *kal
 			description = "%s"
 			env_type = "%s"
 			consensus_type = "%s"
-		}
-		`, consortium.Name,
-		consortium.Description,
-		environ.Name,
-		environ.Description,
-		environ.Provider,
-		environ.ConsensusType)
-}
-
-func testAccEnvironmentConfig_oldRelease(consortium *kaleido.Consortium, environ *kaleido.Environment) string {
-	return fmt.Sprintf(`resource "kaleido_consortium" "oldie" {
-		name = "%s"
-		description = "%s"
-		}
-		resource "kaleido_environment" "oldieEnv" {
-			consortium_id = "${kaleido_consortium.oldie.id}"
-			name = "%s"
-			description = "%s"
-			env_type = "%s"
-			consensus_type = "%s"
-			release_id = "u0qaonpmzz"
 		}
 		`, consortium.Name,
 		consortium.Description,
@@ -112,7 +91,7 @@ func testAccCheckEnvironmentExists(envResource, consortiumResource string) resou
 			return fmt.Errorf("Terraform id mismatch for environment %s and %s", envID, rs.Primary.ID)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		var environment kaleido.Environment
 		res, err := client.GetEnvironment(consortium.Primary.ID, envID, &environment)
 
