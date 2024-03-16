@@ -45,6 +45,8 @@ type mockPlatform struct {
 	cmsBuilds    map[string]*CMSBuildAPIModel
 	cmsActions   map[string]CMSActionAPIBaseAccessor
 	amsTasks     map[string]*AMSTaskAPIModel
+	ffsNode      *FireFlyStatusNodeAPIModel
+	ffsOrg       *FireFlyStatusOrgAPIModel
 	calls        []string
 }
 
@@ -115,6 +117,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodGet, mp.getAMSTask)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodPut, mp.putAMSTask)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodDelete, mp.deleteAMSTask)
+
+	// See firefly_registration.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/nodes/self", http.MethodPost, mp.postFireFlyRegistrationNode)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/organizations/self", http.MethodPost, mp.postFireFlyRegistrationOrg)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/status", http.MethodGet, mp.getFireFlyStatus)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp

@@ -300,6 +300,12 @@ resource "kaleido_platform_service" "member_firefly" {
   for_each = toset(var.members)
 }
 
+resource "kaleido_platform_firefly_registration" "registrations" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.member_firefly[each.key].id
+  for_each = toset(var.members)
+}
+
 resource "kaleido_platform_runtime" "asset_managers" {
   type = "AssetManager"
   name = "${each.key}_assets"
