@@ -179,22 +179,9 @@ resource "kaleido_platform_service" "tms_0" {
         evmGateway = {
           id =  kaleido_platform_service.gws_0.id
         }
-        # url = var.json_rpc_url
-        # auth = {
-        #   credSetRef = "rpc_auth"
-        # }
       }
     }
   })
-  # cred_sets = {
-  #   "rpc_auth" = {
-  #     type = "basic_auth"
-  #     basic_auth = {
-  #       username = var.json_rpc_username
-  #       password = var.json_rpc_password
-  #     }
-  #   }
-  # }
 }
 
 resource "kaleido_platform_runtime" "ffr_0" {
@@ -291,6 +278,7 @@ resource "kaleido_platform_service" "member_firefly" {
     }
     multiparty = {
       enabled = true
+      networkNamespace = var.environment_name
       orgName = each.key
       orgKey = kaleido_platform_kms_key.org_keys[each.key].address
       contracts = [
