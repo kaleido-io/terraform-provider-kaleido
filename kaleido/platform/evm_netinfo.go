@@ -124,6 +124,7 @@ func (r *evm_netinfoDatasource) Read(ctx context.Context, req datasource.ReadReq
 				Params:  []interface{}{},
 			}).
 			SetHeader("Content-Type", "application/json").
+			SetContext(ctx).
 			SetDoNotParseResponse(true)
 		res, err := req.Post(url)
 		rawResponse := []byte{}

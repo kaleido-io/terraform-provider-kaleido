@@ -74,6 +74,10 @@ resource "kaleido_platform_service" "gws_0" {
 data "kaleido_platform_evm_netinfo" "gws_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.gws_0.id
+    depends_on = [
+    kaleido_platform_service.bns,
+    kaleido_platform_service.gws_0
+  ]
 }
 
 resource "kaleido_platform_runtime" "kmr_0" {
