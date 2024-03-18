@@ -15,8 +15,10 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -34,6 +36,7 @@ type CMSActionDeployResourceModel struct {
 	Description      types.String `tfsdk:"description"`
 	FireFlyNamespace types.String `tfsdk:"firefly_namespace"`
 	SigningKey       types.String `tfsdk:"signing_key"`
+	ParamsJSON       types.String `tfsdk:"params_json"`
 	TransactionID    types.String `tfsdk:"transaction_id"`
 	IdempotencyKey   types.String `tfsdk:"idempotency_key"`
 	OperationID      types.String `tfsdk:"operation_id"`
@@ -127,6 +130,10 @@ func (r *cms_action_deployResource) Schema(_ context.Context, _ resource.SchemaR
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"params_json": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
 			"transaction_id": &schema.StringAttribute{
 				Computed: true,
 			},
@@ -146,7 +153,7 @@ func (r *cms_action_deployResource) Schema(_ context.Context, _ resource.SchemaR
 	}
 }
 
-func (data *CMSActionDeployResourceModel) toAPI(api *CMSActionDeployAPIModel) {
+func (data *CMSActionDeployResourceModel) toAPI(api *CMSActionDeployAPIModel, diagnostics *diag.Diagnostics) bool {
 	api.Type = "deploy"
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
@@ -157,6 +164,14 @@ func (data *CMSActionDeployResourceModel) toAPI(api *CMSActionDeployAPIModel) {
 		},
 		SingingKey: data.SigningKey.ValueString(),
 	}
+	if data.ParamsJSON.ValueString() != "" {
+		err := json.Unmarshal([]byte(data.ParamsJSON.ValueString()), &api.Input.ConstructorParams)
+		if err != nil {
+			diagnostics.AddError("failed to serialize params JSON", err.Error())
+			return false
+		}
+	}
+	return true
 }
 
 func (api *CMSActionDeployAPIModel) toData(data *CMSActionDeployResourceModel) {
@@ -176,8 +191,10 @@ func (r *cms_action_deployResource) Create(ctx context.Context, req resource.Cre
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api CMSActionDeployAPIModel
-	data.toAPI(&api)
-	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	ok := data.toAPI(&api, &resp.Diagnostics)
+	if ok {
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	}
 	if !ok {
 		return
 	}
@@ -197,8 +214,11 @@ func (r *cms_action_deployResource) Update(ctx context.Context, req resource.Upd
 
 	// Update from plan
 	var api CMSActionDeployAPIModel
-	data.toAPI(&api)
-	if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+	ok := data.toAPI(&api, &resp.Diagnostics)
+	if ok {
+		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	}
+	if !ok {
 		return
 	}
 

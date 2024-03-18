@@ -31,7 +31,11 @@ resource "kaleido_platform_cms_action_deploy" "cms_action_deploy1" {
 	build = "build1"
 	name = "deploy1"
     firefly_namespace = "ns1"
-	signing_key = "0xaabbccdd"	
+	signing_key = "0xaabbccdd"
+	params_json = jsonencode([
+		"param1",
+		"param2"
+	])
 }
 `
 
@@ -44,6 +48,10 @@ resource "kaleido_platform_cms_action_deploy" "cms_action_deploy1" {
     firefly_namespace = "ns1"
 	signing_key = "0xaabbccdd"
 	description = "deploy a thing"
+	params_json = jsonencode([
+		"param1",
+		"param2"
+	])
 }
 `
 
@@ -111,7 +119,10 @@ func TestCMSActionDeploy1(t *testing.T) {
 								"build": {
 									"id": "build1"
 								},
-								"signingKey": "0xaabbccdd"
+								"signingKey": "0xaabbccdd",
+								"constructorParams": [
+									"param1", "param2"
+								]
 							},
 							"output": {
 								"status": "pending",
