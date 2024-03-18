@@ -74,6 +74,10 @@ resource "kaleido_platform_service" "gws_0" {
 data "kaleido_platform_evm_netinfo" "gws_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.gws_0.id
+    depends_on = [
+    kaleido_platform_service.bns,
+    kaleido_platform_service.gws_0
+  ]
 }
 
 resource "kaleido_platform_runtime" "kmr_0" {
@@ -202,49 +206,271 @@ resource "kaleido_platform_service" "ams_0" {
   })
 }
 
-resource "kaleido_platform_cms_build" "contract_0" {
+resource "kaleido_platform_cms_build" "erc20" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
   type = "github"
-  name = "ff"
-  path = "firefly"
+  name = "ERC20WithData"
+  path = "erc20_samples"
 	github = {
-		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
-		contract_name = "Firefly"
+		contract_url = "https://github.com/hyperledger/firefly-tokens-erc20-erc721/blob/main/samples/solidity/contracts/ERC20WithData.sol"
+		contract_name = "ERC20WithData"
 	}
 }
 
-resource "kaleido_platform_cms_action_deploy" "deploy_0" {
+resource "kaleido_platform_cms_build" "erc721" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
-  build = kaleido_platform_cms_build.contract_0.id
-  name = "deploy_0"
+  type = "github"
+  name = "ERC721WithData"
+  path = "erc721_samples"
+	github = {
+		contract_url = "https://github.com/hyperledger/firefly-tokens-erc20-erc721/blob/main/samples/solidity/contracts/ERC721WithData.sol"
+		contract_name = "ERC721WithData"
+	}
+  depends_on = [ kaleido_platform_cms_build.erc20 ] // don't compile in parallel (excessive disk usage for npm)
+}
+
+resource "kaleido_platform_cms_action_deploy" "demotoken_erc20" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.cms_0.id
+  build = kaleido_platform_cms_build.erc20.id
+  name = "deploy_erc20"
   firefly_namespace = kaleido_platform_service.ffs_0.name
   signing_key = kaleido_platform_kms_key.key_0.address
+  params_json = jsonencode([
+    "DemoToken",
+    "DTOK"
+  ])
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
-resource "kaleido_platform_cms_action_creatapi" "api_0" {
+resource "kaleido_platform_cms_action_deploy" "demotoken_erc721" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
-  build = kaleido_platform_cms_build.contract_0.id
-  name = "api_0"
+  build = kaleido_platform_cms_build.erc721.id
+  name = "deploy_erc721"
   firefly_namespace = kaleido_platform_service.ffs_0.name
-  api_name = "firefly"
-  contract_address = kaleido_platform_cms_action_deploy.deploy_0.contract_address
+  signing_key = kaleido_platform_kms_key.key_0.address
+  params_json = jsonencode([
+    "DemoNFT",
+    "DNFT",
+    "demo://token/"
+  ])
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
-resource "kaleido_platform_ams_task" "task_0" {
+resource "kaleido_platform_cms_action_creatapi" "erc20" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.cms_0.id
+  build = kaleido_platform_cms_build.erc20.id
+  name = "erc20withdata"
+  firefly_namespace = kaleido_platform_service.ffs_0.name
+  api_name = "erc20withdata"
+  depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
+}
+
+resource "kaleido_platform_cms_action_creatapi" "erc721" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.cms_0.id
+  build = kaleido_platform_cms_build.erc721.id
+  name = "erc721withdata"
+  firefly_namespace = kaleido_platform_service.ffs_0.name
+  api_name = "erc721withdata"
+  depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
+}
+
+resource "kaleido_platform_ams_task" "erc20_indexer" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.ams_0.id
   task_yaml = <<EOT
-    name: task1
+    name: erc20_indexer
     steps:
-    - name: demostep1
-      type: jsonata_template
-      options:
-        template: |-
-          "hello world"
+    - dynamicOptions:
+        assets: |-
+          [{
+              "updateType": "create_or_ignore",
+              "name": "erc20_" & input.blockchainEvent.info.address
+          }]
+        pools: |-
+          [{
+              "updateType": "create_or_ignore",
+              "name": "erc20",
+              "asset": "erc20_" & input.blockchainEvent.info.address,
+              "address": input.blockchainEvent.info.address
+          }]
+        transfers: |-
+          [{
+              "protocolId": input.blockchainEvent.protocolId,
+              "asset": "erc20_" & input.blockchainEvent.info.address,
+              "from": input.blockchainEvent.output.from,
+              "to": input.blockchainEvent.output.to,
+              "amount": input.blockchainEvent.output.value,
+              "transactionHash": input.blockchainEvent.info.transactionHash,
+              "parent": {
+                  "type": "pool",
+                  "ref": "erc20"
+              }
+          }]
+      name: upsert_transfer
+      options: {}
+      skip: input.blockchainEvent.info.signature !=
+        "Transfer(address,address,uint256)" or
+        $boolean([input.blockchainEvent.output.value]) = false
+      type: data_model_update
   EOT
+}
+
+resource "kaleido_platform_ams_fflistener" "erc20_indexer" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.ams_0.id
+  name = "erc20_indexer"
+  config_json = jsonencode({
+		namespace = kaleido_platform_service.ffs_0.name,
+		taskName = "erc20_indexer",
+		blockchainEvents = {
+      createOptions = {
+  		  firstEvent = "0"
+      },
+			abiEvents = [
+				{
+          "anonymous": false,
+          "inputs": [
+              {
+                  "indexed": true,
+                  "name": "from",
+                  "type": "address"
+              },
+              {
+                  "indexed": true,
+                  "name": "to",
+                  "type": "address"
+              },
+              {
+                  "indexed": false,
+                  "name": "value",
+                  "type": "uint256"
+              }
+          ],
+          "name": "Transfer",
+          "type": "event"
+        }
+			]
+		}
+    })
+}
+
+resource "kaleido_platform_ams_task" "erc721_indexer" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.ams_0.id
+  task_yaml = <<EOT
+    name: erc721_indexer
+    steps:
+    - dynamicOptions:
+        body: |-
+          {
+              "input": {
+                  "tokenId": $string(input.blockchainEvent.output.tokenId)
+              },
+              "key": "${kaleido_platform_kms_key.key_0.address}",
+              "location": {
+                  "address": input.blockchainEvent.info.address
+              }
+          }
+      name: query_uri
+      options:
+        bodyJSONEncoding: json
+        method: POST
+        namespace: ${kaleido_platform_service.ffs_0.name}
+        path: apis/erc721withdata/query/tokenURI
+      skip: |-
+        input.blockchainEvent.info.signature !=
+              "Transfer(address,address,uint256)" or
+              $boolean([input.blockchainEvent.output.tokenId]) = false
+      type: firefly_request
+    - dynamicOptions:
+        collections: >-
+          [{
+              "updateType": "create_or_ignore",
+              "name": "erc721_" & input.blockchainEvent.info.address
+          }]
+        assets: >-
+          [{
+              "updateType": "create_or_update",
+              "collection": "erc721_" & input.blockchainEvent.info.address,
+              "name": "erc721_" & input.blockchainEvent.info.address & "_" & input.blockchainEvent.output.tokenId
+          }]
+        nfts: >-
+          [{
+              "updateType": "create_or_ignore",
+              "asset": "erc721_" & input.blockchainEvent.info.address & "_" & input.blockchainEvent.output.tokenId,
+              "name": "erc721",
+              "standard": "ERC-721",
+              "address": input.blockchainEvent.info.address,
+              "tokenIndex": input.blockchainEvent.output.tokenId,
+              "uri": steps.query_uri.data.output
+          }]
+        transfers: >-
+          [{
+              "protocolId": input.blockchainEvent.protocolId,
+              "asset": "erc721_" & input.blockchainEvent.info.address & "_" & input.blockchainEvent.output.tokenId,
+              "from": input.blockchainEvent.output.from,
+              "to": input.blockchainEvent.output.to,
+              "amount": "1",
+              "transactionHash": input.blockchainEvent.info.transactionHash,
+              "parent": {
+                  "type": "nft",
+                  "ref": "erc721"
+              }
+          }]        
+      name: upsert_transfer
+      options: {}
+      skip: |-
+        input.blockchainEvent.info.signature !=
+              "Transfer(address,address,uint256)" or
+              $boolean([input.blockchainEvent.output.tokenId]) = false
+      type: data_model_update
+  EOT
+}
+
+resource "kaleido_platform_ams_fflistener" "erc721_indexer" {
+  environment = kaleido_platform_environment.env_0.id
+  service = kaleido_platform_service.ams_0.id
+  name = "erc721_indexer"
+  config_json = jsonencode({
+		namespace = kaleido_platform_service.ffs_0.name,
+		taskName = "erc721_indexer",
+		blockchainEvents = {
+      createOptions = {
+  		  firstEvent = "0"
+      },
+			abiEvents = [
+				{
+          "anonymous": false,
+          "inputs": [
+              {
+                  "indexed": true,
+                  "internalType": "address",
+                  "name": "from",
+                  "type": "address"
+              },
+              {
+                  "indexed": true,
+                  "internalType": "address",
+                  "name": "to",
+                  "type": "address"
+              },
+              {
+                  "indexed": true,
+                  "internalType": "uint256",
+                  "name": "tokenId",
+                  "type": "uint256"
+              }
+          ],
+          "name": "Transfer",
+          "type": "event"
+        }
+			]
+		}
+    })
 }
