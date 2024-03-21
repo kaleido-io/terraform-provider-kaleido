@@ -19,7 +19,7 @@ resource "kaleido_platform_environment" "env_0" {
 
 resource "kaleido_platform_network" "net_0" {
   type = "Besu"
-  name = "net_0"
+  name = "evmchain1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({
     bootstrapOptions = {
@@ -33,7 +33,7 @@ resource "kaleido_platform_network" "net_0" {
 
 resource "kaleido_platform_runtime" "bnr" {
   type = "BesuNode"
-  name = "bnr_${count.index}"
+  name = "evmchain1_node${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   count = var.node_count
@@ -41,7 +41,7 @@ resource "kaleido_platform_runtime" "bnr" {
 
 resource "kaleido_platform_service" "bns" {
   type = "BesuNode"
-  name = "bns_${count.index}"
+  name = "evmchain1_node${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.bnr[count.index].id
   config_json = jsonencode({
@@ -54,14 +54,14 @@ resource "kaleido_platform_service" "bns" {
 
 resource "kaleido_platform_runtime" "gwr_0" {
   type = "EVMGateway"
-  name = "gwr_0"
+  name = "evmchain1_gateway"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_service" "gws_0" {
   type = "EVMGateway"
-  name = "gws_0"
+  name = "evmchain1_gateway"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.gwr_0.id
   config_json = jsonencode({
@@ -82,14 +82,14 @@ data "kaleido_platform_evm_netinfo" "gws_0" {
 
 resource "kaleido_platform_runtime" "kmr_0" {
   type = "KeyManager"
-  name = "kmr_0"
+  name = "kms1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_service" "kms_0" {
   type = "KeyManager"
-  name = "kms_0"
+  name = "kms1"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.kmr_0.id
   config_json = jsonencode({})
@@ -97,14 +97,14 @@ resource "kaleido_platform_service" "kms_0" {
 
 resource "kaleido_platform_kms_wallet" "wallet_0" {
   type = "hdwallet"
-  name = "wallet_0"
+  name = "hdwallet1"
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.kms_0.id
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_kms_key" "key_0" {
-  name = "key_0"
+  name = "key0"
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.kms_0.id
   wallet = kaleido_platform_kms_wallet.wallet_0.id
@@ -112,14 +112,14 @@ resource "kaleido_platform_kms_key" "key_0" {
 
 resource "kaleido_platform_runtime" "tmr_0" {
   type = "TransactionManager"
-  name = "tmr_0"
+  name = "evmchain1_txmgr"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_service" "tms_0" {
   type = "TransactionManager"
-  name = "tms_0"
+  name = "evmchain1_txmgr"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.tmr_0.id
   config_json = jsonencode({
@@ -155,14 +155,14 @@ resource "kaleido_platform_service" "tms_0" {
 
 resource "kaleido_platform_runtime" "ffr_0" {
   type = "FireFly"
-  name = "ffr_0"
+  name = "firefly1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_service" "ffs_0" {
   type = "FireFly"
-  name = "ffs_0"
+  name = "firefly1"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.ffr_0.id
   config_json = jsonencode({
@@ -174,14 +174,14 @@ resource "kaleido_platform_service" "ffs_0" {
 
 resource "kaleido_platform_runtime" "cmr_0" {
   type = "ContractManager"
-  name = "cmr_0"
+  name = "smart_contract_manager"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_service" "cms_0" {
   type = "ContractManager"
-  name = "cms_0"
+  name = "smart_contract_manager"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.cmr_0.id
   config_json = jsonencode({})
@@ -189,14 +189,14 @@ resource "kaleido_platform_service" "cms_0" {
 
 resource "kaleido_platform_runtime" "amr_0" {
   type = "AssetManager"
-  name = "amr_0"
+  name = "asset_manager1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
 }
 
 resource "kaleido_platform_service" "ams_0" {
   type = "AssetManager"
-  name = "ams_0"
+  name = "asset_manager1"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.amr_0.id
   config_json = jsonencode({
