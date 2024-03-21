@@ -74,7 +74,7 @@ resource "kaleido_platform_service" "gws_0" {
 data "kaleido_platform_evm_netinfo" "gws_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.gws_0.id
-    depends_on = [
+  depends_on = [
     kaleido_platform_service.bns,
     kaleido_platform_service.gws_0
   ]
@@ -283,6 +283,7 @@ resource "kaleido_platform_cms_action_creatapi" "erc721" {
 resource "kaleido_platform_ams_task" "erc20_indexer" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.ams_0.id
+  depends_on = [ kaleido_platform_ams_task.erc20_indexer ]
   task_yaml = <<EOT
     name: erc20_indexer
     steps:
@@ -325,6 +326,7 @@ resource "kaleido_platform_ams_fflistener" "erc20_indexer" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.ams_0.id
   name = "erc20_indexer"
+  depends_on = [ kaleido_platform_ams_task.erc20_indexer ]
   config_json = jsonencode({
 		namespace = kaleido_platform_service.ffs_0.name,
 		taskName = "erc20_indexer",
@@ -437,6 +439,7 @@ resource "kaleido_platform_ams_fflistener" "erc721_indexer" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.ams_0.id
   name = "erc721_indexer"
+  depends_on = [ kaleido_platform_ams_task.erc721_indexer ]
   config_json = jsonencode({
 		namespace = kaleido_platform_service.ffs_0.name,
 		taskName = "erc721_indexer",
