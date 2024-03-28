@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
@@ -270,7 +271,7 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel) {
 	switch data.Type.ValueString() {
 	case "precompiled":
 		_ = json.Unmarshal(([]byte)(data.Precompiled.ABI.ValueString()), &api.ABI)
-		api.Bytecode = data.Precompiled.ABI.ValueString()
+		api.Bytecode = data.Precompiled.Bytecode.String().ValueString()
 		_ = json.Unmarshal(([]byte)(data.Precompiled.DevDocs.ValueString()), &api.DevDocs)
 	case "github":
 		api.GitHub = &CMSBuildGithubAPIModel{
