@@ -296,6 +296,8 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 	data.DevDocs = types.StringValue(string(devDocsBytes))
 	if api.GitHub != nil {
 		data.CommitHash = types.StringValue(api.GitHub.CommitHash)
+	} else {
+		data.CommitHash = types.StringValue("")
 	}
 }
 
