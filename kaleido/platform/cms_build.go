@@ -271,7 +271,7 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel) {
 	switch data.Type.ValueString() {
 	case "precompiled":
 		_ = json.Unmarshal(([]byte)(data.Precompiled.ABI.ValueString()), &api.ABI)
-		api.Bytecode = data.Precompiled.Bytecode.String().ValueString()
+		api.Bytecode = data.Precompiled.Bytecode.String()
 		_ = json.Unmarshal(([]byte)(data.Precompiled.DevDocs.ValueString()), &api.DevDocs)
 	case "github":
 		api.GitHub = &CMSBuildGithubAPIModel{
