@@ -263,11 +263,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 }
 
 func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel) {
-
 	api.Name = data.Name.ValueString()
 	api.Path = data.Path.ValueString()
 	api.Description = data.Description.ValueString()
-
 	api.EVMVersion = data.EVMVersion.ValueString()
 	api.SolcVersion = data.SolcVersion.ValueString()
 	switch data.Type.ValueString() {
