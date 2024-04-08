@@ -261,27 +261,31 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	}
 }
 
-func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel) {
+func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
+
 	api.Name = data.Name.ValueString()
 	api.Path = data.Path.ValueString()
 	api.Description = data.Description.ValueString()
-	api.EVMVersion = data.EVMVersion.ValueString()
-	api.SolcVersion = data.SolcVersion.ValueString()
-	switch data.Type.ValueString() {
-	case "precompiled":
-		_ = json.Unmarshal(([]byte)(data.Precompiled.ABI.ValueString()), &api.ABI)
-		api.Bytecode = data.Precompiled.ABI.ValueString()
-		_ = json.Unmarshal(([]byte)(data.Precompiled.DevDocs.ValueString()), &api.DevDocs)
-	case "github":
-		api.GitHub = &CMSBuildGithubAPIModel{
-			ContractURL:  data.GitHub.ContractURL.ValueString(),
-			ContractName: data.GitHub.ContractName.ValueString(),
-			AuthToken:    data.GitHub.AuthToken.ValueString(),
-		}
-	case "source_code":
-		api.SourceCode = &CMSBuildSourceCodeAPIModel{
-			ContractName: data.SourceCode.ContractName.ValueString(),
-			FileContents: data.SourceCode.FileContents.ValueString(),
+
+	if !isUpdate {
+		api.EVMVersion = data.EVMVersion.ValueString()
+		api.SolcVersion = data.SolcVersion.ValueString()
+		switch data.Type.ValueString() {
+		case "precompiled":
+			_ = json.Unmarshal(([]byte)(data.Precompiled.ABI.ValueString()), &api.ABI)
+			api.Bytecode = data.Precompiled.Bytecode.ValueString()
+			_ = json.Unmarshal(([]byte)(data.Precompiled.DevDocs.ValueString()), &api.DevDocs)
+		case "github":
+			api.GitHub = &CMSBuildGithubAPIModel{
+				ContractURL:  data.GitHub.ContractURL.ValueString(),
+				ContractName: data.GitHub.ContractName.ValueString(),
+				AuthToken:    data.GitHub.AuthToken.ValueString(),
+			}
+		case "source_code":
+			api.SourceCode = &CMSBuildSourceCodeAPIModel{
+				ContractName: data.SourceCode.ContractName.ValueString(),
+				FileContents: data.SourceCode.FileContents.ValueString(),
+			}
 		}
 	}
 }
@@ -333,7 +337,7 @@ func (r *cms_buildResource) Create(ctx context.Context, req resource.CreateReque
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api CMSBuildAPIModel
-	data.toAPI(&api)
+	data.toAPI(&api, false)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
@@ -354,7 +358,7 @@ func (r *cms_buildResource) Update(ctx context.Context, req resource.UpdateReque
 
 	// Update from plan
 	var api CMSBuildAPIModel
-	data.toAPI(&api)
+	data.toAPI(&api, true)
 	if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
 		return
 	}
