@@ -41,13 +41,14 @@ resource "kaleido_platform_runtime" "bnr" {
 
 resource "kaleido_platform_service" "bns" {
   type = "BesuNode"
-  name = "evmchain1_node${count.index+1}"
+  name = "evmchain1_node${count.index + 1}"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.bnr[count.index].id
   config_json = jsonencode({
     network = {
       id = kaleido_platform_network.net_0.id
-    }
+    },
+    signer = count.index < var.signer_node_count ? true : false
   })
   count = var.node_count
 }

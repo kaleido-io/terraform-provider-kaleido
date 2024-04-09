@@ -16,5 +16,8 @@ variable "environment_name" {
 
 variable "node_count" {
   type = number
-  default = 1
+}
+
+variable "signer_node_count" {
+  type = number
 }
