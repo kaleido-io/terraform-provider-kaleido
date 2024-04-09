@@ -21,5 +21,5 @@ variable "signer_node_count" {
 
 variable "nonsigner_node_count" {
   type = number
-  default=1
+  default=0
 }
