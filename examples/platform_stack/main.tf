@@ -31,26 +31,47 @@ resource "kaleido_platform_network" "net_0" {
 }
 
 
-resource "kaleido_platform_runtime" "bnr" {
+resource "kaleido_platform_runtime" "signer_bnr" {
   type = "BesuNode"
-  name = "evmchain1_node${count.index+1}"
+  name = "evmchain1_signer_node${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
-  count = var.node_count
+  count = var.signer_node_count
 }
 
-resource "kaleido_platform_service" "bns" {
+resource "kaleido_platform_service" "signer_bns" {
   type = "BesuNode"
-  name = "evmchain1_node${count.index + 1}"
+  name = "evmchain1_signer_node${count.index + 1}"
   environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.bnr[count.index].id
+  runtime = kaleido_platform_runtime.signer_bnr[count.index].id
+  config_json = jsonencode({
+    network = {
+      id = kaleido_platform_network.net_0.id
+    }
+  })
+  count = var.signer_node_count
+}
+
+resource "kaleido_platform_runtime" "nonsigner_bnr" {
+  type = "BesuNode"
+  name = "evmchain1_nonsigner_node${count.index+1}"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+  count = var.nonsigner_node_count
+}
+
+resource "kaleido_platform_service" "nonsigner_bns" {
+  type = "BesuNode"
+  name = "evmchain1_nonsigner_node${count.index + 1}"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.nonsigner_bnr[count.index].id
   config_json = jsonencode({
     network = {
       id = kaleido_platform_network.net_0.id
     },
-    signer = count.index < var.signer_node_count ? true : false
+    signer=false
   })
-  count = var.node_count
+  count = var.nonsigner_node_count
 }
 
 resource "kaleido_platform_runtime" "gwr_0" {
@@ -76,7 +97,7 @@ data "kaleido_platform_evm_netinfo" "gws_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.gws_0.id
   depends_on = [
-    kaleido_platform_service.bns,
+    kaleido_platform_service.signer_bns,
     kaleido_platform_service.gws_0
   ]
 }
