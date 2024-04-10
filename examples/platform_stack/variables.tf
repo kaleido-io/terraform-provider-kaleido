@@ -16,10 +16,8 @@ variable "environment_name" {
 
 variable "signer_node_count" {
   type = number
-  default=1
 }
 
 variable "nonsigner_node_count" {
   type = number
-  default=0
 }
