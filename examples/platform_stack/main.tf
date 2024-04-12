@@ -230,9 +230,6 @@ resource "kaleido_platform_service" "bis_0"{
         id = kaleido_platform_service.gws_0.id
       }
     }
-    # hostname = {
-    #   name = kaleido_platform_network.net_0.name
-    # }
   )
   hostnames = {"${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
 }
