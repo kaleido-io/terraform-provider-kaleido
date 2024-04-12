@@ -221,14 +221,20 @@ resource "kaleido_platform_service" "bis_0"{
   name = "block_indexer"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.bir_0.id
-  config_json=jsonencode({
-    contractManager = {
-      id = kaleido_platform_service.cms_0.id
+  config_json=jsonencode(
+    {
+      contractManager = {
+        id = kaleido_platform_service.cms_0.id
+      }
+      evmGateway = {
+        id = kaleido_platform_service.gws_0.id
+      }
     }
-    evmGateway = {
-      id = kaleido_platform_service.gws_0.id
-    }
-  })
+    # hostname = {
+    #   name = kaleido_platform_network.net_0.name
+    # }
+  )
+  hostnames = {"${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
 }
 
 resource "kaleido_platform_runtime" "amr_0" {

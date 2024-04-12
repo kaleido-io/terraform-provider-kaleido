@@ -279,6 +279,7 @@ resource "kaleido_platform_service" "bis_0"{
       id = kaleido_platform_service.gws_0.id
     }
   })
+  hostnames = {"${kaleido_platform_network.net_besu.name}" = ["ui", "rest"]}
 }
 
 resource "kaleido_platform_cms_build" "firefly_batch_pin" {
