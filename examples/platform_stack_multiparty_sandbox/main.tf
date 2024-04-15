@@ -36,7 +36,7 @@ resource "kaleido_platform_runtime" "bnr" {
   name = "evmchain1_node${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
-  count = var.node_count
+  count = var.besu_node_count
 }
 
 resource "kaleido_platform_service" "bns" {
@@ -49,7 +49,7 @@ resource "kaleido_platform_service" "bns" {
       id = kaleido_platform_network.net_besu.id
     }
   })
-  count = var.node_count
+  count = var.besu_node_count
 }
 
 resource "kaleido_platform_network" "net_ipfs" {

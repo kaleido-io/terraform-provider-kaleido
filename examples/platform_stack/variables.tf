@@ -14,7 +14,7 @@ variable "environment_name" {
   type = string
 }
 
-variable "node_count" {
+variable "besu_node_count" {
   type = number
 }
 
