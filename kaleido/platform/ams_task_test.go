@@ -67,9 +67,11 @@ func TestAMSTask1(t *testing.T) {
 	defer func() {
 		mp.checkClearCalls([]string{
 			"PUT /endpoint/{env}/{service}/rest/api/v1/tasks/{task}", // by name initially
+			"POST /endpoint/{env}/{service}/rest/api/v1/tasks/{task}/versions",
 			"GET /endpoint/{env}/{service}/rest/api/v1/tasks/{task}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/tasks/{task}",
-			"PUT /endpoint/{env}/{service}/rest/api/v1/tasks/{task}", // then by ID
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/tasks/{task}", // then by ID
+			"POST /endpoint/{env}/{service}/rest/api/v1/tasks/{task}/versions",
 			"GET /endpoint/{env}/{service}/rest/api/v1/tasks/{task}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v1/tasks/{task}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/tasks/{task}",
@@ -98,9 +100,10 @@ func TestAMSTask1(t *testing.T) {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[ams_task1Resource].Primary.Attributes["id"]
 						obj := mp.amsTasks[fmt.Sprintf("env1/service1/%s", id)]
-						testYAMLEqual(t, obj, fmt.Sprintf(`{
+						testJSONEqual(t, obj, fmt.Sprintf(`{
 								"id": "%[1]s",
 								"name": "ams_task1",
+								"description": "shiny task that does stuff and more stuff",
 								"created": "%[2]s",
 								"updated": "%[3]s",
 								"currentVersion": "%[4]s"
@@ -133,18 +136,35 @@ func (mp *mockPlatform) putAMSTask(res http.ResponseWriter, req *http.Request) {
 	obj := mp.amsTasks[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["task"]] // expected behavior of provider is PUT only on exists
 	var newObj AMSTaskAPIModel
 	mp.getBody(req, &newObj)
-	if obj == nil {
-		assert.Equal(mp.t, newObj.Name, mux.Vars(req)["task"])
-		newObj.ID = nanoid.New()
-		newObj.Created = now.Format(time.RFC3339Nano)
-	} else {
-		assert.Equal(mp.t, obj.ID, mux.Vars(req)["task"])
-		newObj.ID = mux.Vars(req)["task"]
-		newObj.Created = obj.Created
-	}
+	assert.Nil(mp.t, obj)
+	assert.Equal(mp.t, newObj.Name, mux.Vars(req)["task"])
+	newObj.ID = nanoid.New()
+	newObj.Created = now.Format(time.RFC3339Nano)
 	newObj.Updated = now.Format(time.RFC3339Nano)
 	newObj.CurrentVersion = nanoid.New()
 	mp.amsTasks[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+newObj.ID] = &newObj
+	mp.respond(res, &newObj, 200)
+}
+
+func (mp *mockPlatform) patchAMSTask(res http.ResponseWriter, req *http.Request) {
+	now := time.Now().UTC()
+	obj := mp.amsTasks[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["task"]] // expected behavior of provider is PUT only on exists
+	var newObj AMSTaskAPIModel
+	mp.getBody(req, &newObj)
+	assert.NotNil(mp.t, obj)
+	assert.Equal(mp.t, obj.ID, mux.Vars(req)["task"])
+	newObj.ID = mux.Vars(req)["task"]
+	newObj.Created = obj.Created
+	newObj.Updated = now.Format(time.RFC3339Nano)
+	newObj.CurrentVersion = nanoid.New()
+	mp.amsTasks[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+newObj.ID] = &newObj
+	mp.respond(res, &newObj, 200)
+}
+
+func (mp *mockPlatform) postAMSTaskVersion(res http.ResponseWriter, req *http.Request) {
+	var newObj map[string]interface{}
+	mp.getBody(req, &newObj)
+	mp.amsTaskVersions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["task"]] = newObj
 	mp.respond(res, &newObj, 200)
 }
 

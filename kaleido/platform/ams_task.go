@@ -37,11 +37,12 @@ type AMSTaskResourceModel struct {
 }
 
 type AMSTaskAPIModel struct {
-	ID             string `yaml:"id,omitempty"`
-	Name           string `yaml:"name,omitempty"`
-	Created        string `yaml:"created,omitempty"`
-	Updated        string `yaml:"updated,omitempty"`
-	CurrentVersion string `yaml:"currentVersion,omitempty"`
+	ID             string `json:"id,omitempty"`
+	Name           string `json:"name,omitempty"`
+	Description    string `json:"description,omitempty"`
+	Created        string `json:"created,omitempty"`
+	Updated        string `json:"updated,omitempty"`
+	CurrentVersion string `json:"currentVersion,omitempty"`
 }
 
 func AMSTaskResourceFactory() resource.Resource {
@@ -86,22 +87,37 @@ func (api *AMSTaskAPIModel) toData(data *AMSTaskResourceModel) {
 	data.AppliedVersion = types.StringValue(api.CurrentVersion)
 }
 
-func (r *ams_taskResource) getTaskNameFromYAML(data *AMSTaskResourceModel, diagnostics *diag.Diagnostics) (string, bool) {
-	var apiModel CMSActionBaseAPIModel
-	err := yaml.Unmarshal([]byte(data.TaskYAML.ValueString()), &apiModel)
+func getYAMLString(yamlObj map[string]interface{}, key string) string {
+	v := yamlObj[key]
+	s, ok := v.(string)
+	if ok {
+		return s
+	}
+	return ""
+}
+
+func (data *AMSTaskResourceModel) toAPI(api *AMSTaskAPIModel, diagnostics *diag.Diagnostics) bool {
+	var parsedYAML map[string]interface{}
+	err := yaml.Unmarshal([]byte(data.TaskYAML.ValueString()), &parsedYAML)
 	if err != nil {
 		diagnostics.AddError("invalid task YAML", err.Error())
-		return "", false
+		return false
 	}
-	if apiModel.Name == "" {
+	api.Name = getYAMLString(parsedYAML, "name")
+	if api.Name == "" {
 		diagnostics.AddError("task YAML must include a name", "the name of the task is used to uniquely identify the task during the first create-or-update operation before it is bound to an ID")
-		return "", false
+		return false
 	}
-	return apiModel.Name, true
+	api.Description = getYAMLString(parsedYAML, "description")
+	return true
 }
 
 func (r *ams_taskResource) apiPath(data *AMSTaskResourceModel, idOrName string) string {
 	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/tasks/%s", data.Environment.ValueString(), data.Service.ValueString(), idOrName)
+}
+
+func (r *ams_taskResource) apiTaskVersionPath(data *AMSTaskResourceModel, idOrName string) string {
+	return fmt.Sprintf("%s/versions", r.apiPath(data, idOrName))
 }
 
 func (r *ams_taskResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -110,9 +126,14 @@ func (r *ams_taskResource) Create(ctx context.Context, req resource.CreateReques
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api AMSTaskAPIModel
-	taskName, ok := r.getTaskNameFromYAML(&data, &resp.Diagnostics)
+	ok := data.toAPI(&api, &resp.Diagnostics)
 	if ok {
-		ok, _ = r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, taskName), data.TaskYAML.ValueString(), &api, &resp.Diagnostics, YAMLBody())
+		// Task PUT
+		ok, _ = r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, api.Name), &api, &api, &resp.Diagnostics)
+	}
+	if ok {
+		// Task version POST
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiTaskVersionPath(&data, api.Name), data.TaskYAML.ValueString(), nil, &resp.Diagnostics, YAMLBody())
 	}
 	if !ok {
 		return
@@ -130,7 +151,17 @@ func (r *ams_taskResource) Update(ctx context.Context, req resource.UpdateReques
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
 	var api AMSTaskAPIModel
-	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, data.ID.ValueString()), data.TaskYAML.ValueString(), &api, &resp.Diagnostics, YAMLBody()); !ok {
+	ok := data.toAPI(&api, &resp.Diagnostics)
+	taskID := data.ID.ValueString()
+	if ok {
+		// Task PATCH
+		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, taskID), &api, &api, &resp.Diagnostics)
+	}
+	if ok {
+		// Task version POST
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiTaskVersionPath(&data, api.Name), data.TaskYAML.ValueString(), nil, &resp.Diagnostics, YAMLBody())
+	}
+	if !ok {
 		return
 	}
 
