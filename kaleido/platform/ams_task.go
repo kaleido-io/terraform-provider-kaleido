@@ -30,9 +30,11 @@ import (
 
 type AMSTaskResourceModel struct {
 	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Description    types.String `tfsdk:"description"`
 	Environment    types.String `tfsdk:"environment"`
 	Service        types.String `tfsdk:"service"`
-	TaskYAML       types.String `tfsdk:"task_yaml"`
+	TaskYAML       types.String `tfsdk:"task_yaml"` // this is propagated to a task version
 	AppliedVersion types.String `tfsdk:"applied_version"`
 }
 
@@ -68,12 +70,19 @@ func (r *ams_taskResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"name": &schema.StringAttribute{
+				Required: true,
+			},
+			"description": &schema.StringAttribute{
+				Optional: true,
+			},
 			"service": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"task_yaml": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "This is the definition of the task - which will be put into a new version each time the task is updated. Name must be omitted from this YAML",
 			},
 			"applied_version": &schema.StringAttribute{
 				Computed: true,
@@ -103,12 +112,13 @@ func (data *AMSTaskResourceModel) toAPI(api *AMSTaskAPIModel, diagnostics *diag.
 		diagnostics.AddError("invalid task YAML", err.Error())
 		return false
 	}
-	api.Name = getYAMLString(parsedYAML, "name")
-	if api.Name == "" {
-		diagnostics.AddError("task YAML must include a name", "the name of the task is used to uniquely identify the task during the first create-or-update operation before it is bound to an ID")
+	taskVersionName := getYAMLString(parsedYAML, "name")
+	if taskVersionName != "" {
+		diagnostics.AddError("task YAML must not include a name", "the task YAML will be used to create a version, with an auto-generated version ID each time it is updated")
 		return false
 	}
-	api.Description = getYAMLString(parsedYAML, "description")
+	api.Name = data.Name.ValueString()
+	api.Description = data.Description.ValueString()
 	return true
 }
 

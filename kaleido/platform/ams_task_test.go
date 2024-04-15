@@ -32,8 +32,8 @@ var ams_taskStep1 = `
 resource "kaleido_platform_ams_task" "ams_task1" {
     environment = "env1"
 	service = "service1"
+	name = "ams_task1"
     task_yaml = yamlencode({
-		name = "ams_task1"
 		steps = [{
           name = "step1"
 		  things = "stuff"
@@ -46,9 +46,10 @@ var ams_taskStep2 = `
 resource "kaleido_platform_ams_task" "ams_task1" {
     environment = "env1"
 	service = "service1"
+	name = "ams_task1"
+	description = "shiny task that does stuff and more stuff"
     task_yaml = yamlencode({
-		name = "ams_task1"
-		description = "shiny task that does stuff and more stuff"
+		description = "this version is super and great, note this is a different description"
 		steps = [{
           name = "step1"
 		  things = "stuff"
