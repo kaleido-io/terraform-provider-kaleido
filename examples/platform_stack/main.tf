@@ -31,47 +31,25 @@ resource "kaleido_platform_network" "net_0" {
 }
 
 
-resource "kaleido_platform_runtime" "signer_bnr" {
+resource "kaleido_platform_runtime" "bnr" {
   type = "BesuNode"
-  name = "evmchain1_signer_node${count.index+1}"
+  name = "evmchain1_node${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
-  count = var.signer_node_count
+  count = var.node_count
 }
 
-resource "kaleido_platform_service" "signer_bns" {
+resource "kaleido_platform_service" "bns" {
   type = "BesuNode"
-  name = "evmchain1_signer_node${count.index + 1}"
+  name = "evmchain1_node${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.signer_bnr[count.index].id
+  runtime = kaleido_platform_runtime.bnr[count.index].id
   config_json = jsonencode({
     network = {
       id = kaleido_platform_network.net_0.id
     }
   })
-  count = var.signer_node_count
-}
-
-resource "kaleido_platform_runtime" "nonsigner_bnr" {
-  type = "BesuNode"
-  name = "evmchain1_nonsigner_node${count.index+1}"
-  environment = kaleido_platform_environment.env_0.id
-  config_json = jsonencode({})
-  count = var.nonsigner_node_count
-}
-
-resource "kaleido_platform_service" "nonsigner_bns" {
-  type = "BesuNode"
-  name = "evmchain1_nonsigner_node${count.index + 1}"
-  environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.nonsigner_bnr[count.index].id
-  config_json = jsonencode({
-    network = {
-      id = kaleido_platform_network.net_0.id
-    },
-    signer=false
-  })
-  count = var.nonsigner_node_count
+  count = var.node_count
 }
 
 resource "kaleido_platform_runtime" "gwr_0" {
@@ -97,7 +75,7 @@ data "kaleido_platform_evm_netinfo" "gws_0" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.gws_0.id
   depends_on = [
-    kaleido_platform_service.signer_bns,
+    kaleido_platform_service.bns,
     kaleido_platform_service.gws_0
   ]
 }
@@ -207,31 +185,6 @@ resource "kaleido_platform_service" "cms_0" {
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.cmr_0.id
   config_json = jsonencode({})
-}
-
-resource "kaleido_platform_runtime" "bir_0"{
-  type = "BlockIndexer"
-  name = "block_indexer"
-  environment = kaleido_platform_environment.env_0.id
-  config_json = jsonencode({})
-}
-
-resource "kaleido_platform_service" "bis_0"{
-  type = "BlockIndexer"
-  name = "block_indexer"
-  environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.bir_0.id
-  config_json=jsonencode(
-    {
-      contractManager = {
-        id = kaleido_platform_service.cms_0.id
-      }
-      evmGateway = {
-        id = kaleido_platform_service.gws_0.id
-      }
-    }
-  )
-  hostnames = {"${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
 }
 
 resource "kaleido_platform_runtime" "amr_0" {
