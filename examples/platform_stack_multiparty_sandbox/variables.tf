@@ -14,9 +14,12 @@ variable "environment_name" {
   type = string
 }
 
-variable "besu_node_count" {
+variable "signer_node_count" {
   type = number
-  default = 1
+}
+
+variable "nonsigner_node_count" {
+  type = number
 }
 
 variable "members" {
