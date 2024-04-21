@@ -14,6 +14,7 @@
 package kaleidobase
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
@@ -56,17 +58,22 @@ func ConfigureProviderData(providerData any, diagnostics *diag.Diagnostics) *Pro
 	return kaleidoProviderData
 }
 
-func NewProviderData(conf *ProviderModel) *ProviderData {
+func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData {
 
 	baasAPI := conf.API.ValueString()
 	if baasAPI == "" {
 		baasAPI = os.Getenv("KALEIDO_API")
 	}
-	baasAPIKey := conf.API.ValueString()
+	baasAPIKey := conf.APIKey.ValueString()
 	if baasAPIKey == "" {
 		baasAPIKey = os.Getenv("KALEIDO_API_KEY")
 	}
-	baas := kaleido.NewClient(baasAPI, baasAPIKey)
+	r := resty.New().
+		SetTransport(http.DefaultTransport).
+		SetBaseURL(baasAPI).
+		SetAuthToken(baasAPIKey)
+	AddRestyLogging(logCtx, r)
+	baas := &kaleido.KaleidoClient{Client: r}
 
 	platformAPI := conf.PlatformAPI.ValueString()
 	if platformAPI == "" {
@@ -86,9 +93,21 @@ func NewProviderData(conf *ProviderModel) *ProviderData {
 	if platformUsername != "" && platformPassword != "" {
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)
 	}
+	AddRestyLogging(logCtx, platform)
 
 	return &ProviderData{
-		BaaS:     &baas,
+		BaaS:     baas,
 		Platform: platform,
 	}
+}
+
+func AddRestyLogging(ctx context.Context, rc *resty.Client) {
+	rc.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+		tflog.Info(ctx, fmt.Sprintf("--> %s %s", r.Method, r.URL))
+		return nil
+	})
+	rc.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
+		tflog.Info(ctx, fmt.Sprintf("<-- %s %s [%d]", r.Request.Method, r.Request.URL, r.StatusCode()))
+		return nil
+	})
 }

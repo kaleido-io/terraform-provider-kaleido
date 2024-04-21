@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -184,10 +185,7 @@ func (r *resourceEnvironment) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
-	data.ID = types.StringValue(apiModel.ID)
-	data.ReleaseID = types.StringValue(apiModel.ReleaseID)
-	data.ChainID = types.Int64Value(int64(apiModel.ChainID))
-
+	r.mapAPIToData(ctx, &apiModel, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -219,6 +217,7 @@ func (r *resourceEnvironment) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
+	r.mapAPIToData(ctx, &apiModel, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -247,6 +246,12 @@ func (r *resourceEnvironment) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	r.mapAPIToData(ctx, &apiModel, &data, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func (r *resourceEnvironment) mapAPIToData(ctx context.Context, apiModel *kaleido.Environment, data *EnvironmentResourceModel, diagnostics *diag.Diagnostics) {
+	data.ID = types.StringValue(apiModel.ID)
 	data.Name = types.StringValue(apiModel.Name)
 	data.Description = types.StringValue(apiModel.Description)
 	data.EnvType = types.StringValue(apiModel.Provider)
@@ -262,11 +267,9 @@ func (r *resourceEnvironment) Read(ctx context.Context, req resource.ReadRequest
 		}
 	}
 	mapValue, diag := types.MapValueFrom(ctx, types.StringType, pfa)
-	resp.Diagnostics.Append(diag...)
+	diagnostics.Append(diag...)
 	data.PrefundedAccounts = mapValue
 	data.ChainID = types.Int64Value(int64(apiModel.ChainID))
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *resourceEnvironment) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

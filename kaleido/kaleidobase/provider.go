@@ -67,7 +67,7 @@ func (p *kaleidoProvider) Configure(ctx context.Context, req provider.ConfigureR
 	var data ProviderModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
-	pd := NewProviderData(&data)
+	pd := NewProviderData(ctx, &data)
 	resp.DataSourceData = pd
 	resp.ResourceData = pd
 }
