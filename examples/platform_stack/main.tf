@@ -313,6 +313,11 @@ resource "kaleido_platform_ams_task" "erc20_indexer" {
   task_yaml = <<EOT
     steps:
     - dynamicOptions:
+        addresses: |-
+          [{
+              "updateType": "create_or_ignore",
+              "address": input.blockchainEvent.info.address
+          }]
         assets: |-
           [{
               "updateType": "create_or_ignore",
@@ -335,7 +340,7 @@ resource "kaleido_platform_ams_task" "erc20_indexer" {
               "transactionHash": input.blockchainEvent.info.transactionHash,
               "parent": {
                   "type": "pool",
-                  "ref": "erc20"
+                  "ref": input.blockchainEvent.info.address & "/erc20"
               }
           }]
       name: upsert_transfer
@@ -416,6 +421,11 @@ resource "kaleido_platform_ams_task" "erc721_indexer" {
               $boolean([input.blockchainEvent.output.tokenId]) = false
       type: firefly_request
     - dynamicOptions:
+        addresses: |-
+          [{
+              "updateType": "create_or_ignore",
+              "address": input.blockchainEvent.info.address
+          }]
         collections: >-
           [{
               "updateType": "create_or_ignore",
@@ -431,7 +441,7 @@ resource "kaleido_platform_ams_task" "erc721_indexer" {
           [{
               "updateType": "create_or_ignore",
               "asset": "erc721_" & input.blockchainEvent.info.address & "_" & input.blockchainEvent.output.tokenId,
-              "name": "erc721",
+              "name": input.blockchainEvent.output.tokenId,
               "standard": "ERC-721",
               "address": input.blockchainEvent.info.address,
               "tokenIndex": input.blockchainEvent.output.tokenId,
@@ -447,7 +457,7 @@ resource "kaleido_platform_ams_task" "erc721_indexer" {
               "transactionHash": input.blockchainEvent.info.transactionHash,
               "parent": {
                   "type": "nft",
-                  "ref": "erc721"
+                  "ref": input.blockchainEvent.info.address & "/" & input.blockchainEvent.output.tokenId
               }
           }]        
       name: upsert_transfer
