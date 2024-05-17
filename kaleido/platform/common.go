@@ -241,6 +241,7 @@ func Resources() []func() resource.Resource {
 		CMSActionCreateAPIResourceFactory,
 		AMSTaskResourceFactory,
 		AMSFFListenerResourceFactory,
+		AMSDMListenerResourceFactory,
 		FireFlyRegistrationResourceFactory,
 	}
 }
