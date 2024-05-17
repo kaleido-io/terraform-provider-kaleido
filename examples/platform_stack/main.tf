@@ -285,7 +285,7 @@ resource "kaleido_platform_cms_action_deploy" "demotoken_erc721" {
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
-resource "kaleido_platform_cms_action_creatapi" "erc20" {
+resource "kaleido_platform_cms_action_createapi" "erc20" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
   build = kaleido_platform_cms_build.erc20.id
@@ -295,7 +295,7 @@ resource "kaleido_platform_cms_action_creatapi" "erc20" {
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
-resource "kaleido_platform_cms_action_creatapi" "erc721" {
+resource "kaleido_platform_cms_action_createapi" "erc721" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
   build = kaleido_platform_cms_build.erc721.id
