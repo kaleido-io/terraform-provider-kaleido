@@ -33,8 +33,6 @@ type AMSDMListenerResourceModel struct {
 	Service     types.String `tfsdk:"service"`
 	Name        types.String `tfsdk:"name"`
 	TaskID      types.String `tfsdk:"task_id"`
-	TaskName    types.String `tfsdk:"task_name"`
-	TaskVersion types.String `tfsdk:"task_version"`
 	TopicFilter types.String `tfsdk:"topic_filter"`
 }
 
@@ -44,8 +42,6 @@ type AMSDMListenerAPIModel struct {
 	Created     string `json:"created,omitempty"`
 	Updated     string `json:"updated,omitempty"`
 	TaskID      string `json:"taskId,omitempty"`
-	TaskName    string `json:"taskName,omitempty"`
-	TaskVersion string `json:"taskVersion,omitempty"`
 	TopicFilter string `tfsdk:"topicFilter"`
 }
 
@@ -80,13 +76,7 @@ func (r *ams_dmlistenerResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Required: true,
 			},
 			"task_id": &schema.StringAttribute{
-				Optional: true,
-			},
-			"task_name": &schema.StringAttribute{
-				Optional: true,
-			},
-			"task_version": &schema.StringAttribute{
-				Optional: true,
+				Required: true,
 			},
 			"topic_filter": &schema.StringAttribute{
 				Optional: true,
@@ -97,15 +87,7 @@ func (r *ams_dmlistenerResource) Schema(_ context.Context, _ resource.SchemaRequ
 
 func (data *AMSDMListenerResourceModel) toAPI(api *AMSDMListenerAPIModel, diagnostics *diag.Diagnostics) bool {
 	api.Name = data.Name.ValueString()
-	if !data.TaskID.IsNull() {
-		api.TaskID = data.TaskID.ValueString()
-	}
-	if !data.TaskName.IsNull() {
-		api.TaskName = data.TaskName.ValueString()
-	}
-	if !data.TaskVersion.IsNull() {
-		api.TaskVersion = data.TaskVersion.ValueString()
-	}
+	api.TaskID = data.TaskID.ValueString()
 	if !data.TopicFilter.IsNull() {
 		api.TopicFilter = data.TopicFilter.ValueString()
 	}
@@ -115,9 +97,9 @@ func (data *AMSDMListenerResourceModel) toAPI(api *AMSDMListenerAPIModel, diagno
 func (api *AMSDMListenerAPIModel) toData(data *AMSDMListenerResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.TaskID = types.StringValue(api.TaskID)
-	data.TaskName = types.StringValue(api.TaskName)
-	data.TaskVersion = types.StringValue(api.TaskVersion)
-	data.TopicFilter = types.StringValue(api.TopicFilter)
+	if api.TopicFilter != "" {
+		data.TopicFilter = types.StringValue(api.TopicFilter)
+	}
 }
 
 func (r *ams_dmlistenerResource) apiPath(data *AMSDMListenerResourceModel, idOrName string) string {
