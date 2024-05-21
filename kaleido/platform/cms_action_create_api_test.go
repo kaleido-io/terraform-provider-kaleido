@@ -24,8 +24,8 @@ import (
 	_ "embed"
 )
 
-var cms_action_creatapiStep1 = `
-resource "kaleido_platform_cms_action_creatapi" "cms_action_creatapi1" {
+var cms_action_createapiStep1 = `
+resource "kaleido_platform_cms_action_createapi" "cms_action_createapi1" {
     environment = "env1"
 	service = "service1"
 	build = "build1"
@@ -36,8 +36,8 @@ resource "kaleido_platform_cms_action_creatapi" "cms_action_creatapi1" {
 }
 `
 
-var cms_action_creatapiStep2 = `
-resource "kaleido_platform_cms_action_creatapi" "cms_action_creatapi1" {
+var cms_action_createapiStep2 = `
+resource "kaleido_platform_cms_action_createapi" "cms_action_createapi1" {
     environment = "env1"
 	service = "service1"
 	build = "build1"
@@ -67,29 +67,29 @@ func TestCMSActionCreateAPI1(t *testing.T) {
 		mp.server.Close()
 	}()
 
-	cms_action_creatapi1Resource := "kaleido_platform_cms_action_creatapi.cms_action_creatapi1"
+	cms_action_createapi1Resource := "kaleido_platform_cms_action_createapi.cms_action_createapi1"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + cms_action_creatapiStep1,
+				Config: providerConfig + cms_action_createapiStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(cms_action_creatapi1Resource, "id"),
-					resource.TestCheckResourceAttr(cms_action_creatapi1Resource, "name", `api1`),
-					resource.TestCheckResourceAttr(cms_action_creatapi1Resource, "firefly_namespace", `ns1`),
+					resource.TestCheckResourceAttrSet(cms_action_createapi1Resource, "id"),
+					resource.TestCheckResourceAttr(cms_action_createapi1Resource, "name", `api1`),
+					resource.TestCheckResourceAttr(cms_action_createapi1Resource, "firefly_namespace", `ns1`),
 				),
 			},
 			{
-				Config: providerConfig + cms_action_creatapiStep2,
+				Config: providerConfig + cms_action_createapiStep2,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(cms_action_creatapi1Resource, "id"),
-					resource.TestCheckResourceAttr(cms_action_creatapi1Resource, "name", `api1`),
-					resource.TestCheckResourceAttr(cms_action_creatapi1Resource, "firefly_namespace", `ns1`),
-					resource.TestCheckResourceAttr(cms_action_creatapi1Resource, "description", `create an API for a thing`),
+					resource.TestCheckResourceAttrSet(cms_action_createapi1Resource, "id"),
+					resource.TestCheckResourceAttr(cms_action_createapi1Resource, "name", `api1`),
+					resource.TestCheckResourceAttr(cms_action_createapi1Resource, "firefly_namespace", `ns1`),
+					resource.TestCheckResourceAttr(cms_action_createapi1Resource, "description", `create an API for a thing`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
-						id := s.RootModule().Resources[cms_action_creatapi1Resource].Primary.Attributes["id"]
+						id := s.RootModule().Resources[cms_action_createapi1Resource].Primary.Attributes["id"]
 						obj := mp.cmsActions[fmt.Sprintf("env1/service1/%s", id)].((*CMSActionCreateAPIAPIModel))
 						testJSONEqual(t, obj, fmt.Sprintf(`
 						{
