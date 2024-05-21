@@ -42,7 +42,7 @@ type AMSDMListenerAPIModel struct {
 	Created     string `json:"created,omitempty"`
 	Updated     string `json:"updated,omitempty"`
 	TaskID      string `json:"taskId,omitempty"`
-	TopicFilter string `tfsdk:"topicFilter"`
+	TopicFilter string `json:"topicFilter"`
 }
 
 func AMSDMListenerResourceFactory() resource.Resource {
