@@ -30,18 +30,21 @@ import (
 
 type AMSTaskResourceModel struct {
 	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Description    types.String `tfsdk:"description"`
 	Environment    types.String `tfsdk:"environment"`
 	Service        types.String `tfsdk:"service"`
-	TaskYAML       types.String `tfsdk:"task_yaml"`
+	TaskYAML       types.String `tfsdk:"task_yaml"` // this is propagated to a task version
 	AppliedVersion types.String `tfsdk:"applied_version"`
 }
 
 type AMSTaskAPIModel struct {
-	ID             string `yaml:"id,omitempty"`
-	Name           string `yaml:"name,omitempty"`
-	Created        string `yaml:"created,omitempty"`
-	Updated        string `yaml:"updated,omitempty"`
-	CurrentVersion string `yaml:"currentVersion,omitempty"`
+	ID             string `json:"id,omitempty"`
+	Name           string `json:"name,omitempty"`
+	Description    string `json:"description,omitempty"`
+	Created        string `json:"created,omitempty"`
+	Updated        string `json:"updated,omitempty"`
+	CurrentVersion string `json:"currentVersion,omitempty"`
 }
 
 func AMSTaskResourceFactory() resource.Resource {
@@ -67,12 +70,19 @@ func (r *ams_taskResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"name": &schema.StringAttribute{
+				Required: true,
+			},
+			"description": &schema.StringAttribute{
+				Optional: true,
+			},
 			"service": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"task_yaml": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "This is the definition of the task - which will be put into a new version each time the task is updated. Name must be omitted from this YAML",
 			},
 			"applied_version": &schema.StringAttribute{
 				Computed: true,
@@ -86,22 +96,38 @@ func (api *AMSTaskAPIModel) toData(data *AMSTaskResourceModel) {
 	data.AppliedVersion = types.StringValue(api.CurrentVersion)
 }
 
-func (r *ams_taskResource) getTaskNameFromYAML(data *AMSTaskResourceModel, diagnostics *diag.Diagnostics) (string, bool) {
-	var apiModel CMSActionBaseAPIModel
-	err := yaml.Unmarshal([]byte(data.TaskYAML.ValueString()), &apiModel)
+func getYAMLString(yamlObj map[string]interface{}, key string) string {
+	v := yamlObj[key]
+	s, ok := v.(string)
+	if ok {
+		return s
+	}
+	return ""
+}
+
+func (data *AMSTaskResourceModel) toAPI(api *AMSTaskAPIModel, diagnostics *diag.Diagnostics) bool {
+	var parsedYAML map[string]interface{}
+	err := yaml.Unmarshal([]byte(data.TaskYAML.ValueString()), &parsedYAML)
 	if err != nil {
 		diagnostics.AddError("invalid task YAML", err.Error())
-		return "", false
+		return false
 	}
-	if apiModel.Name == "" {
-		diagnostics.AddError("task YAML must include a name", "the name of the task is used to uniquely identify the task during the first create-or-update operation before it is bound to an ID")
-		return "", false
+	taskVersionName := getYAMLString(parsedYAML, "name")
+	if taskVersionName != "" {
+		diagnostics.AddError("task YAML must not include a name", "the task YAML will be used to create a version, with an auto-generated version ID each time it is updated")
+		return false
 	}
-	return apiModel.Name, true
+	api.Name = data.Name.ValueString()
+	api.Description = data.Description.ValueString()
+	return true
 }
 
 func (r *ams_taskResource) apiPath(data *AMSTaskResourceModel, idOrName string) string {
 	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/tasks/%s", data.Environment.ValueString(), data.Service.ValueString(), idOrName)
+}
+
+func (r *ams_taskResource) apiTaskVersionPath(data *AMSTaskResourceModel, idOrName string) string {
+	return fmt.Sprintf("%s/versions", r.apiPath(data, idOrName))
 }
 
 func (r *ams_taskResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -110,9 +136,14 @@ func (r *ams_taskResource) Create(ctx context.Context, req resource.CreateReques
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api AMSTaskAPIModel
-	taskName, ok := r.getTaskNameFromYAML(&data, &resp.Diagnostics)
+	ok := data.toAPI(&api, &resp.Diagnostics)
 	if ok {
-		ok, _ = r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, taskName), data.TaskYAML.ValueString(), &api, &resp.Diagnostics, YAMLBody())
+		// Task PUT
+		ok, _ = r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, api.Name), &api, &api, &resp.Diagnostics)
+	}
+	if ok {
+		// Task version POST
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiTaskVersionPath(&data, api.Name), data.TaskYAML.ValueString(), nil, &resp.Diagnostics, YAMLBody())
 	}
 	if !ok {
 		return
@@ -130,7 +161,17 @@ func (r *ams_taskResource) Update(ctx context.Context, req resource.UpdateReques
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
 	var api AMSTaskAPIModel
-	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, data.ID.ValueString()), data.TaskYAML.ValueString(), &api, &resp.Diagnostics, YAMLBody()); !ok {
+	ok := data.toAPI(&api, &resp.Diagnostics)
+	taskID := data.ID.ValueString()
+	if ok {
+		// Task PATCH
+		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, taskID), &api, &api, &resp.Diagnostics)
+	}
+	if ok {
+		// Task version POST
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiTaskVersionPath(&data, api.Name), data.TaskYAML.ValueString(), nil, &resp.Diagnostics, YAMLBody())
+	}
+	if !ok {
 		return
 	}
 

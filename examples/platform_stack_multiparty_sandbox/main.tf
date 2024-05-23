@@ -2,7 +2,7 @@ terraform {
   required_providers {
     kaleido = {
       source = "kaleido-io/kaleido"
-      version = "1.1.0-rc.2"
+      version = "1.1.0-rc.3"
     }
   }
 }
@@ -17,9 +17,9 @@ resource "kaleido_platform_environment" "env_0" {
   name = var.environment_name
 }
 
-resource "kaleido_platform_network" "net_besu" {
+resource "kaleido_platform_network" "net_0" {
   type = "Besu"
-  name = "${var.environment_name}_chain"
+  name = "evmchain1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({
     bootstrapOptions = {
@@ -46,7 +46,7 @@ resource "kaleido_platform_service" "bns" {
   runtime = kaleido_platform_runtime.bnr[count.index].id
   config_json = jsonencode({
     network = {
-      id = kaleido_platform_network.net_besu.id
+      id = kaleido_platform_network.net_0.id
     }
   })
   count = var.besu_node_count
@@ -93,7 +93,7 @@ resource "kaleido_platform_service" "gws_0" {
   runtime = kaleido_platform_runtime.gwr_0.id
   config_json = jsonencode({
     network = {
-      id =  kaleido_platform_network.net_besu.id
+      id =  kaleido_platform_network.net_0.id
     }
   })
 }
@@ -235,6 +235,31 @@ resource "kaleido_platform_service" "cms_0" {
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.cmr_0.id
   config_json = jsonencode({})
+}
+
+resource "kaleido_platform_runtime" "bir_0"{
+  type = "BlockIndexer"
+  name = "block_indexer"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "bis_0"{
+  type = "BlockIndexer"
+  name = "block_indexer"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.bir_0.id
+  config_json=jsonencode(
+    {
+      contractManager = {
+        id = kaleido_platform_service.cms_0.id
+      }
+      evmGateway = {
+        id = kaleido_platform_service.gws_0.id
+      }
+    }
+  )
+  hostnames = {"${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
 }
 
 resource "kaleido_platform_cms_build" "firefly_batch_pin" {

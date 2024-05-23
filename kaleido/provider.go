@@ -40,7 +40,7 @@ func (d *baasBaseDatasource) Configure(_ context.Context, req datasource.Configu
 }
 
 func newTestProviderData() *kaleidobase.ProviderData {
-	return kaleidobase.NewProviderData(&kaleidobase.ProviderModel{})
+	return kaleidobase.NewProviderData(context.Background(), &kaleidobase.ProviderModel{})
 }
 
 func New(version string) func() provider.Provider {

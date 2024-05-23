@@ -229,8 +229,10 @@ func DataSources() []func() datasource.DataSource {
 func Resources() []func() resource.Resource {
 	return []func() resource.Resource{
 		EnvironmentResourceFactory,
+		GroupFactory,
 		RuntimeResourceFactory,
 		ServiceResourceFactory,
+		ServiceAccessResourceFactory,
 		NetworkResourceFactory,
 		KMSWalletResourceFactory,
 		KMSKeyResourceFactory,
@@ -239,6 +241,7 @@ func Resources() []func() resource.Resource {
 		CMSActionCreateAPIResourceFactory,
 		AMSTaskResourceFactory,
 		AMSFFListenerResourceFactory,
+		AMSDMListenerResourceFactory,
 		FireFlyRegistrationResourceFactory,
 	}
 }

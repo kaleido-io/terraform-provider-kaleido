@@ -2,7 +2,7 @@ terraform {
   required_providers {
     kaleido = {
       source = "kaleido-io/kaleido"
-      version = "1.1.0-rc.2"
+      version = "1.1.0-rc.3"
     }
   }
 }
@@ -187,6 +187,31 @@ resource "kaleido_platform_service" "cms_0" {
   config_json = jsonencode({})
 }
 
+resource "kaleido_platform_runtime" "bir_0"{
+  type = "BlockIndexer"
+  name = "block_indexer"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "bis_0"{
+  type = "BlockIndexer"
+  name = "block_indexer"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.bir_0.id
+  config_json=jsonencode(
+    {
+      contractManager = {
+        id = kaleido_platform_service.cms_0.id
+      }
+      evmGateway = {
+        id = kaleido_platform_service.gws_0.id
+      }
+    }
+  )
+  hostnames = {"${lower(replace(var.environment_name, "/[^\\w]/", ""))}_${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
+}
+
 resource "kaleido_platform_runtime" "amr_0" {
   type = "AssetManager"
   name = "asset_manager1"
@@ -260,7 +285,7 @@ resource "kaleido_platform_cms_action_deploy" "demotoken_erc721" {
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
-resource "kaleido_platform_cms_action_creatapi" "erc20" {
+resource "kaleido_platform_cms_action_createapi" "erc20" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
   build = kaleido_platform_cms_build.erc20.id
@@ -270,7 +295,7 @@ resource "kaleido_platform_cms_action_creatapi" "erc20" {
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
-resource "kaleido_platform_cms_action_creatapi" "erc721" {
+resource "kaleido_platform_cms_action_createapi" "erc721" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.cms_0.id
   build = kaleido_platform_cms_build.erc721.id
@@ -284,8 +309,8 @@ resource "kaleido_platform_ams_task" "erc20_indexer" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.ams_0.id
   depends_on = [ kaleido_platform_ams_task.erc20_indexer ]
+  name = "erc20_indexer"
   task_yaml = <<EOT
-    name: erc20_indexer
     steps:
     - dynamicOptions:
         assets: |-
@@ -365,8 +390,8 @@ resource "kaleido_platform_ams_fflistener" "erc20_indexer" {
 resource "kaleido_platform_ams_task" "erc721_indexer" {
   environment = kaleido_platform_environment.env_0.id
   service = kaleido_platform_service.ams_0.id
+  name = "erc721_indexer"
   task_yaml = <<EOT
-    name: erc721_indexer
     steps:
     - dynamicOptions:
         body: |-
