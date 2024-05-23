@@ -77,7 +77,7 @@ func TestGroup1(t *testing.T) {
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[group1Resource].Primary.Attributes["id"]
-						rt := mp.group[id]
+						rt := mp.groups[id]
 						testJSONEqual(t, rt, fmt.Sprintf(`
 						{
 							"id": "%[1]s",
@@ -100,7 +100,7 @@ func TestGroup1(t *testing.T) {
 }
 
 func (mp *mockPlatform) getGroup(res http.ResponseWriter, req *http.Request) {
-	rt := mp.group[mux.Vars(req)["group"]]
+	rt := mp.groups[mux.Vars(req)["group"]]
 	if rt == nil {
 		mp.respond(res, nil, 404)
 	} else {
@@ -115,27 +115,27 @@ func (mp *mockPlatform) postGroup(res http.ResponseWriter, req *http.Request) {
 	now := time.Now().UTC()
 	rt.Created = &now
 	rt.Updated = &now
-	mp.group[rt.ID] = &rt
+	mp.groups[rt.ID] = &rt
 	mp.respond(res, &rt, 201)
 }
 
 func (mp *mockPlatform) patchGroup(res http.ResponseWriter, req *http.Request) {
-	rt := mp.group[mux.Vars(req)["group"]] // expected behavior of provider is PATCH only on exists
+	rt := mp.groups[mux.Vars(req)["group"]] // expected behavior of provider is PATCH only on exists
 	assert.NotNil(mp.t, rt)
-	var newRT EnvironmentAPIModel
+	var newRT GroupAPIModel
 	mp.getBody(req, &newRT)
-	assert.Equal(mp.t, rt.ID, newRT.ID)             // expected behavior of provider
+	assert.Equal(mp.t, rt.ID, newRT.ID)               // expected behavior of provider
 	assert.Equal(mp.t, rt.ID, mux.Vars(req)["group"]) // expected behavior of provider
 	now := time.Now().UTC()
 	newRT.Created = rt.Created
 	newRT.Updated = &now
-	mp.environments[mux.Vars(req)["group"]] = &newRT
+	mp.groups[mux.Vars(req)["group"]] = &newRT
 	mp.respond(res, &newRT, 200)
 }
 
 func (mp *mockPlatform) deleteGroup(res http.ResponseWriter, req *http.Request) {
-	rt := mp.group[mux.Vars(req)["group"]]
+	rt := mp.groups[mux.Vars(req)["group"]]
 	assert.NotNil(mp.t, rt)
-	delete(mp.environments, mux.Vars(req)["group"])
+	delete(mp.groups, mux.Vars(req)["group"])
 	mp.respond(res, nil, 204)
 }
