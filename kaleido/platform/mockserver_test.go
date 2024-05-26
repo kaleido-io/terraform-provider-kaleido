@@ -48,6 +48,7 @@ type mockPlatform struct {
 	amsTaskVersions map[string]map[string]interface{}
 	amsFFListeners  map[string]*AMSFFListenerAPIModel
 	amsDMListeners  map[string]*AMSDMListenerAPIModel
+	groups          map[string]*GroupAPIModel
 	ffsNode         *FireFlyStatusNodeAPIModel
 	ffsOrg          *FireFlyStatusOrgAPIModel
 	calls           []string
@@ -68,6 +69,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsTaskVersions: make(map[string]map[string]interface{}),
 		amsFFListeners:  make(map[string]*AMSFFListenerAPIModel),
 		amsDMListeners:  make(map[string]*AMSDMListenerAPIModel),
+		groups:          make(map[string]*GroupAPIModel),
 		router:          mux.NewRouter(),
 		calls:           []string{},
 	}
@@ -140,6 +142,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/nodes/self", http.MethodPost, mp.postFireFlyRegistrationNode)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/organizations/self", http.MethodPost, mp.postFireFlyRegistrationOrg)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/status", http.MethodGet, mp.getFireFlyStatus)
+
+	// See group_test.go
+	mp.register("/api/v1/groups", http.MethodPost, mp.postGroup)
+	mp.register("/api/v1/groups/{group}", http.MethodGet, mp.getGroup)
+	mp.register("/api/v1/groups/{group}", http.MethodPatch, mp.patchGroup)
+	mp.register("/api/v1/groups/{group}", http.MethodDelete, mp.deleteGroup)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
