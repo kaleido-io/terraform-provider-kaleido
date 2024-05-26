@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
@@ -302,6 +303,8 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 	data.DevDocs = types.StringValue(string(devDocsBytes))
 	if api.GitHub != nil {
 		data.CommitHash = types.StringValue(api.GitHub.CommitHash)
+	} else {
+		data.CommitHash = types.StringValue("")
 	}
 }
 
