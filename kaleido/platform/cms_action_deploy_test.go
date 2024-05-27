@@ -14,14 +14,13 @@
 package platform
 
 import (
+	_ "embed"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
-
-	_ "embed"
 )
 
 var cms_action_deployStep1 = `
@@ -126,6 +125,103 @@ func TestCMSActionDeploy1(t *testing.T) {
 							},
 							"output": {
 								"status": "pending",
+								"transactionId": "%[4]s",
+								"idempotencyKey": "%[5]s",
+								"operationId": "%[6]s",
+								"location": {
+									"address": "%[7]s"
+								},
+								"blockNumber": "12345"
+							}
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							obj.Created.UTC().Format(time.RFC3339Nano),
+							obj.Updated.UTC().Format(time.RFC3339Nano),
+							obj.Output.TransactionID,
+							obj.Output.IdempotencyKey,
+							obj.Output.OperationID,
+							obj.Output.Location.Address,
+							obj.Output.BlockNumber,
+						))
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
+var cms_action_deploy_to_transaction_manager_Step1 = `
+resource "kaleido_platform_cms_action_deploy" "cms_action_deploy_to_TM1" {
+  environment = "env1"
+	service = "service1"
+	build = "build1"
+	name = "deploy_to_tm1"
+  transaction_manager = "my-tm"
+	signing_key = "0xaabbccdd"
+	params_json = jsonencode([
+		"param1",
+		"param2"
+	])
+}
+`
+
+func TestCMSActionDeployToTransactionManager(t *testing.T) {
+
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v1/actions",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/actions/{action}",
+		})
+		mp.server.Close()
+	}()
+
+	cms_action_deployToTM1Resource := "kaleido_platform_cms_action_deploy.cms_action_deploy_to_TM1"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + cms_action_deploy_to_transaction_manager_Step1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(cms_action_deployToTM1Resource, "id"),
+					resource.TestCheckResourceAttr(cms_action_deployToTM1Resource, "name", `deploy_to_tm1`),
+					resource.TestCheckResourceAttr(cms_action_deployToTM1Resource, "transaction_manager", `my-tm`),
+					resource.TestCheckResourceAttrSet(cms_action_deployToTM1Resource, "transaction_id"),
+					resource.TestCheckResourceAttrSet(cms_action_deployToTM1Resource, "idempotency_key"),
+					resource.TestCheckResourceAttrSet(cms_action_deployToTM1Resource, "operation_id"),
+					resource.TestCheckResourceAttrSet(cms_action_deployToTM1Resource, "contract_address"),
+					resource.TestCheckResourceAttrSet(cms_action_deployToTM1Resource, "block_number"),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[cms_action_deployToTM1Resource].Primary.Attributes["id"]
+						obj := mp.cmsActions[fmt.Sprintf("env1/service1/%s", id)].((*CMSActionDeployAPIModel))
+						testJSONEqual(t, obj, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"name": "deploy_to_tm1",
+							"type": "deploy",
+							"input": {
+								"transactionMgr": "my-tm",
+								"build": {
+									"id": "build1"
+								},
+								"signingKey": "0xaabbccdd",
+								"constructorParams": [
+									"param1", "param2"
+								]
+							},
+							"output": {
+								"status": "succeeded",
 								"transactionId": "%[4]s",
 								"idempotencyKey": "%[5]s",
 								"operationId": "%[6]s",
