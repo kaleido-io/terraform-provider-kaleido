@@ -191,25 +191,12 @@ resource "kaleido_platform_runtime" "ffr_0" {
   config_json = jsonencode({})
 }
 
-resource "kaleido_platform_service" "seed_firefly" {
-  type = "FireFly"
-  name = "seed"
-  environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.ffr_0.id
-  config_json = jsonencode({
-    transactionManager = {
-      id = kaleido_platform_service.tms_0.id
-    }
-  })
-}
-
 resource "kaleido_platform_runtime" "pdr_0" {
   type = "PrivateDataManager"
   name = "data_manager"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
 }
-
 
 resource "kaleido_platform_service" "pds_0" {
   type = "PrivateDataManager"
@@ -279,7 +266,7 @@ resource "kaleido_platform_cms_action_deploy" "firefly_batch_pin" {
   service = kaleido_platform_service.cms_0.id
   build = kaleido_platform_cms_build.firefly_batch_pin.id
   name = "firefly_batch_pin"
-  firefly_namespace = kaleido_platform_service.seed_firefly.name
+  transaction_manager = kaleido_platform_service.tms_0.id
   signing_key = kaleido_platform_kms_key.seed_key.address
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
