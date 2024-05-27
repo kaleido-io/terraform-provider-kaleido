@@ -65,7 +65,7 @@ func (mp *mockPlatform) postCMSAction(res http.ResponseWriter, req *http.Request
 	}
 	base = obj.ActionBase()
 	base.ID = nanoid.New()
-	now := time.Now()
+	now := time.Now().UTC()
 	base.Created = &now
 	base.Updated = &now
 	mp.cmsActions[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+base.ID] = obj
