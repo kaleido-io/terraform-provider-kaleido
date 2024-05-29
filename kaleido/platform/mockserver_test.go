@@ -46,6 +46,7 @@ type mockPlatform struct {
 	cmsActions      map[string]CMSActionAPIBaseAccessor
 	amsTasks        map[string]*AMSTaskAPIModel
 	amsTaskVersions map[string]map[string]interface{}
+	amsDMUpserts    map[string]map[string]interface{}
 	amsFFListeners  map[string]*AMSFFListenerAPIModel
 	amsDMListeners  map[string]*AMSDMListenerAPIModel
 	groups          map[string]*GroupAPIModel
@@ -67,6 +68,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		cmsActions:      make(map[string]CMSActionAPIBaseAccessor),
 		amsTasks:        make(map[string]*AMSTaskAPIModel),
 		amsTaskVersions: make(map[string]map[string]interface{}),
+		amsDMUpserts:    make(map[string]map[string]interface{}),
 		amsFFListeners:  make(map[string]*AMSFFListenerAPIModel),
 		amsDMListeners:  make(map[string]*AMSDMListenerAPIModel),
 		groups:          make(map[string]*GroupAPIModel),
@@ -127,6 +129,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}/versions", http.MethodPost, mp.postAMSTaskVersion)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodPatch, mp.patchAMSTask)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodDelete, mp.deleteAMSTask)
+
+	// See ams_dmupsert.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/bulk/datamodel", http.MethodPut, mp.putAMSDMUpsert)
 
 	// See ams_fflistener.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/firefly/{listener}", http.MethodGet, mp.getAMSFFListener)
