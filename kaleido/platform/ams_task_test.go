@@ -14,6 +14,7 @@
 package platform
 
 import (
+	_ "embed"
 	"fmt"
 	"net/http"
 	"testing"
@@ -24,8 +25,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
-
-	_ "embed"
 )
 
 var ams_taskStep1 = `
@@ -38,7 +37,8 @@ resource "kaleido_platform_ams_task" "ams_task1" {
           name = "step1"
 		  things = "stuff"
 		}]
-    })
+  })
+  variable_set = "my-variables"
 }
 `
 
@@ -58,7 +58,9 @@ resource "kaleido_platform_ams_task" "ams_task1" {
 		  name = "step2"
 		  stuff = "other stuff"
 		}]
-    })
+  })
+  variable_set = "my-variables"
+
 }
 `
 
@@ -90,6 +92,7 @@ func TestAMSTask1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(ams_task1Resource, "id"),
 					resource.TestCheckResourceAttrSet(ams_task1Resource, "applied_version"),
+					resource.TestCheckResourceAttrSet(ams_task1Resource, "variable_set"),
 				),
 			},
 			{
@@ -107,7 +110,8 @@ func TestAMSTask1(t *testing.T) {
 								"description": "shiny task that does stuff and more stuff",
 								"created": "%[2]s",
 								"updated": "%[3]s",
-								"currentVersion": "%[4]s"
+								"currentVersion": "%[4]s",
+                "variableSet": "my-variables"
 							}`,
 							// generated fields that vary per test run
 							id,

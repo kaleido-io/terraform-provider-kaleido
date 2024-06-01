@@ -36,6 +36,7 @@ type AMSTaskResourceModel struct {
 	Service        types.String `tfsdk:"service"`
 	TaskYAML       types.String `tfsdk:"task_yaml"` // this is propagated to a task version
 	AppliedVersion types.String `tfsdk:"applied_version"`
+	VariableSet    types.String `tfsdk:"variable_set"`
 }
 
 type AMSTaskAPIModel struct {
@@ -45,6 +46,7 @@ type AMSTaskAPIModel struct {
 	Created        string `json:"created,omitempty"`
 	Updated        string `json:"updated,omitempty"`
 	CurrentVersion string `json:"currentVersion,omitempty"`
+	VariableSet    string `json:"variableSet,omitempty"`
 }
 
 func AMSTaskResourceFactory() resource.Resource {
@@ -87,6 +89,9 @@ func (r *ams_taskResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"applied_version": &schema.StringAttribute{
 				Computed: true,
 			},
+			"variable_set": &schema.StringAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -119,6 +124,7 @@ func (data *AMSTaskResourceModel) toAPI(api *AMSTaskAPIModel, diagnostics *diag.
 	}
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
+	api.VariableSet = data.VariableSet.ValueString()
 	return true
 }
 
