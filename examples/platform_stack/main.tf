@@ -312,42 +312,107 @@ resource "kaleido_platform_ams_task" "erc20_indexer" {
   name = "erc20_indexer"
   task_yaml = <<EOT
     steps:
+    - name: naming
+      options:
+        template: >-
+          {
+              "pool": "pool",
+              "poolQualified": input.blockchainEvent.info.address & "/pool",
+              "activity": "pool-" & input.blockchainEvent.info.address,
+              "protocolIdSafe": $replace(input.blockchainEvent.protocolId, "/", "_")
+          }
+      stopCondition: >-
+        $not(
+            input.blockchainEvent.info.signature = "Transfer(address,address,uint256)" and
+            $exists(input.blockchainEvent.output.value)
+        )
+      type: jsonata_template
     - dynamicOptions:
-        addresses: |-
+        activities: |-
           [{
               "updateType": "create_or_ignore",
-              "address": input.blockchainEvent.info.address
+              "name": steps.naming.data.activity
           }]
-        assets: |-
+        addresses: |-
+          [
+            {
+              "updateType": "create_or_update",
+              "address": input.blockchainEvent.info.address,
+              "displayName": input.blockchainEvent.info.address,
+              "contract": true 
+            },
+            {
+              "updateType": "create_or_update",
+              "address": input.blockchainEvent.output.from,
+              "displayName": input.blockchainEvent.output.from
+            },
+            {
+              "updateType": "create_or_update",
+              "address": input.blockchainEvent.output.to,
+              "displayName": input.blockchainEvent.output.to
+            }
+          ]
+        events: |-
           [{
-              "updateType": "create_or_ignore",
-              "name": "erc20_" & input.blockchainEvent.info.address
+              "updateType": "create_or_replace",
+              "name": "transfer-" & steps.naming.data.protocolIdSafe,
+              "activity": steps.naming.data.activity,
+              "parent": {
+                  "type": "pool",
+                  "ref": steps.naming.data.poolQualified
+              },
+              "info": {
+                "address": input.blockchainEvent.info.address,
+                "blockNumber": input.blockchainEvent.info.blockNumber,
+                "protocolId": input.blockchainEvent.protocolId,
+                "transactionHash": input.blockchainEvent.info.transactionHash
+              }
           }]
         pools: |-
           [{
               "updateType": "create_or_ignore",
-              "name": "erc20",
-              "asset": "erc20_" & input.blockchainEvent.info.address,
-              "address": input.blockchainEvent.info.address
+              "address": input.blockchainEvent.info.address,
+              "name": steps.naming.data.pool,
+              "standard": "ERC-20",
+              "firefly": {
+                "namespace": input.blockchainEvent.namespace
+              }
           }]
         transfers: |-
           [{
+              "updateType": "create_or_replace",
               "protocolId": input.blockchainEvent.protocolId,
-              "asset": "erc20_" & input.blockchainEvent.info.address,
               "from": input.blockchainEvent.output.from,
               "to": input.blockchainEvent.output.to,
               "amount": input.blockchainEvent.output.value,
               "transactionHash": input.blockchainEvent.info.transactionHash,
               "parent": {
                   "type": "pool",
-                  "ref": input.blockchainEvent.info.address & "/erc20"
+                  "ref": steps.naming.data.poolQualified
+              },
+              "firefly": {
+                "namespace": input.blockchainEvent.namespace
+              },
+              "info": {
+                  "blockNumber": input.blockchainEvent.info.blockNumber
               }
           }]
-      name: upsert_transfer
-      options: {}
-      skip: input.blockchainEvent.info.signature !=
-        "Transfer(address,address,uint256)" or
-        $boolean([input.blockchainEvent.output.value]) = false
+      name: transfer_upsert
+      type: data_model_update
+    - dynamicOptions:
+        assets: |-
+          [{
+              "updateType": "create_or_ignore",
+              "name": "pool_" & input.blockchainEvent.info.address
+          }]
+        pools: |-
+          [{
+              "updateType": "update_only",
+              "address": input.blockchainEvent.info.address,
+              "name": steps.naming.data.pool,
+              "asset": "pool_" & input.blockchainEvent.info.address
+          }]
+      name: link_asset
       type: data_model_update
   EOT
 }
@@ -398,74 +463,210 @@ resource "kaleido_platform_ams_task" "erc721_indexer" {
   name = "erc721_indexer"
   task_yaml = <<EOT
     steps:
-    - dynamicOptions:
-        body: |-
+    - name: naming
+      options:
+        template: >-
+          (
+            $tokenId := $exists(input.blockchainEvent.output._tokenId) ?
+                $string(input.blockchainEvent.output._tokenId) :
+                $string(input.blockchainEvent.output.tokenId);
+
+            {
+              "tokenId": $tokenId,
+              "nft": $tokenId,
+              "nftQualified": input.blockchainEvent.info.address & "/" & $tokenId,
+              "activity": "nft-" & input.blockchainEvent.info.address & "-" & $tokenId,
+              "protocolIdSafe": $replace(input.blockchainEvent.protocolId, "/", "_")
+            }
+          )
+      stopCondition: >-
+        $not(
+          (
+            input.blockchainEvent.info.signature = "Transfer(address,address,uint256)" and
+            $exists(input.blockchainEvent.output.tokenId)
+          ) or
+          (
+            input.blockchainEvent.info.signature = "Approval(address,address,uint256)" and
+            $exists(input.blockchainEvent.output.tokenId)
+          ) or
+          (
+            input.blockchainEvent.info.signature = "MetadataUpdate(uint256)" and
+            $exists(input.blockchainEvent.output._tokenId)
+          )
+        )
+      type: jsonata_template
+    - name: common_upsert
+      options:
+        template: |-
           {
-              "input": {
-                  "tokenId": $string(input.blockchainEvent.output.tokenId)
-              },
-              "key": "${kaleido_platform_kms_key.key_0.address}",
-              "location": {
-                  "address": input.blockchainEvent.info.address
+            "addresses": [{
+              "updateType": "create_or_ignore",
+              "address": input.blockchainEvent.info.address,
+              "contract": true
+            }],
+            "activities": [{
+              "updateType": "create_or_ignore",
+              "name": steps.naming.data.activity
+            }],
+            "nfts": [{
+              "updateType": "create_or_ignore",
+              "name": steps.naming.data.nft,
+              "standard": "ERC-721",
+              "tokenIndex": steps.naming.data.tokenId,
+              "address": input.blockchainEvent.info.address,
+              "firefly": {
+                "namespace": input.blockchainEvent.namespace
               }
+            }]
+          }
+      type: jsonata_template
+    - dynamicOptions:
+        activities: steps.common_upsert.data.activities
+        addresses: steps.common_upsert.data.addresses
+        events: |-
+          [{
+              "updateType": "create_or_replace",
+              "name": "approval-" & steps.naming.data.protocolIdSafe,
+              "activity": steps.naming.data.activity,
+              "parent": {
+                "type": "nft",
+                "ref": steps.naming.data.nftQualified
+              },
+              "info": {
+                "address": input.blockchainEvent.info.address,
+                "blockNumber": input.blockchainEvent.info.blockNumber,
+                "protocolId": input.blockchainEvent.protocolId,
+                "transactionHash": input.blockchainEvent.info.transactionHash,
+                "owner": input.blockchainEvent.output.owner,
+                "approved": input.blockchainEvent.output.approved,
+                "tokenIndex": steps.naming.data.tokenId
+              }
+          }]
+        nfts: steps.common_upsert.data.nfts
+      name: approval_upsert
+      skip: input.blockchainEvent.name != "Approval"
+      type: data_model_update
+    - dynamicOptions:
+        activities: steps.common_upsert.data.activities
+        addresses: steps.common_upsert.data.addresses
+        events: |-
+          [{
+              "updateType": "create_or_replace",
+              "name": "metadata-" & steps.naming.data.protocolIdSafe,
+              "activity": steps.naming.data.activity,
+              "parent": {
+                "type": "nft",
+                "ref": steps.naming.data.nftQualified
+              },
+              "info": {
+                "address": input.blockchainEvent.info.address,
+                "blockNumber": input.blockchainEvent.info.blockNumber,
+                "protocolId": input.blockchainEvent.protocolId,
+                "transactionHash": input.blockchainEvent.info.transactionHash,
+                "tokenIndex": steps.naming.data.tokenId
+              }
+          }]
+        nfts: steps.common_upsert.data.nfts
+      name: metadata_upsert
+      skip: input.blockchainEvent.name != "MetadataUpdate"
+      type: data_model_update
+    - dynamicOptions:
+        activity: steps.naming.data.activity
+        idempotencyKey: input.id
+        input: |-
+          {
+            "nft": steps.common_upsert.data.nfts[0],
+            "blockNumber": input.blockchainEvent.info.blockNumber
           }
       name: query_uri
       options:
-        bodyJSONEncoding: json
-        method: POST
-        namespace: ${kaleido_platform_service.ffs_0.name}
-        path: apis/erc721withdata/query/tokenURI
-      skip: |-
-        input.blockchainEvent.info.signature !=
-              "Transfer(address,address,uint256)" or
-              $boolean([input.blockchainEvent.output.tokenId]) = false
-      type: firefly_request
+        taskName: indexer_erc721_query_uri
+      skip: input.blockchainEvent.name != "MetadataUpdate"
+      type: invoke_task
     - dynamicOptions:
+        activities: steps.common_upsert.data.activities
         addresses: |-
+          $append(
+            steps.common_upsert.data.addresses,
+            [
+              {
+                "updateType": "create_or_ignore",
+                "address": input.blockchainEvent.output.from
+              },
+              {
+                "updateType": "create_or_ignore",
+                "address": input.blockchainEvent.output.to
+              }
+            ]
+          )
+        events: |-
           [{
-              "updateType": "create_or_ignore",
-              "address": input.blockchainEvent.info.address
+              "updateType": "create_or_replace",
+              "name": "transfer-" & steps.naming.data.protocolIdSafe,
+              "activity": steps.naming.data.activity,
+              "parent": {
+                "type": "nft",
+                "ref": steps.naming.data.nftQualified
+              },
+              "info": {
+                "address": input.blockchainEvent.info.address,
+                "blockNumber": input.blockchainEvent.info.blockNumber,
+                "protocolId": input.blockchainEvent.protocolId,
+                "transactionHash": input.blockchainEvent.info.transactionHash,
+                "tokenIndex": steps.naming.data.tokenId
+              }
           }]
-        collections: >-
+        nfts: steps.common_upsert.data.nfts
+        transfers: |-
           [{
-              "updateType": "create_or_ignore",
-              "name": "erc721_" & input.blockchainEvent.info.address
-          }]
-        assets: >-
-          [{
-              "updateType": "create_or_update",
-              "collection": "erc721_" & input.blockchainEvent.info.address,
-              "name": "erc721_" & input.blockchainEvent.info.address & "_" & input.blockchainEvent.output.tokenId
-          }]
-        nfts: >-
-          [{
-              "updateType": "create_or_ignore",
-              "asset": "erc721_" & input.blockchainEvent.info.address & "_" & input.blockchainEvent.output.tokenId,
-              "name": input.blockchainEvent.output.tokenId,
-              "standard": "ERC-721",
-              "address": input.blockchainEvent.info.address,
-              "tokenIndex": input.blockchainEvent.output.tokenId,
-              "uri": steps.query_uri.data.output
-          }]
-        transfers: >-
-          [{
+              "updateType": "create_or_replace",
               "protocolId": input.blockchainEvent.protocolId,
-              "asset": "erc721_" & input.blockchainEvent.info.address & "_" & input.blockchainEvent.output.tokenId,
               "from": input.blockchainEvent.output.from,
               "to": input.blockchainEvent.output.to,
               "amount": "1",
               "transactionHash": input.blockchainEvent.info.transactionHash,
               "parent": {
-                  "type": "nft",
-                  "ref": input.blockchainEvent.info.address & "/" & input.blockchainEvent.output.tokenId
+                "type": "nft",
+                "ref": steps.naming.data.nftQualified
+              },
+              "firefly": {
+                "namespace": input.blockchainEvent.namespace
+              },
+              "info": {
+                "blockNumber": input.blockchainEvent.info.blockNumber
               }
-          }]        
-      name: upsert_transfer
-      options: {}
-      skip: |-
-        input.blockchainEvent.info.signature !=
-              "Transfer(address,address,uint256)" or
-              $boolean([input.blockchainEvent.output.tokenId]) = false
+          }]
+      name: transfer_upsert
+      skip: input.blockchainEvent.name != "Transfer"
+      type: data_model_update
+    - name: asset_naming
+      options:
+        template: >-
+          {
+              "collection": input.blockchainEvent.info.address,
+              "asset": "nft_" & input.blockchainEvent.info.address & "_" & steps.naming.data.tokenId
+          }
+      type: jsonata_template
+    - dynamicOptions:
+        assets: |-
+          [{
+              "updateType": "create_or_ignore",
+              "name": steps.asset_naming.data.asset,
+              "collection": steps.asset_naming.data.collection
+          }]
+        collections: |-
+          [{
+              "updateType": "create_or_ignore",
+              "name": steps.asset_naming.data.collection
+          }]
+        nfts: |-
+          [{
+              "updateType": "update_only",
+              "name": steps.naming.data.nft,
+              "address": input.blockchainEvent.info.address,
+              "asset": steps.asset_naming.data.asset
+          }]
+      name: link_asset
       type: data_model_update
   EOT
 }
