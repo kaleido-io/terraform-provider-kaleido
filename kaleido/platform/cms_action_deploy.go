@@ -28,20 +28,21 @@ import (
 )
 
 type CMSActionDeployResourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	Environment      types.String `tfsdk:"environment"`
-	Service          types.String `tfsdk:"service"`
-	Build            types.String `tfsdk:"build"`
-	Name             types.String `tfsdk:"name"`
-	Description      types.String `tfsdk:"description"`
-	FireFlyNamespace types.String `tfsdk:"firefly_namespace"`
-	SigningKey       types.String `tfsdk:"signing_key"`
-	ParamsJSON       types.String `tfsdk:"params_json"`
-	TransactionID    types.String `tfsdk:"transaction_id"`
-	IdempotencyKey   types.String `tfsdk:"idempotency_key"`
-	OperationID      types.String `tfsdk:"operation_id"`
-	ContractAddress  types.String `tfsdk:"contract_address"`
-	BlockNumber      types.String `tfsdk:"block_number"`
+	ID                 types.String `tfsdk:"id"`
+	Environment        types.String `tfsdk:"environment"`
+	Service            types.String `tfsdk:"service"`
+	Build              types.String `tfsdk:"build"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	FireFlyNamespace   types.String `tfsdk:"firefly_namespace"`
+	TransactionManager types.String `tfsdk:"transaction_manager"`
+	SigningKey         types.String `tfsdk:"signing_key"`
+	ParamsJSON         types.String `tfsdk:"params_json"`
+	TransactionID      types.String `tfsdk:"transaction_id"`
+	IdempotencyKey     types.String `tfsdk:"idempotency_key"`
+	OperationID        types.String `tfsdk:"operation_id"`
+	ContractAddress    types.String `tfsdk:"contract_address"`
+	BlockNumber        types.String `tfsdk:"block_number"`
 }
 
 type CMSActionDeployAPIModel struct {
@@ -51,10 +52,11 @@ type CMSActionDeployAPIModel struct {
 }
 
 type CMSDeployActionInputAPIModel struct {
-	Namespace         string                             `json:"namespace,omitempty"`
-	Build             *CMSActionDeployBuildInputAPIModel `json:"build,omitempty"`
-	SingingKey        string                             `json:"signingKey,omitempty"`
-	ConstructorParams interface{}                        `json:"constructorParams,omitempty"`
+	Namespace          string                             `json:"namespace,omitempty"`
+	TransactionManager string                             `json:"transactionMgr,omitempty"`
+	Build              *CMSActionDeployBuildInputAPIModel `json:"build,omitempty"`
+	SingingKey         string                             `json:"signingKey,omitempty"`
+	ConstructorParams  interface{}                        `json:"constructorParams,omitempty"`
 }
 
 type CMSDeployActionOutputAPIModel struct {
@@ -119,7 +121,11 @@ func (r *cms_action_deployResource) Schema(_ context.Context, _ resource.SchemaR
 				Optional: true,
 			},
 			"firefly_namespace": &schema.StringAttribute{
-				Required:      true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"transaction_manager": &schema.StringAttribute{
+				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"build": &schema.StringAttribute{
@@ -158,7 +164,8 @@ func (data *CMSActionDeployResourceModel) toAPI(api *CMSActionDeployAPIModel, di
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
 	api.Input = CMSDeployActionInputAPIModel{
-		Namespace: data.FireFlyNamespace.ValueString(),
+		Namespace:          data.FireFlyNamespace.ValueString(),
+		TransactionManager: data.TransactionManager.ValueString(),
 		Build: &CMSActionDeployBuildInputAPIModel{
 			ID: data.Build.ValueString(),
 		},

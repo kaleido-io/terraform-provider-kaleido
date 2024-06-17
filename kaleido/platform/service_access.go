@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"time"
 
-	// "github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -27,17 +26,17 @@ import (
 )
 
 type ServiceAccessResourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	groupid   types.String `tfsdk:"id"`
-	serviceid types.String `tfsdk:"id"`
+	ID        types.String `tfsdk:"id"`
+	GroupID   types.String `tfsdk:"groupid"`
+	ServiceID types.String `tfsdk:"serviceid"`
 }
 
 type ServiceAccessAPIModel struct {
-	ID      string     `json:"id,omitempty"`
-	groupid      string     `json:"id,omitempty"`
-	Created *time.Time `json:"created,omitempty"`
-	Updated *time.Time `json:"updated,omitempty"`
-	serviceid    string     `json:"id,omitempty"`
+	ID        string     `json:"id,omitempty"`
+	GroupID   string     `json:"groupId,omitempty"`
+	Created   *time.Time `json:"created,omitempty"`
+	Updated   *time.Time `json:"updated,omitempty"`
+	ServiceID string     `json:"serviceId,omitempty"`
 }
 
 func ServiceAccessResourceFactory() resource.Resource {
@@ -70,8 +69,8 @@ func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaReque
 }
 
 func (data *ServiceAccessResourceModel) toAPI(api *ServiceAccessAPIModel) {
-	api.groupid = data.groupid.ValueString()
-	api.serviceid = data.serviceid.ValueString()
+	api.GroupID = data.GroupID.ValueString()
+	api.ServiceID = data.ServiceID.ValueString()
 }
 
 func (api *ServiceAccessAPIModel) toData(data *ServiceAccessResourceModel) {
@@ -103,7 +102,7 @@ func (r *serviceAccessResource) Create(ctx context.Context, req resource.CreateR
 
 }
 
-//update is useless right now - but uncommenting to work with the resource model
+// update is useless right now - but uncommenting to work with the resource model
 func (r *serviceAccessResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 
 	// var data ServiceAccessResourceModel

@@ -14,6 +14,7 @@
 package platform
 
 import (
+	_ "embed"
 	"fmt"
 	"net/http"
 	"testing"
@@ -24,8 +25,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
-
-	_ "embed"
 )
 
 var cms_buildStep1 = `
@@ -142,6 +141,80 @@ func TestCMSBuild1(t *testing.T) {
 	})
 }
 
+var cms_buildPrecompiled = `
+resource "kaleido_platform_cms_build" "cms_build_precompiled" {
+    environment = "env1"
+	  service = "service1"
+    type = "precompiled"
+    name = "build2"
+    path = "some/path"
+	  precompiled = {
+    bytecode = "0xB17EC0DE"
+    abi = "[{\"some\":\"precompiled_abi\"}]"
+	}
+}
+`
+
+func TestCMSBuildPreCompiled(t *testing.T) {
+
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v1/builds",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+		})
+		mp.server.Close()
+	}()
+
+	cms_buildPreCompiledResource := "kaleido_platform_cms_build.cms_build_precompiled"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + cms_buildPrecompiled,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "id"),
+					resource.TestCheckResourceAttr(cms_buildPreCompiledResource, "name", `build2`),
+					resource.TestCheckResourceAttr(cms_buildPreCompiledResource, "type", `precompiled`),
+					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "abi"),
+					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "bytecode"),
+					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "dev_docs"),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						assert.NotNil(t, s.RootModule().Resources[cms_buildPreCompiledResource])
+						id := s.RootModule().Resources[cms_buildPreCompiledResource].Primary.Attributes["id"]
+						obj := mp.cmsBuilds[fmt.Sprintf("env1/service1/%s", id)]
+						testJSONEqual(t, obj, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"name": "build2",
+							"path": "some/path",
+              "abi": [{"some":"precompiled_abi"}],
+              "bytecode": "0xB17EC0DE",
+							"devDocs": "[\"some\":\"devdocs\"]",
+							"status": "succeeded"
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							obj.Created.UTC().Format(time.RFC3339Nano),
+							obj.Updated.UTC().Format(time.RFC3339Nano),
+						))
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
 func (mp *mockPlatform) getCMSBuild(res http.ResponseWriter, req *http.Request) {
 	obj := mp.cmsBuilds[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["build"]]
 	if obj == nil {
@@ -150,8 +223,13 @@ func (mp *mockPlatform) getCMSBuild(res http.ResponseWriter, req *http.Request) 
 		mp.respond(res, obj, 200)
 		// Next time we'll complete the build
 		obj.Status = "succeeded"
-		obj.ABI = `[{"some":"abi"}]`
-		obj.Bytecode = `0xAAABBBCCCDDD`
+
+		if obj.ABI == nil {
+			obj.ABI = `[{"some":"abi"}]`
+		}
+		if obj.Bytecode == "" {
+			obj.Bytecode = `0xAAABBBCCCDDD`
+		}
 		obj.DevDocs = `["some":"devdocs"]`
 		if obj.GitHub != nil {
 			obj.GitHub.CommitHash = nanoid.New()

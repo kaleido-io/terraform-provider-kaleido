@@ -65,14 +65,14 @@ type CMSActionCreateAPIBuildInputAPIModel struct {
 }
 
 func CMSActionCreateAPIResourceFactory() resource.Resource {
-	return &cms_action_creatapiResource{}
+	return &cms_action_createapiResource{}
 }
 
 func (data *CMSActionCreateAPIResourceModel) ResourceIdentifiers() (types.String, types.String, types.String) {
 	return data.Environment, data.Service, data.ID
 }
 
-type cms_action_creatapiResource struct {
+type cms_action_createapiResource struct {
 	cms_action_baseResource
 }
 
@@ -83,11 +83,11 @@ func (a *CMSActionCreateAPIAPIModel) OutputBase() *CMSActionOutputBaseAPIModel {
 	return &a.Output.CMSActionOutputBaseAPIModel
 }
 
-func (r *cms_action_creatapiResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_cms_action_creatapi"
+func (r *cms_action_createapiResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_cms_action_createapi"
 }
 
-func (r *cms_action_creatapiResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *cms_action_createapiResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
@@ -156,7 +156,7 @@ func (api *CMSActionCreateAPIAPIModel) toData(data *CMSActionCreateAPIResourceMo
 	}
 }
 
-func (r *cms_action_creatapiResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *cms_action_createapiResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
 	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -175,7 +175,7 @@ func (r *cms_action_creatapiResource) Create(ctx context.Context, req resource.C
 
 }
 
-func (r *cms_action_creatapiResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *cms_action_createapiResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 
 	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -192,7 +192,7 @@ func (r *cms_action_creatapiResource) Update(ctx context.Context, req resource.U
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *cms_action_creatapiResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *cms_action_createapiResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
@@ -211,7 +211,7 @@ func (r *cms_action_creatapiResource) Read(ctx context.Context, req resource.Rea
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *cms_action_creatapiResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *cms_action_createapiResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
