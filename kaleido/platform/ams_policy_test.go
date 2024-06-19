@@ -15,6 +15,7 @@ package platform
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -26,26 +27,24 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
-
-	_ "embed"
 )
 
 var ams_policyStep1 = `
 resource "kaleido_platform_ams_policy" "ams_policy1" {
-    environment = "env1"
+  environment = "env1"
 	service = "service1"
 	name = "ams_policy1"
-    document = "document 1"
+  document = "document 1"
 }
 `
 
 var ams_policyStep2 = `
 resource "kaleido_platform_ams_policy" "ams_policy1" {
-    environment = "env1"
+  environment = "env1"
 	service = "service1"
 	name = "ams_policy1"
 	description = "shiny policy that does stuff and more stuff"
-    document = "document 2"
+  document = "document 2"
 	example_input = "input 2"
 }
 `
