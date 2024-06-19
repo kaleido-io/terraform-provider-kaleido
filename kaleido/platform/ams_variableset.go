@@ -87,7 +87,8 @@ func (r *ams_variablesetResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional: true,
 			},
 			"variables_json": &schema.StringAttribute{
-				Required: true,
+				Sensitive: true,
+				Required:  true,
 			},
 		},
 	}
