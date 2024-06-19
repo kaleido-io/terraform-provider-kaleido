@@ -240,6 +240,7 @@ func Resources() []func() resource.Resource {
 		CMSActionDeployResourceFactory,
 		CMSActionCreateAPIResourceFactory,
 		AMSTaskResourceFactory,
+		AMSPolicyResourceFactory,
 		AMSFFListenerResourceFactory,
 		AMSDMListenerResourceFactory,
 		AMSDMUpsertResourceFactory,
