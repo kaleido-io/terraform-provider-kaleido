@@ -51,6 +51,7 @@ type mockPlatform struct {
 	amsDMUpserts      map[string]map[string]interface{}
 	amsFFListeners    map[string]*AMSFFListenerAPIModel
 	amsDMListeners    map[string]*AMSDMListenerAPIModel
+	amsVariableSets   map[string]*AMSVariableSetAPIModel
 	groups            map[string]*GroupAPIModel
 	ffsNode           *FireFlyStatusNodeAPIModel
 	ffsOrg            *FireFlyStatusOrgAPIModel
@@ -75,6 +76,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsDMUpserts:      make(map[string]map[string]interface{}),
 		amsFFListeners:    make(map[string]*AMSFFListenerAPIModel),
 		amsDMListeners:    make(map[string]*AMSDMListenerAPIModel),
+		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
 		groups:            make(map[string]*GroupAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
@@ -153,6 +155,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/datamodel/{listener}", http.MethodGet, mp.getAMSDMListener)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/datamodel/{listener}", http.MethodPut, mp.putAMSDMListener)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/datamodel/{listener}", http.MethodDelete, mp.deleteAMSDMListener)
+
+	// See ams_dmlistener.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodGet, mp.getAMSVariableSet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodPut, mp.putAMSVariableSet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodDelete, mp.deleteAMSVariableSet)
 
 	// See firefly_registration.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/nodes/self", http.MethodPost, mp.postFireFlyRegistrationNode)

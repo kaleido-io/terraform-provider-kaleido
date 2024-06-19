@@ -26,8 +26,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 	"gopkg.in/yaml.v3"
+
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
 type APIRequestOption struct {
@@ -244,6 +245,7 @@ func Resources() []func() resource.Resource {
 		AMSFFListenerResourceFactory,
 		AMSDMListenerResourceFactory,
 		AMSDMUpsertResourceFactory,
+		AMSVariableSetResourceFactory,
 		FireFlyRegistrationResourceFactory,
 	}
 }
