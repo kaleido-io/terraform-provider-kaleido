@@ -1,8 +1,10 @@
 ## Summary
 
-Create an environment with initial configuration necessary to optimize for performance and high throughput
+This Terraform assists Kaleido platform users interested in testing out high throughput scenarios on the Kaleido Blockchain as a Service platform. This script will create 4 large nodes and apply a custom protocol configuration to each node.  
 
 ## Inputs
+
+Refer to the file `input.tfvars` for an example input. Rename this file to `terraform.tfvars` if you'd like for it to apply to your environment. Default settings defined in this file can be found below
 
 | Name | Description | Type | Default | Required |
 |------|-------------|:----:|:-----:|:-----:|
@@ -15,10 +17,11 @@ Create an environment with initial configuration necessary to optimize for perfo
 | node_count | Number of nodes to create | string | 4 | no |
 | service_count | Number of services to create | string | 1 | no |
 | block_period | Block period in seconds | number | 5 | no |
-| protocon_config | Custom protocol configuration to apply | json | ```json {"restgw_max_inflight": 1000, "restgw_max_tx_wait_time": 60,"restgw_always_manage_nonce": true,"restgw_send_concurrency": 100,"restgw_attempt_gap_fill": true, "restgw_flush_frequency": 0,"restgw_flush_msgs": 0,"restgw_flush_bytes": 0,}``` | no |
+| protocon_config | Custom protocol configuration to apply | json | ```javascript {"restgw_max_inflight": 1000, "restgw_max_tx_wait_time": 60,"restgw_always_manage_nonce": true,"restgw_send_concurrency": 100,"restgw_attempt_gap_fill": true, "restgw_flush_frequency": 0,"restgw_flush_msgs": 0,"restgw_flush_bytes": 0,}``` | no |
 
-Once Terraform has been run with the configuration above, users will need to complete a few steps to finalize setup
+Once the Terraform script has run successfully, follow these steps to complete setup of the environment. 
 
 1. Vote system monitor out of the validating set through the Kaleido console
-2. Reach out to Kaleido support to resize your system monitor node to a `large`
-3. Deploy a smart contract and write client code to submit transactions at the desired throughput
+2. Reach out to Kaleido support to resize your system monitor node to a `large` by opening a ticket through the Kaleido platform. Be sure to designate what environment this shouhld be done in
+3. Deploy a smart contract, such as SimpleStorage found at this [link](https://github.com/kaleido-io/kaleido-js/blob/master/deploy-transact/contracts/simplestorage_v5.sol)
+4. ~Optional~ Use the sample_client_load_test.js as a starting point to test performance of the blockchain network. This sample client code is built to work with simple storage, but could be modified for your own smart contract's generated API on the Kaleido platform. Additional modifications required for custom application development
