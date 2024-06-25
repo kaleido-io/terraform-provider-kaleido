@@ -8,9 +8,9 @@ const PASSWORD = '<App Cred Password>';
 const INSTANCE_ADDRESS = '<Deployed Smart contract address>';
 const FROM_ADDRESS = '<Wallet Address>';
 
-const MAX_SOCKETS = 100;
-const MAX_PROMISES = 100;
-const TOTAL_MESSAGES = 10000;
+const MAX_SOCKETS = 10;
+const MAX_PROMISES = 20;
+const TOTAL_MESSAGES = 500;
 
 const client = axios.create({
   httpsAgent: new https.Agent({
