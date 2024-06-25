@@ -17,7 +17,7 @@ Refer to the file `input.tfvars` for an example input. Rename this file to `terr
 | node_count | Number of nodes to create | string | 4 | no |
 | service_count | Number of services to create | string | 1 | no |
 | block_period | Block period in seconds | number | 5 | no |
-| protocon_config | Custom protocol configuration to apply | json | ```javascript {"restgw_max_inflight": 1000, "restgw_max_tx_wait_time": 60,"restgw_always_manage_nonce": true,"restgw_send_concurrency": 100,"restgw_attempt_gap_fill": true, "restgw_flush_frequency": 0,"restgw_flush_msgs": 0,"restgw_flush_bytes": 0,}``` | no |
+| protocon_config | Custom protocol configuration to apply | json | ```{"restgw_max_inflight": 1000, "restgw_max_tx_wait_time": 60,"restgw_always_manage_nonce": true,"restgw_send_concurrency": 100,"restgw_attempt_gap_fill": true, "restgw_flush_frequency": 0,"restgw_flush_msgs": 0,"restgw_flush_bytes": 0,}``` | no |
 
 Once the Terraform script has run successfully, follow these steps to complete setup of the environment. 
 
