@@ -32,46 +32,54 @@ import (
 )
 
 type mockPlatform struct {
-	t               *testing.T
-	lock            sync.Mutex
-	router          *mux.Router
-	server          *httptest.Server
-	environments    map[string]*EnvironmentAPIModel
-	runtimes        map[string]*RuntimeAPIModel
-	services        map[string]*ServiceAPIModel
-	networks        map[string]*NetworkAPIModel
-	kmsWallets      map[string]*KMSWalletAPIModel
-	kmsKeys         map[string]*KMSKeyAPIModel
-	cmsBuilds       map[string]*CMSBuildAPIModel
-	cmsActions      map[string]CMSActionAPIBaseAccessor
-	amsTasks        map[string]*AMSTaskAPIModel
-	amsTaskVersions map[string]map[string]interface{}
-	amsFFListeners  map[string]*AMSFFListenerAPIModel
-	amsDMListeners  map[string]*AMSDMListenerAPIModel
-	groups          map[string]*GroupAPIModel
-	ffsNode         *FireFlyStatusNodeAPIModel
-	ffsOrg          *FireFlyStatusOrgAPIModel
-	calls           []string
+	t                 *testing.T
+	lock              sync.Mutex
+	router            *mux.Router
+	server            *httptest.Server
+	environments      map[string]*EnvironmentAPIModel
+	runtimes          map[string]*RuntimeAPIModel
+	services          map[string]*ServiceAPIModel
+	networks          map[string]*NetworkAPIModel
+	kmsWallets        map[string]*KMSWalletAPIModel
+	kmsKeys           map[string]*KMSKeyAPIModel
+	cmsBuilds         map[string]*CMSBuildAPIModel
+	cmsActions        map[string]CMSActionAPIBaseAccessor
+	amsTasks          map[string]*AMSTaskAPIModel
+	amsTaskVersions   map[string]map[string]interface{}
+	amsPolicies       map[string]*AMSPolicyAPIModel
+	amsPolicyVersions map[string]*AMSPolicyVersionAPIModel
+	amsDMUpserts      map[string]map[string]interface{}
+	amsFFListeners    map[string]*AMSFFListenerAPIModel
+	amsDMListeners    map[string]*AMSDMListenerAPIModel
+	amsVariableSets   map[string]*AMSVariableSetAPIModel
+	groups            map[string]*GroupAPIModel
+	ffsNode           *FireFlyStatusNodeAPIModel
+	ffsOrg            *FireFlyStatusOrgAPIModel
+	calls             []string
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:               t,
-		environments:    make(map[string]*EnvironmentAPIModel),
-		runtimes:        make(map[string]*RuntimeAPIModel),
-		services:        make(map[string]*ServiceAPIModel),
-		networks:        make(map[string]*NetworkAPIModel),
-		kmsWallets:      make(map[string]*KMSWalletAPIModel),
-		kmsKeys:         make(map[string]*KMSKeyAPIModel),
-		cmsBuilds:       make(map[string]*CMSBuildAPIModel),
-		cmsActions:      make(map[string]CMSActionAPIBaseAccessor),
-		amsTasks:        make(map[string]*AMSTaskAPIModel),
-		amsTaskVersions: make(map[string]map[string]interface{}),
-		amsFFListeners:  make(map[string]*AMSFFListenerAPIModel),
-		amsDMListeners:  make(map[string]*AMSDMListenerAPIModel),
-		groups:          make(map[string]*GroupAPIModel),
-		router:          mux.NewRouter(),
-		calls:           []string{},
+		t:                 t,
+		environments:      make(map[string]*EnvironmentAPIModel),
+		runtimes:          make(map[string]*RuntimeAPIModel),
+		services:          make(map[string]*ServiceAPIModel),
+		networks:          make(map[string]*NetworkAPIModel),
+		kmsWallets:        make(map[string]*KMSWalletAPIModel),
+		kmsKeys:           make(map[string]*KMSKeyAPIModel),
+		cmsBuilds:         make(map[string]*CMSBuildAPIModel),
+		cmsActions:        make(map[string]CMSActionAPIBaseAccessor),
+		amsTasks:          make(map[string]*AMSTaskAPIModel),
+		amsTaskVersions:   make(map[string]map[string]interface{}),
+		amsPolicies:       make(map[string]*AMSPolicyAPIModel),
+		amsPolicyVersions: make(map[string]*AMSPolicyVersionAPIModel),
+		amsDMUpserts:      make(map[string]map[string]interface{}),
+		amsFFListeners:    make(map[string]*AMSFFListenerAPIModel),
+		amsDMListeners:    make(map[string]*AMSDMListenerAPIModel),
+		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
+		groups:            make(map[string]*GroupAPIModel),
+		router:            mux.NewRouter(),
+		calls:             []string{},
 	}
 	// See environment_test.go
 	mp.register("/api/v1/environments", http.MethodPost, mp.postEnvironment)
@@ -128,6 +136,16 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodPatch, mp.patchAMSTask)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/tasks/{task}", http.MethodDelete, mp.deleteAMSTask)
 
+	// See ams_policy.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/policies/{policy}", http.MethodGet, mp.getAMSPolicy)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/policies/{policy}", http.MethodPut, mp.putAMSPolicy)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/policies/{policy}/versions", http.MethodPost, mp.postAMSPolicyVersion)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/policies/{policy}", http.MethodPatch, mp.patchAMSPolicy)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/policies/{policy}", http.MethodDelete, mp.deleteAMSPolicy)
+
+	// See ams_dmupsert.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/bulk/datamodel", http.MethodPut, mp.putAMSDMUpsert)
+
 	// See ams_fflistener.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/firefly/{listener}", http.MethodGet, mp.getAMSFFListener)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/firefly/{listener}", http.MethodPut, mp.putAMSFFListener)
@@ -137,6 +155,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/datamodel/{listener}", http.MethodGet, mp.getAMSDMListener)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/datamodel/{listener}", http.MethodPut, mp.putAMSDMListener)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/listeners/datamodel/{listener}", http.MethodDelete, mp.deleteAMSDMListener)
+
+	// See ams_dmlistener.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodGet, mp.getAMSVariableSet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodPut, mp.putAMSVariableSet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodDelete, mp.deleteAMSVariableSet)
 
 	// See firefly_registration.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/nodes/self", http.MethodPost, mp.postFireFlyRegistrationNode)

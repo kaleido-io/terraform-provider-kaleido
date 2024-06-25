@@ -2,7 +2,7 @@ terraform {
   required_providers {
     kaleido = {
       source = "kaleido-io/kaleido"
-      version = "1.1.0-rc.3"
+      version = "1.1.0-rc.4"
     }
   }
 }
@@ -70,5 +70,5 @@ resource "kaleido_service" "kaleido" {
   name = "IPFS ${count.index + 1}"
   service_type = "ipfs"
 
-  depends_on = [kaleido_node.kaleido]
+  depends_on = ["kaleido_node.kaleido"]
 }

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -85,7 +84,7 @@ func (r *ams_dmlistenerResource) Schema(_ context.Context, _ resource.SchemaRequ
 	}
 }
 
-func (data *AMSDMListenerResourceModel) toAPI(api *AMSDMListenerAPIModel, diagnostics *diag.Diagnostics) bool {
+func (data *AMSDMListenerResourceModel) toAPI(api *AMSDMListenerAPIModel) bool {
 	api.Name = data.Name.ValueString()
 	api.TaskID = data.TaskID.ValueString()
 	if !data.TopicFilter.IsNull() {
@@ -112,7 +111,7 @@ func (r *ams_dmlistenerResource) Create(ctx context.Context, req resource.Create
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api AMSDMListenerAPIModel
-	ok := data.toAPI(&api, &resp.Diagnostics)
+	ok := data.toAPI(&api)
 	if ok {
 		ok, _ = r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, data.Name.ValueString()), &api, &api, &resp.Diagnostics)
 	}
@@ -132,7 +131,7 @@ func (r *ams_dmlistenerResource) Update(ctx context.Context, req resource.Update
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
 	var api AMSDMListenerAPIModel
-	ok := data.toAPI(&api, &resp.Diagnostics)
+	ok := data.toAPI(&api)
 	if ok {
 		ok, _ = r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, data.ID.ValueString()), &api, &api, &resp.Diagnostics)
 	}
