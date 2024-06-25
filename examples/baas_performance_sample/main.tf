@@ -44,6 +44,7 @@ resource "kaleido_environment" "env" {
   name = var.env_name
   env_type = var.provider_type
   consensus_type = var.consensus
+  block_period = var.block_period
   description = var.env_description
 }
 
@@ -72,6 +73,13 @@ resource "kaleido_node" "kaleido" {
   name = "Node ${count.index + 1}"
   size = var.node_size
 }
+
+/*
+Deploy simple storage contract
+*/
+# resource "" "name" {
+  
+# }
 
 /*
 Create ipfs service

@@ -55,6 +55,11 @@ variable env_name {
   default = "Development"
 }
 
+variable block_period {
+  type = number
+  default = 5
+}
+
 variable "env_description" {
   type = string
   default = "Created with Terraform"
