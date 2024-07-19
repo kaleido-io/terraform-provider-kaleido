@@ -2,7 +2,7 @@ terraform {
   required_providers {
     kaleido = {
       source = "kaleido-io/kaleido"
-      version = "1.1.0-rc.4"
+      version = "1.1.0-rc.3"
     }
   }
 }
@@ -30,9 +30,9 @@ resource "kaleido_consortium" "consortium" {
 This creates a membership for each node
 */
 resource "kaleido_membership" "member" {
-  count = var.node_count
+  # count = var.node_count
   consortium_id = kaleido_consortium.consortium.id
-  org_name = "Org ${count.index + 1}"
+  org_name = "Default_org"
 }
 
 /*
@@ -44,7 +44,21 @@ resource "kaleido_environment" "env" {
   name = var.env_name
   env_type = var.provider_type
   consensus_type = var.consensus
+  block_period = var.block_period
   description = var.env_description
+}
+
+/*
+Create protocol config
+*/
+resource "kaleido_configuration" "protocol_config" {
+  # count = var.node_count
+  membership_id = kaleido_membership.member.id
+  consortium_id = kaleido_consortium.consortium.id
+  environment_id = kaleido_environment.env.id
+  name = "performance_config"
+  type = "node_config"
+  details_json = jsonencode(var.protocol_config)
 }
 
 /*
@@ -54,10 +68,18 @@ resource "kaleido_node" "kaleido" {
   count = var.node_count
   consortium_id = kaleido_consortium.consortium.id
   environment_id = kaleido_environment.env.id
-  membership_id = element(kaleido_membership.member.*.id, count.index)
+  node_config_id = kaleido_configuration.protocol_config.id
+  membership_id = kaleido_membership.member.id
   name = "Node ${count.index + 1}"
   size = var.node_size
 }
+
+/*
+Deploy simple storage contract
+*/
+# resource "" "name" {
+  
+# }
 
 /*
 Create ipfs service
@@ -70,5 +92,5 @@ resource "kaleido_service" "kaleido" {
   name = "IPFS ${count.index + 1}"
   service_type = "ipfs"
 
-  depends_on = ["kaleido_node.kaleido"]
+  depends_on = [kaleido_node.kaleido]
 }
