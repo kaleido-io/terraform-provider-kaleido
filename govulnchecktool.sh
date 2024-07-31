@@ -1,9 +1,12 @@
-#!/bin/bash
-export GOBIN="$(PWD)/bin";
+#!/bin/bash -e
+export GOBIN="$PWD/bin";
 
 go install golang.org/x/vuln/cmd/govulncheck@latest
 
-vulncheckOuput=$("$GOBIN"/govulncheck -test -json ./... | jq '.vulnerability.osv.id');
+GOVULNCHECK="${GOBIN}/govulncheck"
+
+echo "Running ${GOVULNCHECK}"
+vulncheckOuput=$($GOVULNCHECK -test -json ./... | jq '.vulnerability.osv.id');
 foundVul=false;
 
 # loop through command output
@@ -20,5 +23,7 @@ while read -r line; do
 done <<< "$vulncheckOuput"
 
 if [[ $foundVul == true ]]; then
-    printf "!!! New vulnerability found, running govulncheck in plaintext mode to print out the issue.\n#### Go Vulnerability check found new issue ####\n" && "$GOBIN"/govulncheck -test ./...
+    printf "!!! New vulnerability found, running govulncheck in plaintext mode to print out the issue.\n#### Go Vulnerability check found new issue ####\n"
+    "$GOBIN"/govulncheck -test ./...
+    exit 1
 fi
