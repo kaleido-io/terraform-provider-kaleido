@@ -1,9 +1,7 @@
 #!/bin/bash
-if [ -z "${GOBIN}" ]; then
-  GOBIN="$(go env GOPATH)/bin";
-else
-  GOBIN="$(go env GOBIN)";
-fi
+export GOBIN="$(PWD)/bin";
+
+go install golang.org/x/vuln/cmd/govulncheck@latest
 
 vulncheckOuput=$("$GOBIN"/govulncheck -test -json ./... | jq '.vulnerability.osv.id');
 foundVul=false;
