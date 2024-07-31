@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@ package kaleido
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	gock "gopkg.in/h2non/gock.v1"
 )
@@ -56,20 +55,21 @@ func TestKaleidoConfigResource(t *testing.T) {
 
 	gock.Observe(gock.DumpRequest)
 
-	os.Setenv("KALEIDO_API", "http://api.example.com/api/v1")
+	os.Setenv("KALEIDO_API", "http://example.com/api/v1")
 	os.Setenv("KALEIDO_API_KEY", "ut_apikey")
 
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:                true,
 		PreventPostDestroyRefresh: true,
 		PreCheck:                  func() { testAccPreCheck(t) },
-		Providers:                 testAccProviders,
+		ProtoV6ProviderFactories:  testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccConfigConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckConfigExists(consResource, membershipResource, envResource, configurationResource),
-					resource.TestMatchResourceAttr(configurationResource, "details.gas_price", regexp.MustCompile("1")),
+					// TODO: REINSTATE BELOW AFTER https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+					// resource.TestMatchResourceAttr(configurationResource, "details.gas_price", regexp.MustCompile("1")),
 				),
 			},
 		},
@@ -117,7 +117,7 @@ func testAccCheckConfigExists(consResource, membershipResource, envResource, con
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		var config kaleido.Configuration
 		res, err := client.GetConfiguration(consID, envID, configID, &config)
 
@@ -170,9 +170,10 @@ func testAccConfigConfig_basic(consortium *kaleido.Consortium, membership *kalei
       membership_id = "${kaleido_membership.kaleido.id}"
       type = "node_config"
 			name = "theConfig"
-			details = {
-				gas_price = 1
-			}
+			# TODO: REINSTATE DETAILS ONCE https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+			details_json = jsonencode({
+				gas_price = "1"
+			})
 		}
 		
     resource "kaleido_node" "theNode" {

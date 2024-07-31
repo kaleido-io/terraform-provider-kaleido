@@ -17,25 +17,24 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func TestKaleidoInvitationResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraInvitations", "terraforming")
 	invitation := kaleido.NewInvitation("Invited Test Org", "someone@example.com")
-	consResource := "kaleido_consortium." + consortium.Name
 	invitationResource := "kaleido_invitation." + invitation.OrgName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccInvitationConfig_basic(&consortium, &invitation),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckInvitationExists(consResource, invitationResource),
+					testAccCheckInvitationExists(invitationResource),
 				),
 			},
 		},
@@ -60,7 +59,7 @@ func testAccInvitationConfig_basic(consortium *kaleido.Consortium, invitation *k
 	)
 }
 
-func testAccCheckInvitationExists(consResName, invResName string) resource.TestCheckFunc {
+func testAccCheckInvitationExists(invResName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		invRs, ok := s.RootModule().Resources[invResName]
 
@@ -72,7 +71,7 @@ func testAccCheckInvitationExists(consResName, invResName string) resource.TestC
 			return fmt.Errorf("No terraform resource instance for %s", invResName)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		consortiaID := invRs.Primary.Attributes["consortium_id"]
 		var invitation kaleido.Invitation
 		res, err := client.GetInvitation(consortiaID, invRs.Primary.ID, &invitation)

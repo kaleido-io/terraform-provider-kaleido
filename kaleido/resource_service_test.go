@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@ package kaleido
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 	gock "gopkg.in/h2non/gock.v1"
 )
@@ -65,17 +64,17 @@ func TestKaleidoServiceResource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:                true,
 		PreventPostDestroyRefresh: true,
-		PreCheck:                  func() { testAccPreCheck(t) },
-		Providers:                 testAccProviders,
+		ProtoV6ProviderFactories:  testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccServiceConfig_basic(&consortium, &membership, &environment),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckServiceExists(consResource, membershipResource, envResource, serviceResource),
 					testAccCheckServiceExists(consResource, membershipResource, envResource, ipfsServiceResource),
-					resource.TestMatchResourceAttr(serviceResource, "details.kms_id", regexp.MustCompile("kms1")),
-					resource.TestMatchResourceAttr(serviceResource, "details.backup_id", regexp.MustCompile("backupid1")),
-					resource.TestMatchResourceAttr(serviceResource, "details.networking_id", regexp.MustCompile("networking1")),
+					// TODO: REINSTATE BELOW AFTER https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+					// resource.TestMatchResourceAttr(serviceResource, "details.kms_id", regexp.MustCompile("kms1")),
+					// resource.TestMatchResourceAttr(serviceResource, "details.backup_id", regexp.MustCompile("backupid1")),
+					// resource.TestMatchResourceAttr(serviceResource, "details.networking_id", regexp.MustCompile("networking1")),
 				),
 			},
 		},
@@ -123,7 +122,7 @@ func testAccCheckServiceExists(consResource, membershipResource, envResource, se
 			return fmt.Errorf("No terraform resource instance for %s", membershipResource)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		var service kaleido.Service
 		res, err := client.GetService(consID, envID, serviceID, &service)
 
@@ -186,11 +185,12 @@ func testAccServiceConfig_basic(consortium *kaleido.Consortium, membership *kale
 			zone_id = "${kaleido_ezone.theZone.id}"
       service_type = "hdwallet"
 			name = "service1"
-			details = {
+			# TODO: REINSTATE DETAILS ONCE https://github.com/hashicorp/terraform-plugin-framework/pull/931 AVAILABLE
+			details_json = jsonencode({
 				backup_id = "backupid1"
 				kms_id = "kms1"
 				networking_id = "networking1"
-			}
+			})
     }
     
 	resource "kaleido_service" "ipfs_service" {

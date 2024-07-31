@@ -17,25 +17,24 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
 func TestKaleidoMembershipResource(t *testing.T) {
 	consortium := kaleido.NewConsortium("terraMembers", "terraforming")
 	membership := kaleido.NewMembership("kaleido")
-	consResource := "kaleido_consortium." + consortium.Name
 	membershipResource := "kaleido_membership." + membership.OrgName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMembershipConfig_basic(&consortium, &membership),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckMembershipExists(consResource, membershipResource),
+					testAccCheckMembershipExists(membershipResource),
 				),
 			},
 		},
@@ -57,7 +56,7 @@ func testAccMembershipConfig_basic(consortium *kaleido.Consortium, membership *k
 		membership.OrgName)
 }
 
-func testAccCheckMembershipExists(consResName, memResName string) resource.TestCheckFunc {
+func testAccCheckMembershipExists(memResName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		memRs, ok := s.RootModule().Resources[memResName]
 
@@ -69,7 +68,7 @@ func testAccCheckMembershipExists(consResName, memResName string) resource.TestC
 			return fmt.Errorf("No terraform resource instance for %s", memResName)
 		}
 
-		client := testAccProvider.Meta().(kaleido.KaleidoClient)
+		client := newTestProviderData().BaaS
 		consortiaID := memRs.Primary.Attributes["consortium_id"]
 		var membership kaleido.Membership
 		res, err := client.GetMembership(consortiaID, memRs.Primary.ID, &membership)

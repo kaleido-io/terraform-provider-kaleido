@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,47 +14,55 @@
 package kaleido
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/platform"
 )
 
-func Provider() *schema.Provider {
-	return &schema.Provider{
-		Schema: map[string]*schema.Schema{
-			"api": {
-				Type:        schema.TypeString,
-				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("KALEIDO_API", nil),
-			},
-			"api_key": {
-				Type:        schema.TypeString,
-				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("KALEIDO_API_KEY", nil),
-			},
-		},
-		ResourcesMap: map[string]*schema.Resource{
-			"kaleido_consortium":    resourceConsortium(),
-			"kaleido_environment":   resourceEnvironment(),
-			"kaleido_membership":    resourceMembership(),
-			"kaleido_node":          resourceNode(),
-			"kaleido_service":       resourceService(),
-			"kaleido_app_creds":     resourceAppCreds(),
-			"kaleido_invitation":    resourceInvitation(),
-			"kaleido_czone":         resourceCZone(),
-			"kaleido_ezone":         resourceEZone(),
-			"kaleido_configuration": resourceConfiguration(),
-			"kaleido_destination":   resourceDestination(),
-		},
-		ConfigureFunc: providerConfigure,
-		DataSourcesMap: map[string]*schema.Resource{
-			"kaleido_privatestack_bridge": resourcePrivateStackBridge(),
-		},
-	}
+type baasBaseResource struct {
+	*kaleidobase.ProviderData
 }
 
-func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-	api := d.Get("api").(string)
-	apiKey := d.Get("api_key").(string)
-	client := kaleido.NewClient(api, apiKey)
-	return client, nil
+type baasBaseDatasource struct {
+	*kaleidobase.ProviderData
+}
+
+func (r *baasBaseResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	r.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, &resp.Diagnostics)
+}
+
+func (d *baasBaseDatasource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	d.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, &resp.Diagnostics)
+}
+
+func newTestProviderData() *kaleidobase.ProviderData {
+	return kaleidobase.NewProviderData(context.Background(), &kaleidobase.ProviderModel{})
+}
+
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return kaleidobase.New(
+			version,
+			append([]func() resource.Resource{
+				ResourceConsortiumFactory,
+				ResourceEnvironmentFactory,
+				ResourceMembershipFactory,
+				ResourceNodeFactory,
+				ResourceServiceFactory,
+				ResourceAppCredsFactory,
+				ResourceInvitationFactory,
+				ResourceCZoneFactory,
+				ResourceEZoneFactory,
+				ResourceConfigurationFactory,
+				ResourceDestinationFactory,
+			}, platform.Resources()...),
+			append([]func() datasource.DataSource{
+				DatasourcePrivateStackBridgeFactory,
+			}, platform.DataSources()...),
+		)
+	}
 }

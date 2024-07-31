@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,140 +14,177 @@
 package kaleido
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceDestination() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceDestinationCreate,
-		Read:   resourceDestinationRead,
-		Update: resourceDestinationCreate, /* upsert/PUT semantics */
-		Delete: resourceDestinationDelete,
-		Schema: map[string]*schema.Schema{
-			"service_type": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+type resourceDestination struct {
+	baasBaseResource
+}
+
+func ResourceDestinationFactory() resource.Resource {
+	return &resourceDestination{}
+}
+
+type DestinationResourceModel struct {
+	ID                   types.String `tfsdk:"id"`
+	ServiceType          types.String `tfsdk:"service_type"`
+	ServiceID            types.String `tfsdk:"service_id"`
+	Name                 types.String `tfsdk:"name"`
+	KaleidoManaged       types.Bool   `tfsdk:"kaleido_managed"`
+	ConsortiumID         types.String `tfsdk:"consortium_id"`
+	MembershipID         types.String `tfsdk:"membership_id"`
+	IDRegistryID         types.String `tfsdk:"idregistry_id"`
+	AutoVerifyMembership types.Bool   `tfsdk:"auto_verify_membership"`
+}
+
+func (r *resourceDestination) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_destination"
+}
+
+func (r *resourceDestination) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"service_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"service_type": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"service_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"kaleido_managed": &schema.Schema{
-				Type:     schema.TypeBool,
+			"name": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"kaleido_managed": &schema.BoolAttribute{
 				Optional: true,
-				Default:  true,
+				Computed: true,
+				Default:  booldefault.StaticBool(true),
 			},
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"consortium_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"membership_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"membership_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"idregistry_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+			"idregistry_id": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"auto_verify_membership": &schema.Schema{
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-				ForceNew: true,
+			"auto_verify_membership": &schema.BoolAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 			},
 		},
 	}
 }
 
-func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	destination := kaleido.NewDestination(d.Get("name").(string))
-	destination.KaleidoManaged = d.Get("kaleido_managed").(bool)
-	consortiumID := d.Get("consortium_id").(string)
-	membershipID := d.Get("membership_id").(string)
-	serviceType := d.Get("service_type").(string)
-	serviceID := d.Get("service_id").(string)
-	idregistryID := d.Get("idregistry_id").(string)
+func (r *resourceDestination) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+
+	var data DestinationResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.Destination{}
+	apiModel.Name = data.Name.ValueString()
+	apiModel.KaleidoManaged = data.KaleidoManaged.ValueBool()
+	consortiumID := data.ConsortiumID.ValueString()
+	membershipID := data.MembershipID.ValueString()
+	serviceType := data.ServiceType.ValueString()
+	serviceID := data.ServiceID.ValueString()
+	idregistryID := data.IDRegistryID.ValueString()
 
 	var membership kaleido.Membership
-	res, err := client.GetMembership(consortiumID, membershipID, &membership)
+	res, err := r.BaaS.GetMembership(consortiumID, membershipID, &membership)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query membership", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Failed to get membership %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, membershipID, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to query membership", fmt.Sprintf(msg, membershipID, consortiumID, status, res.String()))
 	}
 
-	if d.Get("auto_verify_membership").(bool) {
+	if data.AutoVerifyMembership.ValueBool() {
 		if membership.VerificationProof == "" {
-			res, err = client.CreateMembershipVerification(consortiumID, membershipID, &kaleido.MembershipVerification{
+			res, err = r.BaaS.CreateMembershipVerification(consortiumID, membershipID, &kaleido.MembershipVerification{
 				TestCertificate: true,
 			})
 			if err != nil {
-				return err
+				resp.Diagnostics.AddError("failed to create membership verification", err.Error())
+				return
 			}
 			status = res.StatusCode()
 			if status != 200 {
 				msg := "Failed to auto create self-signed membership verification proof for membership %s in consortium %s with status %d: %s"
-				return fmt.Errorf(msg, membershipID, consortiumID, status, res.String())
+				resp.Diagnostics.AddError("failed to create membership verification", fmt.Sprintf(msg, membershipID, consortiumID, status, res.String()))
+				return
 			}
 		}
 
-		res, err = client.RegisterMembershipIdentity(idregistryID, membershipID)
+		res, err = r.BaaS.RegisterMembershipIdentity(idregistryID, membershipID)
 		if err != nil {
-			return err
+			resp.Diagnostics.AddError("failed to auto register membership verification", err.Error())
+			return
 		}
 		status = res.StatusCode()
 		if status != 200 && status != 409 /* already registered */ {
 			msg := "Failed to auto register membership verification for membership %s in consortium %s using idregistry %s with status %d: %s"
-			return fmt.Errorf(msg, membershipID, consortiumID, idregistryID, status, res.String())
+			resp.Diagnostics.AddError("failed to auto register membership verification", fmt.Sprintf(msg, membershipID, consortiumID, idregistryID, status, res.String()))
+			return
 		}
 	}
 
-	res, err = client.CreateDestination(serviceType, serviceID, &destination)
-
+	res, err = r.BaaS.CreateDestination(serviceType, serviceID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to create destination", err.Error())
+		return
 	}
 
 	status = res.StatusCode()
 	if status != 200 {
 		msg := "Failed to create destination %s in %s service %s for membership %s with status %d: %s"
-		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, membershipID, status, res.String())
+		resp.Diagnostics.AddError("failed to create destination", fmt.Sprintf(msg, apiModel.Name, serviceType, serviceID, membershipID, status, res.String()))
+		return
 	}
 
 	var destinations []kaleido.Destination
-	res, err = client.ListDestinations(serviceType, serviceID, &destinations)
+	res, err = r.BaaS.ListDestinations(serviceType, serviceID, &destinations)
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to list destinations", err.Error())
+		return
 	}
 
 	status = res.StatusCode()
 	if status != 200 {
 		msg := "Failed to query newly created destination %s in %s service %s for membership %s with status %d: %s"
-		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, membershipID, status, res.String())
+		resp.Diagnostics.AddError("failed to list destinations", fmt.Sprintf(msg, apiModel.Name, serviceType, serviceID, membershipID, status, res.String()))
+		return
 	}
 
 	var createdDest *kaleido.Destination
 	for _, d := range destinations {
-		if d.Name == destination.Name {
+		if d.Name == apiModel.Name {
 			createdDest = &d
 			break
 		}
@@ -155,32 +192,42 @@ func resourceDestinationCreate(d *schema.ResourceData, meta interface{}) error {
 
 	if createdDest == nil {
 		msg := "Failed to find newly created destination %s in %s service %s for membership %s"
-		return fmt.Errorf(msg, destination.Name, serviceType, serviceID, membershipID)
+		resp.Diagnostics.AddError("failed to query destination after creation", fmt.Sprintf(msg, apiModel.Name, serviceType, serviceID, membershipID))
+		return
 	}
 
-	d.SetId(createdDest.URI)
+	data.ID = types.StringValue(createdDest.URI)
 
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceDestinationRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	serviceType := d.Get("service_type").(string)
-	serviceID := d.Get("service_id").(string)
-	destName := d.Get("name").(string)
-	destURI := d.Id()
+func (r *resourceDestination) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// No-op - nothing about a destination is editable currently
+}
+
+func (r *resourceDestination) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data DestinationResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	serviceType := data.ServiceType.ValueString()
+	serviceID := data.ServiceID.ValueString()
+	membershipID := data.MembershipID.ValueString()
+	destName := data.Name.ValueString()
+	destURI := data.ID.ValueString()
 
 	var destinations []kaleido.Destination
-	res, err := client.ListDestinations(serviceType, serviceID, &destinations)
+	res, err := r.BaaS.ListDestinations(serviceType, serviceID, &destinations)
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to list destinations", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
-		msg := "Failed to list destinations in %s service %s with status %d: %s"
-		return fmt.Errorf(msg, destName, serviceID, status, res.String())
+		msg := "Failed to query newly created destination %s in %s service %s for membership %s with status %d: %s"
+		resp.Diagnostics.AddError("failed to list destinations", fmt.Sprintf(msg, destName, serviceType, serviceID, membershipID, status, res.String()))
+		return
 	}
 
 	var destination *kaleido.Destination
@@ -193,30 +240,30 @@ func resourceDestinationRead(d *schema.ResourceData, meta interface{}) error {
 
 	if destination == nil {
 		msg := "Failed to find destination %s in %s service %s"
-		return fmt.Errorf(msg, destination.URI, serviceType, serviceID)
+		resp.Diagnostics.AddError("failed to find destination", fmt.Sprintf(msg, destURI, serviceType, serviceID))
+		return
 	}
 
-	return nil
 }
 
-func resourceDestinationDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	serviceType := d.Get("service_type").(string)
-	serviceID := d.Get("service_id").(string)
-	destName := d.Get("name").(string)
+func (r *resourceDestination) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data DestinationResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	res, err := client.DeleteDestination(serviceType, serviceID, destName)
+	serviceType := data.ServiceType.ValueString()
+	serviceID := data.ServiceID.ValueString()
+	destName := data.Name.ValueString()
 
+	res, err := r.BaaS.DeleteDestination(serviceType, serviceID, destName)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to delete destination", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 204 && status != 404 {
 		msg := "Failed to delete destination %s in %s service %s with status %d: %s"
-		return fmt.Errorf(msg, destName, serviceType, serviceID, status, res.String())
+		resp.Diagnostics.AddError("failed to delete destination", fmt.Sprintf(msg, destName, serviceType, serviceID, status, res.String()))
+		return
 	}
-
-	d.SetId("")
-	return nil
 }

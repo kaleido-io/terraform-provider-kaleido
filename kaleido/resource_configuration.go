@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,221 +14,216 @@
 package kaleido
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/customdiff"
-
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceConfiguration() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceConfigurationCreate,
-		Read:   resourceConfigurationRead,
-		Update: resourceConfigurationUpdate,
-		Delete: resourceConfigurationDelete,
-		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
+type resourceConfiguration struct {
+	baasBaseResource
+}
+
+func ResourceConfigurationFactory() resource.Resource {
+	return &resourceConfiguration{}
+}
+
+type ConfigurationResourceModel struct {
+	ID            types.String `tfsdk:"id"`
+	Name          types.String `tfsdk:"name"`
+	Type          types.String `tfsdk:"type"`
+	ConsortiumID  types.String `tfsdk:"consortium_id"`
+	EnvironmentID types.String `tfsdk:"environment_id"`
+	MembershipID  types.String `tfsdk:"membership_id"`
+	Details       types.Map    `tfsdk:"details"`
+	DetailsJSON   types.String `tfsdk:"details_json"`
+	LastUpdated   types.Int64  `tfsdk:"last_updated"`
+}
+
+func (r *resourceConfiguration) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_configuration"
+}
+
+func (r *resourceConfiguration) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"name": &schema.StringAttribute{
 				Required: true,
 			},
-			"type": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"type": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"consortium_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"environment_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"environment_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"membership_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"membership_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"details": &schema.Schema{
-				Type:     schema.TypeMap,
+			"details": &schema.MapAttribute{
+				// TODO: PLACEHOLDER until https://github.com/hashicorp/terraform-plugin-framework/pull/931 available in 1.7.0
+				Optional:    true,
+				ElementType: types.StringType, // TODO: Placeholder
+			},
+			"details_json": &schema.StringAttribute{
 				Optional: true,
 			},
-			"details_json": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"last_updated": {
-				Type:     schema.TypeInt,
+			"last_updated": &schema.Int64Attribute{
 				Computed: true,
 			},
-		},
-		CustomizeDiff: customdiff.All(
-			customdiff.ComputedIf("last_updated", func(d *schema.ResourceDiff, meta interface{}) bool {
-				return d.HasChange("name") || d.HasChange("details") || d.HasChange("details_json") ||
-					d.HasChange("type") || d.HasChange("membership_id") ||
-					d.HasChange("environment_id") || d.HasChange("consortium_id")
-			}),
-		),
-		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(10 * time.Minute),
-			Update: schema.DefaultTimeout(10 * time.Minute),
-			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 	}
 }
 
-func resourceConfigurationCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	membershipID := d.Get("membership_id").(string)
-	configurationType := d.Get("type").(string)
-	detailsMap := d.Get("details").(map[string]interface{})
-	detailsJSON := d.Get("details_json").(string)
-	if detailsJSON != "" {
-		if err := json.Unmarshal([]byte(detailsJSON), &detailsMap); err != nil {
+func (r *resourceConfiguration) copyConfigurationData(_ context.Context, apiModel *kaleido.Configuration, data *ConfigurationResourceModel, _ *diag.Diagnostics) {
+	data.ID = types.StringValue(apiModel.ID)
+	data.Name = types.StringValue(apiModel.Name)
+	data.LastUpdated = types.Int64Value(time.Now().UnixNano())
+}
+
+func (r *resourceConfiguration) dataToAPIModel(_ context.Context, data *ConfigurationResourceModel, apiModel *kaleido.Configuration, diagnostics *diag.Diagnostics) {
+	apiModel.MembershipID = data.MembershipID.ValueString()
+	apiModel.Name = data.Name.ValueString()
+	apiModel.Type = data.Type.ValueString()
+	if !data.DetailsJSON.IsNull() {
+		apiModel.Details = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(data.DetailsJSON.ValueString()), &apiModel.Details); err != nil {
 			msg := "Could not parse details_json of %s %s in consortium %s in environment %s: %s"
-			return fmt.Errorf(msg, d.Get("type"), d.Get("name"), consortiumID, environmentID, err)
+			diagnostics.AddError("failed to parse details_json", fmt.Sprintf(msg, apiModel.Type, apiModel.Type, data.ConsortiumID.ValueString(), data.EnvironmentID.ValueString(), err))
+			return
 		}
 	}
-	details := duplicateDetails(detailsMap)
-	configuration := kaleido.NewConfiguration(d.Get("name").(string), membershipID, configurationType, details)
+	// if !data.DetailsJSON.IsNull() {
+	// 	// TODO: REINSTATE OBJECT INPUT SUPPORT ONCE WE GET https://github.com/hashicorp/terraform-plugin-framework/pull/931
+	// }
+}
 
-	res, err := client.CreateConfiguration(consortiumID, environmentID, &configuration)
+func (r *resourceConfiguration) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
+	var data ConfigurationResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.Configuration{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
+
+	res, err := r.BaaS.CreateConfiguration(consortiumID, environmentID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to create configuration", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Could not create configuration %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, configuration.Type, consortiumID, environmentID, status, res.String())
+		resp.Diagnostics.AddError("failed to create configuration", fmt.Sprintf(msg, apiModel.Type, consortiumID, environmentID, status, res.String()))
+		return
 	}
 
-	res, err = client.GetConfiguration(consortiumID, environmentID, configuration.ID, &configuration)
+	r.copyConfigurationData(ctx, &apiModel, &data, &resp.Diagnostics)
 
-	if err != nil {
-		return err
-	}
-
-	statusCode := res.StatusCode()
-	if statusCode != 200 {
-		return fmt.Errorf("Fetching configuration %s state failed: %d", configuration.ID, statusCode)
-	}
-
-	d.SetId(configuration.ID)
-	d.Set("last_updated", time.Now().UnixNano())
-
-	return resourceConfigurationRead(d, meta)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceConfigurationUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	detailsMap := d.Get("details").(map[string]interface{})
-	detailsJSON := d.Get("details_json").(string)
-	if detailsJSON != "" {
-		if err := json.Unmarshal([]byte(detailsJSON), &detailsMap); err != nil {
-			msg := "Could not parse details_json of %s %s in consortium %s in environment %s: %s"
-			return fmt.Errorf(msg, d.Get("type"), d.Get("name"), consortiumID, environmentID, err)
-		}
-	}
-	details := duplicateDetails(detailsMap)
-	configuration := kaleido.NewConfiguration(d.Get("name").(string), "", "", details)
-	configID := d.Id()
+func (r *resourceConfiguration) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ConfigurationResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	res, err := client.UpdateConfiguration(consortiumID, environmentID, configID, &configuration)
+	apiModel := kaleido.Configuration{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	r.dataToAPIModel(ctx, &data, &apiModel, &resp.Diagnostics)
+	var configID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &configID)...)
 
+	res, err := r.BaaS.UpdateConfiguration(consortiumID, environmentID, configID.ValueString(), &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to update configuration", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Could not update configuration %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, configID, consortiumID, environmentID, status, res.String())
+		resp.Diagnostics.AddError("failed to update configuration", fmt.Sprintf(msg, configID, consortiumID, environmentID, status, res.String()))
+		return
 	}
 
-	d.Set("last_updated", time.Now().UnixNano())
+	r.copyConfigurationData(ctx, &apiModel, &data, &resp.Diagnostics)
 
-	return resourceConfigurationRead(d, meta)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceConfigurationRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	configurationID := d.Id()
+func (r *resourceConfiguration) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ConfigurationResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var configuration kaleido.Configuration
-	res, err := client.GetConfiguration(consortiumID, environmentID, configurationID, &configuration)
+	apiModel := kaleido.Configuration{}
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	configID := data.ID.ValueString()
 
+	res, err := r.BaaS.GetConfiguration(consortiumID, environmentID, configID, &apiModel)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query configuration", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
-
 	if status == 404 {
-		d.SetId("")
-		return nil
+		resp.State.RemoveResource(ctx)
+		return
 	}
 	if status != 200 {
 		msg := "Could not find configuration %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
+		resp.Diagnostics.AddError("failed to query configuration", fmt.Sprintf(msg, configID, consortiumID, environmentID, status, res.String()))
+		return
 	}
 
-	d.Set("name", configuration.Name)
-	d.Set("type", configuration.Type)
+	r.copyConfigurationData(ctx, &apiModel, &data, &resp.Diagnostics)
 
-	// if details_json is set, we need it to reflect the state for diffing
-	detailsJSON := d.Get("details_json").(string)
-	if detailsJSON != "" {
-		detailsJSON, err := json.Marshal(configuration.Details)
-		if err != nil {
-			msg := "Could not parse configuration details to JSON for config %s in consortium %s in environment %s with status %d: %s"
-			return fmt.Errorf(msg, configurationID, consortiumID, environmentID, status, res.String())
-		}
-		// if details is also set, set to nil and use details_json only
-		d.Set("details_json", string(detailsJSON))
-		details := d.Get("details").(map[string]interface{})
-		if len(details) != 0 {
-			d.Set("details", nil)
-		}
-	} else {
-		d.Set("details", configuration.Details)
-	}
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceConfigurationDelete(d *schema.ResourceData, meta interface{}) error {
+func (r *resourceConfiguration) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ConfigurationResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	environmentID := d.Get("environment_id").(string)
-	configurationID := d.Id()
+	consortiumID := data.ConsortiumID.ValueString()
+	environmentID := data.EnvironmentID.ValueString()
+	configID := data.ID.ValueString()
 
-	res, err := client.DeleteConfiguration(consortiumID, environmentID, configurationID)
-
+	res, err := r.BaaS.DeleteConfiguration(consortiumID, environmentID, configID)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to delete configuration", err.Error())
+		return
 	}
 
 	statusCode := res.StatusCode()
 	if statusCode != 202 && statusCode != 204 {
 		msg := "Failed to delete configuration %s in consortium %s in environment %s with status %d: %s"
-		return fmt.Errorf(msg, environmentID, consortiumID, statusCode, res.String())
+		resp.Diagnostics.AddError("failed to delete configuration", fmt.Sprintf(msg, configID, environmentID, consortiumID, statusCode, res.String()))
+		return
 	}
 
-	d.SetId("")
-
-	return nil
 }

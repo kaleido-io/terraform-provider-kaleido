@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	gock "gopkg.in/h2non/gock.v1"
 )
 
@@ -29,7 +29,7 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 
 	gock.Observe(gock.DumpRequest)
 
-	os.Setenv("KALEIDO_API", "http://api.example.com/api/v1")
+	os.Setenv("KALEIDO_API", "http://example.com/api/v1")
 	os.Setenv("KALEIDO_API_KEY", "ut_apikey")
 
 	mockConfigJSON := []byte(`
@@ -50,7 +50,7 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 	var mockConfig map[string]interface{}
 	json.Unmarshal(mockConfigJSON, &mockConfig)
 
-	gock.New("http://api.example.com").
+	gock.New("http://example.com").
 		Get("/api/v1/consortia/cons1/environments/env1/services/svc1/tunneler_config").
 		Persist().
 		Reply(200).
@@ -81,7 +81,7 @@ func TestKaleidoPrivateStackBridgeResource(t *testing.T) {
 		IsUnitTest:                true,
 		PreventPostDestroyRefresh: true,
 		PreCheck:                  func() { testAccPreCheck(t) },
-		Providers:                 testAccProviders,
+		ProtoV6ProviderFactories:  testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testPrivateStackBridgeConfigFetch_tf(),
@@ -113,7 +113,7 @@ func testPrivateStackBridgeConfigFetch(pstackBridgeResource string) resource.Tes
 }
 
 func testPrivateStackBridgeConfigFetch_tf() string {
-	return fmt.Sprintf(`
+	return `
 	
 		data "kaleido_privatestack_bridge" "test" {
 			consortium_id = "cons1"
@@ -123,5 +123,5 @@ func testPrivateStackBridgeConfigFetch_tf() string {
 			appcred_secret = "password_abc"
 		}
 	
-    `)
+    `
 }

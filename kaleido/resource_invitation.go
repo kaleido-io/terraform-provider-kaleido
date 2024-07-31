@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2018, 2021
+// Copyright © Kaleido, Inc. 2018, 2024
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,117 +14,164 @@
 package kaleido
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-func resourceInvitation() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceInvitationCreate,
-		Read:   resourceInvitationRead,
-		Update: resourceInvitationUpdate,
-		Delete: resourceInvitationDelete,
-		Schema: map[string]*schema.Schema{
-			"consortium_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+type resourceInvitation struct {
+	baasBaseResource
+}
+
+func ResourceInvitationFactory() resource.Resource {
+	return &resourceInvitation{}
+}
+
+type InvitationResourceModel struct {
+	ID           types.String `tfsdk:"id"`
+	ConsortiumID types.String `tfsdk:"consortium_id"`
+	OrgName      types.String `tfsdk:"org_name"`
+	Email        types.String `tfsdk:"email"`
+}
+
+func (r *resourceInvitation) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_invitation"
+}
+
+func (r *resourceInvitation) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"org_name": &schema.Schema{
-				Type:     schema.TypeString,
+			"consortium_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"org_name": &schema.StringAttribute{
 				Required: true,
 			},
-			"email": &schema.Schema{
-				Type:     schema.TypeString,
+			"email": &schema.StringAttribute{
 				Required: true,
 			},
 		},
 	}
 }
 
-func resourceInvitationCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	invitation := kaleido.NewInvitation(d.Get("org_name").(string), d.Get("email").(string))
-	consortiumID := d.Get("consortium_id").(string)
+func (r *resourceInvitation) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	res, err := client.CreateInvitation(consortiumID, &invitation)
+	var data InvitationResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	apiModel := kaleido.Invitation{}
+	consortiumID := data.ConsortiumID.ValueString()
+	apiModel.OrgName = data.OrgName.ValueString()
+	apiModel.Email = data.Email.ValueString()
+
+	res, err := r.BaaS.CreateInvitation(consortiumID, &apiModel)
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to create invitation", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 201 {
 		msg := "Failed to create invitation %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to create invitation", fmt.Sprintf(msg, apiModel.OrgName, consortiumID, status, res.String()))
+		return
 	}
 
-	d.SetId(invitation.ID)
-	return nil
+	data.ID = types.StringValue(apiModel.ID)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+
 }
 
-func resourceInvitationUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	invitation := kaleido.NewInvitation(d.Get("org_name").(string), d.Get("email").(string))
-	consortiumID := d.Get("consortium_id").(string)
-	inviteID := d.Id()
+func (r *resourceInvitation) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data InvitationResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	res, err := client.UpdateInvitation(consortiumID, inviteID, &invitation)
+	apiModel := kaleido.Invitation{}
+	apiModel.OrgName = data.OrgName.ValueString()
+	apiModel.Email = data.Email.ValueString()
+	consortiumID := data.ConsortiumID.ValueString()
+	var inviteID types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("id"), &inviteID)...)
+
+	res, err := r.BaaS.UpdateInvitation(consortiumID, inviteID.ValueString(), &apiModel)
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to update invitation", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 200 {
 		msg := "Failed to update invitation %s for %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, inviteID, invitation.OrgName, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to update invitation", fmt.Sprintf(msg, inviteID, apiModel.OrgName, consortiumID, status, res.String()))
+		return
 	}
 
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourceInvitationRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
+func (r *resourceInvitation) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data InvitationResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var invitation kaleido.Invitation
-	res, err := client.GetInvitation(consortiumID, d.Id(), &invitation)
+	consortiumID := data.ConsortiumID.ValueString()
+	inviteID := data.ID.ValueString()
+
+	var apiModel kaleido.Invitation
+	res, err := r.BaaS.GetInvitation(consortiumID, inviteID, &apiModel)
 
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to query invitation", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
+	if status == 404 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if status != 200 {
 		msg := "Failed to find invitation %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, invitation.OrgName, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to query invitation", fmt.Sprintf(msg, apiModel.OrgName, consortiumID, status, res.String()))
 	}
 
-	d.Set("org_name", invitation.OrgName)
-	d.Set("email", invitation.Email)
-	return nil
+	data.OrgName = types.StringValue(apiModel.OrgName)
+	data.Email = types.StringValue(apiModel.Email)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+
 }
 
-func resourceInvitationDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(kaleido.KaleidoClient)
-	consortiumID := d.Get("consortium_id").(string)
-	invitationID := d.Id()
+func (r *resourceInvitation) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data InvitationResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	res, err := client.DeleteInvitation(consortiumID, invitationID)
+	consortiumID := data.ConsortiumID.ValueString()
+	invitationID := data.ID.ValueString()
 
+	res, err := r.BaaS.DeleteInvitation(consortiumID, invitationID)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("failed to delete invitation", err.Error())
+		return
 	}
 
 	status := res.StatusCode()
 	if status != 204 {
 		msg := "Failed to delete invitation %s in consortium %s with status %d: %s"
-		return fmt.Errorf(msg, invitationID, consortiumID, status, res.String())
+		resp.Diagnostics.AddError("failed to delete invitation", fmt.Sprintf(msg, invitationID, consortiumID, status, res.String()))
+		return
 	}
-
-	d.SetId("")
-	return nil
 }
