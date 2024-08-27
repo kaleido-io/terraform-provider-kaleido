@@ -113,6 +113,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"zone": &schema.StringAttribute{
 				Optional: true,
+				Computed: true,
 			},
 			"sub_zone": &schema.StringAttribute{
 				Optional: true,
