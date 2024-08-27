@@ -54,12 +54,35 @@ resource "kaleido_platform_runtime" "runtime1" {
 }
 `
 
+var runtimeStep3 = `
+resource "kaleido_platform_runtime" "runtime1" {
+    environment = "env1"
+    type = "besu"
+    name = "runtime1"
+    config_json = jsonencode({
+        "setting1": "value1",
+        "setting2": "value2",
+    })
+    log_level = "trace"
+    size = "large"
+    stopped = true
+		zone = "use2"
+		sub_zone = "us-east-2a"
+		storage_size = 10
+		storage_type = "kebs"
+}
+`
+
 func TestRuntime1(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
 			"POST /api/v1/environments/{env}/runtimes",
+			"GET /api/v1/environments/{env}/runtimes/{runtime}",
+			"GET /api/v1/environments/{env}/runtimes/{runtime}",
+			"GET /api/v1/environments/{env}/runtimes/{runtime}",
+			"PUT /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
@@ -120,6 +143,58 @@ func TestRuntime1(t *testing.T) {
 							"environmentMemberId": "%[4]s",
 							"status": "pending",
 							"stopped": true
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							rt.Created.UTC().Format(time.RFC3339Nano),
+							rt.Updated.UTC().Format(time.RFC3339Nano),
+							rt.EnvironmentMemberID,
+						))
+						return nil
+					},
+				),
+			},
+			{
+				Config: providerConfig + runtimeStep3,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(runtime1Resource, "id"),
+					resource.TestCheckResourceAttr(runtime1Resource, "name", `runtime1`),
+					resource.TestCheckResourceAttr(runtime1Resource, "type", `besu`),
+					resource.TestCheckResourceAttr(runtime1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
+					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `trace`),
+					resource.TestCheckResourceAttr(runtime1Resource, "size", `large`),
+					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `true`),
+					resource.TestCheckResourceAttr(runtime1Resource, "zone", "use2"),
+					resource.TestCheckResourceAttr(runtime1Resource, "sub_zone", "us-east-2a"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "10"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "kebs"),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[runtime1Resource].Primary.Attributes["id"]
+						rt := mp.runtimes[fmt.Sprintf("env1/%s", id)]
+						// Note the pending status is allowed to remain in runtimes, as they require at least one
+						// service to be created to get out of pending.
+						testJSONEqual(t, rt, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "besu",
+							"name": "runtime1",
+							"config": {
+								"setting1": "value1",
+								"setting2": "value2"
+							},
+							"loglevel": "trace",
+							"size": "large",
+							"environmentMemberId": "%[4]s",
+							"status": "pending",
+							"stopped": true,
+							"zone": "use2",
+							"subZone": "us-east-2a",
+							"storageSize": 10,
+							"storageType": "kebs"
 						}
 						`,
 							// generated fields that vary per test run
