@@ -36,9 +36,9 @@ resource "kaleido_platform_runtime" "runtime1" {
     config_json = jsonencode({
         "setting1": "value1"
     })
-	zone = "use2"
-	storage_size = 10
-	storage_type = "default"
+    zone = "use2"
+    storage_size = 10
+    storage_type = "default"
 }
 `
 
@@ -54,9 +54,9 @@ resource "kaleido_platform_runtime" "runtime1" {
     log_level = "trace"
     size = "large"
     stopped = false
-	zone = "use2"
-	storage_size = 20
-	storage_type = "default"
+    zone = "use2"
+    storage_size = 20
+    storage_type = "default"
 }
 `
 
@@ -72,9 +72,9 @@ resource "kaleido_platform_runtime" "runtime1" {
     log_level = "trace"
     size = "large"
     stopped = true
-	zone = "use2"
-	storage_size = 20
-	storage_type = "default"
+    zone = "use2"
+    storage_size = 20
+    storage_type = "default"
 }
 `
 
@@ -259,7 +259,6 @@ func (mp *mockPlatform) postRuntime(res http.ResponseWriter, req *http.Request) 
 		rt.StorageSize = 50
 	}
 	rt.Status = "pending"
-	rt.Stopped = false
 	mp.runtimes[mux.Vars(req)["env"]+"/"+rt.ID] = &rt
 	mp.respond(res, &rt, 201)
 }

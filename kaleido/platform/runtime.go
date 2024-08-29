@@ -169,9 +169,12 @@ func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
 	data.Size = types.StringValue(api.Size)
 	data.Stopped = types.BoolValue(api.Stopped)
 	data.Zone = types.StringValue(api.Zone)
-	if api.SubZone != "" && !data.SubZone.IsNull() {
+	if api.SubZone != "" { // the API should only return a subzone if a subzone was specified
 		data.SubZone = types.StringValue(api.SubZone)
 	}
+	// For storage - it is optional for the user and conditional for the runtime based on its type.
+	// We can't mark it computed as a result, so we only track API storage state if the user provided desired
+	// storage state.
 	if api.StorageSize > 0 && !data.StorageSize.IsNull() {
 		data.StorageSize = types.Int64Value(api.StorageSize)
 	}
