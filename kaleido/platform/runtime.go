@@ -38,6 +38,10 @@ type RuntimeResourceModel struct {
 	Size                types.String `tfsdk:"size"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Stopped             types.Bool   `tfsdk:"stopped"`
+	Zone                types.String `tfsdk:"zone"`
+	SubZone             types.String `tfsdk:"sub_zone"`
+	StorageSize         types.Int64  `tfsdk:"storage_size"`
+	StorageType         types.String `tfsdk:"storage_type"`
 }
 
 type RuntimeAPIModel struct {
@@ -52,7 +56,11 @@ type RuntimeAPIModel struct {
 	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
 	Status              string                 `json:"status,omitempty"`
 	Deleted             bool                   `json:"deleted,omitempty"`
-	Stopped             bool                   `json:"stopped,omitempty"`
+	Stopped             bool                   `json:"stopped"`
+	Zone                string                 `json:"zone,omitempty"`
+	SubZone             string                 `json:"subZone,omitempty"`
+	StorageSize         int64                  `json:"storageSize,omitempty"`
+	StorageType         string                 `json:"storageType,omitempty"`
 }
 
 func RuntimeResourceFactory() resource.Resource {
@@ -103,6 +111,21 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional: true,
 				Computed: true,
 			},
+			"zone": &schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+			},
+			"sub_zone": &schema.StringAttribute{
+				Optional: true,
+			},
+			"storage_size": &schema.Int64Attribute{
+				Optional: true,
+				// may be computed for certain storage required runtime types, but we will not track it if the user did not provide it
+			},
+			"storage_type": &schema.StringAttribute{
+				Optional: true,
+				// may be computed for certain runtime types, but we will not track it if the user did not provide it
+			},
 		},
 	}
 }
@@ -125,6 +148,18 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	if !data.Stopped.IsNull() {
 		api.Stopped = data.Stopped.ValueBool()
 	}
+	if !data.Zone.IsNull() {
+		api.Zone = data.Zone.ValueString()
+	}
+	if !data.SubZone.IsNull() {
+		api.SubZone = data.SubZone.ValueString()
+	}
+	if !data.StorageSize.IsNull() {
+		api.StorageSize = data.StorageSize.ValueInt64()
+	}
+	if !data.StorageType.IsNull() {
+		api.StorageType = data.StorageType.ValueString()
+	}
 }
 
 func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
@@ -133,6 +168,19 @@ func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
 	data.LogLevel = types.StringValue(api.LogLevel)
 	data.Size = types.StringValue(api.Size)
 	data.Stopped = types.BoolValue(api.Stopped)
+	data.Zone = types.StringValue(api.Zone)
+	if api.SubZone != "" { // the API should only return a subzone if a subzone was specified
+		data.SubZone = types.StringValue(api.SubZone)
+	}
+	// For storage - it is optional for the user and conditional for the runtime based on its type.
+	// We can't mark it computed as a result, so we only track API storage state if the user provided desired
+	// storage state.
+	if api.StorageSize > 0 && !data.StorageSize.IsNull() {
+		data.StorageSize = types.Int64Value(api.StorageSize)
+	}
+	if api.StorageType != "" && !data.StorageType.IsNull() {
+		data.StorageType = types.StringValue(api.StorageType)
+	}
 }
 
 func (r *runtimeResource) apiPath(data *RuntimeResourceModel) string {
