@@ -36,6 +36,9 @@ resource "kaleido_platform_runtime" "runtime1" {
     config_json = jsonencode({
         "setting1": "value1"
     })
+	zone = "use2"
+	storage_size = 10
+	storage_type = "default"
 }
 `
 
@@ -50,7 +53,10 @@ resource "kaleido_platform_runtime" "runtime1" {
     })
     log_level = "trace"
     size = "large"
-    stopped = true
+    stopped = false
+	zone = "use2"
+	storage_size = 20
+	storage_type = "default"
 }
 `
 
@@ -66,10 +72,9 @@ resource "kaleido_platform_runtime" "runtime1" {
     log_level = "trace"
     size = "large"
     stopped = true
-		zone = "use2"
-		sub_zone = "us-east-2a"
-		storage_size = 10
-		storage_type = "kebs"
+	zone = "use2"
+	storage_size = 20
+	storage_type = "default"
 }
 `
 
@@ -109,6 +114,9 @@ func TestRuntime1(t *testing.T) {
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `info`),
 					resource.TestCheckResourceAttr(runtime1Resource, "size", `small`),
 					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `false`),
+					resource.TestCheckResourceAttr(runtime1Resource, "zone", "use2"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "10"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "default"),
 				),
 			},
 			{
@@ -120,7 +128,10 @@ func TestRuntime1(t *testing.T) {
 					resource.TestCheckResourceAttr(runtime1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `trace`),
 					resource.TestCheckResourceAttr(runtime1Resource, "size", `large`),
-					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `true`),
+					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `false`),
+					resource.TestCheckResourceAttr(runtime1Resource, "zone", "use2"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "20"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "default"),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[runtime1Resource].Primary.Attributes["id"]
@@ -142,7 +153,10 @@ func TestRuntime1(t *testing.T) {
 							"size": "large",
 							"environmentMemberId": "%[4]s",
 							"status": "pending",
-							"stopped": true
+                            "stopped": false,
+							"zone": "use2",
+							"storageSize": 20,
+							"storageType": "default"
 						}
 						`,
 							// generated fields that vary per test run
@@ -166,9 +180,8 @@ func TestRuntime1(t *testing.T) {
 					resource.TestCheckResourceAttr(runtime1Resource, "size", `large`),
 					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `true`),
 					resource.TestCheckResourceAttr(runtime1Resource, "zone", "use2"),
-					resource.TestCheckResourceAttr(runtime1Resource, "sub_zone", "us-east-2a"),
-					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "10"),
-					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "kebs"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "20"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "default"),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[runtime1Resource].Primary.Attributes["id"]
@@ -192,9 +205,8 @@ func TestRuntime1(t *testing.T) {
 							"status": "pending",
 							"stopped": true,
 							"zone": "use2",
-							"subZone": "us-east-2a",
-							"storageSize": 10,
-							"storageType": "kebs"
+							"storageSize": 20,
+							"storageType": "default"
 						}
 						`,
 							// generated fields that vary per test run
@@ -236,7 +248,18 @@ func (mp *mockPlatform) postRuntime(res http.ResponseWriter, req *http.Request) 
 	if rt.Size == "" {
 		rt.Size = "small"
 	}
+	if rt.Zone == "" {
+		rt.Zone = "default"
+	}
+	// if they provide a SubZone its just returned back
+	if rt.StorageType == "" {
+		rt.StorageType = "default"
+	}
+	if rt.StorageSize <= 0 {
+		rt.StorageSize = 50
+	}
 	rt.Status = "pending"
+	rt.Stopped = false
 	mp.runtimes[mux.Vars(req)["env"]+"/"+rt.ID] = &rt
 	mp.respond(res, &rt, 201)
 }
@@ -251,6 +274,9 @@ func (mp *mockPlatform) putRuntime(res http.ResponseWriter, req *http.Request) {
 	now := time.Now().UTC()
 	newRT.Created = rt.Created
 	newRT.Updated = &now
+	if rt.StorageSize > 0 && newRT.StorageSize < rt.StorageSize {
+		mp.respond(res, nil, 400)
+	}
 	newRT.Status = "pending"
 	mp.runtimes[mux.Vars(req)["env"]+"/"+mux.Vars(req)["runtime"]] = &newRT
 	mp.respond(res, &newRT, 200)

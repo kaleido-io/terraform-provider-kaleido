@@ -56,7 +56,7 @@ type RuntimeAPIModel struct {
 	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
 	Status              string                 `json:"status,omitempty"`
 	Deleted             bool                   `json:"deleted,omitempty"`
-	Stopped             bool                   `json:"stopped,omitempty"`
+	Stopped             bool                   `json:"stopped"`
 	Zone                string                 `json:"zone,omitempty"`
 	SubZone             string                 `json:"subZone,omitempty"`
 	StorageSize         int64                  `json:"storageSize,omitempty"`
@@ -120,9 +120,11 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"storage_size": &schema.Int64Attribute{
 				Optional: true,
+				// may be computed for certain storage required runtime types, but we will not track it if the user did not provide it
 			},
 			"storage_type": &schema.StringAttribute{
 				Optional: true,
+				// may be computed for certain runtime types, but we will not track it if the user did not provide it
 			},
 		},
 	}
@@ -166,16 +168,14 @@ func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
 	data.LogLevel = types.StringValue(api.LogLevel)
 	data.Size = types.StringValue(api.Size)
 	data.Stopped = types.BoolValue(api.Stopped)
-	if api.Zone != "" {
-		data.Zone = types.StringValue(api.Zone)
-	}
-	if api.SubZone != "" {
+	data.Zone = types.StringValue(api.Zone)
+	if api.SubZone != "" && !data.SubZone.IsNull() {
 		data.SubZone = types.StringValue(api.SubZone)
 	}
-	if api.StorageSize != 0 {
+	if api.StorageSize > 0 && !data.StorageSize.IsNull() {
 		data.StorageSize = types.Int64Value(api.StorageSize)
 	}
-	if api.StorageType != "" {
+	if api.StorageType != "" && !data.StorageType.IsNull() {
 		data.StorageType = types.StringValue(api.StorageType)
 	}
 }
