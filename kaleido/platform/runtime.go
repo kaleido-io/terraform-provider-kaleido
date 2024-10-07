@@ -36,7 +36,6 @@ type RuntimeResourceModel struct {
 	ConfigJSON          types.String `tfsdk:"config_json"`
 	LogLevel            types.String `tfsdk:"log_level"`
 	Size                types.String `tfsdk:"size"`
-	Zone                types.String `tfsdk:"zone"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Stopped             types.Bool   `tfsdk:"stopped"`
 	Zone                types.String `tfsdk:"zone"`
@@ -54,7 +53,6 @@ type RuntimeAPIModel struct {
 	Config              map[string]interface{} `json:"config"`
 	LogLevel            string                 `json:"loglevel,omitempty"`
 	Size                string                 `json:"size,omitempty"`
-	Zone                string                 `json:"zone,omitempty"`
 	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
 	Status              string                 `json:"status,omitempty"`
 	Deleted             bool                   `json:"deleted,omitempty"`
@@ -106,10 +104,6 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed: true,
 			},
 			"size": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-			},
-			"zone": &schema.StringAttribute{
 				Optional: true,
 				Computed: true,
 			},
