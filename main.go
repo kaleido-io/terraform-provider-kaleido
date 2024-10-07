@@ -31,6 +31,7 @@ func main() {
 	opts := providerserver.ServeOpts{
 		Address:         "registry.terraform.io/kaleido-io/terraform",
 		ProtocolVersion: 6,
+		//Debug:           true,
 	}
 
 	err := providerserver.Serve(context.Background(), kaleido.New(version), opts)

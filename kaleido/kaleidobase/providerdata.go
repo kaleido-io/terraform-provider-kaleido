@@ -15,6 +15,7 @@ package kaleidobase
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -89,7 +90,9 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	}
 	platform := resty.New().
 		SetTransport(http.DefaultTransport).
-		SetBaseURL(platformAPI)
+		SetBaseURL(platformAPI).
+		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}) //TODO remove this
+
 	if platformUsername != "" && platformPassword != "" {
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)
 	}

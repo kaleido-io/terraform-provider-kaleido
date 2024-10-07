@@ -36,6 +36,7 @@ type RuntimeResourceModel struct {
 	ConfigJSON          types.String `tfsdk:"config_json"`
 	LogLevel            types.String `tfsdk:"log_level"`
 	Size                types.String `tfsdk:"size"`
+	Zone                types.String `tfsdk:"zone"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Stopped             types.Bool   `tfsdk:"stopped"`
 }
@@ -49,6 +50,7 @@ type RuntimeAPIModel struct {
 	Config              map[string]interface{} `json:"config"`
 	LogLevel            string                 `json:"loglevel,omitempty"`
 	Size                string                 `json:"size,omitempty"`
+	Zone                string                 `json:"zone,omitempty"`
 	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
 	Status              string                 `json:"status,omitempty"`
 	Deleted             bool                   `json:"deleted,omitempty"`
@@ -99,6 +101,10 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional: true,
 				Computed: true,
 			},
+			"zone": &schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+			},
 			"stopped": &schema.BoolAttribute{
 				Optional: true,
 				Computed: true,
@@ -122,6 +128,9 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	if !data.Size.IsNull() {
 		api.Size = data.Size.ValueString()
 	}
+	if !data.Zone.IsNull() {
+		api.Zone = data.Zone.ValueString()
+	}
 	if !data.Stopped.IsNull() {
 		api.Stopped = data.Stopped.ValueBool()
 	}
@@ -132,6 +141,7 @@ func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.LogLevel = types.StringValue(api.LogLevel)
 	data.Size = types.StringValue(api.Size)
+	data.Zone = types.StringValue(api.Zone)
 	data.Stopped = types.BoolValue(api.Stopped)
 }
 

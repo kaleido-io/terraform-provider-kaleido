@@ -1,0 +1,4 @@
+kaleido_platform_api = "https://myaccount.kaleido.dev"
+kaleido_platform_username = "key1"
+kaleido_platform_password = "ac8255da-9ddf-4be4-92ad-daa957196e7a8e0328af-10b8-47f0-96ce-ebc042da7b89"
+environment_name = "env_alex"

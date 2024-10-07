@@ -40,6 +40,7 @@ type mockPlatform struct {
 	runtimes          map[string]*RuntimeAPIModel
 	services          map[string]*ServiceAPIModel
 	networks          map[string]*NetworkAPIModel
+	networkinitdatas  map[string]*NetworkInitData
 	kmsWallets        map[string]*KMSWalletAPIModel
 	kmsKeys           map[string]*KMSKeyAPIModel
 	cmsBuilds         map[string]*CMSBuildAPIModel
@@ -65,6 +66,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		runtimes:          make(map[string]*RuntimeAPIModel),
 		services:          make(map[string]*ServiceAPIModel),
 		networks:          make(map[string]*NetworkAPIModel),
+		networkinitdatas:  make(map[string]*NetworkInitData),
 		kmsWallets:        make(map[string]*KMSWalletAPIModel),
 		kmsKeys:           make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:         make(map[string]*CMSBuildAPIModel),
@@ -104,6 +106,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodGet, mp.getNetwork)
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodPut, mp.putNetwork)
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodDelete, mp.deleteNetwork)
+
+	// See network_bootstrap_test.go
+	mp.register("/api/v1/environments/{env}/networks/{network}/initdata", http.MethodGet, mp.getNetworkInitData)
 
 	// See kms_wallet.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postKMSWallet)
