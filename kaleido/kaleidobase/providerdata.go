@@ -89,8 +89,7 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	}
 	platform := resty.New().
 		SetTransport(http.DefaultTransport).
-		SetBaseURL(platformAPI).
-
+		SetBaseURL(platformAPI)
 	if platformUsername != "" && platformPassword != "" {
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)
 	}
