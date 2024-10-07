@@ -40,6 +40,7 @@ type mockPlatform struct {
 	runtimes          map[string]*RuntimeAPIModel
 	services          map[string]*ServiceAPIModel
 	networks          map[string]*NetworkAPIModel
+	authenticators    map[string]*AuthenticatorAPIModel
 	networkinitdatas  map[string]*NetworkInitData
 	kmsWallets        map[string]*KMSWalletAPIModel
 	kmsKeys           map[string]*KMSKeyAPIModel
@@ -66,6 +67,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		runtimes:          make(map[string]*RuntimeAPIModel),
 		services:          make(map[string]*ServiceAPIModel),
 		networks:          make(map[string]*NetworkAPIModel),
+		authenticators:    make(map[string]*AuthenticatorAPIModel),
 		networkinitdatas:  make(map[string]*NetworkInitData),
 		kmsWallets:        make(map[string]*KMSWalletAPIModel),
 		kmsKeys:           make(map[string]*KMSKeyAPIModel),
@@ -106,6 +108,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodGet, mp.getNetwork)
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodPut, mp.putNetwork)
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodDelete, mp.deleteNetwork)
+
+	// See authenticator_test.go
+	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators", http.MethodPost, mp.postAuthenticator)
+	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}", http.MethodGet, mp.getAuthenticator)
+	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}", http.MethodPut, mp.putAuthenticator)
+	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}", http.MethodDelete, mp.deleteAuthenticator)
 
 	// See network_bootstrap_test.go
 	mp.register("/api/v1/environments/{env}/networks/{network}/initdata", http.MethodGet, mp.getNetworkInitData)
