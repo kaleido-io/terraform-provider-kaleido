@@ -36,6 +36,9 @@ resource "kaleido_platform_runtime" "runtime1" {
     config_json = jsonencode({
         "setting1": "value1"
     })
+    zone = "use2"
+    storage_size = 10
+    storage_type = "default"
 }
 `
 
@@ -50,7 +53,28 @@ resource "kaleido_platform_runtime" "runtime1" {
     })
     log_level = "trace"
     size = "large"
+    stopped = false
+    zone = "use2"
+    storage_size = 20
+    storage_type = "default"
+}
+`
+
+var runtimeStep3 = `
+resource "kaleido_platform_runtime" "runtime1" {
+    environment = "env1"
+    type = "besu"
+    name = "runtime1"
+    config_json = jsonencode({
+        "setting1": "value1",
+        "setting2": "value2",
+    })
+    log_level = "trace"
+    size = "large"
     stopped = true
+    zone = "use2"
+    storage_size = 20
+    storage_type = "default"
 }
 `
 
@@ -60,6 +84,10 @@ func TestRuntime1(t *testing.T) {
 	defer func() {
 		mp.checkClearCalls([]string{
 			"POST /api/v1/environments/{env}/runtimes",
+			"GET /api/v1/environments/{env}/runtimes/{runtime}",
+			"GET /api/v1/environments/{env}/runtimes/{runtime}",
+			"GET /api/v1/environments/{env}/runtimes/{runtime}",
+			"PUT /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
 			"GET /api/v1/environments/{env}/runtimes/{runtime}",
@@ -86,6 +114,9 @@ func TestRuntime1(t *testing.T) {
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `info`),
 					resource.TestCheckResourceAttr(runtime1Resource, "size", `small`),
 					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `false`),
+					resource.TestCheckResourceAttr(runtime1Resource, "zone", "use2"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "10"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "default"),
 				),
 			},
 			{
@@ -97,7 +128,10 @@ func TestRuntime1(t *testing.T) {
 					resource.TestCheckResourceAttr(runtime1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `trace`),
 					resource.TestCheckResourceAttr(runtime1Resource, "size", `large`),
-					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `true`),
+					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `false`),
+					resource.TestCheckResourceAttr(runtime1Resource, "zone", "use2"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "20"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "default"),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[runtime1Resource].Primary.Attributes["id"]
@@ -119,7 +153,60 @@ func TestRuntime1(t *testing.T) {
 							"size": "large",
 							"environmentMemberId": "%[4]s",
 							"status": "pending",
-							"stopped": true
+                            "stopped": false,
+							"zone": "use2",
+							"storageSize": 20,
+							"storageType": "default"
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							rt.Created.UTC().Format(time.RFC3339Nano),
+							rt.Updated.UTC().Format(time.RFC3339Nano),
+							rt.EnvironmentMemberID,
+						))
+						return nil
+					},
+				),
+			},
+			{
+				Config: providerConfig + runtimeStep3,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(runtime1Resource, "id"),
+					resource.TestCheckResourceAttr(runtime1Resource, "name", `runtime1`),
+					resource.TestCheckResourceAttr(runtime1Resource, "type", `besu`),
+					resource.TestCheckResourceAttr(runtime1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
+					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `trace`),
+					resource.TestCheckResourceAttr(runtime1Resource, "size", `large`),
+					resource.TestCheckResourceAttr(runtime1Resource, "stopped", `true`),
+					resource.TestCheckResourceAttr(runtime1Resource, "zone", "use2"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_size", "20"),
+					resource.TestCheckResourceAttr(runtime1Resource, "storage_type", "default"),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[runtime1Resource].Primary.Attributes["id"]
+						rt := mp.runtimes[fmt.Sprintf("env1/%s", id)]
+						// Note the pending status is allowed to remain in runtimes, as they require at least one
+						// service to be created to get out of pending.
+						testJSONEqual(t, rt, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "besu",
+							"name": "runtime1",
+							"config": {
+								"setting1": "value1",
+								"setting2": "value2"
+							},
+							"loglevel": "trace",
+							"size": "large",
+							"environmentMemberId": "%[4]s",
+							"status": "pending",
+							"stopped": true,
+							"zone": "use2",
+							"storageSize": 20,
+							"storageType": "default"
 						}
 						`,
 							// generated fields that vary per test run
@@ -161,6 +248,16 @@ func (mp *mockPlatform) postRuntime(res http.ResponseWriter, req *http.Request) 
 	if rt.Size == "" {
 		rt.Size = "small"
 	}
+	if rt.Zone == "" {
+		rt.Zone = "default"
+	}
+	// if they provide a SubZone its just returned back
+	if rt.StorageType == "" {
+		rt.StorageType = "default"
+	}
+	if rt.StorageSize <= 0 {
+		rt.StorageSize = 50
+	}
 	rt.Status = "pending"
 	mp.runtimes[mux.Vars(req)["env"]+"/"+rt.ID] = &rt
 	mp.respond(res, &rt, 201)
@@ -176,6 +273,9 @@ func (mp *mockPlatform) putRuntime(res http.ResponseWriter, req *http.Request) {
 	now := time.Now().UTC()
 	newRT.Created = rt.Created
 	newRT.Updated = &now
+	if rt.StorageSize > 0 && newRT.StorageSize < rt.StorageSize {
+		mp.respond(res, nil, 400)
+	}
 	newRT.Status = "pending"
 	mp.runtimes[mux.Vars(req)["env"]+"/"+mux.Vars(req)["runtime"]] = &newRT
 	mp.respond(res, &newRT, 200)
