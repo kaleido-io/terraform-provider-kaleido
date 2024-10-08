@@ -215,34 +215,6 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"connectivity_json": &schema.StringAttribute{
 				Computed: true,
 			},
-			/*"connectivity": &schema.SingleNestedAttribute{
-				Computed: true,
-				Optional: true,
-				Attributes: map[string]schema.Attribute{
-					"identity": &schema.StringAttribute{
-						Computed: true,
-					},
-					"endpoints": &schema.ListNestedAttribute{
-						Computed: true,
-						NestedObject: schema.NestedAttributeObject{
-							Attributes: map[string]schema.Attribute{
-								"host": &schema.StringAttribute{
-									Computed: true,
-								},
-								"nat": &schema.StringAttribute{
-									Computed: true,
-								},
-								"port": &schema.Int64Attribute{
-									Computed: true,
-								},
-								"protocol": &schema.StringAttribute{
-									Computed: true,
-								},
-							},
-						},
-					},
-				},
-			},*/
 		},
 	}
 }
@@ -402,42 +374,6 @@ func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag
 	} else {
 		data.ConnectivityJSON = types.StringValue("")
 	}
-
-	/*connectivity := map[string]attr.Value{}
-	connEndpointAttrTypes := map[string]attr.Type{
-		"host":     types.StringType,
-		"nat":      types.StringType,
-		"port":     types.Int64Type,
-		"protocol": types.StringType,
-	}
-	connectivityAttrTypes := map[string]attr.Type{
-		"identity": types.StringType,
-		"endpoints": types.ListType{ElemType: types.ObjectType{
-			AttrTypes: connEndpointAttrTypes,
-		}},
-	}
-	connectivity["identity"] = types.StringValue(api.StatusDetails.Connectivity.Identity)
-	connEndpoints := make([]attr.Value, len(api.StatusDetails.Connectivity.Endpoints))
-
-	for i, ce := range api.StatusDetails.Connectivity.Endpoints {
-		connEndpoint := map[string]attr.Value{}
-		connEndpoint["host"] = types.StringValue(ce.Host)
-		connEndpoint["nat"] = types.StringValue(ce.NAT)
-		connEndpoint["port"] = types.Int64Value(ce.Port)
-		connEndpoint["protocol"] = types.StringValue(ce.Protocol)
-		tfConnEndpoint, d := types.ObjectValue(connEndpointAttrTypes, connEndpoint)
-		diagnostics.Append(d...)
-		connEndpoints[i] = tfConnEndpoint
-	}
-	tfEndpoints, d := types.ListValue(types.ObjectType{
-		AttrTypes: connEndpointAttrTypes,
-	}, connEndpoints)
-	diagnostics.Append(d...)
-	connectivity["endpoints"] = tfEndpoints
-
-	data.Connectivity, d = types.ObjectValue(connectivityAttrTypes, connectivity)
-	diagnostics.Append(d...)*/
-
 }
 
 func (r *serviceResource) apiPath(data *ServiceResourceModel) string {
