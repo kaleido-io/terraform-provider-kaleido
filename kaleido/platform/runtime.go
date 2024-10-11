@@ -145,6 +145,9 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	if !data.Size.IsNull() {
 		api.Size = data.Size.ValueString()
 	}
+	if !data.Zone.IsNull() {
+		api.Zone = data.Zone.ValueString()
+	}
 	if !data.Stopped.IsNull() {
 		api.Stopped = data.Stopped.ValueBool()
 	}
@@ -167,6 +170,7 @@ func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.LogLevel = types.StringValue(api.LogLevel)
 	data.Size = types.StringValue(api.Size)
+	data.Zone = types.StringValue(api.Zone)
 	data.Stopped = types.BoolValue(api.Stopped)
 	data.Zone = types.StringValue(api.Zone)
 	if api.SubZone != "" { // the API should only return a subzone if a subzone was specified

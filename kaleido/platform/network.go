@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -37,6 +38,12 @@ type NetworkResourceModel struct {
 	ConfigJSON          types.String `tfsdk:"config_json"`
 	Info                types.Map    `tfsdk:"info"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
+	InitFiles           types.String `tfsdk:"init_files"`
+	InitMode            types.String `tfsdk:"init_mode"`
+	Initialized         types.Bool   `tfsdk:"initialized"`
+	Filesets            types.Map    `tfsdk:"file_sets"`
+	Credsets            types.Map    `tfsdk:"cred_sets"`
+	StatusInitFiles     types.Map    `tfsdk:"status_init_files"`
 }
 
 type NetworkAPIModel struct {
@@ -49,6 +56,16 @@ type NetworkAPIModel struct {
 	EnvironmentMemberID string                 `json:"environmentMemberId,omitempty"`
 	Status              string                 `json:"status,omitempty"`
 	Deleted             bool                   `json:"deleted,omitempty"`
+	InitFiles           string                 `json:"initFiles,omitempty"`
+	InitMode            string                 `json:"initMode,omitempty"`
+	Initialized         bool                   `json:"initialized,omitempty"`
+	Filesets            map[string]*FileSetAPI `json:"fileSets,omitempty"`
+	Credsets            map[string]*CredSetAPI `json:"credSets,omitempty"`
+	StatusDetails       NetworkStatusDetails   `json:"statusDetails,omitempty"`
+}
+
+type NetworkStatusDetails struct {
+	InitFiles map[string]string `json:"initFiles,omitempty"`
 }
 
 func NetworkResourceFactory() resource.Resource {
@@ -92,11 +109,87 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:    true,
 				ElementType: types.StringType,
 			},
+			"init_files": &schema.StringAttribute{
+				Optional: true,
+			},
+			"init_mode": &schema.StringAttribute{
+				Optional: true,
+			},
+			"initialized": &schema.BoolAttribute{
+				Computed: true,
+			},
+			"file_sets": &schema.MapNestedAttribute{
+				Optional: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"files": &schema.MapNestedAttribute{
+							Required: true,
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"type": &schema.StringAttribute{
+										Required: true,
+									},
+									"data": &schema.SingleNestedAttribute{
+										Required:  true,
+										Sensitive: true,
+										Attributes: map[string]schema.Attribute{
+											"base64": &schema.StringAttribute{
+												Optional: true,
+											},
+											"text": &schema.StringAttribute{
+												Optional: true,
+											},
+											"hex": &schema.StringAttribute{
+												Optional: true,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"cred_sets": &schema.MapNestedAttribute{
+				Optional: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"type": &schema.StringAttribute{
+							Required: true,
+						},
+						"basic_auth": &schema.SingleNestedAttribute{
+							Optional: true,
+							Attributes: map[string]schema.Attribute{
+								"username": &schema.StringAttribute{
+									Required: true,
+								},
+								"password": &schema.StringAttribute{
+									Required:  true,
+									Sensitive: true,
+								},
+							},
+						},
+						"key": &schema.SingleNestedAttribute{
+							Optional: true,
+							Attributes: map[string]schema.Attribute{
+								"value": &schema.StringAttribute{
+									Required:  true,
+									Sensitive: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			"status_init_files": &schema.MapAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
+			},
 		},
 	}
 }
 
-func (data *NetworkResourceModel) toAPI(api *NetworkAPIModel) {
+func (data *NetworkResourceModel) toAPI(ctx context.Context, api *NetworkAPIModel, diagnostics *diag.Diagnostics) {
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
@@ -105,10 +198,119 @@ func (data *NetworkResourceModel) toAPI(api *NetworkAPIModel) {
 	if !data.ConfigJSON.IsNull() {
 		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
 	}
+
+	if !data.InitMode.IsNull() {
+		api.InitMode = data.InitMode.ValueString()
+	}
+
+	if !data.InitFiles.IsNull() {
+		api.InitFiles = data.InitFiles.ValueString()
+	}
+
+	// filesets (complex nested structure)
+	if !data.Filesets.IsNull() {
+		dataAttrs := map[string]attr.Type{
+			"base64": types.StringType,
+			"text":   types.StringType,
+			"hex":    types.StringType,
+		}
+		fileAttrs := map[string]attr.Type{
+			"type": types.StringType,
+			"data": types.ObjectType{
+				AttrTypes: dataAttrs,
+			},
+		}
+		fileSetAttrs := map[string]attr.Type{
+			"files": types.MapType{
+				ElemType: types.ObjectType{
+					AttrTypes: fileAttrs,
+				},
+			},
+		}
+		api.Filesets = make(map[string]*FileSetAPI)
+		tfFilesets := data.Filesets.Elements()
+		for fileSetName, tfFileSet := range tfFilesets {
+			tfFileSet, d := types.ObjectValueFrom(ctx, fileSetAttrs, tfFileSet)
+			diagnostics.Append(d...)
+			tfFiles, d := types.MapValueFrom(ctx, types.ObjectType{AttrTypes: fileAttrs}, tfFileSet.Attributes()["files"])
+			diagnostics.Append(d...)
+			fs := &FileSetAPI{
+				Name:  fileSetName,
+				Files: make(map[string]*FileAPI),
+			}
+			for filename, tfFileVal := range tfFiles.Elements() {
+				tfFile, d := types.ObjectValueFrom(ctx, fileAttrs, tfFileVal)
+				diagnostics.Append(d...)
+				tfFileAttrs := tfFile.Attributes()
+				tfFileData, d := types.ObjectValueFrom(ctx, dataAttrs, tfFileAttrs["data"])
+				diagnostics.Append(d...)
+				f := &FileAPI{
+					Type: tfFileAttrs["type"].(types.String).ValueString(),
+				}
+				tfData := tfFileData.Attributes()
+				if !tfData["base64"].IsNull() {
+					f.Data.Base64 = tfData["base64"].(types.String).ValueString()
+				} else if !tfData["text"].IsNull() {
+					f.Data.Text = tfData["text"].(types.String).ValueString()
+				} else if !tfData["hex"].IsNull() {
+					f.Data.Hex = tfData["hex"].(types.String).ValueString()
+				} else {
+					diagnostics.AddError("missing data", fmt.Sprintf("must specify base64, text, or hexx data for file '%s'", filename))
+					return
+				}
+				fs.Files[filename] = f
+			}
+			api.Filesets[fileSetName] = fs
+		}
+	}
+
+	// credsets (complex nested structure)
+	if !data.Credsets.IsNull() {
+		basicAuthAttrs := map[string]attr.Type{
+			"username": types.StringType,
+			"password": types.StringType,
+		}
+		keyAttrs := map[string]attr.Type{
+			"value": types.StringType,
+		}
+		api.Credsets = make(map[string]*CredSetAPI)
+		tfCredsets := data.Credsets.Elements()
+		for credSetName, tfCredSetAttr := range tfCredsets {
+			tfCredSet := tfCredSetAttr.(types.Object)
+			tfCredSetAttrs := tfCredSet.Attributes()
+			crType := tfCredSetAttrs["type"].(types.String).ValueString()
+			cr := &CredSetAPI{
+				Name: credSetName,
+				Type: crType,
+			}
+			if crType == "basic_auth" && !tfCredSetAttrs["basic_auth"].IsNull() {
+				tfBasicAuth, d := types.ObjectValueFrom(ctx, basicAuthAttrs, tfCredSetAttrs["basic_auth"])
+				diagnostics.Append(d...)
+				tfBasicAuthAttrs := tfBasicAuth.Attributes()
+				cr.BasicAuth = &CredSetBasicAuthAPI{
+					Username: tfBasicAuthAttrs["username"].(types.String).ValueString(),
+					Password: tfBasicAuthAttrs["password"].(types.String).ValueString(),
+				}
+			} else if crType == "key" && !tfCredSetAttrs["key"].IsNull() {
+				tfKey, d := types.ObjectValueFrom(ctx, keyAttrs, tfCredSetAttrs["key"])
+				diagnostics.Append(d...)
+				tfKeyAttrs := tfKey.Attributes()
+				cr.Key = &CredSetKeyAPI{
+					Value: tfKeyAttrs["value"].(types.String).ValueString(),
+				}
+			} else {
+				diagnostics.AddError("missing credential", fmt.Sprintf("must specify key/basic_auth as appropriate for type '%s'", crType))
+				return
+			}
+			api.Credsets[credSetName] = cr
+		}
+	}
+
 }
 
-func (api *NetworkAPIModel) toData(data *NetworkResourceModel) {
+func (api *NetworkAPIModel) toData(data *NetworkResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
+	data.Initialized = types.BoolValue(api.Initialized)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	info := make(map[string]attr.Value)
 	for k, v := range api.Config {
@@ -117,7 +319,19 @@ func (api *NetworkAPIModel) toData(data *NetworkResourceModel) {
 			info[k] = types.StringValue(v)
 		}
 	}
-	data.Info, _ = types.MapValue(types.StringType, info)
+
+	var d diag.Diagnostics
+	data.Info, d = types.MapValue(types.StringType, info)
+	diagnostics.Append(d...)
+
+	//status init files
+	statusInitFiles := make(map[string]attr.Value)
+	for name, data := range api.StatusDetails.InitFiles {
+		initFileData := types.StringValue(data)
+		statusInitFiles[name] = initFileData
+	}
+	data.StatusInitFiles, d = types.MapValue(types.StringType, statusInitFiles)
+	diagnostics.Append(d...)
 }
 
 func (r *networkResource) apiPath(data *NetworkResourceModel) string {
@@ -134,15 +348,15 @@ func (r *networkResource) Create(ctx context.Context, req resource.CreateRequest
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api NetworkAPIModel
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	api.toData(&data) // need the ID copied over
+	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	api.toData(&data) // need the latest status after the readiness check completes, to extract generated values
+	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -160,14 +374,14 @@ func (r *networkResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	// Update from plan
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
-	api.toData(&data) // need the ID copied over
+	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	api.toData(&data) // need the latest status after the readiness check completes, to extract generated values
+	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -186,7 +400,7 @@ func (r *networkResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	api.toData(&data)
+	api.toData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 

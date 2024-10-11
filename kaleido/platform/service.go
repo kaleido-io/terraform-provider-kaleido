@@ -42,6 +42,7 @@ type ServiceResourceModel struct {
 	Hostnames           types.Map    `tfsdk:"hostnames"`
 	Filesets            types.Map    `tfsdk:"file_sets"`
 	Credsets            types.Map    `tfsdk:"cred_sets"`
+	ConnectivityJSON    types.String `tfsdk:"connectivity_json"`
 }
 
 type ServiceAPIModel struct {
@@ -53,13 +54,14 @@ type ServiceAPIModel struct {
 	Runtime             ServiceAPIRuntimeRef          `json:"runtime,omitempty"`
 	Account             string                        `json:"account,omitempty"`
 	EnvironmentMemberID string                        `json:"environmentMemberId,omitempty"`
-	Status              string                        `json:"status,omitempty"`
 	Deleted             bool                          `json:"deleted,omitempty"`
 	Config              map[string]interface{}        `json:"config"`
 	Endpoints           map[string]ServiceAPIEndpoint `json:"endpoints,omitempty"`
 	Hostnames           map[string][]string           `json:"hostnames,omitempty"`
 	Filesets            map[string]*FileSetAPI        `json:"fileSets,omitempty"`
 	Credsets            map[string]*CredSetAPI        `json:"credSets,omitempty"`
+	Status              string                        `json:"status,omitempty"`
+	StatusDetails       ServiceStatusDetails          `json:"statusDetails,omitempty"`
 }
 
 type ServiceAPIRuntimeRef struct {
@@ -71,36 +73,20 @@ type ServiceAPIEndpoint struct {
 	URLS []string `json:"urls,omitempty"`
 }
 
-type FileSetAPI struct {
-	Name  string              `json:"name"`
-	Files map[string]*FileAPI `json:"files"`
+type ServiceStatusDetails struct {
+	Connectivity *Connectivity `json:"connectivity,omitempty"`
 }
 
-type FileAPI struct {
-	Type string      `json:"type,omitempty"`
-	Data FileDataAPI `json:"data,omitempty"`
+type Connectivity struct {
+	Identity  string     `json:"identity,omitempty"`
+	Endpoints []Endpoint `json:"endpoints,omitempty"`
 }
 
-type FileDataAPI struct {
-	Base64 string `json:"base64,omitempty"`
-	Text   string `json:"text,omitempty"`
-	Hex    string `json:"hex,omitempty"`
-}
-
-type CredSetAPI struct {
-	Name      string               `json:"name"`
-	Type      string               `json:"type,omitempty"`
-	BasicAuth *CredSetBasicAuthAPI `json:"basicAuth,omitempty"`
-	Key       *CredSetKeyAPI       `json:"key,omitempty"`
-}
-
-type CredSetBasicAuthAPI struct {
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-type CredSetKeyAPI struct {
-	Value string `json:"value,omitempty"`
+type Endpoint struct {
+	Host     string `json:"host,omitempty"`
+	NAT      string `json:"nat,omitempty"`
+	Port     int64  `json:"port,omitempty"`
+	Protocol string `json:"protocol,omitempty"`
 }
 
 func ServiceResourceFactory() resource.Resource {
@@ -226,6 +212,9 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					},
 				},
 			},
+			"connectivity_json": &schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
@@ -341,6 +330,8 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 			api.Credsets[credSetName] = cr
 		}
 	}
+
+	//connectivity is computed. So only goes from api to data not via versa
 }
 
 func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag.Diagnostics) {
@@ -370,6 +361,19 @@ func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag
 		AttrTypes: endpointAttrTypes,
 	}, endpoints)
 	diagnostics.Append(d...)
+
+	//connectivity
+	if api.StatusDetails.Connectivity != nil {
+		d, err := json.Marshal(api.StatusDetails.Connectivity)
+		if err != nil {
+			diagnostics.AddError("failed to marshal connectivity", err.Error())
+			return
+		}
+		connectivityJSON := string(d)
+		data.ConnectivityJSON = types.StringValue(connectivityJSON)
+	} else {
+		data.ConnectivityJSON = types.StringValue("")
+	}
 }
 
 func (r *serviceResource) apiPath(data *ServiceResourceModel) string {
@@ -394,9 +398,16 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+
+	//re-read from api
+	api.ID = data.ID.ValueString()
+	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, &APIRequestOption{})
+	if !ok {
+		return
+	}
+
 	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-
 }
 
 func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -419,6 +430,10 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	//re-read from api
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
 	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

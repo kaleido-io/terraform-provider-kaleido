@@ -1,0 +1,20 @@
+kaleido_platform_api_baseurl = "kaleido.dev"
+
+originator_account_name = "myaccount"
+originator_api_key_name = "key1"
+originator_api_key_value = "1dbf8a3a-51c0-4e5e-a36a-50c58535db1b60cb9dc4-691c-4243-b88e-221a890cc511"
+
+secondary_account_name = "other"
+secondary_api_key_name = "key1"
+secondary_api_key_value = "fc07c759-dace-445e-9a06-8c21cca4e7080cd9e28d-32f6-4c49-96b6-839d009fb1fb"
+
+originator_name = "besu_originator"
+originator_signer_count = 2
+originator_peer_count = 1
+originator_peer_network_dz = "local-external-zone-1"
+originator_peer_network_connection = "local"
+
+secondary_name = "besu_secondary"
+secondary_peer_count = 2
+secondary_peer_network_dz = "local-external-zone-1"
+secondary_peer_network_connection = "local"

@@ -101,7 +101,9 @@ func TestService1(t *testing.T) {
 			"GET /api/v1/environments/{env}/services/{service}",
 			"GET /api/v1/environments/{env}/services/{service}",
 			"GET /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
 			"PUT /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
 			"GET /api/v1/environments/{env}/services/{service}",
 			"GET /api/v1/environments/{env}/services/{service}",
 			"GET /api/v1/environments/{env}/services/{service}",
@@ -162,6 +164,12 @@ func TestService1(t *testing.T) {
 									"urls": [
 										"https://example.com/api/v1/environments/env1/services/%[1]s"
 									]
+								},
+								"ws": {
+									"type": "ws",
+									"urls": [
+										"wss://example.com/api/v1/environments/env1/services/%[1]s"
+									]
 								}
 							},
 							"hostnames": {
@@ -205,7 +213,13 @@ func TestService1(t *testing.T) {
 										"value": "abce12345"
 									}
 								}
+							},
+							"statusDetails": {
+								"connectivity": {
+									"identity": "192ea525cecb7302efa31283a205142b989217afef2d555a0af8370417e233fe9fa47a11effed21f1dfcfd7887e7ba5d1b983b03980c88c0ef9543f1a2be80c7"
+								}
 							}
+							
 						}
 						`,
 							// generated fields that vary per test run
@@ -228,8 +242,21 @@ func (mp *mockPlatform) getService(res http.ResponseWriter, req *http.Request) {
 		mp.respond(res, nil, 404)
 	} else {
 		mp.respond(res, svc, 200)
-		// Next time will return ready
+
+		// Next +1 time will return ready and have details
 		svc.Status = "ready"
+		/*endpoints := []map[string]interface{}{
+			{
+				"host":     "10.244.3.35",
+				"port":     30303,
+				"protocol": "TCP",
+			},
+		}*/
+		svc.StatusDetails = ServiceStatusDetails{
+			Connectivity: &Connectivity{
+				Identity: "192ea525cecb7302efa31283a205142b989217afef2d555a0af8370417e233fe9fa47a11effed21f1dfcfd7887e7ba5d1b983b03980c88c0ef9543f1a2be80c7",
+			},
+		}
 	}
 }
 
@@ -263,7 +290,7 @@ func (mp *mockPlatform) putService(res http.ResponseWriter, req *http.Request) {
 	newSVC.Created = svc.Created
 	newSVC.Updated = &now
 	newSVC.Status = "pending"
-	svc.Endpoints = map[string]ServiceAPIEndpoint{
+	newSVC.Endpoints = map[string]ServiceAPIEndpoint{
 		"api": {
 			Type: "http",
 			URLS: []string{fmt.Sprintf("https://example.com/api/v1/environments/%s/services/%s", mux.Vars(req)["env"], svc.ID)},
@@ -274,6 +301,7 @@ func (mp *mockPlatform) putService(res http.ResponseWriter, req *http.Request) {
 			URLS: []string{fmt.Sprintf("wss://example.com/api/v1/environments/%s/services/%s", mux.Vars(req)["env"], svc.ID)},
 		},
 	}
+	newSVC.StatusDetails = svc.StatusDetails
 	mp.services[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]] = &newSVC
 	mp.respond(res, &newSVC, 200)
 }
