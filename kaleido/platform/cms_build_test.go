@@ -39,6 +39,11 @@ resource "kaleido_platform_cms_build" "cms_build1" {
 		contract_name = "Firefly"
 		auth_token = "token12345"
 	}
+	optimizer = {
+	    enabled = true
+		runs = 150
+		via_ir = true
+	}
 }
 `
 
@@ -54,6 +59,11 @@ resource "kaleido_platform_cms_build" "cms_build1" {
 		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
 		contract_name = "Firefly"
 		auth_token = "token12345"
+	}
+	optimizer = {
+	    enabled = true
+		runs = 150
+		via_ir = true
 	}
 }
 `
@@ -113,6 +123,7 @@ func TestCMSBuild1(t *testing.T) {
 							"created": "%[2]s",
 							"updated": "%[3]s",
 							"name": "build1",
+							"optimizer":{"enabled": true, "runs": 150, "viaIR": true},
 							"path": "some/new/path",
 							"description": "shiny contract that does things and stuff",
 							"github": {
@@ -195,6 +206,7 @@ func TestCMSBuildPreCompiled(t *testing.T) {
 							"created": "%[2]s",
 							"updated": "%[3]s",
 							"name": "build2",
+							"optimizer": {},
 							"path": "some/path",
               "abi": [{"some":"precompiled_abi"}],
               "bytecode": "0xB17EC0DE",
