@@ -26,6 +26,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -47,6 +49,7 @@ type CMSBuildResourceModel struct {
 	SolcVersion types.String                     `tfsdk:"solc_version"`
 	Precompiled CMSBuildPrecompiledResourceModel `tfsdk:"precompiled"`
 	GitHub      CMSBuildGithubResourceModel      `tfsdk:"github"`
+	Optimizer   *CMSBuildOptimizerResourceModel  `tfsdk:"optimizer"`
 	SourceCode  CMSBuildSourceCodeResourceModel  `tfsdk:"source_code"`
 	ABI         types.String                     `tfsdk:"abi"`
 	Bytecode    types.String                     `tfsdk:"bytecode"`
@@ -66,6 +69,12 @@ type CMSBuildGithubResourceModel struct {
 	AuthToken    types.String `tfsdk:"auth_token"`
 }
 
+type CMSBuildOptimizerResourceModel struct {
+	Enabled types.Bool  `tfsdk:"enabled"`
+	Runs    types.Int64 `tfsdk:"runs"`
+	ViaIR   types.Bool  `tfsdk:"via_ir"`
+}
+
 type CMSBuildSourceCodeResourceModel struct {
 	ContractName types.String `tfsdk:"contract_name"`
 	FileContents types.String `tfsdk:"file_contents"`
@@ -81,6 +90,7 @@ type CMSBuildAPIModel struct {
 	EVMVersion   string                      `json:"evmVersion,omitempty"`
 	SolcVersion  string                      `json:"solcVersion,omitempty"`
 	GitHub       *CMSBuildGithubAPIModel     `json:"github,omitempty"`
+	Optimizer    *CMSBuildOptimizerAPIModel  `json:"optimizer,omitempty"`
 	SourceCode   *CMSBuildSourceCodeAPIModel `json:"sourceCode,omitempty"`
 	ABI          interface{}                 `json:"abi,omitempty"`
 	Bytecode     string                      `json:"bytecode,omitempty"`
@@ -94,6 +104,12 @@ type CMSBuildGithubAPIModel struct {
 	ContractName string `json:"contractName,omitempty"`
 	AuthToken    string `json:"oauthToken,omitempty"`
 	CommitHash   string `json:"commitHash,omitempty"`
+}
+
+type CMSBuildOptimizerAPIModel struct {
+	Enabled bool    `json:"enabled,omitempty"`
+	Runs    float64 `json:"runs,omitempty"`
+	ViaIR   bool    `json:"viaIR,omitempty"`
 }
 
 type CMSBuildSourceCodeAPIModel struct {
@@ -258,6 +274,38 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"commit_hash": &schema.StringAttribute{
 				Computed: true,
 			},
+			"optimizer": &schema.SingleNestedAttribute{
+				Optional: true,
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": &schema.BoolAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+					},
+					"runs": &schema.Int64Attribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+					},
+					"via_ir": &schema.BoolAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+					},
+				},
+				Default: objectdefault.StaticValue(
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"enabled": types.BoolType,
+							"runs":    types.Int64Type,
+							"via_ir":  types.BoolType,
+						},
+						map[string]attr.Value{
+							"enabled": types.BoolValue(false),
+							"runs":    types.Int64Value(0),
+							"via_ir":  types.BoolValue(false),
+						},
+					),
+				),
+			},
 		},
 	}
 }
@@ -274,6 +322,11 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
 		// different source being retrieved.
 		api.EVMVersion = data.EVMVersion.ValueString()
 		api.SolcVersion = data.SolcVersion.ValueString()
+		api.Optimizer = &CMSBuildOptimizerAPIModel{
+			Enabled: data.Optimizer.Enabled.ValueBool(),
+			Runs:    float64(data.Optimizer.Runs.ValueInt64()),
+			ViaIR:   data.Optimizer.ViaIR.ValueBool(),
+		}
 		switch data.Type.ValueString() {
 		case "precompiled":
 			_ = json.Unmarshal(([]byte)(data.Precompiled.ABI.ValueString()), &api.ABI)
