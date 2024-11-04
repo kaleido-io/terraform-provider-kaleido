@@ -44,7 +44,7 @@ type KMSWalletAPIModel struct {
 	Updated       *time.Time             `json:"updated,omitempty"`
 	Type          string                 `json:"type"`
 	Name          string                 `json:"name"`
-	Configuration map[string]interface{} `json:"config"`
+	Configuration map[string]interface{} `json:"configuration"`
 	Credentials   map[string]interface{} `json:"credentials"`
 }
 
