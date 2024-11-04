@@ -47,6 +47,7 @@ type KMSKeyAPIModel struct {
 	Path    string     `json:"path,omitempty"`
 	URI     string     `json:"uri,omitempty"`
 	Address string     `json:"address,omitempty"`
+	Index   int        `json:"index"`
 }
 
 func KMSKeyResourceFactory() resource.Resource {
