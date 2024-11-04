@@ -29,12 +29,13 @@ import (
 )
 
 type KMSWalletResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Environment types.String `tfsdk:"environment"`
-	Service     types.String `tfsdk:"service"`
-	Type        types.String `tfsdk:"type"`
-	Name        types.String `tfsdk:"name"`
-	ConfigJSON  types.String `tfsdk:"config_json"`
+	ID              types.String `tfsdk:"id"`
+	Environment     types.String `tfsdk:"environment"`
+	Service         types.String `tfsdk:"service"`
+	Type            types.String `tfsdk:"type"`
+	Name            types.String `tfsdk:"name"`
+	ConfigJSON      types.String `tfsdk:"config_json"`
+	CredentialsJSON types.String `tfsdk:"credentials_json"`
 }
 
 type KMSWalletAPIModel struct {
@@ -44,6 +45,7 @@ type KMSWalletAPIModel struct {
 	Type          string                 `json:"type"`
 	Name          string                 `json:"name"`
 	Configuration map[string]interface{} `json:"config"`
+	Credentials   map[string]interface{} `json:"credentials"`
 }
 
 func KMSWalletResourceFactory() resource.Resource {
@@ -84,6 +86,10 @@ func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional: true,
 				Computed: true,
 			},
+			"credentials_json": &schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -95,6 +101,9 @@ func (data *KMSWalletResourceModel) toAPI(api *KMSWalletAPIModel) {
 	api.Configuration = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {
 		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Configuration)
+	}
+	if !data.CredentialsJSON.IsNull() {
+		_ = json.Unmarshal([]byte(data.CredentialsJSON.ValueString()), &api.Credentials)
 	}
 }
 
@@ -108,8 +117,20 @@ func (api *KMSWalletAPIModel) toData(data *KMSWalletResourceModel) {
 	} else {
 		config = `{}`
 	}
+
+	var credentials string
+	if api.Credentials != nil {
+		d, err := json.Marshal(api.Credentials)
+		if err == nil {
+			credentials = string(d)
+		}
+	} else {
+		credentials = `{}`
+	}
+
 	data.ID = types.StringValue(api.ID)
 	data.ConfigJSON = types.StringValue(config)
+	data.CredentialsJSON = types.StringValue(credentials)
 }
 
 func (r *kms_walletResource) apiPath(data *KMSWalletResourceModel) string {

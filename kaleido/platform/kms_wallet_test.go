@@ -37,6 +37,9 @@ resource "kaleido_platform_kms_wallet" "kms_wallet1" {
     config_json = jsonencode({
         "setting1": "value1"
     })
+	credentials_json = jsonencode({
+		"setting1": "value1"
+	})
 }
 `
 
@@ -50,6 +53,10 @@ resource "kaleido_platform_kms_wallet" "kms_wallet1" {
         "setting1": "value1"
         "setting2": "value2"
     })
+	credentials_json = jsonencode({
+		"setting1": "value1"
+        "setting2": "value2"
+	})
 }
 `
 
@@ -82,6 +89,7 @@ func TestKMSWallet1(t *testing.T) {
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "name", `kms_wallet1`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "type", `hdwallet`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "config_json", `{"setting1":"value1"}`),
+					resource.TestCheckResourceAttr(kms_wallet1Resource, "credentials_json", `{"setting1":"value1"}`),
 				),
 			},
 			{
@@ -91,6 +99,7 @@ func TestKMSWallet1(t *testing.T) {
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "name", `kms_wallet1`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "type", `hdwallet`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
+					resource.TestCheckResourceAttr(kms_wallet1Resource, "credentials_json", `{"setting1":"value1","setting2":"value2"}`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[kms_wallet1Resource].Primary.Attributes["id"]
@@ -103,6 +112,10 @@ func TestKMSWallet1(t *testing.T) {
 							"type": "hdwallet",
 							"name": "kms_wallet1",
 							"config": {
+								"setting1": "value1",
+								"setting2": "value2"
+							},
+							"credentials": {
 								"setting1": "value1",
 								"setting2": "value2"
 							}
