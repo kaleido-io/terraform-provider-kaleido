@@ -32,6 +32,7 @@ import (
 var serviceStep1 = `
 resource "kaleido_platform_service" "service1" {
     environment = "env1"
+	stack = "stack1"
 	runtime = "runtime1"
     type = "besu"
     name = "service1"
@@ -44,6 +45,7 @@ resource "kaleido_platform_service" "service1" {
 var serviceStep2 = `
 resource "kaleido_platform_service" "service1" {
     environment = "env1"
+	stack = "stack1"
 	runtime = "runtime1"
     type = "besu"
     name = "service1"
@@ -153,6 +155,7 @@ func TestService1(t *testing.T) {
 								"id": "runtime1"
 							},
 							"environmentMemberId": "%[4]s",
+							"stackId": "%[5]s",
 							"status": "ready",
 							"config": {
 								"setting1": "value1",
@@ -227,6 +230,7 @@ func TestService1(t *testing.T) {
 							svc.Created.UTC().Format(time.RFC3339Nano),
 							svc.Updated.UTC().Format(time.RFC3339Nano),
 							svc.EnvironmentMemberID,
+							svc.StackId,
 						))
 						return nil
 					},
@@ -268,6 +272,7 @@ func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) 
 	svc.Created = &now
 	svc.Updated = &now
 	svc.EnvironmentMemberID = nanoid.New()
+	svc.StackId = nanoid.New()
 	svc.Status = "pending"
 	svc.Endpoints = map[string]ServiceAPIEndpoint{
 		"api": {

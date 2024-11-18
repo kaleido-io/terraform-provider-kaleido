@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -88,7 +87,7 @@ func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 	api.Name = data.Name.ValueString()
 }
 
-func (api *StacksAPIModel) toData(data *StacksResourceModel, diagnostics *diag.Diagnostics) {
+func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.Name = types.StringValue(api.Name)
@@ -115,9 +114,7 @@ func (r *stacksResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	api.toData(&data, &resp.Diagnostics) // need the ID copied over
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	api.toData(&data, &resp.Diagnostics)
+	api.toData(&data) // need the ID copied over
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -139,9 +136,7 @@ func (r *stacksResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	api.toData(&data, &resp.Diagnostics)
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	api.toData(&data, &resp.Diagnostics)
+	api.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -160,7 +155,7 @@ func (r *stacksResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	api.toData(&data, &resp.Diagnostics)
+	api.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 

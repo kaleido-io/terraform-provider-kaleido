@@ -29,16 +29,16 @@ import (
 )
 
 var stacksStep1 = `
-resource "kaleido_platform_stack" "ci_stack1" {
-	name = "ci_stack1"
+resource "kaleido_platform_stack" "stack1" {
+	name = "stack1"
 	type = "chain_infrastructure"
 	environment = "env1"
 }
 `
 
 var stacksStep2 = `
-resource "kaleido_platform_stack" "ci_stack1" {
-	name = "ci_stack1_renamed"
+resource "kaleido_platform_stack" "stack1" {
+	name = "stack1_renamed"
 	type = "chain_infrastructure"
 	environment = "env1"
 }
@@ -54,13 +54,14 @@ func TestStacks1(t *testing.T) {
 			"GET /api/v1/environments/{env}/stacks/{stack}",
 			"GET /api/v1/environments/{env}/stacks/{stack}",
 			"PUT /api/v1/environments/{env}/stacks/{stack}",
+			"GET /api/v1/environments/{env}/stacks/{stack}",
 			"DELETE /api/v1/environments/{env}/stacks/{stack}",
 			"GET /api/v1/environments/{env}/stacks/{stack}",
 		})
 		mp.server.Close()
 	}()
 
-	ciStack1Resource := "kaleido_platform_stack.ci_stack1"
+	Stack1Resource := "kaleido_platform_stack.stack1"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
@@ -68,33 +69,36 @@ func TestStacks1(t *testing.T) {
 			{
 				Config: providerConfig + stacksStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(ciStack1Resource, "id"),
-					resource.TestCheckResourceAttr(ciStack1Resource, "name", `ci_stack1`),
-					resource.TestCheckResourceAttr(ciStack1Resource, "type", `chain_infrastructure`),
+					resource.TestCheckResourceAttrSet(Stack1Resource, "id"),
+					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1`),
+					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
 				),
 			},
 			{
 				Config: providerConfig + stacksStep2,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(ciStack1Resource, "id"),
-					resource.TestCheckResourceAttr(ciStack1Resource, "name", `ci_stack_1`),
-					resource.TestCheckResourceAttr(ciStack1Resource, "type", `chain_infrastructure`),
+					resource.TestCheckResourceAttrSet(Stack1Resource, "id"),
+					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1_renamed`),
+					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
-						id := s.RootModule().Resources[ciStack1Resource].Primary.Attributes["id"]
-						rt := mp.stacks[id]
+						id := s.RootModule().Resources[Stack1Resource].Primary.Attributes["id"]
+						rt := mp.stacks[fmt.Sprintf("env1/%s", id)]
 						testJSONEqual(t, rt, fmt.Sprintf(`
 						{
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							"name": "stack1_renamed"
+							"type": "chain_infrastructure",
+							"name": "stack1_renamed",
+							"environmentMemberId": "%[4]s"
 						}
 						`,
 							// generated fields that vary per test run
 							id,
 							rt.Created.UTC().Format(time.RFC3339Nano),
 							rt.Updated.UTC().Format(time.RFC3339Nano),
+							rt.EnvironmentMemberID,
 						))
 						return nil
 					},
