@@ -33,12 +33,11 @@ import (
 type ServiceResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
 	Environment         types.String `tfsdk:"environment"`
-	Stack               types.String `tfsdk:"stack"`
 	Runtime             types.String `tfsdk:"runtime"`
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
-	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	StackID             types.String `tfsdk:"stack_id"`
+	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	ConfigJSON          types.String `tfsdk:"config_json"`
 	Endpoints           types.Map    `tfsdk:"endpoints"`
 	Hostnames           types.Map    `tfsdk:"hostnames"`
@@ -53,10 +52,10 @@ type ServiceAPIModel struct {
 	Updated             *time.Time                    `json:"updated,omitempty"`
 	Type                string                        `json:"type"`
 	Name                string                        `json:"name"`
+	StackID             string                        `json:"stackId"`
 	Runtime             ServiceAPIRuntimeRef          `json:"runtime,omitempty"`
 	Account             string                        `json:"account,omitempty"`
 	EnvironmentMemberID string                        `json:"environmentMemberId,omitempty"`
-	StackId             string                        `json:"stackId,omitempty"`
 	Deleted             bool                          `json:"deleted,omitempty"`
 	Config              map[string]interface{}        `json:"config"`
 	Endpoints           map[string]ServiceAPIEndpoint `json:"endpoints,omitempty"`
@@ -115,10 +114,6 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"stack": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
 			"runtime": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -130,10 +125,10 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"name": &schema.StringAttribute{
 				Required: true,
 			},
-			"environment_member_id": &schema.StringAttribute{
-				Computed: true,
-			},
 			"stack_id": &schema.StringAttribute{
+				Required: true,
+			},
+			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
 			},
 			"config_json": &schema.StringAttribute{
@@ -233,6 +228,7 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
+	api.StackID = data.StackID.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {
@@ -347,7 +343,6 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
-	data.StackID = types.StringValue(api.StackId)
 	endpoints := map[string]attr.Value{}
 	endpointAttrTypes := map[string]attr.Type{
 		"type": types.StringType,

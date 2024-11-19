@@ -33,6 +33,7 @@ type RuntimeResourceModel struct {
 	Environment         types.String `tfsdk:"environment"`
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
+	StackID             types.String `tfsdk:"stack_id"`
 	ConfigJSON          types.String `tfsdk:"config_json"`
 	LogLevel            types.String `tfsdk:"log_level"`
 	Size                types.String `tfsdk:"size"`
@@ -50,6 +51,7 @@ type RuntimeAPIModel struct {
 	Updated             *time.Time             `json:"updated,omitempty"`
 	Type                string                 `json:"type"`
 	Name                string                 `json:"name"`
+	StackID             string                 `json:"stackId"`
 	Config              map[string]interface{} `json:"config"`
 	LogLevel            string                 `json:"loglevel,omitempty"`
 	Size                string                 `json:"size,omitempty"`
@@ -87,6 +89,9 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
+				Required: true,
+			},
+			"stack_id": &schema.StringAttribute{
 				Required: true,
 			},
 			"environment": &schema.StringAttribute{
@@ -134,6 +139,7 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
+	api.StackID = data.StackID.ValueString()
 	// optional fields
 	api.Config = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {

@@ -32,10 +32,10 @@ import (
 var serviceStep1 = `
 resource "kaleido_platform_service" "service1" {
     environment = "env1"
-	stack = "stack1"
 	runtime = "runtime1"
     type = "besu"
     name = "service1"
+	stack_id = "stack1"
     config_json = jsonencode({
         "setting1": "value1"
     })
@@ -45,10 +45,10 @@ resource "kaleido_platform_service" "service1" {
 var serviceStep2 = `
 resource "kaleido_platform_service" "service1" {
     environment = "env1"
-	stack = "stack1"
 	runtime = "runtime1"
     type = "besu"
     name = "service1"
+	stack_id = "stack1"
     config_json = jsonencode({
         "setting1": "value1",
         "setting2": "value2",
@@ -125,6 +125,7 @@ func TestService1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(service1Resource, "id"),
 					resource.TestCheckResourceAttr(service1Resource, "name", `service1`),
+					resource.TestCheckResourceAttr(service1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(service1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(service1Resource, "config_json", `{"setting1":"value1"}`),
 					resource.TestCheckResourceAttr(service1Resource, "endpoints.%", `1`),
@@ -138,6 +139,7 @@ func TestService1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(service1Resource, "id"),
 					resource.TestCheckResourceAttr(service1Resource, "name", `service1`),
+					resource.TestCheckResourceAttr(service1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(service1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(service1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					func(s *terraform.State) error {
@@ -151,11 +153,11 @@ func TestService1(t *testing.T) {
 							"updated": "%[3]s",
 							"type": "besu",
 							"name": "service1",
+							"stackId": "stack1",
 							"runtime": {
 								"id": "runtime1"
 							},
 							"environmentMemberId": "%[4]s",
-							"stackId": "%[5]s",
 							"status": "ready",
 							"config": {
 								"setting1": "value1",
@@ -230,7 +232,6 @@ func TestService1(t *testing.T) {
 							svc.Created.UTC().Format(time.RFC3339Nano),
 							svc.Updated.UTC().Format(time.RFC3339Nano),
 							svc.EnvironmentMemberID,
-							svc.StackId,
 						))
 						return nil
 					},
@@ -272,7 +273,6 @@ func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) 
 	svc.Created = &now
 	svc.Updated = &now
 	svc.EnvironmentMemberID = nanoid.New()
-	svc.StackId = nanoid.New()
 	svc.Status = "pending"
 	svc.Endpoints = map[string]ServiceAPIEndpoint{
 		"api": {
