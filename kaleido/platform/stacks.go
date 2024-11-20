@@ -34,6 +34,7 @@ type StacksResourceModel struct {
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Name                types.String `tfsdk:"name"`
 	Type                types.String `tfsdk:"type"`
+	NetworkType         types.String `tfsdk:"network_type"`
 }
 
 type StacksAPIModel struct {
@@ -43,6 +44,7 @@ type StacksAPIModel struct {
 	EnvironmentMemberID string     `json:"environmentMemberId,omitempty"`
 	Name                string     `json:"name"`
 	Type                string     `json:"type"`
+	NetworkType         string     `json:"networkType,omitempty"`
 }
 
 func StacksResourceFactory() resource.Resource {
@@ -78,6 +80,9 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
 			},
+			"network_type": &schema.StringAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -90,6 +95,7 @@ func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+	data.NetworkType = types.StringValue(api.NetworkType)
 	data.Name = types.StringValue(api.Name)
 	data.Type = types.StringValue(api.Type)
 }

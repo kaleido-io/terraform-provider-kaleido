@@ -92,7 +92,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required: true,
 			},
 			"stack_id": &schema.StringAttribute{
-				Required: true,
+				Optional: true,
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,

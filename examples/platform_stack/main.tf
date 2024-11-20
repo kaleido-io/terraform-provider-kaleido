@@ -79,17 +79,17 @@ resource "kaleido_platform_runtime" "gwr_0" {
   config_json = jsonencode({})
 }
 
-# resource "kaleido_platform_service" "gws_0" {
-#   type = "EVMGateway"
-#   name = "evmchain1_gateway"
-#   environment = kaleido_platform_environment.env_0.id
-#   runtime = kaleido_platform_runtime.gwr_0.id
-#   config_json = jsonencode({
-#     network = {
-#       id =  kaleido_platform_network.net_0.id
-#     }
-#   })
-# }
+resource "kaleido_platform_service" "gws_0" {
+  type = "EVMGateway"
+  name = "evmchain1_gateway"
+  environment = kaleido_platform_environment.env_0.id
+  runtime = kaleido_platform_runtime.gwr_0.id
+  config_json = jsonencode({
+    network = {
+      id =  kaleido_platform_network.net_0.id
+    }
+  })
+}
 
 # data "kaleido_platform_evm_netinfo" "gws_0" {
 #   environment = kaleido_platform_environment.env_0.id
