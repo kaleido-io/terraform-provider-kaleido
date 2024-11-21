@@ -51,7 +51,7 @@ type RuntimeAPIModel struct {
 	Updated             *time.Time             `json:"updated,omitempty"`
 	Type                string                 `json:"type"`
 	Name                string                 `json:"name"`
-	StackID             string                 `json:"stackId"`
+	StackID             string                 `json:"stackId,omitempty"`
 	Config              map[string]interface{} `json:"config"`
 	LogLevel            string                 `json:"loglevel,omitempty"`
 	Size                string                 `json:"size,omitempty"`

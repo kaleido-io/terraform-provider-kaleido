@@ -52,7 +52,7 @@ type ServiceAPIModel struct {
 	Updated             *time.Time                    `json:"updated,omitempty"`
 	Type                string                        `json:"type"`
 	Name                string                        `json:"name"`
-	StackID             string                        `json:"stackId"`
+	StackID             string                        `json:"stackId,omitempty"`
 	Runtime             ServiceAPIRuntimeRef          `json:"runtime,omitempty"`
 	Account             string                        `json:"account,omitempty"`
 	EnvironmentMemberID string                        `json:"environmentMemberId,omitempty"`
@@ -126,7 +126,7 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required: true,
 			},
 			"stack_id": &schema.StringAttribute{
-				Required: true,
+				Optional: true,
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
