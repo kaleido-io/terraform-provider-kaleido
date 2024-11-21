@@ -90,6 +90,9 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
+	if !data.NetworkType.IsNull() {
+		api.NetworkType = data.NetworkType.ValueString()
+	}
 }
 
 func (api *StacksAPIModel) toData(data *StacksResourceModel) {
@@ -98,6 +101,9 @@ func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.NetworkType = types.StringValue(api.NetworkType)
 	data.Name = types.StringValue(api.Name)
 	data.Type = types.StringValue(api.Type)
+	if api.NetworkType != "" && !data.NetworkType.IsNull() {
+		data.NetworkType = types.StringValue(api.NetworkType)
+	}
 }
 
 func (r *stacksResource) apiPath(data *StacksResourceModel) string {
