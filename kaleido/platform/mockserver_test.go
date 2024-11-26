@@ -40,6 +40,7 @@ type mockPlatform struct {
 	runtimes          map[string]*RuntimeAPIModel
 	services          map[string]*ServiceAPIModel
 	networks          map[string]*NetworkAPIModel
+	stacks            map[string]*StacksAPIModel
 	authenticators    map[string]*AuthenticatorAPIModel
 	networkinitdatas  map[string]*NetworkInitData
 	kmsWallets        map[string]*KMSWalletAPIModel
@@ -67,6 +68,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		runtimes:          make(map[string]*RuntimeAPIModel),
 		services:          make(map[string]*ServiceAPIModel),
 		networks:          make(map[string]*NetworkAPIModel),
+		stacks:            make(map[string]*StacksAPIModel),
 		authenticators:    make(map[string]*AuthenticatorAPIModel),
 		networkinitdatas:  make(map[string]*NetworkInitData),
 		kmsWallets:        make(map[string]*KMSWalletAPIModel),
@@ -184,6 +186,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/groups/{group}", http.MethodGet, mp.getGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodPatch, mp.patchGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodDelete, mp.deleteGroup)
+
+	// See stacks_test.go
+	mp.register("/api/v1/environments/{env}/stacks", http.MethodPost, mp.postStacks)
+	mp.register("/api/v1/environments/{env}/stacks/{stack}", http.MethodGet, mp.getStacks)
+	mp.register("/api/v1/environments/{env}/stacks/{stack}", http.MethodPut, mp.putStacks)
+	mp.register("/api/v1/environments/{env}/stacks/{stack}", http.MethodDelete, mp.deleteStacks)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
