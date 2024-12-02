@@ -33,7 +33,7 @@ resource "kaleido_platform_stack" "stack1" {
 	name = "stack1"
 	type = "chain_infrastructure"
 	environment = "env1"
-	network_type = "besu"
+	network_type = "BesuNetwork"
 }
 `
 
@@ -42,7 +42,7 @@ resource "kaleido_platform_stack" "stack1" {
 	name = "stack1_renamed"
 	type = "chain_infrastructure"
 	environment = "env1"
-	network_type = "besu"
+	network_type = "BesuNetwork"
 }
 `
 
@@ -95,7 +95,7 @@ func TestStacks1(t *testing.T) {
 							"updated": "%[3]s",
 							"type": "chain_infrastructure",
 							"name": "stack1_renamed",
-							"networkType": "besu",
+							"networkType": "BesuNetwork",
 							"environmentMemberId": "%[4]s"
 						}
 						`,
@@ -131,7 +131,7 @@ func (mp *mockPlatform) postStacks(res http.ResponseWriter, req *http.Request) {
 	rt.Updated = &now
 	rt.EnvironmentMemberID = nanoid.New()
 	if rt.NetworkType == "" {
-		rt.NetworkType = "besu"
+		rt.NetworkType = "BesuNetwork"
 	}
 	mp.stacks[mux.Vars(req)["env"]+"/"+rt.ID] = &rt
 	mp.respond(res, &rt, 201)

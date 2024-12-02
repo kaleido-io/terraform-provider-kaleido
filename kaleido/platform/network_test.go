@@ -31,7 +31,7 @@ import (
 var networkStep1 = `
 resource "kaleido_platform_network" "network1" {
     environment = "env1"
-    type = "besu"
+	type = "BesuNetwork"
     name = "network1"
     config_json = jsonencode({
         "setting1": "value1"
@@ -42,7 +42,7 @@ resource "kaleido_platform_network" "network1" {
 var networkStep2 = `
 resource "kaleido_platform_network" "network1" {
     environment = "env1"
-    type = "besu"
+	type = "BesuNetwork"
     name = "network1"
     config_json = jsonencode({
         "setting1": "value1",
@@ -104,7 +104,7 @@ func TestNetwork1(t *testing.T) {
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							"type": "besu",
+							type = "BesuNetwork"
 							"name": "network1",
 							"config": {
 								"setting1": "value1",
