@@ -73,7 +73,7 @@ func TestStacks1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(Stack1Resource, "id"),
 					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1`),
-					resource.TestCheckResourceAttr(Stack1Resource, "network_type", `besu`),
+					resource.TestCheckResourceAttr(Stack1Resource, "network_type", `BesuNetwork`),
 					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
 				),
 			},
@@ -82,7 +82,7 @@ func TestStacks1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(Stack1Resource, "id"),
 					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1_renamed`),
-					resource.TestCheckResourceAttr(Stack1Resource, "network_type", `besu`),
+					resource.TestCheckResourceAttr(Stack1Resource, "network_type", `BesuNetwork`),
 					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side

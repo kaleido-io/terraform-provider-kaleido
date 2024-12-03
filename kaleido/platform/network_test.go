@@ -82,7 +82,7 @@ func TestNetwork1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(network1Resource, "id"),
 					resource.TestCheckResourceAttr(network1Resource, "name", `network1`),
-					resource.TestCheckResourceAttr(network1Resource, "type", `besu`),
+					resource.TestCheckResourceAttr(network1Resource, "type", `BesuNetwork`),
 					resource.TestCheckResourceAttr(network1Resource, "config_json", `{"setting1":"value1"}`),
 				),
 			},
@@ -91,7 +91,7 @@ func TestNetwork1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(network1Resource, "id"),
 					resource.TestCheckResourceAttr(network1Resource, "name", `network1`),
-					resource.TestCheckResourceAttr(network1Resource, "type", `besu`),
+					resource.TestCheckResourceAttr(network1Resource, "type", `BesuNetwork`),
 					resource.TestCheckResourceAttr(network1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					resource.TestCheckResourceAttr(network1Resource, "info.setting1", `value1`),
 					resource.TestCheckResourceAttr(network1Resource, "info.setting2", `value2`),
@@ -104,7 +104,7 @@ func TestNetwork1(t *testing.T) {
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							type = "BesuNetwork"
+							"type": "BesuNetwork",
 							"name": "network1",
 							"config": {
 								"setting1": "value1",
