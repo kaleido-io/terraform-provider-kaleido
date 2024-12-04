@@ -18,7 +18,7 @@ resource "kaleido_platform_environment" "env_0" {
 }
 
 resource "kaleido_platform_network" "net_0" {
-  type = "Besu"
+  type = "BesuNetwork"
   name = "evmchain1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({
@@ -53,7 +53,7 @@ resource "kaleido_platform_service" "bns" {
 }
 
 resource "kaleido_platform_network" "net_ipfs" {
-  type = "IPFS"
+  type = "IPFSNetwork"
   name = "${var.environment_name}_ipfs"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})

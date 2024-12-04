@@ -36,7 +36,7 @@ resource "kaleido_platform_stack" "digital_asset_manager_stack" {
 }
 
 resource "kaleido_platform_network" "net_0" {
-  type = "Besu"
+  type = "BesuNetwork"
   name = "evmchain1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({
