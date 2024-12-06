@@ -34,7 +34,7 @@ type StacksResourceModel struct {
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Name                types.String `tfsdk:"name"`
 	Type                types.String `tfsdk:"type"`
-	NetworkType         types.String `tfsdk:"network_type"`
+	NetworkId           types.String `tfsdk:"network_id"`
 }
 
 type StacksAPIModel struct {
@@ -44,7 +44,7 @@ type StacksAPIModel struct {
 	EnvironmentMemberID string     `json:"environmentMemberId,omitempty"`
 	Name                string     `json:"name"`
 	Type                string     `json:"type"`
-	NetworkType         string     `json:"networkType,omitempty"`
+	NetworkId           string     `json:"networkId"`
 }
 
 func StacksResourceFactory() resource.Resource {
@@ -80,9 +80,8 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
 			},
-			"network_type": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+			"network_id": &schema.StringAttribute{
+				Required: true,
 			},
 		},
 	}
@@ -91,19 +90,19 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
-	if !data.NetworkType.IsNull() {
-		api.NetworkType = data.NetworkType.ValueString()
+	if !data.NetworkId.IsNull() {
+		api.NetworkId = data.NetworkId.ValueString()
 	}
 }
 
 func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
-	data.NetworkType = types.StringValue(api.NetworkType)
+	data.NetworkId = types.StringValue(api.NetworkId)
 	data.Name = types.StringValue(api.Name)
 	data.Type = types.StringValue(api.Type)
-	if api.NetworkType != "" && !data.NetworkType.IsNull() {
-		data.NetworkType = types.StringValue(api.NetworkType)
+	if api.NetworkId != "" && !data.NetworkId.IsNull() {
+		data.NetworkId = types.StringValue(api.NetworkId)
 	}
 }
 

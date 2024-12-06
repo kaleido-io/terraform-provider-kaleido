@@ -33,7 +33,7 @@ resource "kaleido_platform_stack" "stack1" {
 	name = "stack1"
 	type = "chain_infrastructure"
 	environment = "env1"
-	network_type = "BesuNetwork"
+	network_id = "network123"
 }
 `
 
@@ -42,7 +42,7 @@ resource "kaleido_platform_stack" "stack1" {
 	name = "stack1_renamed"
 	type = "chain_infrastructure"
 	environment = "env1"
-	network_type = "BesuNetwork"
+	network_id = "network123"
 }
 `
 
@@ -73,7 +73,7 @@ func TestStacks1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(Stack1Resource, "id"),
 					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1`),
-					resource.TestCheckResourceAttr(Stack1Resource, "network_type", `BesuNetwork`),
+					resource.TestCheckResourceAttr(Stack1Resource, "network_id", `network123`),
 					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
 				),
 			},
@@ -82,7 +82,7 @@ func TestStacks1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(Stack1Resource, "id"),
 					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1_renamed`),
-					resource.TestCheckResourceAttr(Stack1Resource, "network_type", `BesuNetwork`),
+					resource.TestCheckResourceAttr(Stack1Resource, "network_id", `network123`),
 					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
@@ -95,7 +95,7 @@ func TestStacks1(t *testing.T) {
 							"updated": "%[3]s",
 							"type": "chain_infrastructure",
 							"name": "stack1_renamed",
-							"networkType": "BesuNetwork",
+							"networkId": "network123",
 							"environmentMemberId": "%[4]s"
 						}
 						`,
@@ -130,9 +130,6 @@ func (mp *mockPlatform) postStacks(res http.ResponseWriter, req *http.Request) {
 	rt.Created = &now
 	rt.Updated = &now
 	rt.EnvironmentMemberID = nanoid.New()
-	if rt.NetworkType == "" {
-		rt.NetworkType = "BesuNetwork"
-	}
 	mp.stacks[mux.Vars(req)["env"]+"/"+rt.ID] = &rt
 	mp.respond(res, &rt, 201)
 }
