@@ -58,6 +58,7 @@ type mockPlatform struct {
 	ffsNode           *FireFlyStatusNodeAPIModel
 	ffsOrg            *FireFlyStatusOrgAPIModel
 	calls             []string
+	applications      map[string]*ApplicationAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -82,6 +83,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsDMListeners:    make(map[string]*AMSDMListenerAPIModel),
 		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
 		groups:            make(map[string]*GroupAPIModel),
+		applications:      make(map[string]*ApplicationAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
 	}
@@ -184,6 +186,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/groups/{group}", http.MethodGet, mp.getGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodPatch, mp.patchGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodDelete, mp.deleteGroup)
+
+	// See application_test.go
+	mp.register("/api/v1/applications", http.MethodPost, mp.postApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodGet, mp.getApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodPatch, mp.patchApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodDelete, mp.deleteApplication)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp

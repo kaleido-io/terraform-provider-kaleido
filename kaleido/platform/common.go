@@ -362,6 +362,7 @@ func Resources() []func() resource.Resource {
 		AMSVariableSetResourceFactory,
 		FireFlyRegistrationResourceFactory,
 		AuthenticatorResourceFactory,
+		ApplicationResourceFactory,
 	}
 }
 
