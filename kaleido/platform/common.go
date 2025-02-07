@@ -363,6 +363,7 @@ func Resources() []func() resource.Resource {
 		FireFlyRegistrationResourceFactory,
 		AuthenticatorResourceFactory,
 		ApplicationResourceFactory,
+		APIKeyResourceFactory,
 	}
 }
 
