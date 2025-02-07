@@ -60,6 +60,7 @@ type mockPlatform struct {
 	calls             []string
 	applications      map[string]*ApplicationAPIModel
 	apiKeys           map[string]*APIKeyAPIModel
+	serviceAccess     map[string]*ServiceAccessAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -85,6 +86,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
 		groups:            make(map[string]*GroupAPIModel),
 		applications:      make(map[string]*ApplicationAPIModel),
+		serviceAccess:     make(map[string]*ServiceAccessAPIModel),
 		apiKeys:           make(map[string]*APIKeyAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
@@ -199,6 +201,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/applications/{application}/api-keys", http.MethodPost, mp.postApiKey)
 	mp.register("/api/v1/applications/{application}/api-keys/{api-key}", http.MethodGet, mp.getApiKey)
 	mp.register("/api/v1/applications/{application}/api-keys/{api-key}", http.MethodDelete, mp.deleteApiKey)
+
+	// See service_access_test.go
+	mp.register("/api/v1/service-access/{service}/permissions", http.MethodPost, mp.postServiceAccessPermission)
+	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodGet, mp.getServiceAccessPermission)
+	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodDelete, mp.deleteServiceAccessPermission)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp

@@ -120,13 +120,6 @@ func (mp *mockPlatform) postApiKey(res http.ResponseWriter, req *http.Request) {
 	mp.respond(res, &rt, 201)
 }
 
-// func (mp *mockPlatform) deleteNetwork(res http.ResponseWriter, req *http.Request) {
-// 	rt := mp.networks[mux.Vars(req)["env"]+"/"+mux.Vars(req)["network"]]
-// 	assert.NotNil(mp.t, rt)
-// 	delete(mp.networks, mux.Vars(req)["env"]+"/"+mux.Vars(req)["network"])
-// 	mp.respond(res, nil, 204)
-// }
-
 func (mp *mockPlatform) deleteApiKey(res http.ResponseWriter, req *http.Request) {
 	rt := mp.apiKeys[mux.Vars(req)["application"]+"/"+mux.Vars(req)["api-key"]]
 	assert.NotNil(mp.t, rt)
