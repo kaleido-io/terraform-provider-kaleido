@@ -31,12 +31,16 @@ import (
 var applicationStep1 = `
 resource "kaleido_platform_application" "application1" {
     name = "application1"
+	admin_enabled = true
+	oauth_enabled = true
 }
 `
 
 var applicationStep2 = `
 resource "kaleido_platform_application" "application1" {
     name = "application1_renamed"
+	admin_enabled = true
+	oauth_enabled = true
 }
 `
 

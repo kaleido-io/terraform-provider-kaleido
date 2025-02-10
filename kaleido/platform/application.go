@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -41,8 +41,8 @@ type ApplicationAPIModel struct {
 	Updated     *time.Time        `json:"updated,omitempty"`
 	Name        string            `json:"name"`
 	OAuth       map[string]string `json:"oauth,omitempty"`
-	IsAdmin     bool              `json:"isAdmin,omitempty"`
-	EnableOAuth bool              `json:"enableOAuth,omitempty"`
+	IsAdmin     *bool             `json:"isAdmin,omitempty"`
+	EnableOAuth *bool             `json:"enableOAuth,omitempty"`
 }
 
 func ApplicationResourceFactory() resource.Resource {
@@ -70,12 +70,11 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"admin_enabled": &schema.BoolAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  booldefault.StaticBool(true),
 			},
 			"oauth_enabled": &schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  booldefault.StaticBool(true),
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplaceIfConfigured()},
 			},
 			"oidc_config_url": &schema.StringAttribute{
 				Optional: true,
@@ -87,8 +86,12 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 
 func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.Name = data.Name.ValueString()
-	api.IsAdmin = data.AdminEnabled.ValueBool()
-	api.EnableOAuth = data.OAuthEnabled.ValueBool()
+	if !data.OAuthEnabled.IsNull() {
+		api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
+	}
+	if !data.OAuthEnabled.IsNull() {
+		api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
+	}
 	api.OAuth = make(map[string]string)
 	if !data.OIDCConfigURL.IsNull() {
 		api.OAuth["oidcConfigURL"] = data.OIDCConfigURL.ValueString()
@@ -97,8 +100,8 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 
 func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	data.ID = types.StringValue(api.ID)
-	data.AdminEnabled = types.BoolValue(api.IsAdmin)
-	data.OAuthEnabled = types.BoolValue(api.EnableOAuth)
+	data.AdminEnabled = types.BoolPointerValue(api.IsAdmin)
+	data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
 	data.OIDCConfigURL = types.StringValue(api.OAuth["oidcConfigURL"])
 }
 
