@@ -42,6 +42,7 @@ type RuntimeResourceModel struct {
 	SubZone             types.String `tfsdk:"sub_zone"`
 	StorageSize         types.Int64  `tfsdk:"storage_size"`
 	StorageType         types.String `tfsdk:"storage_type"`
+	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
 type RuntimeAPIModel struct {
@@ -126,6 +127,9 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional: true,
 				// may be computed for certain runtime types, but we will not track it if the user did not provide it
 			},
+			"force_delete": &schema.BoolAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -192,6 +196,11 @@ func (r *runtimeResource) apiPath(data *RuntimeResourceModel) string {
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
+
+	if data.ForceDelete.ValueBool() {
+		path = path + "?force=true"
+	}
+
 	return path
 }
 

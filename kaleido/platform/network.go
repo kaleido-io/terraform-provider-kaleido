@@ -44,6 +44,7 @@ type NetworkResourceModel struct {
 	Filesets            types.Map    `tfsdk:"file_sets"`
 	Credsets            types.Map    `tfsdk:"cred_sets"`
 	StatusInitFiles     types.Map    `tfsdk:"status_init_files"`
+	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
 type NetworkAPIModel struct {
@@ -184,6 +185,9 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"status_init_files": &schema.MapAttribute{
 				Computed:    true,
 				ElementType: types.StringType,
+			},
+			"force_delete": &schema.BoolAttribute{
+				Optional: true,
 			},
 		},
 	}
@@ -338,6 +342,9 @@ func (r *networkResource) apiPath(data *NetworkResourceModel) string {
 	path := fmt.Sprintf("/api/v1/environments/%s/networks", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
+	}
+	if data.ForceDelete.ValueBool() {
+		path = path + "?force=true"
 	}
 	return path
 }
