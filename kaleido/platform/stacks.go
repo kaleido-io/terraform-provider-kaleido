@@ -81,7 +81,7 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed: true,
 			},
 			"network_id": &schema.StringAttribute{
-				Required: false,
+				Optional: true,
 			},
 		},
 	}
