@@ -70,8 +70,8 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"secret": &schema.StringAttribute{
-				Computed: true,
-				// Sensitive: true,
+				Computed:  true,
+				Sensitive: true,
 			},
 		},
 	}
