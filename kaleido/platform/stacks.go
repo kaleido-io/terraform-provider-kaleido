@@ -44,7 +44,7 @@ type StacksAPIModel struct {
 	EnvironmentMemberID string     `json:"environmentMemberId,omitempty"`
 	Name                string     `json:"name"`
 	Type                string     `json:"type"`
-	NetworkId           string     `json:"networkId"`
+	NetworkId           string     `json:"networkId,omitempty"`
 }
 
 func StacksResourceFactory() resource.Resource {
@@ -81,7 +81,7 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed: true,
 			},
 			"network_id": &schema.StringAttribute{
-				Required: true,
+				Required: false,
 			},
 		},
 	}
@@ -98,7 +98,6 @@ func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
-	data.NetworkId = types.StringValue(api.NetworkId)
 	data.Name = types.StringValue(api.Name)
 	data.Type = types.StringValue(api.Type)
 	if api.NetworkId != "" && !data.NetworkId.IsNull() {
