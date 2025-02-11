@@ -15,9 +15,11 @@ package platform
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -26,17 +28,19 @@ import (
 )
 
 type ServiceAccessResourceModel struct {
-	ID        types.String `tfsdk:"id"`
-	GroupID   types.String `tfsdk:"groupid"`
-	ServiceID types.String `tfsdk:"serviceid"`
+	ID            types.String `tfsdk:"id"`
+	GroupID       types.String `tfsdk:"group_id"`
+	ServiceID     types.String `tfsdk:"service_id"`
+	ApplicationID types.String `tfsdk:"application_id"`
 }
 
 type ServiceAccessAPIModel struct {
-	ID        string     `json:"id,omitempty"`
-	GroupID   string     `json:"groupId,omitempty"`
-	Created   *time.Time `json:"created,omitempty"`
-	Updated   *time.Time `json:"updated,omitempty"`
-	ServiceID string     `json:"serviceId,omitempty"`
+	ID            string     `json:"id,omitempty"`
+	GroupID       string     `json:"groupId,omitempty"`
+	Created       *time.Time `json:"created,omitempty"`
+	Updated       *time.Time `json:"updated,omitempty"`
+	ServiceID     string     `json:"serviceId,omitempty"`
+	ApplicationID string     `json:"applicationId,omitempty"`
 }
 
 func ServiceAccessResourceFactory() resource.Resource {
@@ -58,27 +62,45 @@ func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaReque
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"groupid": &schema.StringAttribute{
-				Required: true, //intentionally requiring both group & service ID each update for now
+			"group_id": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"serviceid": &schema.StringAttribute{
-				Required: true, //intentionally requiring both group & service ID each update for now
+			"service_id": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"application_id": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 	}
 }
 
 func (data *ServiceAccessResourceModel) toAPI(api *ServiceAccessAPIModel) {
-	api.GroupID = data.GroupID.ValueString()
+	if !data.GroupID.IsNull() {
+		api.GroupID = data.GroupID.ValueString()
+	}
+	if !data.ApplicationID.IsNull() {
+		api.ApplicationID = data.ApplicationID.ValueString()
+	}
 	api.ServiceID = data.ServiceID.ValueString()
 }
 
 func (api *ServiceAccessAPIModel) toData(data *ServiceAccessResourceModel) {
 	data.ID = types.StringValue(api.ID)
+	if api.GroupID != "" {
+		data.GroupID = types.StringValue(api.GroupID)
+	}
+	if api.ApplicationID != "" {
+		data.ApplicationID = types.StringValue(api.ApplicationID)
+	}
+	data.ServiceID = types.StringValue(api.ServiceID)
 }
 
 func (r *serviceAccessResource) apiPath(data *ServiceAccessResourceModel) string {
-	path := "/api/v1/service-accesses"
+	path := fmt.Sprintf("/api/v1/service-access/%s/permissions", data.ServiceID.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
@@ -102,27 +124,25 @@ func (r *serviceAccessResource) Create(ctx context.Context, req resource.CreateR
 
 }
 
-// update is useless right now - but uncommenting to work with the resource model
 func (r *serviceAccessResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ServiceAccessResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
-	// var data ServiceAccessResourceModel
-	// resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	// resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+	// Read full current object
+	var api ServiceAccessAPIModel
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
 
-	// // Read full current object
-	// var api EnvironmentAPIModel
-	// if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
-	// 	return
-	// }
+	// Update from plan
+	data.toAPI(&api)
+	if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+		return
+	}
 
-	// // Update from plan
-	// data.toAPI(&api)
-	// if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
-	// 	return
-	// }
-
-	// api.toData(&data)
-	// resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	api.toData(&data)
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
 func (r *serviceAccessResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

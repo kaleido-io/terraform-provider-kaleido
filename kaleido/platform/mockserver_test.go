@@ -58,6 +58,9 @@ type mockPlatform struct {
 	ffsNode           *FireFlyStatusNodeAPIModel
 	ffsOrg            *FireFlyStatusOrgAPIModel
 	calls             []string
+	applications      map[string]*ApplicationAPIModel
+	apiKeys           map[string]*APIKeyAPIModel
+	serviceAccess     map[string]*ServiceAccessAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -82,6 +85,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsDMListeners:    make(map[string]*AMSDMListenerAPIModel),
 		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
 		groups:            make(map[string]*GroupAPIModel),
+		applications:      make(map[string]*ApplicationAPIModel),
+		serviceAccess:     make(map[string]*ServiceAccessAPIModel),
+		apiKeys:           make(map[string]*APIKeyAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
 	}
@@ -184,6 +190,22 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/groups/{group}", http.MethodGet, mp.getGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodPatch, mp.patchGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodDelete, mp.deleteGroup)
+
+	// See application_test.go
+	mp.register("/api/v1/applications", http.MethodPost, mp.postApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodGet, mp.getApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodPatch, mp.patchApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodDelete, mp.deleteApplication)
+
+	// See apikey_test.go
+	mp.register("/api/v1/applications/{application}/api-keys", http.MethodPost, mp.postApiKey)
+	mp.register("/api/v1/applications/{application}/api-keys/{api-key}", http.MethodGet, mp.getApiKey)
+	mp.register("/api/v1/applications/{application}/api-keys/{api-key}", http.MethodDelete, mp.deleteApiKey)
+
+	// See service_access_test.go
+	mp.register("/api/v1/service-access/{service}/permissions", http.MethodPost, mp.postServiceAccessPermission)
+	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodGet, mp.getServiceAccessPermission)
+	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodDelete, mp.deleteServiceAccessPermission)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
