@@ -89,7 +89,7 @@ func TestApiKey1(t *testing.T) {
 							"created": "%[2]s",
 							"name": "apiKey1_renamed",
 							"application": "ap:1234",
-							"no_expiry": true
+							"noExpiry": true
 						}
 						`,
 							// generated fields that vary per test run
