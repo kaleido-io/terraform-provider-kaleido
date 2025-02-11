@@ -32,6 +32,7 @@ var apiKeyStep1 = `
 resource "kaleido_platform_api_key" "apiKey1" {
     name = "apiKey1"
 	application_id = "ap:1234"
+	no_expiry = true
 }
 `
 
@@ -39,6 +40,7 @@ var apiKeyStep2 = `
 resource "kaleido_platform_api_key" "apiKey1" {
     name = "apiKey1_renamed"
 	application_id = "ap:1234"
+	no_expiry = true
 }
 `
 
@@ -86,7 +88,8 @@ func TestApiKey1(t *testing.T) {
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"name": "apiKey1_renamed",
-							"application": "ap:1234"
+							"application": "ap:1234",
+							"no_expiry": true
 						}
 						`,
 							// generated fields that vary per test run

@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -31,6 +32,8 @@ type APIKeyResourceModel struct {
 	Name          types.String `tfsdk:"name"`
 	ApplicationID types.String `tfsdk:"application_id"`
 	Secret        types.String `tfsdk:"secret"`
+	NoExpiry      types.Bool   `tfsdk:"no_expiry"`
+	ExpiryDate    types.String `tfsdk:"expiry_date"`
 }
 
 type APIKeyAPIModel struct {
@@ -38,8 +41,10 @@ type APIKeyAPIModel struct {
 	Name          string `json:"name"`
 	ApplicationID string `json:"application,omitempty"`
 
-	Secret  string     `json:"secret,omitempty"`
-	Created *time.Time `json:"created,omitempty"`
+	Secret     string     `json:"secret,omitempty"`
+	Created    *time.Time `json:"created,omitempty"`
+	NoExpiry   *bool      `json:"noExpiry,omitempty"`
+	ExpiryDate string     `json:"expiryDate,omitempty"`
 }
 
 func APIKeyResourceFactory() resource.Resource {
@@ -73,6 +78,15 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:  true,
 				Sensitive: true,
 			},
+			"expiry_date": &schema.StringAttribute{
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"no_expiry": &schema.BoolAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+			},
 		},
 	}
 }
@@ -80,6 +94,12 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 func (data *APIKeyResourceModel) toAPI(api *APIKeyAPIModel) {
 	api.Name = data.Name.ValueString()
 	api.ApplicationID = data.ApplicationID.ValueString()
+	if data.ExpiryDate.ValueString() != "" {
+		api.ExpiryDate = data.ExpiryDate.ValueString()
+	}
+	if data.NoExpiry.ValueBoolPointer() != nil {
+		api.NoExpiry = data.NoExpiry.ValueBoolPointer()
+	}
 }
 
 func (api *APIKeyAPIModel) toData(data *APIKeyResourceModel) {
@@ -87,6 +107,8 @@ func (api *APIKeyAPIModel) toData(data *APIKeyResourceModel) {
 	data.Name = types.StringValue(api.Name)
 	data.ApplicationID = types.StringValue(api.ApplicationID)
 	data.Secret = types.StringValue(api.Secret)
+	data.ExpiryDate = types.StringValue(api.ExpiryDate)
+	data.NoExpiry = types.BoolPointerValue(api.NoExpiry)
 }
 
 func (r *api_keyResource) apiPath(data *APIKeyResourceModel) string {
