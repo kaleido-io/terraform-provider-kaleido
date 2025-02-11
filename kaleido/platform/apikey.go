@@ -28,12 +28,13 @@ import (
 )
 
 type APIKeyResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	ApplicationID types.String `tfsdk:"application_id"`
-	Secret        types.String `tfsdk:"secret"`
-	NoExpiry      types.Bool   `tfsdk:"no_expiry"`
-	ExpiryDate    types.String `tfsdk:"expiry_date"`
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	ApplicationID       types.String `tfsdk:"application_id"`
+	Secret              types.String `tfsdk:"secret"`
+	NoExpiry            types.Bool   `tfsdk:"no_expiry"`
+	ExpiryDate          types.String `tfsdk:"expiry_date"`
+	FormattedExpiryDate types.String `tfsdk:"formatted_expiry_date"`
 }
 
 type APIKeyAPIModel struct {
@@ -80,6 +81,9 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"expiry_date": &schema.StringAttribute{
 				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"formatted_expiry_date": &schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -107,7 +111,7 @@ func (api *APIKeyAPIModel) toData(data *APIKeyResourceModel) {
 	data.Name = types.StringValue(api.Name)
 	data.ApplicationID = types.StringValue(api.ApplicationID)
 	data.Secret = types.StringValue(api.Secret)
-	data.ExpiryDate = types.StringValue(api.ExpiryDate)
+	data.FormattedExpiryDate = types.StringValue(api.ExpiryDate)
 	data.NoExpiry = types.BoolPointerValue(api.NoExpiry)
 }
 
