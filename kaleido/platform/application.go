@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -74,11 +75,12 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"oauth_enabled": &schema.BoolAttribute{
 				Optional:      true,
 				Computed:      true,
+				Default:       booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplaceIfConfigured()},
 			},
 			"oidc_config_url": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 	}
@@ -86,12 +88,8 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 
 func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.Name = data.Name.ValueString()
-	if !data.OAuthEnabled.IsNull() {
-		api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
-	}
-	if !data.OAuthEnabled.IsNull() {
-		api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
-	}
+	api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
+	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
 	api.OAuth = make(map[string]string)
 	if !data.OIDCConfigURL.IsNull() {
 		api.OAuth["oidcConfigURL"] = data.OIDCConfigURL.ValueString()
@@ -101,8 +99,12 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.AdminEnabled = types.BoolPointerValue(api.IsAdmin)
-	data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
-	data.OIDCConfigURL = types.StringValue(api.OAuth["oidcConfigURL"])
+	if api.EnableOAuth != nil {
+		data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
+	}
+	if api.OAuth != nil && api.OAuth["oidcConfigURL"] != "" {
+		data.OIDCConfigURL = types.StringValue(api.OAuth["oidcConfigURL"])
+	}
 }
 
 func (r *applicationResource) apiPath(data *ApplicationResourceModel) string {
