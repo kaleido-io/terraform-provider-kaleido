@@ -26,7 +26,7 @@ import (
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-const version = "v1.2.0"
+const version = "v1.1.0"
 
 type ProviderData struct {
 	BaaS     *kaleido.KaleidoClient
