@@ -107,9 +107,9 @@ type CMSBuildGithubAPIModel struct {
 }
 
 type CMSBuildOptimizerAPIModel struct {
-	Enabled *bool    `json:"enabled,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
 	Runs    float64 `json:"runs,omitempty"`
-	ViaIR   *bool    `json:"viaIR,omitempty"`
+	ViaIR   *bool   `json:"viaIR,omitempty"`
 }
 
 type CMSBuildSourceCodeAPIModel struct {
@@ -324,8 +324,7 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
 		api.SolcVersion = data.SolcVersion.ValueString()
 		falseVar := false
 		if data.Optimizer != nil {
-			api.Optimizer = &CMSBuildOptimizerAPIModel{
-			}
+			api.Optimizer = &CMSBuildOptimizerAPIModel{}
 
 			if data.Optimizer.Enabled.ValueBoolPointer() != nil {
 				api.Optimizer.Enabled = data.Optimizer.Enabled.ValueBoolPointer()
@@ -336,7 +335,7 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
 			if data.Optimizer.ViaIR.ValueBoolPointer() != nil {
 				api.Optimizer.ViaIR = data.Optimizer.ViaIR.ValueBoolPointer()
 			} else {
-				api.Optimizer.ViaIR	= &falseVar
+				api.Optimizer.ViaIR = &falseVar
 			}
 
 			if data.Optimizer.Runs.ValueInt64() != 200 {
@@ -380,8 +379,7 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 	}
 	if api.Optimizer != nil {
 		falseVar := false
-		data.Optimizer = &CMSBuildOptimizerResourceModel{
-		}
+		data.Optimizer = &CMSBuildOptimizerResourceModel{}
 
 		if api.Optimizer.Enabled != nil {
 			data.Optimizer.Enabled = types.BoolPointerValue(api.Optimizer.Enabled)
@@ -395,7 +393,7 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 			data.Optimizer.ViaIR = types.BoolPointerValue(&falseVar)
 		}
 
-		if (api.Optimizer.Runs != 200) {
+		if api.Optimizer.Runs != 200 {
 			data.Optimizer.Runs = types.Int64Value(int64(api.Optimizer.Runs))
 		} else {
 			data.Optimizer.Runs = types.Int64Value(200)
