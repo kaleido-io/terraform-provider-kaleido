@@ -291,20 +291,6 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 					},
 				},
-				Default: objectdefault.StaticValue(
-					types.ObjectValueMust(
-						map[string]attr.Type{
-							"enabled": types.BoolType,
-							"runs":    types.Int64Type,
-							"via_ir":  types.BoolType,
-						},
-						map[string]attr.Value{
-							"enabled": types.BoolValue(false),
-							"runs":    types.Int64Value(0),
-							"via_ir":  types.BoolValue(false),
-						},
-					),
-				),
 			},
 		},
 	}

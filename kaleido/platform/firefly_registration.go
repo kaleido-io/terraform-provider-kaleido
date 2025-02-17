@@ -75,14 +75,17 @@ func (r *firefly_registrationResource) Metadata(_ context.Context, _ resource.Me
 
 func (r *firefly_registrationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Once you have the multi-party network members created, the final step is to instruct FireFly namespaces to register their nodes and organizations in the network. This is only supported for Firefly services with multiparty enabled.",
 		Attributes: map[string]schema.Attribute{
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Firefly Service ID to register in the multiparty network",
 			},
 			"org_id": &schema.StringAttribute{
 				Computed: true,

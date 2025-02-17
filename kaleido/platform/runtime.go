@@ -78,6 +78,7 @@ func (r *runtimeResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Runtimes are the highly available container instances that run the function of the services. They allow for controlling the performance, topology, and scalability of the underlying service(s).",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -86,6 +87,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Service type.",
 			},
 			"name": &schema.StringAttribute{
 				Required: true,
@@ -93,6 +95,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,

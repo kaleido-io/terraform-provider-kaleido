@@ -60,6 +60,7 @@ func (r *applicationResource) Metadata(_ context.Context, _ resource.MetadataReq
 
 func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "An application provides authentication and access control to external applications & integrations connecting to the Kaleido platform using APIs. Applications are granted access separately to users and groups. There are two mechanisms for authenticating applications, using API keys or by identity provider.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -69,14 +70,16 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Required: true,
 			},
 			"admin_enabled": &schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "Grant the application the ability to act as an administrator of the platform",
 			},
 			"oauth_enabled": &schema.BoolAttribute{
 				Optional:      true,
 				Computed:      true,
 				Default:       booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplaceIfConfigured()},
+				Description:   "Default true. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.",
 			},
 			"oidc_config_url": &schema.StringAttribute{
 				Optional:      true,

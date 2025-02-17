@@ -62,6 +62,7 @@ func (r *api_keyResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "API keys are generated strong static keys for authenticating access to the platform, with a configurable expiry.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -70,18 +71,22 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"name": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "API Key Name",
 			},
 			"application_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Application ID to create your API key",
 			},
 			"secret": &schema.StringAttribute{
-				Computed:  true,
-				Sensitive: true,
+				Computed:    true,
+				Sensitive:   true,
+				Description: "API Key Value",
 			},
 			"expiry_date": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Expiration date formatted in RFC3339, Unix, or UnixNano",
 			},
 			"formatted_expiry_date": &schema.StringAttribute{
 				Computed:      true,
@@ -90,6 +95,7 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"no_expiry": &schema.BoolAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Description:   "Set to true for API keys that should never expire",
 			},
 		},
 	}

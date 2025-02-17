@@ -83,6 +83,7 @@ func (r *networkResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Networks provide an anchor object for multiple services that need to communicate together, and allow services to discover other services they need communicate with.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -98,6 +99,7 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,

@@ -104,6 +104,7 @@ func (r *serviceResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Each capability of the Kaleido platform is made available as a service.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -112,10 +113,12 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"runtime": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Runtime ID",
 			},
 			"type": &schema.StringAttribute{
 				Required:      true,
@@ -217,7 +220,8 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed: true,
 			},
 			"force_delete": &schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Force delete the service.",
 			},
 		},
 	}

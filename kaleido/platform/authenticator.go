@@ -69,6 +69,7 @@ func (r *authenticatorResource) Metadata(_ context.Context, _ resource.MetadataR
 
 func (r *authenticatorResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "BETA resource.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
