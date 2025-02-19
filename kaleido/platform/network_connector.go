@@ -30,44 +30,42 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type AuthenticatorResourceModel struct {
+type ConnectorResourceModel struct {
 	ID            types.String `tfsdk:"id"`
 	Name          types.String `tfsdk:"name"`
 	Type          types.String `tfsdk:"type"`
 	Environment   types.String `tfsdk:"environment"`
 	Network       types.String `tfsdk:"network"`
 	Zone          types.String `tfsdk:"zone"`
-	Conn          types.String `tfsdk:"conn"`
 	PermittedJSON types.String `tfsdk:"permitted_json"`
 }
 
-type AuthenticatorAPIModel struct {
-	ID         string                 `json:"id,omitempty"`
-	Created    *time.Time             `json:"created,omitempty"`
-	Updated    *time.Time             `json:"updated,omitempty"`
-	Type       string                 `json:"type"`
-	Name       string                 `json:"name"`
-	NetworkID  string                 `json:"networkId,omitempty"`
-	Zone       string                 `json:"zone,omitempty"`
-	Connection string                 `json:"connection,omitempty"`
-	Permitted  map[string]interface{} `json:"permitted,omitempty"`
-	Deleted    bool                   `json:"deleted,omitempty"`
-	Status     string                 `json:"status,omitempty"`
+type ConnectorAPIModel struct {
+	ID        string                 `json:"id,omitempty"`
+	Created   *time.Time             `json:"created,omitempty"`
+	Updated   *time.Time             `json:"updated,omitempty"`
+	Type      string                 `json:"type"`
+	Name      string                 `json:"name"`
+	NetworkID string                 `json:"networkId,omitempty"`
+	Zone      string                 `json:"zone,omitempty"`
+	Permitted map[string]interface{} `json:"permitted,omitempty"`
+	Deleted   bool                   `json:"deleted,omitempty"`
+	Status    string                 `json:"status,omitempty"`
 }
 
-func AuthenticatorResourceFactory() resource.Resource {
-	return &authenticatorResource{}
+func ConnectorResourceFactory() resource.Resource {
+	return &connectorResource{}
 }
 
-type authenticatorResource struct {
+type connectorResource struct {
 	commonResource
 }
 
-func (r *authenticatorResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_authenticator"
+func (r *connectorResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_network_connector"
 }
 
-func (r *authenticatorResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
@@ -93,10 +91,6 @@ func (r *authenticatorResource) Schema(_ context.Context, _ resource.SchemaReque
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"conn": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
 			"permitted_json": &schema.StringAttribute{
 				Optional: true,
 			},
@@ -104,14 +98,13 @@ func (r *authenticatorResource) Schema(_ context.Context, _ resource.SchemaReque
 	}
 }
 
-func (data *AuthenticatorResourceModel) toAPI(ctx context.Context, api *AuthenticatorAPIModel, diagnostics *diag.Diagnostics) {
+func (data *ConnectorResourceModel) toAPI(ctx context.Context, api *ConnectorAPIModel, diagnostics *diag.Diagnostics) {
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
 	api.NetworkID = data.Network.ValueString()
 
 	api.Zone = data.Zone.ValueString()
-	api.Connection = data.Conn.ValueString()
 
 	// optional fields
 	api.Permitted = map[string]interface{}{}
@@ -121,13 +114,12 @@ func (data *AuthenticatorResourceModel) toAPI(ctx context.Context, api *Authenti
 
 }
 
-func (api *AuthenticatorAPIModel) toData(data *AuthenticatorResourceModel, diagnostics *diag.Diagnostics) {
+func (api *ConnectorAPIModel) toData(data *ConnectorResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 
 	data.Network = types.StringValue(api.NetworkID)
 	data.Zone = types.StringValue(api.Zone)
-	data.Conn = types.StringValue(api.Connection)
 
 	info := make(map[string]attr.Value)
 	for k, v := range api.Permitted {
@@ -138,20 +130,20 @@ func (api *AuthenticatorAPIModel) toData(data *AuthenticatorResourceModel, diagn
 	}
 }
 
-func (r *authenticatorResource) apiPath(data *AuthenticatorResourceModel) string {
-	path := fmt.Sprintf("/api/v1/environments/%s/networks/%s/authenticators", data.Environment.ValueString(), data.Network.ValueString())
+func (r *connectorResource) apiPath(data *ConnectorResourceModel) string {
+	path := fmt.Sprintf("/api/v1/environments/%s/networks/%s/connectors", data.Environment.ValueString(), data.Network.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
 	return path
 }
 
-func (r *authenticatorResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *connectorResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	var data AuthenticatorResourceModel
+	var data ConnectorResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	var api AuthenticatorAPIModel
+	var api ConnectorAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
@@ -165,14 +157,14 @@ func (r *authenticatorResource) Create(ctx context.Context, req resource.CreateR
 
 }
 
-func (r *authenticatorResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *connectorResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 
-	var data AuthenticatorResourceModel
+	var data ConnectorResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
 	// Read full current object
-	var api AuthenticatorAPIModel
+	var api ConnectorAPIModel
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
@@ -189,11 +181,11 @@ func (r *authenticatorResource) Update(ctx context.Context, req resource.UpdateR
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *authenticatorResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data AuthenticatorResourceModel
+func (r *connectorResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ConnectorResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var api AuthenticatorAPIModel
+	var api ConnectorAPIModel
 	api.ID = data.ID.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
@@ -208,8 +200,8 @@ func (r *authenticatorResource) Read(ctx context.Context, req resource.ReadReque
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *authenticatorResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data AuthenticatorResourceModel
+func (r *connectorResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ConnectorResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
