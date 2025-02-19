@@ -26,6 +26,8 @@ import (
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
+const version = "v1.1.0"
+
 type ProviderData struct {
 	BaaS     *kaleido.KaleidoClient
 	Platform *resty.Client
@@ -71,7 +73,8 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	r := resty.New().
 		SetTransport(http.DefaultTransport).
 		SetBaseURL(baasAPI).
-		SetAuthToken(baasAPIKey)
+		SetAuthToken(baasAPIKey).
+                SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (BaaS)", version))
 	AddRestyLogging(logCtx, r)
 	baas := &kaleido.KaleidoClient{Client: r}
 
@@ -89,6 +92,7 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	}
 	platform := resty.New().
 		SetTransport(http.DefaultTransport).
+		SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (Platform)", version)).
 		SetBaseURL(platformAPI)
 	if platformUsername != "" && platformPassword != "" {
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)
