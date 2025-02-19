@@ -29,10 +29,10 @@ resource "kaleido_platform_stack" "web3_middleware_stack" {
   type = "web3_middleware"
 }
 
-resource "kaleido_platform_stack" "digital_asset_manager_stack" {
+resource "kaleido_platform_stack" "digital_assets_stack" {
   environment = kaleido_platform_environment.env_0.id
-  name = "digital_asset_manager_stack"
-  type = "digital_asset_manager"
+  name = "digital_assets_stack"
+  type = "digital_assets"
 }
 
 resource "kaleido_platform_network" "net_0" {
