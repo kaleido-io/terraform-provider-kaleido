@@ -66,7 +66,7 @@ func (r *stackAccessResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"service_id": &schema.StringAttribute{
+			"stack_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
