@@ -44,6 +44,7 @@ type ServiceResourceModel struct {
 	Filesets            types.Map    `tfsdk:"file_sets"`
 	Credsets            types.Map    `tfsdk:"cred_sets"`
 	ConnectivityJSON    types.String `tfsdk:"connectivity_json"`
+	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
 type ServiceAPIModel struct {
@@ -220,6 +221,9 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"connectivity_json": &schema.StringAttribute{
 				Computed: true,
 			},
+			"force_delete": &schema.BoolAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -387,6 +391,11 @@ func (r *serviceResource) apiPath(data *ServiceResourceModel) string {
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
+
+	if data.ForceDelete.ValueBool() {
+		path = path + "?force=true"
+	}
+
 	return path
 }
 

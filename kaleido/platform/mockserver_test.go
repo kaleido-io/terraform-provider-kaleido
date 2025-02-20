@@ -41,7 +41,7 @@ type mockPlatform struct {
 	services          map[string]*ServiceAPIModel
 	networks          map[string]*NetworkAPIModel
 	stacks            map[string]*StacksAPIModel
-	authenticators    map[string]*AuthenticatorAPIModel
+	connectors        map[string]*ConnectorAPIModel
 	networkinitdatas  map[string]*NetworkInitData
 	kmsWallets        map[string]*KMSWalletAPIModel
 	kmsKeys           map[string]*KMSKeyAPIModel
@@ -59,6 +59,9 @@ type mockPlatform struct {
 	ffsNode           *FireFlyStatusNodeAPIModel
 	ffsOrg            *FireFlyStatusOrgAPIModel
 	calls             []string
+	applications      map[string]*ApplicationAPIModel
+	apiKeys           map[string]*APIKeyAPIModel
+	serviceAccess     map[string]*ServiceAccessAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -69,7 +72,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		services:          make(map[string]*ServiceAPIModel),
 		networks:          make(map[string]*NetworkAPIModel),
 		stacks:            make(map[string]*StacksAPIModel),
-		authenticators:    make(map[string]*AuthenticatorAPIModel),
+		connectors:        make(map[string]*ConnectorAPIModel),
 		networkinitdatas:  make(map[string]*NetworkInitData),
 		kmsWallets:        make(map[string]*KMSWalletAPIModel),
 		kmsKeys:           make(map[string]*KMSKeyAPIModel),
@@ -84,6 +87,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsDMListeners:    make(map[string]*AMSDMListenerAPIModel),
 		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
 		groups:            make(map[string]*GroupAPIModel),
+		applications:      make(map[string]*ApplicationAPIModel),
+		serviceAccess:     make(map[string]*ServiceAccessAPIModel),
+		apiKeys:           make(map[string]*APIKeyAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
 	}
@@ -111,11 +117,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodPut, mp.putNetwork)
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodDelete, mp.deleteNetwork)
 
-	// See authenticator_test.go
-	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators", http.MethodPost, mp.postAuthenticator)
-	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}", http.MethodGet, mp.getAuthenticator)
-	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}", http.MethodPut, mp.putAuthenticator)
-	mp.register("/api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}", http.MethodDelete, mp.deleteAuthenticator)
+	// See connector_test.go
+	mp.register("/api/v1/environments/{env}/networks/{net}/connectors", http.MethodPost, mp.postConnector)
+	mp.register("/api/v1/environments/{env}/networks/{net}/connectors/{connector}", http.MethodGet, mp.getConnector)
+	mp.register("/api/v1/environments/{env}/networks/{net}/connectors/{connector}", http.MethodPut, mp.putConnector)
+	mp.register("/api/v1/environments/{env}/networks/{net}/connectors/{connector}", http.MethodDelete, mp.deleteConnector)
 
 	// See network_bootstrap_test.go
 	mp.register("/api/v1/environments/{env}/networks/{network}/initdata", http.MethodGet, mp.getNetworkInitData)
@@ -192,6 +198,21 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/stacks/{stack}", http.MethodGet, mp.getStacks)
 	mp.register("/api/v1/environments/{env}/stacks/{stack}", http.MethodPut, mp.putStacks)
 	mp.register("/api/v1/environments/{env}/stacks/{stack}", http.MethodDelete, mp.deleteStacks)
+	// See application_test.go
+	mp.register("/api/v1/applications", http.MethodPost, mp.postApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodGet, mp.getApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodPatch, mp.patchApplication)
+	mp.register("/api/v1/applications/{application}", http.MethodDelete, mp.deleteApplication)
+
+	// See apikey_test.go
+	mp.register("/api/v1/applications/{application}/api-keys", http.MethodPost, mp.postApiKey)
+	mp.register("/api/v1/applications/{application}/api-keys/{api-key}", http.MethodGet, mp.getApiKey)
+	mp.register("/api/v1/applications/{application}/api-keys/{api-key}", http.MethodDelete, mp.deleteApiKey)
+
+	// See service_access_test.go
+	mp.register("/api/v1/service-access/{service}/permissions", http.MethodPost, mp.postServiceAccessPermission)
+	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodGet, mp.getServiceAccessPermission)
+	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodDelete, mp.deleteServiceAccessPermission)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp

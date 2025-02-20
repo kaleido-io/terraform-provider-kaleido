@@ -213,28 +213,26 @@ resource "kaleido_platform_service" "gws_net_sec" {
 }
 
 
-// Authenticators
-resource "kaleido_platform_authenticator" "net_sec_authenticator" {
+// Network Connectors
+resource "kaleido_network_connector" "net_sec_connector" {
   provider = kaleido.secondary
   type = "Permitted"
-  name = "${var.secondary_name}_auth"
+  name = "${var.secondary_name}_conn"
   environment = kaleido_platform_environment.env_sec.id
   network = kaleido_platform_network.net_sec.id
   zone = var.secondary_peer_network_dz
-  conn = var.secondary_peer_network_connection
   permitted_json = jsonencode({ peers = [ for peer in resource.kaleido_platform_service.bns_peer_net_og : jsondecode(peer.connectivity_json) ] })
   depends_on = [kaleido_platform_network.net_sec, kaleido_platform_service.bns_peer_net_og]
 }
 
 
-resource "kaleido_platform_authenticator" "net_og_authenticator" {
+resource "kaleido_network_connector" "net_og_connector" {
   provider = kaleido.originator
   type = "Permitted"
-  name = "${var.originator_name}_auth"
+  name = "${var.originator_name}_conn"
   environment = kaleido_platform_environment.env_og.id
   network = kaleido_platform_network.net_og.id
   zone = var.originator_peer_network_dz
-  conn = var.originator_peer_network_connection
   permitted_json = jsonencode({ peers = [ for peer in resource.kaleido_platform_service.bns_peer_net_sec : jsondecode(peer.connectivity_json) ] })
   depends_on = [kaleido_platform_network.net_og, kaleido_platform_service.bns_peer_net_sec]
 }

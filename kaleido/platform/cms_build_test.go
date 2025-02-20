@@ -206,7 +206,7 @@ func TestCMSBuildPreCompiled(t *testing.T) {
 							"created": "%[2]s",
 							"updated": "%[3]s",
 							"name": "build2",
-							"optimizer": {},
+							"optimizer": {"enabled": false, "runs": 200, "viaIR": false},
 							"path": "some/path",
               "abi": [{"some":"precompiled_abi"}],
               "bytecode": "0xB17EC0DE",

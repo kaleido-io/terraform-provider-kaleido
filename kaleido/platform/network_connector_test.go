@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2025
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,73 +28,71 @@ import (
 	_ "embed"
 )
 
-var authenticatorStep1 = `
-resource "kaleido_platform_authenticator" "authenticator1" {
+var connectorStep1 = `
+resource "kaleido_network_connector" "connector1" {
     environment = "env1"
 	network = "net1"
     type = "permitted"
-    name = "auth1"
+    name = "nconn1"
 	zone = "zone1"
-	conn = "conn1"
     permitted_json = jsonencode({"peers":[{"endpoints":[{"host":"10.244.3.64","nat":"None","port":30303,"protocol":"TCP"},{"host":"86.13.78.205","nat":"Source","port":30303,"protocol":"TCP"}],"identity":"496f2bfe5cac576cb33f98778eb5617e3d3fe2e9ffeda8e7d0bde22f5e15d2dd4750f59a268ece9197aa10f4e709012564b514782ea86529c11d02a3c604ee7b"}]})
 }
 `
 
-var authenticatorStep2 = `
-resource "kaleido_platform_authenticator" "authenticator1" {
+var connectorStep2 = `
+resource "kaleido_network_connector" "connector1" {
     environment = "env1"
 	network = "net1"
     type = "permitted"
-    name = "auth1"
+    name = "nconn1"
 	zone = "zone1"
-	conn = "conn1"
     permitted_json = jsonencode({"peers":[{"endpoints":[{"host":"10.244.3.64","nat":"None","port":30303,"protocol":"TCP"},{"host":"86.13.78.205","nat":"Source","port":30303,"protocol":"TCP"}],"identity":"496f2bfe5cac576cb33f98778eb5617e3d3fe2e9ffeda8e7d0bde22f5e15d2dd4750f59a268ece9197aa10f4e709012564b514782ea86529c11d02a3c604ee7b"}]})
 }
 `
 
-func TestAuthenticator(t *testing.T) {
+func TestConnector(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
-			"POST /api/v1/environments/{env}/networks/{net}/authenticators",
-			"GET /api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}",
-			"GET /api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}",
-			"GET /api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}",
-			"GET /api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}",
-			"GET /api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}",
-			"DELETE /api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}",
-			"GET /api/v1/environments/{env}/networks/{net}/authenticators/{authenticator}",
+			"POST /api/v1/environments/{env}/networks/{net}/connectors",
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"DELETE /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
 		})
 		mp.server.Close()
 	}()
 
-	authenticator1Resource := "kaleido_platform_authenticator.authenticator1"
+	connector1Resource := "kaleido_network_connector.connector1"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + authenticatorStep1,
+				Config: providerConfig + connectorStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(authenticator1Resource, "id"),
+					resource.TestCheckResourceAttrSet(connector1Resource, "id"),
 				),
 			},
 			{
-				Config: providerConfig + authenticatorStep2,
+				Config: providerConfig + connectorStep2,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(authenticator1Resource, "id"),
+					resource.TestCheckResourceAttrSet(connector1Resource, "id"),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
-						id := s.RootModule().Resources[authenticator1Resource].Primary.Attributes["id"]
-						auth := mp.authenticators[fmt.Sprintf("env1/net1/%s", id)]
+						id := s.RootModule().Resources[connector1Resource].Primary.Attributes["id"]
+						auth := mp.connectors[fmt.Sprintf("env1/net1/%s", id)]
 						testJSONEqual(t, auth, fmt.Sprintf(`
 						{
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
 							"type": "permitted",
-							"name": "auth1",
+							"name": "nconn1",
 							"networkId": "net1",
 							"permitted": {
 							  "peers": [
@@ -118,7 +116,6 @@ func TestAuthenticator(t *testing.T) {
 							  ]
 							},
 							"zone": "zone1",
-							"connection": "conn1",
 							"status": "ready"
 						}
 						`,
@@ -135,8 +132,8 @@ func TestAuthenticator(t *testing.T) {
 	})
 }
 
-func (mp *mockPlatform) getAuthenticator(res http.ResponseWriter, req *http.Request) {
-	auth := mp.authenticators[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["authenticator"]]
+func (mp *mockPlatform) getConnector(res http.ResponseWriter, req *http.Request) {
+	auth := mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]]
 	if auth == nil {
 		mp.respond(res, nil, 404)
 	} else {
@@ -146,36 +143,36 @@ func (mp *mockPlatform) getAuthenticator(res http.ResponseWriter, req *http.Requ
 	}
 }
 
-func (mp *mockPlatform) postAuthenticator(res http.ResponseWriter, req *http.Request) {
-	var auth AuthenticatorAPIModel
-	mp.getBody(req, &auth)
-	auth.ID = nanoid.New()
+func (mp *mockPlatform) postConnector(res http.ResponseWriter, req *http.Request) {
+	var conn ConnectorAPIModel
+	mp.getBody(req, &conn)
+	conn.ID = nanoid.New()
 	now := time.Now().UTC()
-	auth.Created = &now
-	auth.Updated = &now
-	auth.Status = "pending"
-	mp.authenticators[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+auth.ID] = &auth
-	mp.respond(res, &auth, 201)
+	conn.Created = &now
+	conn.Updated = &now
+	conn.Status = "pending"
+	mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+conn.ID] = &conn
+	mp.respond(res, &conn, 201)
 }
 
-func (mp *mockPlatform) putAuthenticator(res http.ResponseWriter, req *http.Request) {
-	auth := mp.authenticators[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["authenticator"]]
+func (mp *mockPlatform) putConnector(res http.ResponseWriter, req *http.Request) {
+	auth := mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]]
 	assert.NotNil(mp.t, auth)
-	var newAuth AuthenticatorAPIModel
-	mp.getBody(req, &newAuth)
-	assert.Equal(mp.t, auth.ID, newAuth.ID)                     // expected behavior of provider
-	assert.Equal(mp.t, auth.ID, mux.Vars(req)["authenticator"]) // expected behavior of provider
+	var newConn ConnectorAPIModel
+	mp.getBody(req, &newConn)
+	assert.Equal(mp.t, auth.ID, newConn.ID)                 // expected behavior of provider
+	assert.Equal(mp.t, auth.ID, mux.Vars(req)["connector"]) // expected behavior of provider
 	now := time.Now().UTC()
-	newAuth.Created = auth.Created
-	newAuth.Updated = &now
-	newAuth.Status = "pending"
-	mp.authenticators[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["authenticator"]] = &newAuth
-	mp.respond(res, &newAuth, 200)
+	newConn.Created = auth.Created
+	newConn.Updated = &now
+	newConn.Status = "pending"
+	mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]] = &newConn
+	mp.respond(res, &newConn, 200)
 }
 
-func (mp *mockPlatform) deleteAuthenticator(res http.ResponseWriter, req *http.Request) {
-	rt := mp.authenticators[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["authenticator"]]
+func (mp *mockPlatform) deleteConnector(res http.ResponseWriter, req *http.Request) {
+	rt := mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]]
 	assert.NotNil(mp.t, rt)
-	delete(mp.authenticators, mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["authenticator"])
+	delete(mp.connectors, mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"])
 	mp.respond(res, nil, 204)
 }
