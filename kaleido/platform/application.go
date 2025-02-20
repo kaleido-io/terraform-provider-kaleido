@@ -47,23 +47,23 @@ type ApplicationAPIModel struct {
 }
 
 type ApplicationOAuthAPIModel struct {
-	Issuer          *string `json:"issuer,omitempty"`        // uniquely identifies the issuer of the OAuth token.  Matches the iss claim
-	JWKSEndpoint    *string `json:"jwksEndpoint,omitempty"`  // URL to be used to retrieve JWKS needed to validate the OAuth token
-	JWKS            *string `json:"jwks,omitempty"`          // by value copy of the JWKS for case where the endpoint cannot be invoked from kaleido
-	Audience        *string `json:"aud,omitempty"`           //if not nil, must match the aud claim
-	AuthorizedParty *string `json:"azp,omitempty"`           // if not nil, must match the azp claim
-	OIDCConfigURL   *string `json:"oidcConfigURL,omitempty"` // URL to be used to retrieve all information for OIDC, including jwksEndpoint etc.
-	CACertificate   *string `json:"caCertificate,omitempty"` // if not nil, the CA the cert for the endpoint is signed by
+	Issuer          *string `json:"issuer,omitempty"`
+	JWKSEndpoint    *string `json:"jwksEndpoint,omitempty"`
+	JWKS            *string `json:"jwks,omitempty"`
+	Audience        *string `json:"aud,omitempty"`
+	AuthorizedParty *string `json:"azp,omitempty"`
+	OIDCConfigURL   *string `json:"oidcConfigURL,omitempty"`
+	CACertificate   *string `json:"caCertificate,omitempty"`
 }
 
 type ApplicationOAuthResourceModel struct {
-	Issuer          *string `tfsdk:"issuer"`          // uniquely identifies the issuer of the OAuth token.  Matches the iss claim
-	JWKSEndpoint    *string `tfsdk:"jwks_endpoint"`   // URL to be used to retrieve JWKS needed to validate the OAuth token
-	JWKS            *string `tfsdk:"jwks"`            // by value copy of the JWKS for case where the endpoint cannot be invoked from kaleido
-	Audience        *string `tfsdk:"aud"`             //if not nil, must match the aud claim
-	AuthorizedParty *string `tfsdk:"azp"`             // if not nil, must match the azp claim
-	OIDCConfigURL   *string `tfsdk:"oidc_config_url"` // URL to be used to retrieve all information for OIDC, including jwksEndpoint etc.
-	CACertificate   *string `tfsdk:"ca_certificate"`  // if not nil, the CA the cert for the endpoint is signed by
+	Issuer          *string `tfsdk:"issuer"`
+	JWKSEndpoint    *string `tfsdk:"jwks_endpoint"`
+	JWKS            *string `tfsdk:"jwks"`
+	Audience        *string `tfsdk:"aud"`
+	AuthorizedParty *string `tfsdk:"azp"`
+	OIDCConfigURL   *string `tfsdk:"oidc_config_url"`
+	CACertificate   *string `tfsdk:"ca_certificate"`
 }
 
 func ApplicationResourceFactory() resource.Resource {
