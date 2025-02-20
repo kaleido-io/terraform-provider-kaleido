@@ -80,17 +80,24 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 	for _, o := range options {
 		isYaml = isYaml || o.yamlBody
 	}
+	tflog.Debug(ctx, fmt.Sprintf("BODY %s", body))
+
 	if body != nil {
 		switch tBody := body.(type) {
 		case []byte:
 			bodyBytes = tBody
 			bodyString = string(tBody)
+			tflog.Debug(ctx, fmt.Sprintf("BODY BYTES %s", bodyString))
+
 		case string:
 			bodyBytes = []byte(tBody)
 			bodyString = tBody
+			tflog.Debug(ctx, fmt.Sprintf("BODY STRING %s", bodyString))
+
 		default:
 			if isYaml {
 				bodyBytes, err = yaml.Marshal(body)
+				tflog.Debug(ctx, fmt.Sprintf("BODY YAML %s", bodyBytes))
 			} else {
 				bodyBytes, err = json.Marshal(body)
 			}
@@ -348,6 +355,7 @@ func Resources() []func() resource.Resource {
 		RuntimeResourceFactory,
 		ServiceResourceFactory,
 		ServiceAccessResourceFactory,
+		StackAccessResourceFactory,
 		NetworkResourceFactory,
 		KMSWalletResourceFactory,
 		KMSKeyResourceFactory,

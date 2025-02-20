@@ -78,12 +78,12 @@ func TestStackAccess1(t *testing.T) {
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[stackAccess1Resource].Primary.Attributes["id"]
-						rt := mp.stackAccess[fmt.Sprintf("s:1234/%s", id)]
+						rt := mp.stackAccess[fmt.Sprintf("st:1234/%s", id)]
 						testJSONEqual(t, rt, fmt.Sprintf(`
 						{
 							"id": "%[1]s",
 							"created": "%[2]s",
-							"stackId": "s:1234",
+							"stackId": "st:1234",
 							"groupId" : "g:1234"
 						}
 						`,
