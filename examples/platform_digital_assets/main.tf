@@ -19,7 +19,7 @@ resource "kaleido_platform_environment" "env_0" {
 
 resource "kaleido_platform_stack" "chain_infra_stack" {
   environment = kaleido_platform_environment.env_0.id
-  name = "chain_infra_Besu_stack"
+  name = "chain_infra_besu_stack"
   type = "chain_infrastructure"
 }
 
