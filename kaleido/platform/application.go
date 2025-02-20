@@ -29,21 +29,41 @@ import (
 )
 
 type ApplicationResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	OIDCConfigURL types.String `tfsdk:"oidc_config_url"`
-	OAuthEnabled  types.Bool   `tfsdk:"oauth_enabled"`
-	AdminEnabled  types.Bool   `tfsdk:"admin_enabled"`
+	ID           types.String                  `tfsdk:"id"`
+	Name         types.String                  `tfsdk:"name"`
+	OAuthEnabled types.Bool                    `tfsdk:"oauth_enabled"`
+	AdminEnabled types.Bool                    `tfsdk:"admin_enabled"`
+	Oauth        ApplicationOAuthResourceModel `tfsdk:"oauth"`
 }
 
 type ApplicationAPIModel struct {
-	ID          string            `json:"id,omitempty"`
-	Created     *time.Time        `json:"created,omitempty"`
-	Updated     *time.Time        `json:"updated,omitempty"`
-	Name        string            `json:"name"`
-	OAuth       map[string]string `json:"oauth,omitempty"`
-	IsAdmin     *bool             `json:"isAdmin,omitempty"`
-	EnableOAuth *bool             `json:"enableOAuth,omitempty"`
+	ID          string                    `json:"id,omitempty"`
+	Created     *time.Time                `json:"created,omitempty"`
+	Updated     *time.Time                `json:"updated,omitempty"`
+	Name        string                    `json:"name"`
+	OAuth       *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
+	IsAdmin     *bool                     `json:"isAdmin,omitempty"`
+	EnableOAuth *bool                     `json:"enableOAuth,omitempty"`
+}
+
+type ApplicationOAuthAPIModel struct {
+	Issuer          *string `json:"issuer,omitempty"`        // uniquely identifies the issuer of the OAuth token.  Matches the iss claim
+	JWKSEndpoint    *string `json:"jwksEndpoint,omitempty"`  // URL to be used to retrieve JWKS needed to validate the OAuth token
+	JWKS            *string `json:"jwks,omitempty"`          // by value copy of the JWKS for case where the endpoint cannot be invoked from kaleido
+	Audience        *string `json:"aud,omitempty"`           //if not nil, must match the aud claim
+	AuthorizedParty *string `json:"azp,omitempty"`           // if not nil, must match the azp claim
+	OIDCConfigURL   *string `json:"oidcConfigURL,omitempty"` // URL to be used to retrieve all information for OIDC, including jwksEndpoint etc.
+	CACertificate   *string `json:"caCertificate,omitempty"` // if not nil, the CA the cert for the endpoint is signed by
+}
+
+type ApplicationOAuthResourceModel struct {
+	Issuer          *string `tfsdk:"issuer"`          // uniquely identifies the issuer of the OAuth token.  Matches the iss claim
+	JWKSEndpoint    *string `tfsdk:"jwks_endpoint"`   // URL to be used to retrieve JWKS needed to validate the OAuth token
+	JWKS            *string `tfsdk:"jwks"`            // by value copy of the JWKS for case where the endpoint cannot be invoked from kaleido
+	Audience        *string `tfsdk:"aud"`             //if not nil, must match the aud claim
+	AuthorizedParty *string `tfsdk:"azp"`             // if not nil, must match the azp claim
+	OIDCConfigURL   *string `tfsdk:"oidc_config_url"` // URL to be used to retrieve all information for OIDC, including jwksEndpoint etc.
+	CACertificate   *string `tfsdk:"ca_certificate"`  // if not nil, the CA the cert for the endpoint is signed by
 }
 
 func ApplicationResourceFactory() resource.Resource {
@@ -78,9 +98,39 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Default:       booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplaceIfConfigured()},
 			},
-			"oidc_config_url": &schema.StringAttribute{
-				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			"oauth": &schema.SingleNestedAttribute{
+				Optional: true,
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"aud": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"azp": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"ca_certificate": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"issuer": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"jwks": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"jwks_endpoint": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"oidc_config_url": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+				},
 			},
 		},
 	}
@@ -90,10 +140,19 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.Name = data.Name.ValueString()
 	api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
-	api.OAuth = make(map[string]string)
-	if !data.OIDCConfigURL.IsNull() {
-		api.OAuth["oidcConfigURL"] = data.OIDCConfigURL.ValueString()
+	api.OAuth = &ApplicationOAuthAPIModel{
+		Issuer:          data.Oauth.Issuer,
+		JWKSEndpoint:    data.Oauth.JWKSEndpoint,
+		JWKS:            data.Oauth.JWKS,
+		Audience:        data.Oauth.Audience,
+		AuthorizedParty: data.Oauth.AuthorizedParty,
+		CACertificate:   data.Oauth.CACertificate,
+		OIDCConfigURL:   data.Oauth.OIDCConfigURL,
 	}
+
+	// if !data.OIDCConfigURL.IsNull() {
+	// 	api.OAuth["oidcConfigURL"] = data.OIDCConfigURL.ValueString()
+	// }
 }
 
 func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
@@ -102,9 +161,11 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	if api.EnableOAuth != nil {
 		data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
 	}
-	if api.OAuth != nil && api.OAuth["oidcConfigURL"] != "" {
-		data.OIDCConfigURL = types.StringValue(api.OAuth["oidcConfigURL"])
-	}
+	data.Oauth = ApplicationOAuthResourceModel(*api.OAuth)
+
+	// if api.OAuth != nil && api.OAuth["oidcConfigURL"] != "" {
+	// 	data.OIDCConfigURL = types.StringValue(api.OAuth["oidcConfigURL"])
+	// }
 }
 
 func (r *applicationResource) apiPath(data *ApplicationResourceModel) string {
