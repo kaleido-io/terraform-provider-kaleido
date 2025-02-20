@@ -150,9 +150,6 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 		OIDCConfigURL:   data.Oauth.OIDCConfigURL,
 	}
 
-	// if !data.OIDCConfigURL.IsNull() {
-	// 	api.OAuth["oidcConfigURL"] = data.OIDCConfigURL.ValueString()
-	// }
 }
 
 func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
@@ -163,9 +160,6 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	}
 	data.Oauth = ApplicationOAuthResourceModel(*api.OAuth)
 
-	// if api.OAuth != nil && api.OAuth["oidcConfigURL"] != "" {
-	// 	data.OIDCConfigURL = types.StringValue(api.OAuth["oidcConfigURL"])
-	// }
 }
 
 func (r *applicationResource) apiPath(data *ApplicationResourceModel) string {
