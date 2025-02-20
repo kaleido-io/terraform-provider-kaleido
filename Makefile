@@ -15,7 +15,7 @@ TARGETS="windows-10.0/*,darwin-10.10/*"
 
 .PHONY: test
 
-all: deps build test
+all: deps build test vulncheck
 build:
 	$(GOBUILD) -o ${BINARY_NAME}
 package: build-linux build-mac build-win
@@ -35,3 +35,6 @@ build-mac-legacy:
 		GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BINARY_MAC) -v
 build-win:
 		GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BINARY_WIN) -v
+
+vulncheck:
+	./sbom.sh $(shell pwd)
