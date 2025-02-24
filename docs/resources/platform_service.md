@@ -19,15 +19,15 @@ Each capability of the Kaleido platform is made available as a service.
 
 - `config_json` (String)
 - `environment` (String) Environment ID
-- `name` (String)
+- `name` (String) Service Display Name
 - `runtime` (String) Runtime ID
-- `type` (String)
+- `type` (String) Service Type
 
 ### Optional
 
 - `cred_sets` (Attributes Map) (see [below for nested schema](#nestedatt--cred_sets))
 - `file_sets` (Attributes Map) (see [below for nested schema](#nestedatt--file_sets))
-- `force_delete` (Boolean) Force delete the service.
+- `force_delete` (Boolean) Set to true when you want to delete a protected service like a Besu signing node. You must apply the value before being able to successfully `terraform destroy` the protected service.
 - `hostnames` (Map of List of String)
 
 ### Read-Only

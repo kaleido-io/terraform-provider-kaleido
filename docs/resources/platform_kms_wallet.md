@@ -18,9 +18,9 @@ Keys that are used for signing must reside in a resource known as a wallet. Once
 ### Required
 
 - `environment` (String) Environment ID
-- `name` (String)
+- `name` (String) Wallet Display Name
 - `service` (String) Key Manager Service ID
-- `type` (String)
+- `type` (String) Wallet Type. Options include `hdwallet`, `awscloudhsm`, `awsKms`, `azurekeyvault`, `fireblocks`, `gcpKms`, `hashicorp`, and `remotemodule`.
 
 ### Optional
 

@@ -85,7 +85,8 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description:   "Wallet ID",
 			},
 			"name": &schema.StringAttribute{
-				Required: true, // technically optional in Kaleido service, but it is an anti-pattern we do not support in the terraform provider
+				Required:    true, // technically optional in Kaleido service, but it is an anti-pattern we do not support in the terraform provider
+				Description: "Key Display Name",
 			},
 			"path": &schema.StringAttribute{
 				Optional:    true,

@@ -19,15 +19,15 @@ Runtimes are the highly available container instances that run the function of t
 
 - `config_json` (String)
 - `environment` (String) Environment ID
-- `name` (String)
-- `type` (String) Service type.
+- `name` (String) Runtime display name
+- `type` (String) Runtime type
 
 ### Optional
 
-- `force_delete` (Boolean)
-- `log_level` (String)
-- `size` (String)
-- `stopped` (Boolean)
+- `force_delete` (Boolean) Set to true when you want to delete a protected runtime like a Besu signing node. You must apply the value before being able to successfully `terraform destroy` the protected runtime.
+- `log_level` (String) Log Level setting. Updating this field will prompt a runtime restart when applied. ERROR, DEBUG, TRACE
+- `size` (String) Specification for the runtime's size.
+- `stopped` (Boolean) Stops your runtime as long as this value is set to `true`
 - `storage_size` (Number)
 - `storage_type` (String)
 - `sub_zone` (String)

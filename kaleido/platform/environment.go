@@ -60,7 +60,7 @@ func (r *environmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "Environment name",
+				Description: "Environment Name",
 			},
 		},
 	}

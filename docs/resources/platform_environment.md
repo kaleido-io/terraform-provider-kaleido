@@ -17,7 +17,7 @@ Environments group multiple services, runtimes and networks together in a single
 
 ### Required
 
-- `name` (String) Environment name
+- `name` (String) Environment Name
 
 ### Read-Only
 

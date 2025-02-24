@@ -19,7 +19,7 @@ Groups (along with applications) are assigned permissions in services, and on th
 
 ### Required
 
-- `name` (String)
+- `name` (String) Group Display Name
 
 ### Read-Only
 

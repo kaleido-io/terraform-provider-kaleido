@@ -79,9 +79,11 @@ func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Wallet Type. Options include `hdwallet`, `awscloudhsm`, `awsKms`, `azurekeyvault`, `fireblocks`, `gcpKms`, `hashicorp`, and `remotemodule`. ",
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Wallet Display Name",
 			},
 			"config_json": &schema.StringAttribute{
 				Optional: true,

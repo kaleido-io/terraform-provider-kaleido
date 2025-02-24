@@ -92,9 +92,11 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Network Type. Options are `Besu` and `IPFS`",
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Network Display Name",
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
@@ -113,10 +115,12 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				ElementType: types.StringType,
 			},
 			"init_files": &schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "",
 			},
 			"init_mode": &schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Options are `automated`(default) or `manual`.",
 			},
 			"initialized": &schema.BoolAttribute{
 				Computed: true,
@@ -189,7 +193,8 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				ElementType: types.StringType,
 			},
 			"force_delete": &schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Set to true when you want to delete a protected network. You must apply the value before being able to successfully `terraform destroy` the protected network.",
 			},
 		},
 	}

@@ -87,10 +87,11 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Service type.",
+				Description:   "Runtime type",
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Runtime display name",
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
@@ -104,16 +105,19 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required: true,
 			},
 			"log_level": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "Log Level setting. Updating this field will prompt a runtime restart when applied. ERROR, DEBUG, TRACE",
 			},
 			"size": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "Specification for the runtime's size.",
 			},
 			"stopped": &schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "Stops your runtime as long as this value is set to `true`",
 			},
 			"zone": &schema.StringAttribute{
 				Optional: true,
@@ -131,7 +135,8 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				// may be computed for certain runtime types, but we will not track it if the user did not provide it
 			},
 			"force_delete": &schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Set to true when you want to delete a protected runtime like a Besu signing node. You must apply the value before being able to successfully `terraform destroy` the protected runtime.",
 			},
 		},
 	}

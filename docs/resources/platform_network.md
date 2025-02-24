@@ -19,16 +19,16 @@ Networks provide an anchor object for multiple services that need to communicate
 
 - `config_json` (String)
 - `environment` (String) Environment ID
-- `name` (String)
-- `type` (String)
+- `name` (String) Network Display Name
+- `type` (String) Network Type. Options are `Besu` and `IPFS`
 
 ### Optional
 
 - `cred_sets` (Attributes Map) (see [below for nested schema](#nestedatt--cred_sets))
 - `file_sets` (Attributes Map) (see [below for nested schema](#nestedatt--file_sets))
-- `force_delete` (Boolean)
+- `force_delete` (Boolean) Set to true when you want to delete a protected network. You must apply the value before being able to successfully `terraform destroy` the protected network.
 - `init_files` (String)
-- `init_mode` (String)
+- `init_mode` (String) Options are `automated`(default) or `manual`.
 
 ### Read-Only
 

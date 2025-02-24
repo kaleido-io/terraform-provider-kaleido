@@ -123,9 +123,11 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Service Type",
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Service Display Name",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -221,7 +223,7 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Force delete the service.",
+				Description: "Set to true when you want to delete a protected service like a Besu signing node. You must apply the value before being able to successfully `terraform destroy` the protected service.",
 			},
 		},
 	}

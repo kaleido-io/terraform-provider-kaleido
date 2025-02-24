@@ -18,7 +18,7 @@ A reference to a signing key (also known as a key mapping) that is directly/indi
 ### Required
 
 - `environment` (String) Environment ID
-- `name` (String)
+- `name` (String) Key Display Name
 - `service` (String) Key Manager Service ID
 - `wallet` (String) Wallet ID
 
