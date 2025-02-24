@@ -50,15 +50,7 @@ variable "originator_peer_network_dz" {
   type = string
 }
 
-variable "originator_peer_network_connection" {
-  type = string
-}
-
 variable "secondary_peer_network_dz" {
-  type = string
-}
-
-variable "secondary_peer_network_connection" {
   type = string
 }
 

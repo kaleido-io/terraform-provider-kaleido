@@ -107,9 +107,9 @@ type CMSBuildGithubAPIModel struct {
 }
 
 type CMSBuildOptimizerAPIModel struct {
-	Enabled bool    `json:"enabled,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
 	Runs    float64 `json:"runs,omitempty"`
-	ViaIR   bool    `json:"viaIR,omitempty"`
+	ViaIR   *bool   `json:"viaIR,omitempty"`
 }
 
 type CMSBuildSourceCodeAPIModel struct {
@@ -291,6 +291,20 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 					},
 				},
+				Default: objectdefault.StaticValue(
+					types.ObjectValueMust(
+						map[string]attr.Type{
+							"enabled": types.BoolType,
+							"runs":    types.Int64Type,
+							"via_ir":  types.BoolType,
+						},
+						map[string]attr.Value{
+							"enabled": types.BoolValue(false),
+							"runs":    types.Int64Value(200),
+							"via_ir":  types.BoolValue(false),
+						},
+					),
+				),
 			},
 		},
 	}
@@ -308,11 +322,29 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
 		// different source being retrieved.
 		api.EVMVersion = data.EVMVersion.ValueString()
 		api.SolcVersion = data.SolcVersion.ValueString()
-		api.Optimizer = &CMSBuildOptimizerAPIModel{
-			Enabled: data.Optimizer.Enabled.ValueBool(),
-			Runs:    float64(data.Optimizer.Runs.ValueInt64()),
-			ViaIR:   data.Optimizer.ViaIR.ValueBool(),
+		falseVar := false
+		if data.Optimizer != nil {
+			api.Optimizer = &CMSBuildOptimizerAPIModel{}
+
+			if data.Optimizer.Enabled.ValueBoolPointer() != nil {
+				api.Optimizer.Enabled = data.Optimizer.Enabled.ValueBoolPointer()
+			} else {
+				api.Optimizer.Enabled = &falseVar
+			}
+
+			if data.Optimizer.ViaIR.ValueBoolPointer() != nil {
+				api.Optimizer.ViaIR = data.Optimizer.ViaIR.ValueBoolPointer()
+			} else {
+				api.Optimizer.ViaIR = &falseVar
+			}
+
+			if data.Optimizer.Runs.ValueInt64() != 200 {
+				api.Optimizer.Runs = float64(data.Optimizer.Runs.ValueInt64())
+			} else {
+				api.Optimizer.Runs = 200
+			}
 		}
+
 		switch data.Type.ValueString() {
 		case "precompiled":
 			_ = json.Unmarshal(([]byte)(data.Precompiled.ABI.ValueString()), &api.ABI)
@@ -344,6 +376,28 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 		data.CommitHash = types.StringValue(api.GitHub.CommitHash)
 	} else {
 		data.CommitHash = types.StringValue("")
+	}
+	if api.Optimizer != nil {
+		falseVar := false
+		data.Optimizer = &CMSBuildOptimizerResourceModel{}
+
+		if api.Optimizer.Enabled != nil {
+			data.Optimizer.Enabled = types.BoolPointerValue(api.Optimizer.Enabled)
+		} else {
+			data.Optimizer.Enabled = types.BoolPointerValue(&falseVar)
+		}
+
+		if api.Optimizer.ViaIR != nil {
+			data.Optimizer.ViaIR = types.BoolPointerValue(api.Optimizer.ViaIR)
+		} else {
+			data.Optimizer.ViaIR = types.BoolPointerValue(&falseVar)
+		}
+
+		if api.Optimizer.Runs != 200 {
+			data.Optimizer.Runs = types.Int64Value(int64(api.Optimizer.Runs))
+		} else {
+			data.Optimizer.Runs = types.Int64Value(200)
+		}
 	}
 }
 
@@ -426,7 +480,6 @@ func (r *cms_buildResource) Read(ctx context.Context, req resource.ReadRequest, 
 		resp.State.RemoveResource(ctx)
 		return
 	}
-
 	api.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
