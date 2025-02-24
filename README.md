@@ -52,5 +52,5 @@ go test -v ./kaleido
 ```
 
 > Note unit tests are now being prioritized and the process of migrating acceptance tests to
-> unit tests has been started in [kaleido_service_test.go](./kaleido/kaleido_service_test.go)
+> unit tests has been started in [kaleido_service_test.go](./kaleido/platform/kaleido_service_test.go)
 
