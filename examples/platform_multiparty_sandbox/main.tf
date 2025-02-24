@@ -32,14 +32,16 @@ resource "kaleido_platform_stack" "chain_infra_ipfs_stack" {
 }
 
 resource "kaleido_platform_stack" "web3_middleware_stack" {
+  for_each = toset(var.members)
   environment = kaleido_platform_environment.env_0.id
-  name = "web3_middleware_firefly"
+  name = "${each.key}_web3_middleware_stack"
   type = "web3_middleware"
 }
 
 resource "kaleido_platform_stack" "digital_assets_stack" {
+  for_each = toset(var.members)
   environment = kaleido_platform_environment.env_0.id
-  name = "digital_assets_stack"
+  name = "${each.key}_digital_assets_stack"
   type = "digital_assets"
 }
 
@@ -191,7 +193,7 @@ resource "kaleido_platform_runtime" "tmr_0" {
   name = "${var.environment_name}_chain_txmanager"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
-  stack_id = kaleido_platform_stack.web3_middleware_stack.id
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
 resource "kaleido_platform_service" "tms_0" {
@@ -215,23 +217,16 @@ resource "kaleido_platform_service" "tms_0" {
       }
     }
   })
-  stack_id = kaleido_platform_stack.web3_middleware_stack.id
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
-resource "kaleido_platform_runtime" "ffr_0" {
-  type = "FireFly"
-  name = "firefly_runtime"
-  environment = kaleido_platform_environment.env_0.id
-  config_json = jsonencode({})
-  stack_id = kaleido_platform_stack.web3_middleware_stack.id
-}
 
 resource "kaleido_platform_runtime" "pdr_0" {
   type = "PrivateDataManager"
   name = "data_manager"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
-  stack_id = kaleido_platform_stack.web3_middleware_stack.id
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
 resource "kaleido_platform_service" "pds_0" {
@@ -242,7 +237,7 @@ resource "kaleido_platform_service" "pds_0" {
   config_json = jsonencode({
     dataExchangeType = "https"
   })
-  stack_id = kaleido_platform_stack.web3_middleware_stack.id
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
 
@@ -310,11 +305,20 @@ resource "kaleido_platform_cms_action_deploy" "firefly_batch_pin" {
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
+resource "kaleido_platform_runtime" "ffr_0" {
+  for_each = toset(var.members)
+  type = "FireFly"
+  name = "${each.key}_firefly_runtime"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+  stack_id = kaleido_platform_stack.web3_middleware_stack[each.key].id
+}
+
 resource "kaleido_platform_service" "member_firefly" {
   type = "FireFly"
   name = "${each.key}_firefly"
   environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.ffr_0.id
+  runtime = kaleido_platform_runtime.ffr_0[each.key].id
   config_json = jsonencode({
     transactionManager = {
       id = kaleido_platform_service.tms_0.id
@@ -341,7 +345,7 @@ resource "kaleido_platform_service" "member_firefly" {
     }
   })
   for_each = toset(var.members)
-  stack_id = kaleido_platform_stack.web3_middleware_stack.id
+  stack_id = kaleido_platform_stack.web3_middleware_stack[each.key].id
 }
 
 resource "kaleido_platform_firefly_registration" "registrations" {
@@ -356,7 +360,7 @@ resource "kaleido_platform_runtime" "asset_managers" {
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   for_each = toset(var.members)
-  stack_id = kaleido_platform_stack.digital_assets_stack.id
+  stack_id = kaleido_platform_stack.digital_assets_stack[each.key].id
 }
 
 resource "kaleido_platform_service" "asset_managers" {
@@ -370,6 +374,6 @@ resource "kaleido_platform_service" "asset_managers" {
     }
   })
   for_each = toset(var.members)
-  stack_id = kaleido_platform_stack.digital_assets_stack.id
+  stack_id = kaleido_platform_stack.digital_assets_stack[each.key].id
 }
 
