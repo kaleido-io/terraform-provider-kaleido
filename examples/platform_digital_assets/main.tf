@@ -55,6 +55,8 @@ resource "kaleido_platform_runtime" "bnr" {
   config_json = jsonencode({})
   count = var.node_count
   stack_id = kaleido_platform_stack.chain_infra_stack.id
+  // uncomment `force_delete = true` and run terraform apply before running terraform destory to successfully delete the besu nodes
+  # force_delete = true
 }
 
 resource "kaleido_platform_service" "bns" {
@@ -69,6 +71,8 @@ resource "kaleido_platform_service" "bns" {
     }
   })
   count = var.node_count
+  // uncomment `force_delete = true` and run terraform apply before running terraform destory to successfully delete the besu nodes
+  # force_delete = true
 }
 
 resource "kaleido_platform_runtime" "gwr_0" {
