@@ -17,5 +17,5 @@ Create an environment with:
 | kaleido_platform_password | API Key value | string | `` | yes |
 | environment_name | Environment name | string | `` | yes |
 | multi_region | Multi region env | string | `false` | no |
-| node_count | Number of nodes to create | string | 1 | no |
+| besu_node_count | Number of nodes to create | string | 1 | no |
 

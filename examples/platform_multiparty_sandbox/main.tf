@@ -61,7 +61,7 @@ resource "kaleido_platform_network" "besu_net" {
 
 resource "kaleido_platform_runtime" "bnr" {
   type = "BesuNode"
-  name = "${var.environment_name}_chain_node_${count.index}"
+  name = "${var.environment_name}_chain_node_${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   count = var.besu_node_count
@@ -72,7 +72,7 @@ resource "kaleido_platform_runtime" "bnr" {
 
 resource "kaleido_platform_service" "bns" {
   type = "BesuNode"
-  name = "${var.environment_name}_chain_node_${count.index}"
+  name = "${var.environment_name}_chain_node_${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.bnr[count.index].id
   config_json = jsonencode({
