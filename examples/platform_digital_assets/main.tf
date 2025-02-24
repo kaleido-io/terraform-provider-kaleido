@@ -26,7 +26,7 @@ resource "kaleido_platform_stack" "chain_infra_stack" {
 
 resource "kaleido_platform_stack" "web3_middleware_stack" {
   environment = kaleido_platform_environment.env_0.id
-  name = "web3_middleware_firefly"
+  name = "web3_middleware_stack"
   type = "web3_middleware"
 }
 
