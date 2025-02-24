@@ -7,6 +7,8 @@ Create an environment with:
     - EVM Gateway
 * Web3 Middleware Stack
 * Digital Assets Stack
+* Contract Manager
+* Key Manager
 
 ## Inputs
 
