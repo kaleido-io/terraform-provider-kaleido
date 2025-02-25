@@ -3,12 +3,12 @@
 page_title: "kaleido Provider"
 subcategory: ""
 description: |-
-  
+  The Kaleido Terraform Provider supports the Kaleido Blockchain as a Service and Kaleido Platform products
 ---
 
 # kaleido Provider
 
-
+The Kaleido Terraform Provider supports the Kaleido Blockchain as a Service and Kaleido Platform products
 
 
 
@@ -17,8 +17,8 @@ description: |-
 
 ### Optional
 
-- `api` (String)
-- `api_key` (String, Sensitive)
-- `platform_api` (String)
-- `platform_password` (String, Sensitive)
-- `platform_username` (String)
+- `api` (String) Kaleido Blockchain as a Service URL
+- `api_key` (String, Sensitive) Kaleido Blockchain as a Service API Key
+- `platform_api` (String) Kaleido Platform URL
+- `platform_password` (String, Sensitive) Kaleido Platform API Key Value
+- `platform_username` (String) Kaleido Platform API Key Name

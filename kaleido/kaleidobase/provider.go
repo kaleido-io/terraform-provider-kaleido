@@ -41,23 +41,29 @@ func (p *kaleidoProvider) Metadata(_ context.Context, _ provider.MetadataRequest
 // Schema defines the provider-level schema for configuration data.
 func (p *kaleidoProvider) Schema(ctx context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "The Kaleido Terraform Provider supports the Kaleido Blockchain as a Service and Kaleido Platform products",
 		Attributes: map[string]schema.Attribute{
 			"api": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Kaleido Blockchain as a Service URL",
 			},
 			"api_key": schema.StringAttribute{
-				Sensitive: true,
-				Optional:  true,
+				Sensitive:   true,
+				Optional:    true,
+				Description: "Kaleido Blockchain as a Service API Key",
 			},
 			"platform_api": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Kaleido Platform URL",
 			},
 			"platform_username": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Kaleido Platform API Key Name",
 			},
 			"platform_password": schema.StringAttribute{
-				Sensitive: true,
-				Optional:  true,
+				Sensitive:   true,
+				Optional:    true,
+				Description: "Kaleido Platform API Key Value",
 			},
 		},
 	}
