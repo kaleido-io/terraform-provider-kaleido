@@ -33,7 +33,7 @@ type ApplicationResourceModel struct {
 	Name         types.String                  `tfsdk:"name"`
 	OAuthEnabled types.Bool                    `tfsdk:"oauth_enabled"`
 	AdminEnabled types.Bool                    `tfsdk:"admin_enabled"`
-	Oauth        ApplicationOAuthResourceModel `tfsdk:"oauth"`
+	OAuth        ApplicationOAuthResourceModel `tfsdk:"oauth"`
 }
 
 type ApplicationAPIModel struct {
@@ -141,13 +141,13 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
 	api.OAuth = &ApplicationOAuthAPIModel{
-		Issuer:          data.Oauth.Issuer,
-		JWKSEndpoint:    data.Oauth.JWKSEndpoint,
-		JWKS:            data.Oauth.JWKS,
-		Audience:        data.Oauth.Audience,
-		AuthorizedParty: data.Oauth.AuthorizedParty,
-		CACertificate:   data.Oauth.CACertificate,
-		OIDCConfigURL:   data.Oauth.OIDCConfigURL,
+		Issuer:          data.OAuth.Issuer,
+		JWKSEndpoint:    data.OAuth.JWKSEndpoint,
+		JWKS:            data.OAuth.JWKS,
+		Audience:        data.OAuth.Audience,
+		AuthorizedParty: data.OAuth.AuthorizedParty,
+		CACertificate:   data.OAuth.CACertificate,
+		OIDCConfigURL:   data.OAuth.OIDCConfigURL,
 	}
 
 }
@@ -158,7 +158,7 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	if api.EnableOAuth != nil {
 		data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
 	}
-	data.Oauth = ApplicationOAuthResourceModel(*api.OAuth)
+	data.OAuth = ApplicationOAuthResourceModel(*api.OAuth)
 
 }
 
