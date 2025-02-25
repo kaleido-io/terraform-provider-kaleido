@@ -4,13 +4,13 @@ page_title: "kaleido_platform_group Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
   Users that are not account administrators must be added to one or more Groups.
-  Groups (along with applications) are assigned permissions in services, and on the core platform API, to perform tasks.
+  Groups (along with applications) are assigned permissions to services, stacks, and the core platform API, to perform tasks.
 ---
 
 # kaleido_platform_group (Resource)
 
 Users that are not account administrators must be added to one or more Groups. 
-Groups (along with applications) are assigned permissions in services, and on the core platform API, to perform tasks.
+Groups (along with applications) are assigned permissions to services, stacks, and the core platform API, to perform tasks.
 
 
 

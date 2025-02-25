@@ -136,7 +136,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you want to delete a protected runtime like a Besu signing node. You must apply the value before being able to successfully `terraform destroy` the protected runtime.",
+				Description: "Set to `true` when you plan to delete a protected runtime like a Besu signing node. You must apply the value before you can successfully `terraform destroy` the protected runtime.",
 			},
 		},
 	}

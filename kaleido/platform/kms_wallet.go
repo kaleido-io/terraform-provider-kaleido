@@ -60,7 +60,7 @@ func (r *kms_walletResource) Metadata(_ context.Context, _ resource.MetadataRequ
 
 func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Keys that are used for signing must reside in a resource known as a wallet. Once a wallet is created within a key manager, keys must be exist within a wallet before they can be used for signing.",
+		Description: "Keys that are used for signing must reside in a resource known as a wallet. Once a wallet is created within a key manager, keys must be created within a wallet before they can be used for signing.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,

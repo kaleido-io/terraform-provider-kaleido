@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_firefly_registration Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Once you have the multi-party network members created, the final step is to instruct FireFly namespaces to register their nodes and organizations in the network. This is only supported for Firefly services with multiparty enabled.
+  Once you have created your Firefly multi-party network members, the final step is to instruct the FireFly namespaces to register their nodes and organizations in the network. This resource is only supported for Firefly services with multiparty enabled.
 ---
 
 # kaleido_platform_firefly_registration (Resource)
 
-Once you have the multi-party network members created, the final step is to instruct FireFly namespaces to register their nodes and organizations in the network. This is only supported for Firefly services with multiparty enabled.
+Once you have created your Firefly multi-party network members, the final step is to instruct the FireFly namespaces to register their nodes and organizations in the network. This resource is only supported for Firefly services with multiparty enabled.
 
 
 

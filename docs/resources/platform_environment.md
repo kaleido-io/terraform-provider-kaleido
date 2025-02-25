@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_environment Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Environments group multiple services, runtimes and networks together in a single logical deployment.
+  Environments group multiple services, runtimes, stacks and networks together in a single logical deployment.
 ---
 
 # kaleido_platform_environment (Resource)
 
-Environments group multiple services, runtimes and networks together in a single logical deployment.
+Environments group multiple services, runtimes, stacks and networks together in a single logical deployment.
 
 
 

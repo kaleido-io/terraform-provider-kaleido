@@ -3,12 +3,12 @@
 page_title: "kaleido_network_connector Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  BETA resource.
+  
 ---
 
 # kaleido_network_connector (Resource)
 
-BETA resource.
+
 
 
 

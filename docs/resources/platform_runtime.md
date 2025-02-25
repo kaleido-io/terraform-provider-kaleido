@@ -24,7 +24,7 @@ Runtimes are the highly available container instances that run the function of t
 
 ### Optional
 
-- `force_delete` (Boolean) Set to true when you want to delete a protected runtime like a Besu signing node. You must apply the value before being able to successfully `terraform destroy` the protected runtime.
+- `force_delete` (Boolean) Set to `true` when you plan to delete a protected runtime like a Besu signing node. You must apply the value before you can successfully `terraform destroy` the protected runtime.
 - `log_level` (String) Log Level setting. Updating this field will prompt a runtime restart when applied. ERROR, DEBUG, TRACE
 - `size` (String) Specification for the runtime's size.
 - `stopped` (Boolean) Stops your runtime as long as this value is set to `true`

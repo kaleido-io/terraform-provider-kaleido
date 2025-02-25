@@ -95,7 +95,7 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"no_expiry": &schema.BoolAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
-				Description:   "Set to true for API keys that should never expire",
+				Description:   "Set to `true` for API keys that should never expire",
 			},
 		},
 	}

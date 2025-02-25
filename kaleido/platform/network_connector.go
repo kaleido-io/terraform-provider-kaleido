@@ -67,7 +67,6 @@ func (r *connectorResource) Metadata(_ context.Context, _ resource.MetadataReque
 
 func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "BETA resource.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,

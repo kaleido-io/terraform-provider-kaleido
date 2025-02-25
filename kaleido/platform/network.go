@@ -126,7 +126,8 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed: true,
 			},
 			"file_sets": &schema.MapNestedAttribute{
-				Optional: true,
+				Description: "Some services require binary files as part of their configuration, such as x509 certificates, or large JSON/YAML configuration files to be passed directly down to the service for verification. The files are individually encrypted.",
+				Optional:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"files": &schema.MapNestedAttribute{
@@ -158,7 +159,8 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"cred_sets": &schema.MapNestedAttribute{
-				Optional: true,
+				Description: "Credentials such as usernames and passwords, or API Keys, required to integrate with external systems are also stored and encrypted separately to the main configuration of the service.",
+				Optional:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"type": &schema.StringAttribute{
@@ -194,7 +196,7 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you want to delete a protected network. You must apply the value before being able to successfully `terraform destroy` the protected network.",
+				Description: "Set to `true` when you plan to delete a protected network. You must apply the value before you can successfully `terraform destroy` the protected network.",
 			},
 		},
 	}

@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_kms_wallet Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Keys that are used for signing must reside in a resource known as a wallet. Once a wallet is created within a key manager, keys must be exist within a wallet before they can be used for signing.
+  Keys that are used for signing must reside in a resource known as a wallet. Once a wallet is created within a key manager, keys must be created within a wallet before they can be used for signing.
 ---
 
 # kaleido_platform_kms_wallet (Resource)
 
-Keys that are used for signing must reside in a resource known as a wallet. Once a wallet is created within a key manager, keys must be exist within a wallet before they can be used for signing.
+Keys that are used for signing must reside in a resource known as a wallet. Once a wallet is created within a key manager, keys must be created within a wallet before they can be used for signing.
 
 
 

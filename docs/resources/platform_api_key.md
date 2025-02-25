@@ -31,7 +31,7 @@ resource "kaleido_platform_api_key" "api_key" {
 ### Optional
 
 - `expiry_date` (String) Expiration date formatted in RFC3339, Unix, or UnixNano
-- `no_expiry` (Boolean) Set to true for API keys that should never expire
+- `no_expiry` (Boolean) Set to `true` for API keys that should never expire
 
 ### Read-Only
 
