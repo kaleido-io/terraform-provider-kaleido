@@ -198,6 +198,62 @@ resource "kaleido_platform_runtime" "pdr_0" {
   config_json = jsonencode({})
 }
 
+resource "tls_private_key" "pdr_ca_private_key" {
+  count = var.pdr_manage_p2p_tls ? 1 : 0
+
+  algorithm = "RSA"
+  rsa_bits = 4096
+}
+
+resource "tls_self_signed_cert" "pdr_ca_cert" {
+  count = var.pdr_manage_p2p_tls ? 1 : 0
+
+  private_key_pem = tls_private_key.pdr_ca_private_key[0].private_key_pem
+
+  subject {
+    common_name = "test.net"
+    organization = "Multi-Party Test Network"
+  }
+
+  allowed_uses = ["cert_signing"]
+
+  is_ca_certificate = true
+  validity_period_hours = 87660 # 10 years
+}
+
+resource "tls_private_key" "pdr_p2p_private_key" {
+  count = var.pdr_manage_p2p_tls ? 1 : 0
+
+  algorithm = "RSA"
+  rsa_bits = 4096
+}
+
+resource "tls_cert_request" "pdr_p2p_cert_request" {
+  count = var.pdr_manage_p2p_tls ? 1 : 0
+
+  private_key_pem = tls_private_key.pdr_p2p_private_key[0].private_key_pem
+
+  subject {
+    common_name = "${replace(kaleido_platform_runtime.pdr_0.id, ":", "-")}-pdr.${var.pdr_endpoint_domain}"
+  }
+
+  dns_names = ["${replace(kaleido_platform_runtime.pdr_0.id, ":", "-")}-pdr.${var.pdr_endpoint_domain}"]
+}
+
+resource "tls_locally_signed_cert" "pdr_p2p_cert" {
+  count = var.pdr_manage_p2p_tls ? 1 : 0
+
+  cert_request_pem = tls_cert_request.pdr_p2p_cert_request[0].cert_request_pem
+  ca_key_algorithm = "RSA"
+  ca_private_key_pem = tls_private_key.pdr_ca_private_key[0].private_key_pem
+  ca_cert_pem = tls_self_signed_cert.pdr_ca_cert[0].cert_pem
+
+  allowed_uses = ["server_auth", "client_auth"]
+  is_ca_certificate = false
+  validity_period_hours = 87660 # 10 years
+}
+
+
 resource "kaleido_platform_service" "pds_0" {
   type = "PrivateDataManager"
   name = "data_manager"
@@ -205,6 +261,11 @@ resource "kaleido_platform_service" "pds_0" {
   runtime = kaleido_platform_runtime.pdr_0.id
   config_json = jsonencode({
     dataExchangeType = "https"
+    certificate = var.pdr_manage_p2p_tls ? {
+      ca = tls_self_signed_cert.pdr_ca_cert[0].cert_pem
+      cert = tls_locally_signed_cert.pdr_p2p_cert[0].cert_pem
+      key = tls_private_key.pdr_p2p_private_key[0].private_key_pem
+    } : null
   })
 }
 
