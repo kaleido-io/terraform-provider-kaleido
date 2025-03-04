@@ -235,6 +235,7 @@ resource "tls_cert_request" "pdr_p2p_cert_request" {
 
   subject {
     common_name = "${replace(kaleido_platform_runtime.pdr_0.id, ":", "-")}-pdr.${var.pdr_endpoint_domain}"
+    organization = replace(kaleido_platform_runtime.pdr_0.id, ":", "-")
   }
 
   dns_names = ["${replace(kaleido_platform_runtime.pdr_0.id, ":", "-")}-pdr.${var.pdr_endpoint_domain}"]
@@ -244,7 +245,6 @@ resource "tls_locally_signed_cert" "pdr_p2p_cert" {
   count = var.pdr_manage_p2p_tls ? 1 : 0
 
   cert_request_pem = tls_cert_request.pdr_p2p_cert_request[0].cert_request_pem
-  ca_key_algorithm = "RSA"
   ca_private_key_pem = tls_private_key.pdr_ca_private_key[0].private_key_pem
   ca_cert_pem = tls_self_signed_cert.pdr_ca_cert[0].cert_pem
 
@@ -259,14 +259,45 @@ resource "kaleido_platform_service" "pds_0" {
   name = "data_manager"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.pdr_0.id
-  config_json = jsonencode({
+  config_json = var.pdr_manage_p2p_tls ? jsonencode({
     dataExchangeType = "https"
-    certificate = var.pdr_manage_p2p_tls ? {
-      ca = tls_self_signed_cert.pdr_ca_cert[0].cert_pem
-      cert = tls_locally_signed_cert.pdr_p2p_cert[0].cert_pem
-      key = tls_private_key.pdr_p2p_private_key[0].private_key_pem
-    } : null
-  })
+    certificate =  {
+      ca = {
+        fileRef = "#certificate.ca"
+      }
+      cert = {
+        fileRef = "#certificate.cert"
+      }
+      key = {
+        fileRef = "#certificate.key"
+      }
+    }
+  }) : jsonencode({ dataExchangeType = "https" })
+  file_sets = var.pdr_manage_p2p_tls ? {
+    certificate = {
+      name = "certificate"
+      files = {
+        ca = {
+          type = "pem"
+          data = {
+            text = tls_self_signed_cert.pdr_ca_cert[0].cert_pem
+          }
+        }
+        cert = {
+          type = "pem"
+          data = {
+            text = tls_locally_signed_cert.pdr_p2p_cert[0].cert_pem
+          }
+        }
+        key = {
+          type = "pem"
+          data = {
+            text = tls_private_key.pdr_p2p_private_key[0].private_key_pem
+          }
+        }
+      }
+    }
+  } : null
 }
 
 
