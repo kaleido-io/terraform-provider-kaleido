@@ -23,12 +23,17 @@ variable "members" {
   type = list(string)
 }
 
-variable "pdr_manage_p2p_tls" {
+variable "pdm_manage_p2p_tls" {
     type = bool
     default = false
 }
 
-variable "pdr_endpoint_domain" {
+variable "pdm_runtime_endpoint_domain" {
   type = string
   default = "use2.kaleido.local" // contact support for obtaining this value for your platform instance
+}
+
+variable "pdm_service_peer_id" {
+    type = string
+    default = "testnet-pdm"
 }
