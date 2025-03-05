@@ -31,7 +31,7 @@ resource "kaleido_platform_environment" "env_og" {
 
 resource "kaleido_platform_network" "net_og" {
   provider = kaleido.originator
-  type = "Besu"
+  type = "BesuNetwork"
   name = var.originator_name
   environment = kaleido_platform_environment.env_og.id
   init_mode = "automated"
@@ -150,7 +150,7 @@ resource "kaleido_platform_environment" "env_sec" {
 
 resource "kaleido_platform_network" "net_sec" {
   provider = kaleido.secondary
-  type = "Besu"
+  type = "BesuNetwork"
   name = var.secondary_name
   environment = kaleido_platform_environment.env_sec.id
   init_mode = "manual"

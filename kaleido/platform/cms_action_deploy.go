@@ -222,8 +222,13 @@ func (r *cms_action_deployResource) Update(ctx context.Context, req resource.Upd
 	// Update from plan
 	var api CMSActionDeployAPIModel
 	ok := data.toAPI(&api, &resp.Diagnostics)
+	// PATCH only supports editing the Name/Description fields
+	patchAPI := CMSActionBaseAPIModel{
+		Name:        api.Name,
+		Description: api.Description,
+	}
 	if ok {
-		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics)
+		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), patchAPI, &api, &resp.Diagnostics)
 	}
 	if !ok {
 		return

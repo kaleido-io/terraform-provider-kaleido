@@ -36,6 +36,7 @@ type ServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
+	StackID             types.String `tfsdk:"stack_id"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	ConfigJSON          types.String `tfsdk:"config_json"`
 	Endpoints           types.Map    `tfsdk:"endpoints"`
@@ -52,6 +53,7 @@ type ServiceAPIModel struct {
 	Updated             *time.Time                    `json:"updated,omitempty"`
 	Type                string                        `json:"type"`
 	Name                string                        `json:"name"`
+	StackID             string                        `json:"stackId,omitempty"`
 	Runtime             ServiceAPIRuntimeRef          `json:"runtime,omitempty"`
 	Account             string                        `json:"account,omitempty"`
 	EnvironmentMemberID string                        `json:"environmentMemberId,omitempty"`
@@ -128,6 +130,9 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"name": &schema.StringAttribute{
 				Required:    true,
 				Description: "Service Display Name",
+			},
+			"stack_id": &schema.StringAttribute{
+				Optional: true,
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -235,6 +240,7 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
+	api.StackID = data.StackID.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {

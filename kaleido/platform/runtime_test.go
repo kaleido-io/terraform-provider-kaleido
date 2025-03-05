@@ -33,6 +33,7 @@ resource "kaleido_platform_runtime" "runtime1" {
     environment = "env1"
     type = "besu"
     name = "runtime1"
+	stack_id = "stack1"
     config_json = jsonencode({
         "setting1": "value1"
     })
@@ -47,6 +48,7 @@ resource "kaleido_platform_runtime" "runtime1" {
     environment = "env1"
     type = "besu"
     name = "runtime1"
+	stack_id = "stack1"
     config_json = jsonencode({
         "setting1": "value1",
         "setting2": "value2",
@@ -65,6 +67,7 @@ resource "kaleido_platform_runtime" "runtime1" {
     environment = "env1"
     type = "besu"
     name = "runtime1"
+	stack_id = "stack1"
     config_json = jsonencode({
         "setting1": "value1",
         "setting2": "value2",
@@ -109,6 +112,7 @@ func TestRuntime1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(runtime1Resource, "id"),
 					resource.TestCheckResourceAttr(runtime1Resource, "name", `runtime1`),
+					resource.TestCheckResourceAttr(runtime1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(runtime1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(runtime1Resource, "config_json", `{"setting1":"value1"}`),
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `info`),
@@ -124,6 +128,7 @@ func TestRuntime1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(runtime1Resource, "id"),
 					resource.TestCheckResourceAttr(runtime1Resource, "name", `runtime1`),
+					resource.TestCheckResourceAttr(runtime1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(runtime1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(runtime1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `trace`),
@@ -145,6 +150,7 @@ func TestRuntime1(t *testing.T) {
 							"updated": "%[3]s",
 							"type": "besu",
 							"name": "runtime1",
+							"stackId": "stack1",
 							"config": {
 								"setting1": "value1",
 								"setting2": "value2"
@@ -174,6 +180,7 @@ func TestRuntime1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(runtime1Resource, "id"),
 					resource.TestCheckResourceAttr(runtime1Resource, "name", `runtime1`),
+					resource.TestCheckResourceAttr(runtime1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(runtime1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(runtime1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					resource.TestCheckResourceAttr(runtime1Resource, "log_level", `trace`),
@@ -195,6 +202,7 @@ func TestRuntime1(t *testing.T) {
 							"updated": "%[3]s",
 							"type": "besu",
 							"name": "runtime1",
+							"stackId": "stack1",
 							"config": {
 								"setting1": "value1",
 								"setting2": "value2"
