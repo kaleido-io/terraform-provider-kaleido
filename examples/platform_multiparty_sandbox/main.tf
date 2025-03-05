@@ -247,7 +247,7 @@ resource "tls_self_signed_cert" "pdr_ca_cert" {
 
   subject {
     common_name = "test.net"
-    organization = "Multi-Party Test Network"
+    organization = "Multiparty Test Network"
   }
 
   allowed_uses = ["cert_signing"]
