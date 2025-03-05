@@ -35,6 +35,7 @@ resource "kaleido_platform_service" "service1" {
 	runtime = "runtime1"
     type = "besu"
     name = "service1"
+	stack_id = "stack1"
     config_json = jsonencode({
         "setting1": "value1"
     })
@@ -47,6 +48,7 @@ resource "kaleido_platform_service" "service1" {
 	runtime = "runtime1"
     type = "besu"
     name = "service1"
+	stack_id = "stack1"
     config_json = jsonencode({
         "setting1": "value1",
         "setting2": "value2",
@@ -123,6 +125,7 @@ func TestService1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(service1Resource, "id"),
 					resource.TestCheckResourceAttr(service1Resource, "name", `service1`),
+					resource.TestCheckResourceAttr(service1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(service1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(service1Resource, "config_json", `{"setting1":"value1"}`),
 					resource.TestCheckResourceAttr(service1Resource, "endpoints.%", `1`),
@@ -136,6 +139,7 @@ func TestService1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(service1Resource, "id"),
 					resource.TestCheckResourceAttr(service1Resource, "name", `service1`),
+					resource.TestCheckResourceAttr(service1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(service1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(service1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					func(s *terraform.State) error {
@@ -149,6 +153,7 @@ func TestService1(t *testing.T) {
 							"updated": "%[3]s",
 							"type": "besu",
 							"name": "service1",
+							"stackId": "stack1",
 							"runtime": {
 								"id": "runtime1"
 							},

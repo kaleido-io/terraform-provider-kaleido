@@ -17,8 +17,36 @@ resource "kaleido_platform_environment" "env_0" {
   name = var.environment_name
 }
 
-resource "kaleido_platform_network" "net_0" {
-  type = "Besu"
+resource "kaleido_platform_stack" "chain_infra_besu_stack" {
+  environment = kaleido_platform_environment.env_0.id
+  name = "chain_infra_besu_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.besu_net.id
+}
+
+resource "kaleido_platform_stack" "chain_infra_ipfs_stack" {
+  environment = kaleido_platform_environment.env_0.id
+  name = "chain_infra_ipfs_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.ipfs_net.id
+}
+
+resource "kaleido_platform_stack" "web3_middleware_stack" {
+  for_each = toset(var.members)
+  environment = kaleido_platform_environment.env_0.id
+  name = "${each.key}_web3_middleware_stack"
+  type = "web3_middleware"
+}
+
+resource "kaleido_platform_stack" "digital_assets_stack" {
+  for_each = toset(var.members)
+  environment = kaleido_platform_environment.env_0.id
+  name = "${each.key}_digital_assets_stack"
+  type = "digital_assets"
+}
+
+resource "kaleido_platform_network" "besu_net" {
+  type = "BesuNetwork"
   name = "evmchain1"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({
@@ -33,27 +61,33 @@ resource "kaleido_platform_network" "net_0" {
 
 resource "kaleido_platform_runtime" "bnr" {
   type = "BesuNode"
-  name = "${var.environment_name}_chain_node_${count.index}"
+  name = "${var.environment_name}_chain_node_${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   count = var.besu_node_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
+  // uncomment `force_delete = true` and run terraform apply before running terraform destory to successfully delete the besu nodes
+  # force_delete = true
 }
 
 resource "kaleido_platform_service" "bns" {
   type = "BesuNode"
-  name = "${var.environment_name}_chain_node_${count.index}"
+  name = "${var.environment_name}_chain_node_${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
   runtime = kaleido_platform_runtime.bnr[count.index].id
   config_json = jsonencode({
     network = {
-      id = kaleido_platform_network.net_0.id
+      id = kaleido_platform_network.besu_net.id
     }
   })
   count = var.besu_node_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
+  // uncomment `force_delete = true` and run terraform apply before running terraform destory to successfully delete the besu nodes
+  # force_delete = true
 }
 
-resource "kaleido_platform_network" "net_ipfs" {
-  type = "IPFS"
+resource "kaleido_platform_network" "ipfs_net" {
+  type = "IPFSNetwork"
   name = "${var.environment_name}_ipfs"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
@@ -65,6 +99,7 @@ resource "kaleido_platform_runtime" "inr_0" {
   name = "ipfs_node"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({ })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack.id
 }
 
 resource "kaleido_platform_service" "ins_0" {
@@ -74,9 +109,10 @@ resource "kaleido_platform_service" "ins_0" {
   runtime = kaleido_platform_runtime.inr_0.id
   config_json = jsonencode({
     network = {
-      id = kaleido_platform_network.net_ipfs.id
+      id = kaleido_platform_network.ipfs_net.id
     }
   })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack.id
 }
 
 resource "kaleido_platform_runtime" "gwr_0" {
@@ -84,6 +120,7 @@ resource "kaleido_platform_runtime" "gwr_0" {
   name = "${var.environment_name}_evm_gateway"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
 }
 
 resource "kaleido_platform_service" "gws_0" {
@@ -93,9 +130,10 @@ resource "kaleido_platform_service" "gws_0" {
   runtime = kaleido_platform_runtime.gwr_0.id
   config_json = jsonencode({
     network = {
-      id =  kaleido_platform_network.net_0.id
+      id =  kaleido_platform_network.besu_net.id
     }
   })
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
 }
 
 data "kaleido_platform_evm_netinfo" "gws_0" {
@@ -159,6 +197,7 @@ resource "kaleido_platform_runtime" "tmr_0" {
   name = "${var.environment_name}_chain_txmanager"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
 resource "kaleido_platform_service" "tms_0" {
@@ -182,20 +221,16 @@ resource "kaleido_platform_service" "tms_0" {
       }
     }
   })
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
-resource "kaleido_platform_runtime" "ffr_0" {
-  type = "FireFly"
-  name = "firefly_runtime"
-  environment = kaleido_platform_environment.env_0.id
-  config_json = jsonencode({})
-}
 
 resource "kaleido_platform_runtime" "pdr_0" {
   type = "PrivateDataManager"
   name = "data_manager"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
 resource "kaleido_platform_service" "pds_0" {
@@ -206,6 +241,7 @@ resource "kaleido_platform_service" "pds_0" {
   config_json = jsonencode({
     dataExchangeType = "https"
   })
+  stack_id = kaleido_platform_stack.web3_middleware_stack[tolist(var.members)[0]].id
 }
 
 
@@ -229,6 +265,7 @@ resource "kaleido_platform_runtime" "bir_0"{
   name = "block_indexer"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
 }
 
 resource "kaleido_platform_service" "bis_0"{
@@ -246,7 +283,8 @@ resource "kaleido_platform_service" "bis_0"{
       }
     }
   )
-  hostnames = {"${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
+  hostnames = {"${kaleido_platform_network.besu_net.name}" = ["ui", "rest"]}
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
 }
 
 resource "kaleido_platform_cms_build" "firefly_batch_pin" {
@@ -271,11 +309,20 @@ resource "kaleido_platform_cms_action_deploy" "firefly_batch_pin" {
   depends_on = [ data.kaleido_platform_evm_netinfo.gws_0 ]
 }
 
+resource "kaleido_platform_runtime" "ffr_0" {
+  for_each = toset(var.members)
+  type = "FireFly"
+  name = "${each.key}_firefly_runtime"
+  environment = kaleido_platform_environment.env_0.id
+  config_json = jsonencode({})
+  stack_id = kaleido_platform_stack.web3_middleware_stack[each.key].id
+}
+
 resource "kaleido_platform_service" "member_firefly" {
   type = "FireFly"
   name = "${each.key}_firefly"
   environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.ffr_0.id
+  runtime = kaleido_platform_runtime.ffr_0[each.key].id
   config_json = jsonencode({
     transactionManager = {
       id = kaleido_platform_service.tms_0.id
@@ -302,6 +349,7 @@ resource "kaleido_platform_service" "member_firefly" {
     }
   })
   for_each = toset(var.members)
+  stack_id = kaleido_platform_stack.web3_middleware_stack[each.key].id
 }
 
 resource "kaleido_platform_firefly_registration" "registrations" {
@@ -316,6 +364,7 @@ resource "kaleido_platform_runtime" "asset_managers" {
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   for_each = toset(var.members)
+  stack_id = kaleido_platform_stack.digital_assets_stack[each.key].id
 }
 
 resource "kaleido_platform_service" "asset_managers" {
@@ -329,5 +378,6 @@ resource "kaleido_platform_service" "asset_managers" {
     }
   })
   for_each = toset(var.members)
+  stack_id = kaleido_platform_stack.digital_assets_stack[each.key].id
 }
 
