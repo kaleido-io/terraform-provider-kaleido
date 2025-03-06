@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_application Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  An application provides authentication and access control to external applications & integrations connecting to the Kaleido platform using APIs. Applications are granted access separately to users and groups. There are two mechanisms for authenticating applications, using API keys or by identity provider.
+  An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido Platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.
 ---
 
 # kaleido_platform_application (Resource)
 
-An application provides authentication and access control to external applications & integrations connecting to the Kaleido platform using APIs. Applications are granted access separately to users and groups. There are two mechanisms for authenticating applications, using API keys or by identity provider.
+An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido Platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.
 
 ## Example Usage
 
@@ -30,9 +30,22 @@ resource "kaleido_platform_application" "application" {
 ### Optional
 
 - `admin_enabled` (Boolean) Grant the application the ability to act as an administrator of the platform
+- `oauth` (Attributes) (see [below for nested schema](#nestedatt--oauth))
 - `oauth_enabled` (Boolean) Default true. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.
-- `oidc_config_url` (String)
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--oauth"></a>
+### Nested Schema for `oauth`
+
+Optional:
+
+- `aud` (String)
+- `azp` (String)
+- `ca_certificate` (String)
+- `issuer` (String)
+- `jwks` (String)
+- `jwks_endpoint` (String)
+- `oidc_config_url` (String)

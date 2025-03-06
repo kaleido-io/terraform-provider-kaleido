@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_api_key Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  API keys are generated strong static keys for authenticating access to the platform, with a configurable expiry.
+  API keys are generated, strong static keys for authenticating to the platform as an application, with a configurable expiry.
 ---
 
 # kaleido_platform_api_key (Resource)
 
-API keys are generated strong static keys for authenticating access to the platform, with a configurable expiry.
+API keys are generated, strong static keys for authenticating to the platform as an application, with a configurable expiry.
 
 ## Example Usage
 
@@ -25,7 +25,7 @@ resource "kaleido_platform_api_key" "api_key" {
 
 ### Required
 
-- `application_id` (String) Application ID to create your API key
+- `application_id` (String) The ID of the application you wish to create the API key under. Note that the application's access, determines the capabilities of the API keys.
 - `name` (String) API Key Name
 
 ### Optional

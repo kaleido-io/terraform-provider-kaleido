@@ -230,7 +230,7 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to `true` when you plan to delete a protected service like a Besu signing node. You must apply the value before you can successfully `terraform destroy` the protected service.",
+				Description: "Set to `true` when you plan to delete a protected service like a Besu validator node. You must apply the value before you can successfully `terraform destroy` the protected service.",
 			},
 		},
 	}

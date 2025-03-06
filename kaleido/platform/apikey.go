@@ -62,7 +62,7 @@ func (r *api_keyResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "API keys are generated strong static keys for authenticating access to the platform, with a configurable expiry.",
+		Description: "API keys are generated, strong static keys for authenticating to the platform as an application, with a configurable expiry.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -76,7 +76,7 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"application_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Application ID to create your API key",
+				Description:   "The ID of the application you wish to create the API key under. Note that the application's access, determines the capabilities of the API keys.",
 			},
 			"secret": &schema.StringAttribute{
 				Computed:    true,

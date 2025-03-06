@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_runtime Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Runtimes are the highly available container instances that run the function of the services. They allow for controlling the performance, topology, and scalability of the underlying service(s).
+  Runtimes are the highly-available workloads that run the function of the services. They allow for controlling the compute, networking, storage, and scalability underlying the service(s).
 ---
 
 # kaleido_platform_runtime (Resource)
 
-Runtimes are the highly available container instances that run the function of the services. They allow for controlling the performance, topology, and scalability of the underlying service(s).
+Runtimes are the highly-available workloads that run the function of the services. They allow for controlling the compute, networking, storage, and scalability underlying the service(s).
 
 
 
@@ -27,6 +27,7 @@ Runtimes are the highly available container instances that run the function of t
 - `force_delete` (Boolean) Set to `true` when you plan to delete a protected runtime like a Besu signing node. You must apply the value before you can successfully `terraform destroy` the protected runtime.
 - `log_level` (String) Log Level setting. Updating this field will prompt a runtime restart when applied. ERROR, DEBUG, TRACE
 - `size` (String) Specification for the runtime's size.
+- `stack_id` (String)
 - `stopped` (Boolean) Stops your runtime as long as this value is set to `true`
 - `storage_size` (Number)
 - `storage_type` (String)

@@ -80,7 +80,7 @@ func (r *runtimeResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Runtimes are the highly available container instances that run the function of the services. They allow for controlling the performance, topology, and scalability of the underlying service(s).",
+		Description: "Runtimes are the highly-available workloads that run the function of the services. They allow for controlling the compute, networking, storage, and scalability underlying the service(s).",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
