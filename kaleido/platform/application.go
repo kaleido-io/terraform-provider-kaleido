@@ -29,21 +29,41 @@ import (
 )
 
 type ApplicationResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	OIDCConfigURL types.String `tfsdk:"oidc_config_url"`
-	OAuthEnabled  types.Bool   `tfsdk:"oauth_enabled"`
-	AdminEnabled  types.Bool   `tfsdk:"admin_enabled"`
+	ID           types.String                  `tfsdk:"id"`
+	Name         types.String                  `tfsdk:"name"`
+	OAuthEnabled types.Bool                    `tfsdk:"oauth_enabled"`
+	AdminEnabled types.Bool                    `tfsdk:"admin_enabled"`
+	OAuth        ApplicationOAuthResourceModel `tfsdk:"oauth"`
 }
 
 type ApplicationAPIModel struct {
-	ID          string            `json:"id,omitempty"`
-	Created     *time.Time        `json:"created,omitempty"`
-	Updated     *time.Time        `json:"updated,omitempty"`
-	Name        string            `json:"name"`
-	OAuth       map[string]string `json:"oauth,omitempty"`
-	IsAdmin     *bool             `json:"isAdmin,omitempty"`
-	EnableOAuth *bool             `json:"enableOAuth,omitempty"`
+	ID          string                    `json:"id,omitempty"`
+	Created     *time.Time                `json:"created,omitempty"`
+	Updated     *time.Time                `json:"updated,omitempty"`
+	Name        string                    `json:"name"`
+	OAuth       *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
+	IsAdmin     *bool                     `json:"isAdmin,omitempty"`
+	EnableOAuth *bool                     `json:"enableOAuth,omitempty"`
+}
+
+type ApplicationOAuthAPIModel struct {
+	Issuer          *string `json:"issuer,omitempty"`
+	JWKSEndpoint    *string `json:"jwksEndpoint,omitempty"`
+	JWKS            *string `json:"jwks,omitempty"`
+	Audience        *string `json:"aud,omitempty"`
+	AuthorizedParty *string `json:"azp,omitempty"`
+	OIDCConfigURL   *string `json:"oidcConfigURL,omitempty"`
+	CACertificate   *string `json:"caCertificate,omitempty"`
+}
+
+type ApplicationOAuthResourceModel struct {
+	Issuer          *string `tfsdk:"issuer"`
+	JWKSEndpoint    *string `tfsdk:"jwks_endpoint"`
+	JWKS            *string `tfsdk:"jwks"`
+	Audience        *string `tfsdk:"aud"`
+	AuthorizedParty *string `tfsdk:"azp"`
+	OIDCConfigURL   *string `tfsdk:"oidc_config_url"`
+	CACertificate   *string `tfsdk:"ca_certificate"`
 }
 
 func ApplicationResourceFactory() resource.Resource {
@@ -81,9 +101,39 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplaceIfConfigured()},
 				Description:   "Default true. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.",
 			},
-			"oidc_config_url": &schema.StringAttribute{
-				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			"oauth": &schema.SingleNestedAttribute{
+				Optional: true,
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"aud": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"azp": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"ca_certificate": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"issuer": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"jwks": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"jwks_endpoint": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"oidc_config_url": &schema.StringAttribute{
+						Optional:      true,
+						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+				},
 			},
 		},
 	}
@@ -93,10 +143,16 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.Name = data.Name.ValueString()
 	api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
-	api.OAuth = make(map[string]string)
-	if !data.OIDCConfigURL.IsNull() {
-		api.OAuth["oidcConfigURL"] = data.OIDCConfigURL.ValueString()
+	api.OAuth = &ApplicationOAuthAPIModel{
+		Issuer:          data.OAuth.Issuer,
+		JWKSEndpoint:    data.OAuth.JWKSEndpoint,
+		JWKS:            data.OAuth.JWKS,
+		Audience:        data.OAuth.Audience,
+		AuthorizedParty: data.OAuth.AuthorizedParty,
+		CACertificate:   data.OAuth.CACertificate,
+		OIDCConfigURL:   data.OAuth.OIDCConfigURL,
 	}
+
 }
 
 func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
@@ -105,9 +161,8 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	if api.EnableOAuth != nil {
 		data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
 	}
-	if api.OAuth != nil && api.OAuth["oidcConfigURL"] != "" {
-		data.OIDCConfigURL = types.StringValue(api.OAuth["oidcConfigURL"])
-	}
+	data.OAuth = ApplicationOAuthResourceModel(*api.OAuth)
+
 }
 
 func (r *applicationResource) apiPath(data *ApplicationResourceModel) string {

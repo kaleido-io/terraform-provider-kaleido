@@ -15,6 +15,7 @@ package kaleidobase
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -74,7 +75,7 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 		SetTransport(http.DefaultTransport).
 		SetBaseURL(baasAPI).
 		SetAuthToken(baasAPIKey).
-                SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (BaaS)", version))
+		SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (BaaS)", version))
 	AddRestyLogging(logCtx, r)
 	baas := &kaleido.KaleidoClient{Client: r}
 
@@ -98,6 +99,10 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)
 	}
 	AddRestyLogging(logCtx, platform)
+
+	if os.Getenv("KALEIDO_PLATFORM_INSECURE") == "true" {
+		platform.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	}
 
 	return &ProviderData{
 		BaaS:     baas,

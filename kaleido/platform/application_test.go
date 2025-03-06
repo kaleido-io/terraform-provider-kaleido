@@ -33,7 +33,9 @@ resource "kaleido_platform_application" "application1" {
     name = "application1"
 	admin_enabled = true
 	oauth_enabled = true
-	oidc_config_url = "https://oidc_domain/.well-known/openid-configuration"
+	oauth = {
+		oidc_config_url = "https://oidc_domain/.well-known/openid-configuration"
+	}
 }
 `
 
@@ -42,7 +44,9 @@ resource "kaleido_platform_application" "application1" {
     name = "application1_renamed"
 	admin_enabled = true
 	oauth_enabled = true
-	oidc_config_url = "https://oidc_domain/.well-known/openid-configuration"
+	oauth = {
+		oidc_config_url = "https://oidc_domain/.well-known/openid-configuration"
+	}
 }
 `
 
