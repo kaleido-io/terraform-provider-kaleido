@@ -62,6 +62,7 @@ type mockPlatform struct {
 	applications      map[string]*ApplicationAPIModel
 	apiKeys           map[string]*APIKeyAPIModel
 	serviceAccess     map[string]*ServiceAccessAPIModel
+	stackAccess       map[string]*StackAccessAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -89,6 +90,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		groups:            make(map[string]*GroupAPIModel),
 		applications:      make(map[string]*ApplicationAPIModel),
 		serviceAccess:     make(map[string]*ServiceAccessAPIModel),
+		stackAccess:       make(map[string]*StackAccessAPIModel),
 		apiKeys:           make(map[string]*APIKeyAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
@@ -213,6 +215,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/service-access/{service}/permissions", http.MethodPost, mp.postServiceAccessPermission)
 	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodGet, mp.getServiceAccessPermission)
 	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodDelete, mp.deleteServiceAccessPermission)
+
+	// See stack_access_test.go
+	mp.register("/api/v1/stack-access/{stack}/permissions", http.MethodPost, mp.postStackAccessPermission)
+	mp.register("/api/v1/stack-access/{stack}/permissions/{permission}", http.MethodGet, mp.getStackAccessPermission)
+	mp.register("/api/v1/stack-access/{stack}/permissions/{permission}", http.MethodDelete, mp.deleteStackAccessPermission)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
