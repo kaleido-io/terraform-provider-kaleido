@@ -18,22 +18,24 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type ApplicationResourceModel struct {
-	ID           types.String                  `tfsdk:"id"`
-	Name         types.String                  `tfsdk:"name"`
-	OAuthEnabled types.Bool                    `tfsdk:"oauth_enabled"`
-	AdminEnabled types.Bool                    `tfsdk:"admin_enabled"`
-	OAuth        ApplicationOAuthResourceModel `tfsdk:"oauth"`
+	ID           types.String                   `tfsdk:"id"`
+	Name         types.String                   `tfsdk:"name"`
+	OAuthEnabled types.Bool                     `tfsdk:"oauth_enabled"`
+	AdminEnabled types.Bool                     `tfsdk:"admin_enabled"`
+	OAuth        *ApplicationOAuthResourceModel `tfsdk:"oauth"`
 }
 
 type ApplicationAPIModel struct {
@@ -47,23 +49,23 @@ type ApplicationAPIModel struct {
 }
 
 type ApplicationOAuthAPIModel struct {
-	Issuer          *string `json:"issuer,omitempty"`
-	JWKSEndpoint    *string `json:"jwksEndpoint,omitempty"`
-	JWKS            *string `json:"jwks,omitempty"`
-	Audience        *string `json:"aud,omitempty"`
-	AuthorizedParty *string `json:"azp,omitempty"`
-	OIDCConfigURL   *string `json:"oidcConfigURL,omitempty"`
-	CACertificate   *string `json:"caCertificate,omitempty"`
+	Issuer          string `json:"issuer,omitempty"`
+	JWKSEndpoint    string `json:"jwksEndpoint,omitempty"`
+	JWKS            string `json:"jwks,omitempty"`
+	Audience        string `json:"aud,omitempty"`
+	AuthorizedParty string `json:"azp,omitempty"`
+	OIDCConfigURL   string `json:"oidcConfigURL,omitempty"`
+	CACertificate   string `json:"caCertificate,omitempty"`
 }
 
 type ApplicationOAuthResourceModel struct {
-	Issuer          *string `tfsdk:"issuer"`
-	JWKSEndpoint    *string `tfsdk:"jwks_endpoint"`
-	JWKS            *string `tfsdk:"jwks"`
-	Audience        *string `tfsdk:"aud"`
-	AuthorizedParty *string `tfsdk:"azp"`
-	OIDCConfigURL   *string `tfsdk:"oidc_config_url"`
-	CACertificate   *string `tfsdk:"ca_certificate"`
+	Issuer          types.String `tfsdk:"issuer"`
+	JWKSEndpoint    types.String `tfsdk:"jwks_endpoint"`
+	JWKS            types.String `tfsdk:"jwks"`
+	Audience        types.String `tfsdk:"aud"`
+	AuthorizedParty types.String `tfsdk:"azp"`
+	OIDCConfigURL   types.String `tfsdk:"oidc_config_url"`
+	CACertificate   types.String `tfsdk:"ca_certificate"`
 }
 
 func ApplicationResourceFactory() resource.Resource {
@@ -119,6 +121,7 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 					},
 					"issuer": &schema.StringAttribute{
 						Optional:      true,
+						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"jwks": &schema.StringAttribute{
@@ -127,6 +130,7 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 					},
 					"jwks_endpoint": &schema.StringAttribute{
 						Optional:      true,
+						Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"oidc_config_url": &schema.StringAttribute{
@@ -134,6 +138,19 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 				},
+				Default: objectdefault.StaticValue(
+					types.ObjectNull(
+						map[string]attr.Type{
+							"aud":             types.StringType,
+							"azp":             types.StringType,
+							"ca_certificate":  types.StringType,
+							"issuer":          types.StringType,
+							"jwks":            types.StringType,
+							"jwks_endpoint":   types.StringType,
+							"oidc_config_url": types.StringType,
+						},
+					),
+				),
 			},
 		},
 	}
@@ -143,26 +160,64 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.Name = data.Name.ValueString()
 	api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
-	api.OAuth = &ApplicationOAuthAPIModel{
-		Issuer:          data.OAuth.Issuer,
-		JWKSEndpoint:    data.OAuth.JWKSEndpoint,
-		JWKS:            data.OAuth.JWKS,
-		Audience:        data.OAuth.Audience,
-		AuthorizedParty: data.OAuth.AuthorizedParty,
-		CACertificate:   data.OAuth.CACertificate,
-		OIDCConfigURL:   data.OAuth.OIDCConfigURL,
+	if data.OAuth != nil {
+		api.OAuth = &ApplicationOAuthAPIModel{}
+		if !data.OAuth.Issuer.IsNull() {
+			api.OAuth.Issuer = data.OAuth.Issuer.ValueString()
+		}
+		if !data.OAuth.JWKSEndpoint.IsNull() {
+			api.OAuth.JWKSEndpoint = data.OAuth.JWKSEndpoint.ValueString()
+		}
+		if !data.OAuth.JWKS.IsNull() {
+			api.OAuth.JWKS = data.OAuth.JWKS.ValueString()
+		}
+		if !data.OAuth.AuthorizedParty.IsNull() {
+			api.OAuth.AuthorizedParty = data.OAuth.AuthorizedParty.ValueString()
+		}
+		if !data.OAuth.CACertificate.IsNull() {
+			api.OAuth.CACertificate = data.OAuth.CACertificate.ValueString()
+		}
+		if !data.OAuth.Audience.IsNull() {
+			api.OAuth.Audience = data.OAuth.Audience.ValueString()
+		}
+		if !data.OAuth.OIDCConfigURL.IsNull() {
+			api.OAuth.OIDCConfigURL = data.OAuth.OIDCConfigURL.ValueString()
+		}
 	}
 
 }
 
 func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	data.ID = types.StringValue(api.ID)
+	data.Name = types.StringValue(api.Name)
 	data.AdminEnabled = types.BoolPointerValue(api.IsAdmin)
 	if api.EnableOAuth != nil {
 		data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
 	}
-	data.OAuth = ApplicationOAuthResourceModel(*api.OAuth)
-
+	if api.OAuth != nil {
+		data.OAuth = &ApplicationOAuthResourceModel{}
+		if api.OAuth.Issuer != "" {
+			data.OAuth.Issuer = types.StringValue(api.OAuth.Issuer)
+		}
+		if api.OAuth.JWKSEndpoint != "" {
+			data.OAuth.JWKSEndpoint = types.StringValue(api.OAuth.JWKSEndpoint)
+		}
+		if api.OAuth.JWKS != "" {
+			data.OAuth.JWKS = types.StringValue(api.OAuth.JWKS)
+		}
+		if api.OAuth.AuthorizedParty != "" {
+			data.OAuth.AuthorizedParty = types.StringValue(api.OAuth.AuthorizedParty)
+		}
+		if api.OAuth.CACertificate != "" {
+			data.OAuth.CACertificate = types.StringValue(api.OAuth.CACertificate)
+		}
+		if api.OAuth.Audience != "" {
+			data.OAuth.Audience = types.StringValue(api.OAuth.Audience)
+		}
+		if api.OAuth.OIDCConfigURL != "" {
+			data.OAuth.OIDCConfigURL = types.StringValue(api.OAuth.OIDCConfigURL)
+		}
+	}
 }
 
 func (r *applicationResource) apiPath(data *ApplicationResourceModel) string {
