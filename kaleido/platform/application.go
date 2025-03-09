@@ -162,26 +162,27 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
 	if data.OAuth != nil {
 		api.OAuth = &ApplicationOAuthAPIModel{}
-		if !data.OAuth.Issuer.IsNull() {
-			api.OAuth.Issuer = data.OAuth.Issuer.ValueString()
-		}
-		if !data.OAuth.JWKSEndpoint.IsNull() {
-			api.OAuth.JWKSEndpoint = data.OAuth.JWKSEndpoint.ValueString()
-		}
-		if !data.OAuth.JWKS.IsNull() {
-			api.OAuth.JWKS = data.OAuth.JWKS.ValueString()
-		}
-		if !data.OAuth.AuthorizedParty.IsNull() {
-			api.OAuth.AuthorizedParty = data.OAuth.AuthorizedParty.ValueString()
-		}
-		if !data.OAuth.CACertificate.IsNull() {
-			api.OAuth.CACertificate = data.OAuth.CACertificate.ValueString()
-		}
-		if !data.OAuth.Audience.IsNull() {
-			api.OAuth.Audience = data.OAuth.Audience.ValueString()
-		}
 		if !data.OAuth.OIDCConfigURL.IsNull() {
 			api.OAuth.OIDCConfigURL = data.OAuth.OIDCConfigURL.ValueString()
+		} else {
+			if !data.OAuth.Issuer.IsNull() {
+				api.OAuth.Issuer = data.OAuth.Issuer.ValueString()
+			}
+			if !data.OAuth.JWKSEndpoint.IsNull() {
+				api.OAuth.JWKSEndpoint = data.OAuth.JWKSEndpoint.ValueString()
+			}
+			if !data.OAuth.JWKS.IsNull() {
+				api.OAuth.JWKS = data.OAuth.JWKS.ValueString()
+			}
+			if !data.OAuth.AuthorizedParty.IsNull() {
+				api.OAuth.AuthorizedParty = data.OAuth.AuthorizedParty.ValueString()
+			}
+			if !data.OAuth.CACertificate.IsNull() {
+				api.OAuth.CACertificate = data.OAuth.CACertificate.ValueString()
+			}
+			if !data.OAuth.Audience.IsNull() {
+				api.OAuth.Audience = data.OAuth.Audience.ValueString()
+			}
 		}
 	}
 
@@ -196,26 +197,27 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	}
 	if api.OAuth != nil {
 		data.OAuth = &ApplicationOAuthResourceModel{}
-		if api.OAuth.Issuer != "" {
-			data.OAuth.Issuer = types.StringValue(api.OAuth.Issuer)
-		}
-		if api.OAuth.JWKSEndpoint != "" {
-			data.OAuth.JWKSEndpoint = types.StringValue(api.OAuth.JWKSEndpoint)
-		}
-		if api.OAuth.JWKS != "" {
-			data.OAuth.JWKS = types.StringValue(api.OAuth.JWKS)
-		}
-		if api.OAuth.AuthorizedParty != "" {
-			data.OAuth.AuthorizedParty = types.StringValue(api.OAuth.AuthorizedParty)
-		}
-		if api.OAuth.CACertificate != "" {
-			data.OAuth.CACertificate = types.StringValue(api.OAuth.CACertificate)
-		}
-		if api.OAuth.Audience != "" {
-			data.OAuth.Audience = types.StringValue(api.OAuth.Audience)
-		}
 		if api.OAuth.OIDCConfigURL != "" {
 			data.OAuth.OIDCConfigURL = types.StringValue(api.OAuth.OIDCConfigURL)
+		} else {
+			if api.OAuth.Issuer != "" {
+				data.OAuth.Issuer = types.StringValue(api.OAuth.Issuer)
+			}
+			if api.OAuth.JWKSEndpoint != "" {
+				data.OAuth.JWKSEndpoint = types.StringValue(api.OAuth.JWKSEndpoint)
+			}
+			if api.OAuth.JWKS != "" {
+				data.OAuth.JWKS = types.StringValue(api.OAuth.JWKS)
+			}
+			if api.OAuth.AuthorizedParty != "" {
+				data.OAuth.AuthorizedParty = types.StringValue(api.OAuth.AuthorizedParty)
+			}
+			if api.OAuth.CACertificate != "" {
+				data.OAuth.CACertificate = types.StringValue(api.OAuth.CACertificate)
+			}
+			if api.OAuth.Audience != "" {
+				data.OAuth.Audience = types.StringValue(api.OAuth.Audience)
+			}
 		}
 	}
 }
