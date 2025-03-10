@@ -37,6 +37,6 @@ jobs:
           make docs || true
           git status
           if ! git diff-index --quiet HEAD -- ; then
-            echo "Kaleido Terraform Provider docs are out of date. Please run `make docs` and commit the latest updates."
+            echo "Kaleido Terraform Provider docs are out of date. Please run make docs and commit the latest updates."
             exit 1
           fi
