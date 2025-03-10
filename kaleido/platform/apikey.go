@@ -116,7 +116,10 @@ func (api *APIKeyAPIModel) toData(data *APIKeyResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	data.ApplicationID = types.StringValue(api.ApplicationID)
-	data.Secret = types.StringValue(api.Secret)
+	// Only set the secret value when the api key is first created
+	if !types.StringValue(api.Secret).IsNull() {
+		data.Secret = types.StringValue(api.Secret)
+	}
 	data.FormattedExpiryDate = types.StringValue(api.ExpiryDate)
 	data.NoExpiry = types.BoolPointerValue(api.NoExpiry)
 }
