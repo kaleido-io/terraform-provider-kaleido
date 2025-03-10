@@ -61,27 +61,32 @@ func (r *stacksResource) Metadata(_ context.Context, _ resource.MetadataRequest,
 
 func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "A stack is a collection of services within Digital Assets, Web3 Middleware or Chain Infrastructure. \n Stacks provide guidance around the optimal relationships and architecture of services for specific use cases, business units or chain connections. \n Every resource created within a stack is created in the context of an environment.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Stack Display Name",
 			},
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Stack Type. Options include: `chain_infrastructure`, `web3_middleware`, and `digital_assets`",
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
 			},
 			"network_id": &schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Specify a network ID for `chain_infrastructure` stacks that contain a Besu or IPFS network.",
 			},
 		},
 	}

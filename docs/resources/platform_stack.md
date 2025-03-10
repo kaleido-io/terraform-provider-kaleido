@@ -3,12 +3,16 @@
 page_title: "kaleido_platform_stack Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  
+  A stack is a collection of services within Digital Assets, Web3 Middleware or Chain Infrastructure.
+  Stacks provide guidance around the optimal relationships and architecture of services for specific use cases, business units or chain connections.
+  Every resource created within a stack is created in the context of an environment.
 ---
 
 # kaleido_platform_stack (Resource)
 
-
+A stack is a collection of services within Digital Assets, Web3 Middleware or Chain Infrastructure. 
+ Stacks provide guidance around the optimal relationships and architecture of services for specific use cases, business units or chain connections. 
+ Every resource created within a stack is created in the context of an environment.
 
 
 
@@ -17,13 +21,13 @@ description: |-
 
 ### Required
 
-- `environment` (String)
-- `name` (String)
-- `type` (String)
+- `environment` (String) Environment ID
+- `name` (String) Stack Display Name
+- `type` (String) Stack Type. Options include: `chain_infrastructure`, `web3_middleware`, and `digital_assets`
 
 ### Optional
 
-- `network_id` (String)
+- `network_id` (String) Specify a network ID for `chain_infrastructure` stacks that contain a Besu or IPFS network.
 
 ### Read-Only
 

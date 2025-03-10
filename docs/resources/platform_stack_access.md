@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_stack_access Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  
+  Granting an application or group access to a stack gives them access to all services contained within that stack.
 ---
 
 # kaleido_platform_stack_access (Resource)
 
-
+Granting an application or group access to a stack gives them access to all services contained within that stack.
 
 
 
@@ -17,12 +17,12 @@ description: |-
 
 ### Required
 
-- `stack_id` (String)
+- `stack_id` (String) ID of Stack to grant access
 
 ### Optional
 
-- `application_id` (String)
-- `group_id` (String)
+- `application_id` (String) Application ID. Specify either group_id or application_id
+- `group_id` (String) User Group ID. Specify either group_id or application_id
 
 ### Read-Only
 
