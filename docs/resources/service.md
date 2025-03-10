@@ -24,8 +24,6 @@ resource "kaleido_platform_service" "bns" {
       id = kaleido_platform_network.network.id
     }
   })
-  // uncomment `force_delete = true` and run terraform apply before running terraform destory to successfully delete the besu nodes
-  # force_delete = true
 }
 ```
 
