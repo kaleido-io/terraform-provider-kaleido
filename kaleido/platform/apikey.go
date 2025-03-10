@@ -159,6 +159,7 @@ func (r *api_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	var api APIKeyAPIModel
 	api.ID = data.ID.ValueString()
+	api.Secret = data.Secret.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
