@@ -120,8 +120,8 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"issuer": &schema.StringAttribute{
-						Optional:      true,
-						Computed:      true,
+						Optional: true,
+						// Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"jwks": &schema.StringAttribute{
@@ -129,8 +129,8 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"jwks_endpoint": &schema.StringAttribute{
-						Optional:      true,
-						Computed:      true,
+						Optional: true,
+						// Computed:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"oidc_config_url": &schema.StringAttribute{
