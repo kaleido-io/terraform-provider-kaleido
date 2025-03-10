@@ -48,7 +48,7 @@ vulncheck:
 	./sbom.sh $(shell pwd)
 
 .PHONY: tfplugin-docs
-tfplugin-docs: ${TFPLUGIN_DOCS} ## Download crd-ref-docs locally if necessary.
+tfplugin-docs: ${TFPLUGIN_DOCS} ## Download tfplugindocs locally if necessary. https://github.com/hashicorp/terraform-plugin-docs
 ${TFPLUGIN_DOCS}: ${LOCALBIN}
 	test -s $(LOCALBIN)/tfplugin-docs || GOBIN=$(LOCALBIN) go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.21.0
 
