@@ -132,7 +132,8 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Service Display Name",
 			},
 			"stack_id": &schema.StringAttribute{
-				Optional: true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,

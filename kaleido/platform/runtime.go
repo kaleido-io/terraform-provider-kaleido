@@ -96,7 +96,8 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Runtime display name",
 			},
 			"stack_id": &schema.StringAttribute{
-				Optional: true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,

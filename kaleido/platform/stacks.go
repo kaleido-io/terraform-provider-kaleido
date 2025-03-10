@@ -85,8 +85,9 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed: true,
 			},
 			"network_id": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Specify a network ID for `chain_infrastructure` stacks that contain a Besu or IPFS network.",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Specify a network ID for `chain_infrastructure` stacks that contain a Besu or IPFS network.",
 			},
 		},
 	}
