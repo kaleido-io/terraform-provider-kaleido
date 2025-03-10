@@ -13,6 +13,14 @@ LDFLAGS="-X main.buildDate=`date -u +\"%Y-%m-%dT%H:%M:%SZ\"` -X main.buildVersio
 DEPS=https://gmplib.org/download/gmp/gmp-6.0.0a.tar.bz2
 TARGETS="windows-10.0/*,darwin-10.10/*"
 
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+TFPLUGIN_DOCS ?= $(LOCALBIN)/tfplugindocs
+
+
 .PHONY: test
 
 all: deps build test vulncheck
@@ -38,3 +46,12 @@ build-win:
 
 vulncheck:
 	./sbom.sh $(shell pwd)
+
+.PHONY: tfplugin-docs
+tfplugin-docs: ${TFPLUGIN_DOCS} ## Download crd-ref-docs locally if necessary.
+${TFPLUGIN_DOCS}: ${LOCALBIN}
+	test -s $(LOCALBIN)/tfplugin-docs || GOBIN=$(LOCALBIN) go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.21.0
+
+.PHONY: docs
+docs: tfplugin-docs
+	${TFPLUGIN_DOCS} generate
