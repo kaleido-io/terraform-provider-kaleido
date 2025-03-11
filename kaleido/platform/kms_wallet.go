@@ -60,6 +60,7 @@ func (r *kms_walletResource) Metadata(_ context.Context, _ resource.MetadataRequ
 
 func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Keys that are used for signing must reside in a resource known as a wallet. Once a wallet is created within a key manager, keys must be created within a wallet before they can be used for signing.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -68,17 +69,21 @@ func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Key Manager Service ID",
 			},
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Wallet Type. Options include `hdwallet`, `awscloudhsm`, `awsKms`, `azurekeyvault`, `fireblocks`, `gcpKms`, `hashicorp`, and `remotemodule`. ",
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Wallet Display Name",
 			},
 			"config_json": &schema.StringAttribute{
 				Optional: true,

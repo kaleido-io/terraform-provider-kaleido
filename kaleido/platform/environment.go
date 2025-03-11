@@ -52,13 +52,15 @@ func (r *environmentResource) Metadata(_ context.Context, _ resource.MetadataReq
 
 func (r *environmentResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Environments group multiple services, runtimes, stacks and networks together in a single logical deployment.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Environment Name",
 			},
 		},
 	}

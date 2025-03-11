@@ -57,6 +57,7 @@ func (r *stackAccessResource) Metadata(_ context.Context, _ resource.MetadataReq
 
 func (r *stackAccessResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Granting an application or group access to a stack gives them access to all services contained within that stack.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -65,14 +66,17 @@ func (r *stackAccessResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"group_id": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "User Group ID. Specify either group_id or application_id",
 			},
 			"stack_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "ID of Stack to grant access",
 			},
 			"application_id": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Application ID. Specify either group_id or application_id",
 			},
 		},
 	}

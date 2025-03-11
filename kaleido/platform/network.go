@@ -83,6 +83,7 @@ func (r *networkResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Networks provide an anchor object for multiple services that need to communicate together, and allow services to discover other services they need communicate with.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -91,13 +92,16 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Network Type. Options are `Besu` and `IPFS`",
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Network Display Name",
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -111,16 +115,19 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				ElementType: types.StringType,
 			},
 			"init_files": &schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "",
 			},
 			"init_mode": &schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Options are `automated`(default) or `manual`.",
 			},
 			"initialized": &schema.BoolAttribute{
 				Computed: true,
 			},
 			"file_sets": &schema.MapNestedAttribute{
-				Optional: true,
+				Description: "Some services require binary files as part of their configuration, such as x509 certificates, or large JSON/YAML configuration files to be passed directly down to the service for verification. The files are individually encrypted.",
+				Optional:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"files": &schema.MapNestedAttribute{
@@ -152,7 +159,8 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				},
 			},
 			"cred_sets": &schema.MapNestedAttribute{
-				Optional: true,
+				Description: "Credentials such as usernames and passwords, or API Keys, required to integrate with external systems are also stored and encrypted separately to the main configuration of the service.",
+				Optional:    true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"type": &schema.StringAttribute{
@@ -187,7 +195,8 @@ func (r *networkResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				ElementType: types.StringType,
 			},
 			"force_delete": &schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Set to `true` when you plan to delete a protected network. You must apply the value before you can successfully `terraform destroy` the protected network.",
 			},
 		},
 	}
