@@ -24,11 +24,9 @@ description: |-
 ### Optional
 
 - `appcred_id` (String) Optionally provide an application credential to inject into the downloaded config, making it ready for use
-- `appcred_secret` (String) Optionally provide an application credential to inject into the downloaded config, making it ready for use
+- `appcred_secret` (String, Sensitive) Optionally provide an application credential to inject into the downloaded config, making it ready for use
 
 ### Read-Only
 
 - `config_json` (String)
 - `id` (String) The ID of this resource.
-
-

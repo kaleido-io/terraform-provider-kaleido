@@ -34,7 +34,6 @@ description: |-
 - `remote` (Boolean)
 - `role` (String)
 - `size` (String)
-- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `update_trigger` (String)
 - `zone_id` (String)
 
@@ -46,14 +45,3 @@ description: |-
 - `id` (String) The ID of this resource.
 - `urls` (Map of String)
 - `websocket_url` (String)
-
-<a id="nestedblock--timeouts"></a>
-### Nested Schema for `timeouts`
-
-Optional:
-
-- `create` (String)
-- `delete` (String)
-- `update` (String)
-
-

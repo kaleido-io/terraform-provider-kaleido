@@ -80,6 +80,7 @@ func (r *runtimeResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Runtimes are the highly-available workloads that run the function of the services. They allow for controlling the compute, networking, storage, and scalability underlying the service(s).",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -88,9 +89,11 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Runtime type",
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Runtime display name",
 			},
 			"stack_id": &schema.StringAttribute{
 				Optional:      true,
@@ -99,6 +102,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -107,16 +111,19 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required: true,
 			},
 			"log_level": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "Log Level setting. Updating this field will prompt a runtime restart when applied. ERROR, DEBUG, TRACE",
 			},
 			"size": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "Specification for the runtime's size.",
 			},
 			"stopped": &schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "Stops your runtime as long as this value is set to `true`",
 			},
 			"zone": &schema.StringAttribute{
 				Optional: true,
@@ -134,7 +141,8 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				// may be computed for certain runtime types, but we will not track it if the user did not provide it
 			},
 			"force_delete": &schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Set to `true` when you plan to delete a protected runtime like a Besu signing node. You must apply the value before you can successfully `terraform destroy` the protected runtime.",
 			},
 		},
 	}

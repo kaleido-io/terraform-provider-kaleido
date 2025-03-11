@@ -26,7 +26,5 @@ description: |-
 
 - `auth_type` (String)
 - `id` (String) The ID of this resource.
-- `password` (String)
+- `password` (String, Sensitive)
 - `username` (String)
-
-

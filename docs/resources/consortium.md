@@ -17,15 +17,13 @@ description: |-
 
 ### Required
 
-- `description` (String)
 - `name` (String)
 
 ### Optional
 
+- `description` (String)
 - `shared_deployment` (Boolean) The decentralized nature of Kaleido means a consortium might be shared with other accounts. When true only create if name does not exist, and delete becomes a no-op.
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-
-

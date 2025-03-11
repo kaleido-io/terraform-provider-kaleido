@@ -63,6 +63,7 @@ func (r *kms_keyResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "A reference to a signing key (also known as a key mapping) that is directly/indirectly derived from a piece of key material, and can be used for signing.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -71,21 +72,26 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Key Manager Service ID",
 			},
 			"wallet": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Wallet ID",
 			},
 			"name": &schema.StringAttribute{
-				Required: true, // technically optional in Kaleido service, but it is an anti-pattern we do not support in the terraform provider
+				Required:    true, // technically optional in Kaleido service, but it is an anti-pattern we do not support in the terraform provider
+				Description: "Key Display Name",
 			},
 			"path": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Optional:    true,
+				Computed:    true,
+				Description: "A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing.",
 			},
 			"uri": &schema.StringAttribute{
 				Computed: true,

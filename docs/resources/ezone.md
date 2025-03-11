@@ -26,20 +26,8 @@ description: |-
 
 - `bridge_id` (String)
 - `name` (String)
-- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `type` (String)
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-
-<a id="nestedblock--timeouts"></a>
-### Nested Schema for `timeouts`
-
-Optional:
-
-- `create` (String)
-- `delete` (String)
-- `update` (String)
-
-

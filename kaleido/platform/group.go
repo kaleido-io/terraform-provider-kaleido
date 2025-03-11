@@ -52,13 +52,15 @@ func (r *groupResource) Metadata(_ context.Context, _ resource.MetadataRequest, 
 
 func (r *groupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Users that are not account administrators must be added to one or more Groups. \nGroups (along with applications) are assigned permissions to services, stacks, and the core platform API, to perform tasks.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Group Display Name",
 			},
 		},
 	}

@@ -89,7 +89,8 @@ func TestApiKey1(t *testing.T) {
 							"created": "%[2]s",
 							"name": "apiKey1_renamed",
 							"application": "ap:1234",
-							"noExpiry": true
+							"noExpiry": true,
+							"secret" : "secret_password"
 						}
 						`,
 							// generated fields that vary per test run
@@ -119,6 +120,7 @@ func (mp *mockPlatform) postApiKey(res http.ResponseWriter, req *http.Request) {
 	rt.ID = nanoid.New()
 	now := time.Now().UTC()
 	rt.Created = &now
+	rt.Secret = "secret_password"
 	mp.apiKeys[mux.Vars(req)["application"]+"/"+rt.ID] = &rt
 	mp.respond(res, &rt, 201)
 }

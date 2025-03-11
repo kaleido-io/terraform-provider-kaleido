@@ -62,6 +62,7 @@ func (r *api_keyResource) Metadata(_ context.Context, _ resource.MetadataRequest
 
 func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "API keys are generated, strong static keys for authenticating to the platform as an application, with a configurable expiry.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -70,18 +71,22 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"name": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "API Key Name",
 			},
 			"application_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "The ID of the application you wish to create the API key under. Note that the application's access, determines the capabilities of the API keys.",
 			},
 			"secret": &schema.StringAttribute{
-				Computed:  true,
-				Sensitive: true,
+				Computed:    true,
+				Sensitive:   true,
+				Description: "API Key Value",
 			},
 			"expiry_date": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Expiration date formatted in RFC3339, Unix, or UnixNano",
 			},
 			"formatted_expiry_date": &schema.StringAttribute{
 				Computed:      true,
@@ -90,6 +95,7 @@ func (r *api_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"no_expiry": &schema.BoolAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Description:   "Set to `true` for API keys that should never expire",
 			},
 		},
 	}
@@ -110,7 +116,10 @@ func (api *APIKeyAPIModel) toData(data *APIKeyResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	data.ApplicationID = types.StringValue(api.ApplicationID)
-	data.Secret = types.StringValue(api.Secret)
+	// Only set the secret value when the api key is first created
+	if !types.StringValue(api.Secret).IsNull() {
+		data.Secret = types.StringValue(api.Secret)
+	}
 	data.FormattedExpiryDate = types.StringValue(api.ExpiryDate)
 	data.NoExpiry = types.BoolPointerValue(api.NoExpiry)
 }
@@ -150,6 +159,7 @@ func (r *api_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	var api APIKeyAPIModel
 	api.ID = data.ID.ValueString()
+	api.Secret = data.Secret.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return

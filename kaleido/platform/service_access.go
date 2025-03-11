@@ -57,6 +57,7 @@ func (r *serviceAccessResource) Metadata(_ context.Context, _ resource.MetadataR
 
 func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Grant a User Group or Application access to a specific service.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -65,14 +66,17 @@ func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaReque
 			"group_id": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "User Group ID. Specify either group_id or application_id",
 			},
 			"service_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "ID of Service to grant access",
 			},
 			"application_id": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Application ID. Specify either group_id or application_id",
 			},
 		},
 	}

@@ -60,7 +60,8 @@ func (r *networkBootstrapDatasource) Schema(_ context.Context, _ datasource.Sche
 				Required: true,
 			},
 			"environment": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Environment ID",
 			},
 			"bootstrap_files": &schema.SingleNestedAttribute{
 				Computed: true,
