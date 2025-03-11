@@ -34,9 +34,7 @@ jobs:
       - name: Check Docs
         run: |
           cd terraform-provider-kaleido
-          make docs || true
-          git status
-          git diff docs/index.md
+          make docs
           if ! git diff-index --quiet HEAD -- ; then
             echo "Kaleido Terraform Provider docs are out of date. Please run make docs and commit the latest updates."
             exit 1
