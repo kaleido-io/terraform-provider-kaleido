@@ -14,11 +14,19 @@ provider "kaleido" {
   platform_password = var.originator_api_key_value
 }
 
+data "kaleido_platform_account" "acct_og" {
+    provider = kaleido.originator
+}
+
 provider "kaleido" {
   alias = "secondary"
   platform_api = var.secondary_api_url
   platform_username = var.secondary_api_key_name
   platform_password = var.secondary_api_key_value
+}
+
+data "kaleido_platform_account" "acct_sec" {
+  provider = kaleido.secondary
 }
 
 // Environment 1 - the originator of the network
@@ -215,23 +223,36 @@ resource "kaleido_platform_service" "gws_net_sec" {
 // Network Connectors
 resource "kaleido_network_connector" "net_sec_connector" {
   provider = kaleido.secondary
-  type = "Permitted"
+  type = "Platform"
   name = "${var.secondary_name}_conn"
   environment = kaleido_platform_environment.env_sec.id
   network = kaleido_platform_network.net_sec.id
   zone = var.secondary_peer_network_dz
-  permitted_json = jsonencode({ peers = [ for peer in resource.kaleido_platform_service.bns_peer_net_og : jsondecode(peer.connectivity_json) ] })
+
+  platform = {
+    target_account_id = data.kaleido_platform_account.acct_og.account_id
+    target_environment_id = kaleido_platform_environment.env_og.id
+    target_network_id = kaleido_platform_network.net_og.id
+  }
+
   depends_on = [kaleido_platform_network.net_sec, kaleido_platform_service.bns_peer_net_og]
 }
 
 
 resource "kaleido_network_connector" "net_og_connector" {
   provider = kaleido.originator
-  type = "Permitted"
+  type = "Platform"
   name = "${var.originator_name}_conn"
   environment = kaleido_platform_environment.env_og.id
   network = kaleido_platform_network.net_og.id
   zone = var.originator_peer_network_dz
-  permitted_json = jsonencode({ peers = [ for peer in resource.kaleido_platform_service.bns_peer_net_sec : jsondecode(peer.connectivity_json) ] })
+
+  platform = {
+    target_account_id = data.kaleido_platform_account.acct_sec.account_id
+    target_environment_id = kaleido_platform_environment.env_sec.id
+    target_network_id = kaleido_platform_network.net_sec.id
+    target_connector_id = kaleido_network_connector.net_sec_connector.id
+  }
+
   depends_on = [kaleido_platform_network.net_og, kaleido_platform_service.bns_peer_net_sec]
 }

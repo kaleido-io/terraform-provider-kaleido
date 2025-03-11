@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"net/http"
 	"time"
 
@@ -38,6 +39,7 @@ type ConnectorResourceModel struct {
 	Network       types.String `tfsdk:"network"`
 	Zone          types.String `tfsdk:"zone"`
 	PermittedJSON types.String `tfsdk:"permitted_json"`
+	Platform      types.Object `tfsdk:"platform"`
 }
 
 type ConnectorAPIModel struct {
@@ -49,6 +51,7 @@ type ConnectorAPIModel struct {
 	NetworkID string                 `json:"networkId,omitempty"`
 	Zone      string                 `json:"zone,omitempty"`
 	Permitted map[string]interface{} `json:"permitted,omitempty"`
+	Platform  map[string]interface{} `json:"platform,omitempty"`
 	Deleted   bool                   `json:"deleted,omitempty"`
 	Status    string                 `json:"status,omitempty"`
 }
@@ -94,6 +97,15 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"permitted_json": &schema.StringAttribute{
 				Optional: true,
 			},
+			"platform": &schema.ObjectAttribute{ // TODO is this right ?
+				Optional: true,
+				AttributeTypes: map[string]attr.Type{
+					"target_account_id":     &basetypes.StringType{},
+					"target_environment_id": &basetypes.StringType{},
+					"target_network_id":     &basetypes.StringType{},
+					"target_connector_id":   &basetypes.StringType{}, // optional
+				},
+			},
 		},
 	}
 }
@@ -107,9 +119,33 @@ func (data *ConnectorResourceModel) toAPI(ctx context.Context, api *ConnectorAPI
 	api.Zone = data.Zone.ValueString()
 
 	// optional fields
-	api.Permitted = map[string]interface{}{}
+	if !data.PermittedJSON.IsNull() && api.Type != "Permitted" {
+		diagnostics.AddError("Invalid Permitted JSON", "Permitted JSON is only valid for Permitted connectors")
+		return
+	}
+
 	if !data.PermittedJSON.IsNull() && data.PermittedJSON.String() != "{}" {
+		api.Permitted = map[string]interface{}{}
 		_ = json.Unmarshal([]byte(data.PermittedJSON.ValueString()), &api.Permitted)
+	}
+
+	if !data.Platform.IsNull() && api.Type != "Platform" {
+		diagnostics.AddError("Invalid Platform", "Platform is only valid for Platform connectors")
+		return
+	} else if data.Platform.IsNull() && api.Type == "Platform" {
+		diagnostics.AddError("Invalid Platform", "Platform is required for Platform connectors")
+		return
+	}
+
+	if !data.Platform.IsNull() {
+		platform := make(map[string]interface{})
+		if err := data.Platform.As(ctx, &platform, basetypes.ObjectAsOptions{
+			UnhandledNullAsEmpty: true,
+		}); err != nil {
+			diagnostics.AddError("Invalid Platform", "Unable to convert platform to map")
+			return
+		}
+		api.Platform = platform
 	}
 
 }
@@ -128,6 +164,8 @@ func (api *ConnectorAPIModel) toData(data *ConnectorResourceModel, diagnostics *
 			info[k] = types.StringValue(v)
 		}
 	}
+
+	// TODO platform connector ? gets awkward for the originator once its been accepted
 }
 
 func (r *connectorResource) apiPath(data *ConnectorResourceModel) string {
