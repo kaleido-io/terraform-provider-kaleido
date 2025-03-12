@@ -43,17 +43,17 @@ type ConnectorResourceModel struct {
 }
 
 type RequestorPlatformConnectorModel struct {
-	TargetAccountID     string `tfsdk:"target_account_id"`
-	TargetEnvironmentID string `tfsdk:"target_environment_id"`
-	TargetNetworkID     string `tfsdk:"target_network_id"`
-	TargetConnectorID   string `tfsdk:"target_connector_id"` // computed once accepted
+	TargetAccountID     types.String `tfsdk:"target_account_id"`
+	TargetEnvironmentID types.String `tfsdk:"target_environment_id"`
+	TargetNetworkID     types.String `tfsdk:"target_network_id"`
+	TargetConnectorID   types.String `tfsdk:"target_connector_id"` // computed once accepted
 }
 
 type AcceptorPlatformConnectorModel struct {
-	TargetAccountID     string `tfsdk:"target_account_id"`
-	TargetEnvironmentID string `tfsdk:"target_environment_id"`
-	TargetNetworkID     string `tfsdk:"target_network_id"`
-	TargetConnectorID   string `tfsdk:"target_connector_id"`
+	TargetAccountID     types.String `tfsdk:"target_account_id"`
+	TargetEnvironmentID types.String `tfsdk:"target_environment_id"`
+	TargetNetworkID     types.String `tfsdk:"target_network_id"`
+	TargetConnectorID   types.String `tfsdk:"target_connector_id"`
 }
 
 type ConnectorAPIModel struct {
@@ -111,41 +111,37 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"permitted_json": &schema.StringAttribute{
 				Optional: true,
 			},
-			"platform_requestor": &schema.MapNestedAttribute{
+			"platform_requestor": &schema.SingleNestedAttribute{
 				Optional: true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"target_account_id": &schema.StringAttribute{
-							Required: true,
-						},
-						"target_environment_id": &schema.StringAttribute{
-							Required: true,
-						},
-						"target_network_id": &schema.StringAttribute{
-							Required: true,
-						},
-						"target_connector_id": &schema.StringAttribute{
-							Computed: true,
-						},
+				Attributes: map[string]schema.Attribute{
+					"target_account_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_environment_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_network_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_connector_id": &schema.StringAttribute{
+						Computed: true,
 					},
 				},
 			},
-			"platform_acceptor": &schema.MapNestedAttribute{
+			"platform_acceptor": &schema.SingleNestedAttribute{
 				Optional: true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"target_account_id": &schema.StringAttribute{
-							Required: true,
-						},
-						"target_environment_id": &schema.StringAttribute{
-							Required: true,
-						},
-						"target_network_id": &schema.StringAttribute{
-							Required: true,
-						},
-						"target_connector_id": &schema.StringAttribute{
-							Required: true,
-						},
+				Attributes: map[string]schema.Attribute{
+					"target_account_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_environment_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_network_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_connector_id": &schema.StringAttribute{
+						Required: true,
 					},
 				},
 			},
@@ -188,16 +184,16 @@ func (data *ConnectorResourceModel) toAPI(ctx context.Context, api *ConnectorAPI
 
 	if data.PlatformRequestor != nil {
 		api.Platform = map[string]interface{}{
-			"targetAccountId":     data.PlatformRequestor.TargetAccountID,
-			"targetEnvironmentId": data.PlatformRequestor.TargetEnvironmentID,
-			"targetNetworkId":     data.PlatformRequestor.TargetNetworkID,
+			"targetAccountId":     data.PlatformRequestor.TargetAccountID.ValueString(),
+			"targetEnvironmentId": data.PlatformRequestor.TargetEnvironmentID.ValueString(),
+			"targetNetworkId":     data.PlatformRequestor.TargetNetworkID.ValueString(),
 		}
 	} else if data.PlatformAcceptor != nil {
 		api.Platform = map[string]interface{}{
-			"targetAccountId":     data.PlatformAcceptor.TargetAccountID,
-			"targetEnvironmentId": data.PlatformAcceptor.TargetEnvironmentID,
-			"targetNetworkId":     data.PlatformAcceptor.TargetNetworkID,
-			"targetConnectorId":   data.PlatformAcceptor.TargetConnectorID,
+			"targetAccountId":     data.PlatformAcceptor.TargetAccountID.ValueString(),
+			"targetEnvironmentId": data.PlatformAcceptor.TargetEnvironmentID.ValueString(),
+			"targetNetworkId":     data.PlatformAcceptor.TargetNetworkID.ValueString(),
+			"targetConnectorId":   data.PlatformAcceptor.TargetConnectorID.ValueString(),
 		}
 	}
 
@@ -221,7 +217,9 @@ func (api *ConnectorAPIModel) toData(data *ConnectorResourceModel, diagnostics *
 
 	if data.PlatformRequestor != nil && api.Platform != nil {
 		if targetConnectorID, ok := api.Platform["targetConnectorId"]; ok {
-			data.PlatformRequestor.TargetConnectorID = targetConnectorID.(string)
+			data.PlatformRequestor.TargetConnectorID = types.StringValue(targetConnectorID.(string))
+		} else {
+			data.PlatformRequestor.TargetConnectorID = types.StringNull()
 		}
 	}
 }
@@ -247,10 +245,11 @@ func (r *connectorResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
+	if data.PlatformRequestor == nil {   // requestors will not go into ready w/o being accepted
+		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+		api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-
 }
 
 func (r *connectorResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
