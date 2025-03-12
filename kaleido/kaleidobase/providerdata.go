@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -94,6 +95,18 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	platform := resty.New().
 		SetTransport(http.DefaultTransport).
 		SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (Platform)", version)).
+		AddRetryCondition(func(r *resty.Response, err error) bool {
+			if err != nil {
+				return false
+			}
+			if r.StatusCode() == http.StatusTooManyRequests {
+				return true
+			}
+			return false
+		}).
+		SetRetryCount(3).
+		SetRetryWaitTime(1 * time.Second).
+		SetRetryMaxWaitTime(10 * time.Second).
 		SetBaseURL(platformAPI)
 	if platformUsername != "" && platformPassword != "" {
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)
