@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"net/http"
 	"time"
 
@@ -32,14 +31,29 @@ import (
 )
 
 type ConnectorResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	Type          types.String `tfsdk:"type"`
-	Environment   types.String `tfsdk:"environment"`
-	Network       types.String `tfsdk:"network"`
-	Zone          types.String `tfsdk:"zone"`
-	PermittedJSON types.String `tfsdk:"permitted_json"`
-	Platform      types.Object `tfsdk:"platform"`
+	ID                types.String                     `tfsdk:"id"`
+	Name              types.String                     `tfsdk:"name"`
+	Type              types.String                     `tfsdk:"type"`
+	Environment       types.String                     `tfsdk:"environment"`
+	Network           types.String                     `tfsdk:"network"`
+	Zone              types.String                     `tfsdk:"zone"`
+	PermittedJSON     types.String                     `tfsdk:"permitted_json"`
+	PlatformRequestor *RequestorPlatformConnectorModel `tfsdk:"platform_requestor"`
+	PlatformAcceptor  *AcceptorPlatformConnectorModel  `tfsdk:"platform_acceptor"`
+}
+
+type RequestorPlatformConnectorModel struct {
+	TargetAccountID     string `tfsdk:"target_account_id"`
+	TargetEnvironmentID string `tfsdk:"target_environment_id"`
+	TargetNetworkID     string `tfsdk:"target_network_id"`
+	TargetConnectorID   string `tfsdk:"target_connector_id"` // computed once accepted
+}
+
+type AcceptorPlatformConnectorModel struct {
+	TargetAccountID     string `tfsdk:"target_account_id"`
+	TargetEnvironmentID string `tfsdk:"target_environment_id"`
+	TargetNetworkID     string `tfsdk:"target_network_id"`
+	TargetConnectorID   string `tfsdk:"target_connector_id"`
 }
 
 type ConnectorAPIModel struct {
@@ -97,13 +111,42 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"permitted_json": &schema.StringAttribute{
 				Optional: true,
 			},
-			"platform": &schema.ObjectAttribute{ // TODO is this right ?
+			"platform_requestor": &schema.MapNestedAttribute{
 				Optional: true,
-				AttributeTypes: map[string]attr.Type{
-					"target_account_id":     &basetypes.StringType{},
-					"target_environment_id": &basetypes.StringType{},
-					"target_network_id":     &basetypes.StringType{},
-					"target_connector_id":   &basetypes.StringType{}, // optional
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"target_account_id": &schema.StringAttribute{
+							Required: true,
+						},
+						"target_environment_id": &schema.StringAttribute{
+							Required: true,
+						},
+						"target_network_id": &schema.StringAttribute{
+							Required: true,
+						},
+						"target_connector_id": &schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+			"platform_acceptor": &schema.MapNestedAttribute{
+				Optional: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"target_account_id": &schema.StringAttribute{
+							Required: true,
+						},
+						"target_environment_id": &schema.StringAttribute{
+							Required: true,
+						},
+						"target_network_id": &schema.StringAttribute{
+							Required: true,
+						},
+						"target_connector_id": &schema.StringAttribute{
+							Required: true,
+						},
+					},
 				},
 			},
 		},
@@ -129,23 +172,33 @@ func (data *ConnectorResourceModel) toAPI(ctx context.Context, api *ConnectorAPI
 		_ = json.Unmarshal([]byte(data.PermittedJSON.ValueString()), &api.Permitted)
 	}
 
-	if !data.Platform.IsNull() && api.Type != "Platform" {
-		diagnostics.AddError("Invalid Platform", "Platform is only valid for Platform connectors")
+	if data.PlatformRequestor != nil && api.Type != "Platform" {
+		diagnostics.AddError("Invalid PlatformRequestor", "PlatformRequestor is only valid for Platform connectors")
 		return
-	} else if data.Platform.IsNull() && api.Type == "Platform" {
-		diagnostics.AddError("Invalid Platform", "Platform is required for Platform connectors")
+	} else if data.PlatformAcceptor != nil && api.Type != "Platform" {
+		diagnostics.AddError("Invalid PlatformAcceptor", "PlatformAcceptor is only valid for Platform connectors")
+		return
+	} else if data.PlatformRequestor == nil && data.PlatformAcceptor == nil && api.Type == "Platform" {
+		diagnostics.AddError("Invalid Platform", "PlatformRequestor or PlatformAcceptor is required for Platform connectors")
+		return
+	} else if data.PlatformRequestor != nil && data.PlatformAcceptor != nil {
+		diagnostics.AddError("Invalid Platform", "PlatformRequestor and PlatformAcceptor are mutually exclusive")
 		return
 	}
 
-	if !data.Platform.IsNull() {
-		platform := make(map[string]interface{})
-		if err := data.Platform.As(ctx, &platform, basetypes.ObjectAsOptions{
-			UnhandledNullAsEmpty: true,
-		}); err != nil {
-			diagnostics.AddError("Invalid Platform", "Unable to convert platform to map")
-			return
+	if data.PlatformRequestor != nil {
+		api.Platform = map[string]interface{}{
+			"targetAccountId":     data.PlatformRequestor.TargetAccountID,
+			"targetEnvironmentId": data.PlatformRequestor.TargetEnvironmentID,
+			"targetNetworkId":     data.PlatformRequestor.TargetNetworkID,
 		}
-		api.Platform = platform
+	} else if data.PlatformAcceptor != nil {
+		api.Platform = map[string]interface{}{
+			"targetAccountId":     data.PlatformAcceptor.TargetAccountID,
+			"targetEnvironmentId": data.PlatformAcceptor.TargetEnvironmentID,
+			"targetNetworkId":     data.PlatformAcceptor.TargetNetworkID,
+			"targetConnectorId":   data.PlatformAcceptor.TargetConnectorID,
+		}
 	}
 
 }
@@ -157,6 +210,7 @@ func (api *ConnectorAPIModel) toData(data *ConnectorResourceModel, diagnostics *
 	data.Network = types.StringValue(api.NetworkID)
 	data.Zone = types.StringValue(api.Zone)
 
+	// TODO what does this do ?
 	info := make(map[string]attr.Value)
 	for k, v := range api.Permitted {
 		v, isString := v.(string)
@@ -165,7 +219,11 @@ func (api *ConnectorAPIModel) toData(data *ConnectorResourceModel, diagnostics *
 		}
 	}
 
-	// TODO platform connector ? gets awkward for the originator once its been accepted
+	if data.PlatformRequestor != nil && api.Platform != nil {
+		if targetConnectorID, ok := api.Platform["targetConnectorId"]; ok {
+			data.PlatformRequestor.TargetConnectorID = targetConnectorID.(string)
+		}
+	}
 }
 
 func (r *connectorResource) apiPath(data *ConnectorResourceModel) string {
