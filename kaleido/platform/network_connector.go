@@ -113,6 +113,7 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"platform_requestor": &schema.SingleNestedAttribute{
 				Optional: true,
+				// TODO change should require a recreate
 				Attributes: map[string]schema.Attribute{
 					"target_account_id": &schema.StringAttribute{
 						Required: true,
@@ -130,6 +131,7 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"platform_acceptor": &schema.SingleNestedAttribute{
 				Optional: true,
+				// TODO change should require a recreate
 				Attributes: map[string]schema.Attribute{
 					"target_account_id": &schema.StringAttribute{
 						Required: true,
