@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -92,8 +93,24 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	if platformPassword == "" {
 		platformPassword = os.Getenv("KALEIDO_PASSWORD")
 	}
+
+	// mostly the default settings, barring less conns to avoid concurrency limits w/in the Platform
+	platformHttp := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          5,
+		MaxConnsPerHost:       5,
+		MaxIdleConnsPerHost:   5,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 	platform := resty.New().
-		SetTransport(http.DefaultTransport).
+		SetTransport(platformHttp).
 		SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (Platform)", version)).
 		AddRetryCondition(func(r *resty.Response, err error) bool {
 			if err != nil {
