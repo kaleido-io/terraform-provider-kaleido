@@ -123,6 +123,7 @@ resource "kaleido_platform_service" "bns_signer_net_og" {
     signer = true
   })
   count = var.originator_signer_count
+  force_delete = true
 }
 
 resource "kaleido_platform_runtime" "bnr_peer_net_og" {
