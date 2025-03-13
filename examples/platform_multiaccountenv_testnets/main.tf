@@ -1,10 +1,4 @@
-// This module creates a shared Besu QBFT and IPFS testnet across three different accounts and environments w/in a Kaleido
-// platform instance. The originator account creates the testnets and the joiner accounts join the testnets via
-// "platform" network connectors. Joiner one requests to connect with the originator. The originator accepts the joiner
-// one request, and requests joiner two to connect. Joiner two accepts the request.
-//
-// This represent how to create a shared network across multiple accounts and environments in a Kaleido platform instance
-// for software or consortium use cases.
+
 
 terraform {
   required_providers {
