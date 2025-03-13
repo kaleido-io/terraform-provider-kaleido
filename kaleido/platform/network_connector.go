@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"net/http"
 	"strings"
 	"time"
@@ -113,7 +114,8 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Optional: true,
 			},
 			"platform_requestor": &schema.SingleNestedAttribute{
-				Optional: true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 				// TODO change should require a recreate
 				Attributes: map[string]schema.Attribute{
 					"target_account_id": &schema.StringAttribute{
@@ -131,7 +133,8 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				},
 			},
 			"platform_acceptor": &schema.SingleNestedAttribute{
-				Optional: true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
 				// TODO change should require a recreate
 				Attributes: map[string]schema.Attribute{
 					"target_account_id": &schema.StringAttribute{
