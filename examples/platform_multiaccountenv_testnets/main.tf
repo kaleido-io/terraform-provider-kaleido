@@ -190,6 +190,7 @@ resource "kaleido_platform_runtime" "inr_net_og" {
 
   type = "IPFSNode"
   name = var.originator_name
+  zone = var.originator_peer_network_dz
   environment = kaleido_platform_environment.env_og.id
   config_json = jsonencode({ })
 }
@@ -295,6 +296,7 @@ resource "kaleido_platform_runtime" "inr_net_j1" {
 
   type = "IPFSNode"
   name = var.joiner_one_name
+  zone = var.joiner_one_peer_network_dz
   environment = kaleido_platform_environment.env_j1.id
   config_json = jsonencode({ })
 }
@@ -399,6 +401,7 @@ resource "kaleido_platform_runtime" "inr_net_j2" {
 
   type = "IPFSNode"
   name = var.joiner_two_name
+  zone = var.joiner_two_peer_network_dz
   environment = kaleido_platform_environment.env_j2.id
   config_json = jsonencode({ })
 }
@@ -466,7 +469,7 @@ resource "kaleido_network_connector" "besunet_og_connector_j2" {
 }
 
 resource "kaleido_network_connector" "besunet_j2_connector_og" {
-  provider = kaleido.originator
+  provider = kaleido.joiner_two
   type = "Platform"
   name = "${var.joiner_two_name}_conn_${var.originator_name}"
   environment = kaleido_platform_environment.env_j2.id
