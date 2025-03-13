@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2024-2025
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -160,23 +161,25 @@ func (data *ConnectorResourceModel) toAPI(ctx context.Context, api *ConnectorAPI
 	api.Zone = data.Zone.ValueString()
 
 	// optional fields
-	if !data.PermittedJSON.IsNull() && api.Type != "Permitted" {
+	if !data.PermittedJSON.IsNull() && strings.ToLower(api.Type) != "permitted" {
 		diagnostics.AddError("Invalid Permitted JSON", "Permitted JSON is only valid for Permitted connectors")
 		return
 	}
 
-	if !data.PermittedJSON.IsNull() && data.PermittedJSON.String() != "{}" {
+	if strings.ToLower(api.Type) == "permitted" {
 		api.Permitted = map[string]interface{}{}
-		_ = json.Unmarshal([]byte(data.PermittedJSON.ValueString()), &api.Permitted)
+		if !data.PermittedJSON.IsNull() && data.PermittedJSON.String() != "{}" {
+			_ = json.Unmarshal([]byte(data.PermittedJSON.ValueString()), &api.Permitted)
+		}
 	}
 
-	if data.PlatformRequestor != nil && api.Type != "Platform" {
+	if data.PlatformRequestor != nil && strings.ToLower(api.Type) != "platform" {
 		diagnostics.AddError("Invalid PlatformRequestor", "PlatformRequestor is only valid for Platform connectors")
 		return
-	} else if data.PlatformAcceptor != nil && api.Type != "Platform" {
+	} else if data.PlatformAcceptor != nil && strings.ToLower(api.Type) != "platform" {
 		diagnostics.AddError("Invalid PlatformAcceptor", "PlatformAcceptor is only valid for Platform connectors")
 		return
-	} else if data.PlatformRequestor == nil && data.PlatformAcceptor == nil && api.Type == "Platform" {
+	} else if data.PlatformRequestor == nil && data.PlatformAcceptor == nil && strings.ToLower(api.Type) == "platform" {
 		diagnostics.AddError("Invalid Platform", "PlatformRequestor or PlatformAcceptor is required for Platform connectors")
 		return
 	} else if data.PlatformRequestor != nil && data.PlatformAcceptor != nil {
