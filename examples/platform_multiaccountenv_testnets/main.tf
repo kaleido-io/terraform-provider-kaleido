@@ -232,16 +232,16 @@ resource "kaleido_platform_service" "ins_net_og" {
 
 // Environment 2 - another member of the testnets joining
 resource "kaleido_platform_stack" "chain_infra_besu_stack_j1" {
-  provider = kaleido.originator
-  environment = kaleido_platform_environment.env_og.id
+  provider = kaleido.joiner_one
+  environment = kaleido_platform_environment.env_j1.id
   name = "chain_infra_besu_stack"
   type = "chain_infrastructure"
   network_id = kaleido_platform_network.besunet_j1.id
 }
 
 resource "kaleido_platform_stack" "chain_infra_ipfs_stack_j1" {
-  provider = kaleido.originator
-  environment = kaleido_platform_environment.env_og.id
+  provider = kaleido.joiner_one
+  environment = kaleido_platform_environment.env_j1.id
   name = "chain_infra_ipfs_stack"
   type = "chain_infrastructure"
   network_id = kaleido_platform_network.ipfsnet_j1.id
@@ -358,19 +358,19 @@ resource "kaleido_platform_service" "ins_net_j1" {
 
 // Environment 3 - another member of the testnets joining
 resource "kaleido_platform_stack" "chain_infra_besu_stack_j2" {
-  provider = kaleido.originator
-  environment = kaleido_platform_environment.env_og.id
+  provider = kaleido.joiner_two
+  environment = kaleido_platform_environment.env_j2.id
   name = "chain_infra_besu_stack"
   type = "chain_infrastructure"
-  network_id = kaleido_platform_network.besunet_j1.id
+  network_id = kaleido_platform_network.besunet_j2.id
 }
 
 resource "kaleido_platform_stack" "chain_infra_ipfs_stack_j2" {
-  provider = kaleido.originator
-  environment = kaleido_platform_environment.env_og.id
+  provider = kaleido.joiner_two
+  environment = kaleido_platform_environment.env_j2.id
   name = "chain_infra_ipfs_stack"
   type = "chain_infrastructure"
-  network_id = kaleido_platform_network.ipfsnet_j1.id
+  network_id = kaleido_platform_network.ipfsnet_j2.id
 }
 
 
