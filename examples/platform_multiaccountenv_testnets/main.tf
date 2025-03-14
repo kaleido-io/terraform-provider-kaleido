@@ -55,6 +55,23 @@ resource "kaleido_platform_environment" "env_og" {
   name = var.originator_name
 }
 
+
+resource "kaleido_platform_stack" "chain_infra_besu_stack_og" {
+  provider = kaleido.originator
+  environment = kaleido_platform_environment.env_og.id
+  name = "chain_infra_besu_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.besunet_og.id
+}
+
+resource "kaleido_platform_stack" "chain_infra_ipfs_stack_og" {
+  provider = kaleido.originator
+  environment = kaleido_platform_environment.env_og.id
+  name = "chain_infra_ipfs_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.ipfsnet_og.id
+}
+
 resource "kaleido_platform_network" "besunet_og" {
   provider = kaleido.originator
   type = "BesuNetwork"
@@ -102,6 +119,7 @@ resource "kaleido_platform_runtime" "bnr_signer_net_og" {
   environment = kaleido_platform_environment.env_og.id
   config_json = jsonencode({})
   count = var.originator_signer_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_og.id
 }
 
 resource "kaleido_platform_service" "bns_signer_net_og" {
@@ -118,6 +136,7 @@ resource "kaleido_platform_service" "bns_signer_net_og" {
   })
   count = var.originator_signer_count
   force_delete = true
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_og.id
 }
 
 resource "kaleido_platform_runtime" "bnr_peer_net_og" {
@@ -128,6 +147,7 @@ resource "kaleido_platform_runtime" "bnr_peer_net_og" {
   zone = var.originator_peer_network_dz
   config_json = jsonencode({})
   count = var.originator_peer_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_og.id
 }
 
 resource "kaleido_platform_service" "bns_peer_net_og" {
@@ -143,6 +163,7 @@ resource "kaleido_platform_service" "bns_peer_net_og" {
     signer = false
   })
   count = var.originator_peer_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_og.id
 }
 
 resource "kaleido_platform_runtime" "gwr_net_og" {
@@ -152,6 +173,7 @@ resource "kaleido_platform_runtime" "gwr_net_og" {
   environment = kaleido_platform_environment.env_og.id
   config_json = jsonencode({})
   count = var.originator_gateway_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_og.id
 }
 
 
@@ -167,6 +189,7 @@ resource "kaleido_platform_service" "gws_net_og" {
     }
   })
   count = var.originator_gateway_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_og.id
 }
 
 data "kaleido_platform_network_bootstrap_data" "net_og_bootstrap" {
@@ -188,6 +211,7 @@ resource "kaleido_platform_runtime" "inr_net_og" {
   zone = var.originator_peer_network_dz
   environment = kaleido_platform_environment.env_og.id
   config_json = jsonencode({ })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack_og.id
 }
 
 resource "kaleido_platform_service" "ins_net_og" {
@@ -202,10 +226,26 @@ resource "kaleido_platform_service" "ins_net_og" {
       id = kaleido_platform_network.ipfsnet_og.id
     }
   })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack_og.id
 }
 
 
 // Environment 2 - another member of the testnets joining
+resource "kaleido_platform_stack" "chain_infra_besu_stack_j1" {
+  provider = kaleido.originator
+  environment = kaleido_platform_environment.env_og.id
+  name = "chain_infra_besu_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.besunet_j1.id
+}
+
+resource "kaleido_platform_stack" "chain_infra_ipfs_stack_j1" {
+  provider = kaleido.originator
+  environment = kaleido_platform_environment.env_og.id
+  name = "chain_infra_ipfs_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.ipfsnet_j1.id
+}
 
 resource "kaleido_platform_environment" "env_j1" {
   provider = kaleido.joiner_one
@@ -245,6 +285,7 @@ resource "kaleido_platform_runtime" "bnr_peer_net_j1" {
   config_json = jsonencode({})
   count = var.joiner_one_peer_count
   depends_on = [kaleido_platform_network.besunet_j1]
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j1.id
 }
 
 resource "kaleido_platform_service" "bns_peer_net_j1" {
@@ -260,22 +301,24 @@ resource "kaleido_platform_service" "bns_peer_net_j1" {
     signer = false
   })
   count = var.joiner_one_peer_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j1.id
 }
 
 resource "kaleido_platform_runtime" "gwr_net_j1" {
   provider = kaleido.joiner_one
   type = "EVMGateway"
-  name = "${var.originator_name}_gateway"
+  name = "${var.joiner_one_name}_gateway"
   environment = kaleido_platform_environment.env_j1.id
   config_json = jsonencode({})
   depends_on = [kaleido_platform_network.besunet_j1]
   count = var.joiner_one_gateway_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j1.id
 }
 
 resource "kaleido_platform_service" "gws_net_j1" {
   provider = kaleido.joiner_one
   type = "EVMGateway"
-  name = "${var.originator_name}_gateway"
+  name = "${var.joiner_one_name}_gateway"
   environment = kaleido_platform_environment.env_j1.id
   runtime = kaleido_platform_runtime.gwr_net_j1[count.index].id
   config_json = jsonencode({
@@ -284,6 +327,7 @@ resource "kaleido_platform_service" "gws_net_j1" {
     }
   })
   count = var.joiner_one_gateway_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j1.id
 }
 
 resource "kaleido_platform_runtime" "inr_net_j1" {
@@ -294,6 +338,7 @@ resource "kaleido_platform_runtime" "inr_net_j1" {
   zone = var.joiner_one_peer_network_dz
   environment = kaleido_platform_environment.env_j1.id
   config_json = jsonencode({ })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack_j1.id
 }
 
 resource "kaleido_platform_service" "ins_net_j1" {
@@ -308,9 +353,26 @@ resource "kaleido_platform_service" "ins_net_j1" {
       id = kaleido_platform_network.ipfsnet_j1.id
     }
   })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack_j1.id
 }
 
 // Environment 3 - another member of the testnets joining
+resource "kaleido_platform_stack" "chain_infra_besu_stack_j2" {
+  provider = kaleido.originator
+  environment = kaleido_platform_environment.env_og.id
+  name = "chain_infra_besu_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.besunet_j1.id
+}
+
+resource "kaleido_platform_stack" "chain_infra_ipfs_stack_j2" {
+  provider = kaleido.originator
+  environment = kaleido_platform_environment.env_og.id
+  name = "chain_infra_ipfs_stack"
+  type = "chain_infrastructure"
+  network_id = kaleido_platform_network.ipfsnet_j1.id
+}
+
 
 resource "kaleido_platform_environment" "env_j2" {
   provider = kaleido.joiner_two
@@ -350,6 +412,7 @@ resource "kaleido_platform_runtime" "bnr_peer_net_j2" {
   config_json = jsonencode({})
   count = var.joiner_two_peer_count
   depends_on = [kaleido_platform_network.besunet_j2]
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j2.id
 }
 
 resource "kaleido_platform_service" "bns_peer_net_j2" {
@@ -365,22 +428,24 @@ resource "kaleido_platform_service" "bns_peer_net_j2" {
     signer = false
   })
   count = var.joiner_two_peer_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j2.id
 }
 
 resource "kaleido_platform_runtime" "gwr_net_j2" {
   provider = kaleido.joiner_two
   type = "EVMGateway"
-  name = "${var.originator_name}_gateway"
+  name = "${var.joiner_two_name}_gateway"
   environment = kaleido_platform_environment.env_j2.id
   config_json = jsonencode({})
   depends_on = [kaleido_platform_network.besunet_j2]
   count = var.joiner_two_gateway_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j2.id
 }
 
 resource "kaleido_platform_service" "gws_net_j2" {
   provider = kaleido.joiner_two
   type = "EVMGateway"
-  name = "${var.originator_name}_gateway"
+  name = "${var.joiner_two_name}_gateway"
   environment = kaleido_platform_environment.env_j2.id
   runtime = kaleido_platform_runtime.gwr_net_j2[count.index].id
   config_json = jsonencode({
@@ -389,6 +454,7 @@ resource "kaleido_platform_service" "gws_net_j2" {
     }
   })
   count = var.joiner_two_gateway_count
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack_j2.id
 }
 
 resource "kaleido_platform_runtime" "inr_net_j2" {
@@ -399,6 +465,7 @@ resource "kaleido_platform_runtime" "inr_net_j2" {
   zone = var.joiner_two_peer_network_dz
   environment = kaleido_platform_environment.env_j2.id
   config_json = jsonencode({ })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack_j2.id
 }
 
 resource "kaleido_platform_service" "ins_net_j2" {
@@ -413,6 +480,7 @@ resource "kaleido_platform_service" "ins_net_j2" {
       id = kaleido_platform_network.ipfsnet_j2.id
     }
   })
+  stack_id = kaleido_platform_stack.chain_infra_ipfs_stack_j2.id
 }
 
 // Besu Network Connectors
