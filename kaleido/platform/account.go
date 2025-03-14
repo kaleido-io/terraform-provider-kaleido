@@ -15,11 +15,12 @@ package platform
 
 import (
 	"context"
+	"net/http"
+
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/http"
 )
 
 type AccountDatasourceModel struct {
@@ -28,7 +29,6 @@ type AccountDatasourceModel struct {
 
 type SelfIdentityAPIModel struct {
 	AccountID string `json:"accountId,omitempty"`
-	IsAdmin   bool   `json:"isAdmin,omitempty"`
 }
 
 func (m SelfIdentityAPIModel) toData(_ context.Context, s *AccountDatasourceModel, d *diag.Diagnostics) {
