@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2025
+// Copyright © Kaleido, Inc. 2025-2025
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 	_ "embed"
 )
 
-var connectorStep1 = `
+var permittedConnectorStep1 = `
 resource "kaleido_network_connector" "connector1" {
     environment = "env1"
 	network = "net1"
@@ -39,7 +39,7 @@ resource "kaleido_network_connector" "connector1" {
 }
 `
 
-var connectorStep2 = `
+var permittedConnectorStep2 = `
 resource "kaleido_network_connector" "connector1" {
     environment = "env1"
 	network = "net1"
@@ -50,7 +50,36 @@ resource "kaleido_network_connector" "connector1" {
 }
 `
 
-func TestConnector(t *testing.T) {
+var platformConnectorsStep = `
+resource "kaleido_network_connector" "connector_requestor" {
+	environment = "env1"
+	network = "net1"
+	type = "platform"
+	name = "nconn_req"
+	zone = "zone1"
+	platform_requestor = {
+		target_account_id = "shared_acct"
+		target_environment_id = "env2"
+		target_network_id = "net2"
+	}
+}
+
+resource "kaleido_network_connector" "connector_acceptor" {
+	environment = "env2"
+	network = "net2"
+	type = "platform"
+	name = "nconn_accpt"
+	zone = "zone2"
+	platform_acceptor = {
+		target_account_id = "shared_acct"
+		target_environment_id = "env1"
+		target_network_id = "net1"
+		target_connector_id = kaleido_network_connector.connector_requestor.id
+	}
+}
+`
+
+func TestConnectorPermitted(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	defer func() {
@@ -73,13 +102,13 @@ func TestConnector(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + connectorStep1,
+				Config: providerConfig + permittedConnectorStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(connector1Resource, "id"),
 				),
 			},
 			{
-				Config: providerConfig + connectorStep2,
+				Config: providerConfig + permittedConnectorStep2,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(connector1Resource, "id"),
 					func(s *terraform.State) error {
@@ -132,14 +161,49 @@ func TestConnector(t *testing.T) {
 	})
 }
 
+func TestConnectorPlatform(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /api/v1/environments/{env}/networks/{net}/connectors",               // create requestor
+			"POST /api/v1/environments/{env}/networks/{net}/connectors",               // create acceptor
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // check acceptor
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // confirm acceptor is ready
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // check requestor
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // TODO dont understand why the acceptor is checked a final time - maybe this is to detect final state ?
+			"DELETE /api/v1/environments/{env}/networks/{net}/connectors/{connector}", // delete acceptor and ensure its gone
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"DELETE /api/v1/environments/{env}/networks/{net}/connectors/{connector}", // delete requestor and ensure its gone
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+		})
+		mp.server.Close()
+	}()
+
+	connectorRequestorResource := "kaleido_network_connector.connector_requestor"
+	connectorAcceptorResource := "kaleido_network_connector.connector_acceptor"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + platformConnectorsStep,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(connectorRequestorResource, "id"),
+					resource.TestCheckResourceAttrSet(connectorAcceptorResource, "id"),
+				),
+			},
+		},
+	})
+}
+
 func (mp *mockPlatform) getConnector(res http.ResponseWriter, req *http.Request) {
-	auth := mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]]
-	if auth == nil {
+	conn := mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]]
+	if conn == nil {
 		mp.respond(res, nil, 404)
 	} else {
-		mp.respond(res, auth, 200)
+		mp.respond(res, conn, 200)
 		// Next time will return ready
-		auth.Status = "ready"
+		conn.Status = "ready"
 	}
 }
 
@@ -151,21 +215,37 @@ func (mp *mockPlatform) postConnector(res http.ResponseWriter, req *http.Request
 	conn.Created = &now
 	conn.Updated = &now
 	conn.Status = "pending"
+
+	if conn.Platform != nil {
+		targetConnId, ok := conn.Platform["targetConnectorId"]
+		if ok {
+			targetConn := mp.connectors[conn.Platform["targetEnvironmentId"].(string)+"/"+conn.Platform["targetNetworkId"].(string)+"/"+targetConnId.(string)]
+			targetConn.Platform["targetConnectorId"] = conn.ID
+			targetConn.Status = "ready"
+		}
+	}
+
 	mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+conn.ID] = &conn
 	mp.respond(res, &conn, 201)
 }
 
 func (mp *mockPlatform) putConnector(res http.ResponseWriter, req *http.Request) {
-	auth := mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]]
-	assert.NotNil(mp.t, auth)
+	conn := mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]]
+	assert.NotNil(mp.t, conn)
 	var newConn ConnectorAPIModel
 	mp.getBody(req, &newConn)
-	assert.Equal(mp.t, auth.ID, newConn.ID)                 // expected behavior of provider
-	assert.Equal(mp.t, auth.ID, mux.Vars(req)["connector"]) // expected behavior of provider
+	assert.Equal(mp.t, conn.ID, newConn.ID)                 // expected behavior of provider
+	assert.Equal(mp.t, conn.ID, mux.Vars(req)["connector"]) // expected behavior of provider
 	now := time.Now().UTC()
-	newConn.Created = auth.Created
+	newConn.Created = conn.Created
 	newConn.Updated = &now
 	newConn.Status = "pending"
+
+	if conn.Platform != nil {
+		// immutable
+		newConn.Platform = conn.Platform
+	}
+
 	mp.connectors[mux.Vars(req)["env"]+"/"+mux.Vars(req)["net"]+"/"+mux.Vars(req)["connector"]] = &newConn
 	mp.respond(res, &newConn, 200)
 }
