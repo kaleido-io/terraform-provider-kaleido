@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_account Data Source - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  
+  Fetch the account id of your Kaleido platform account.
 ---
 
 # kaleido_platform_account (Data Source)
 
-
+Fetch the account id of your Kaleido platform account.
 
 
 

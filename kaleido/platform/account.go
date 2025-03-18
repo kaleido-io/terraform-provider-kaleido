@@ -53,6 +53,7 @@ func (s AccountDatasource) Metadata(ctx context.Context, _ datasource.MetadataRe
 
 func (s AccountDatasource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Fetch the account id of your Kaleido platform account.",
 		Attributes: map[string]schema.Attribute{
 			"account_id": &schema.StringAttribute{
 				Computed: true,
