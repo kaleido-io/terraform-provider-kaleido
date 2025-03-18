@@ -345,6 +345,7 @@ func DataSources() []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		EVMNetInfoDataSourceFactory,
 		NetworkBootstrapDatasourceModelFactory,
+		AccountDatasourceModelFactory,
 	}
 }
 

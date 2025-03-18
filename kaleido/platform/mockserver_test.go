@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2024-2025
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,6 +95,10 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		router:            mux.NewRouter(),
 		calls:             []string{},
 	}
+
+	// See account_test.go
+	mp.register("/api/v1/self/identity", http.MethodGet, mp.getSelfIdentity)
+
 	// See environment_test.go
 	mp.register("/api/v1/environments", http.MethodPost, mp.postEnvironment)
 	mp.register("/api/v1/environments/{env}", http.MethodGet, mp.getEnvironment)
@@ -119,7 +123,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodPut, mp.putNetwork)
 	mp.register("/api/v1/environments/{env}/networks/{network}", http.MethodDelete, mp.deleteNetwork)
 
-	// See connector_test.go
+	// See network_connector_test.go
 	mp.register("/api/v1/environments/{env}/networks/{net}/connectors", http.MethodPost, mp.postConnector)
 	mp.register("/api/v1/environments/{env}/networks/{net}/connectors/{connector}", http.MethodGet, mp.getConnector)
 	mp.register("/api/v1/environments/{env}/networks/{net}/connectors/{connector}", http.MethodPut, mp.putConnector)

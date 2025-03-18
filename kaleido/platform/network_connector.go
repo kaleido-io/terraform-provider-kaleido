@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2024-2025
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -31,13 +34,29 @@ import (
 )
 
 type ConnectorResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Name          types.String `tfsdk:"name"`
-	Type          types.String `tfsdk:"type"`
-	Environment   types.String `tfsdk:"environment"`
-	Network       types.String `tfsdk:"network"`
-	Zone          types.String `tfsdk:"zone"`
-	PermittedJSON types.String `tfsdk:"permitted_json"`
+	ID                types.String                     `tfsdk:"id"`
+	Name              types.String                     `tfsdk:"name"`
+	Type              types.String                     `tfsdk:"type"`
+	Environment       types.String                     `tfsdk:"environment"`
+	Network           types.String                     `tfsdk:"network"`
+	Zone              types.String                     `tfsdk:"zone"`
+	PermittedJSON     types.String                     `tfsdk:"permitted_json"`
+	PlatformRequestor *RequestorPlatformConnectorModel `tfsdk:"platform_requestor"`
+	PlatformAcceptor  *AcceptorPlatformConnectorModel  `tfsdk:"platform_acceptor"`
+}
+
+type RequestorPlatformConnectorModel struct {
+	TargetAccountID     types.String `tfsdk:"target_account_id"`
+	TargetEnvironmentID types.String `tfsdk:"target_environment_id"`
+	TargetNetworkID     types.String `tfsdk:"target_network_id"`
+	TargetConnectorID   types.String `tfsdk:"target_connector_id"` // computed once accepted
+}
+
+type AcceptorPlatformConnectorModel struct {
+	TargetAccountID     types.String `tfsdk:"target_account_id"`
+	TargetEnvironmentID types.String `tfsdk:"target_environment_id"`
+	TargetNetworkID     types.String `tfsdk:"target_network_id"`
+	TargetConnectorID   types.String `tfsdk:"target_connector_id"`
 }
 
 type ConnectorAPIModel struct {
@@ -49,6 +68,7 @@ type ConnectorAPIModel struct {
 	NetworkID string                 `json:"networkId,omitempty"`
 	Zone      string                 `json:"zone,omitempty"`
 	Permitted map[string]interface{} `json:"permitted,omitempty"`
+	Platform  map[string]interface{} `json:"platform,omitempty"`
 	Deleted   bool                   `json:"deleted,omitempty"`
 	Status    string                 `json:"status,omitempty"`
 }
@@ -94,6 +114,42 @@ func (r *connectorResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"permitted_json": &schema.StringAttribute{
 				Optional: true,
 			},
+			"platform_requestor": &schema.SingleNestedAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+				Attributes: map[string]schema.Attribute{
+					"target_account_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_environment_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_network_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_connector_id": &schema.StringAttribute{
+						Computed: true,
+					},
+				},
+			},
+			"platform_acceptor": &schema.SingleNestedAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+				Attributes: map[string]schema.Attribute{
+					"target_account_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_environment_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_network_id": &schema.StringAttribute{
+						Required: true,
+					},
+					"target_connector_id": &schema.StringAttribute{
+						Required: true,
+					},
+				},
+			},
 		},
 	}
 }
@@ -107,9 +163,45 @@ func (data *ConnectorResourceModel) toAPI(ctx context.Context, api *ConnectorAPI
 	api.Zone = data.Zone.ValueString()
 
 	// optional fields
-	api.Permitted = map[string]interface{}{}
-	if !data.PermittedJSON.IsNull() && data.PermittedJSON.String() != "{}" {
-		_ = json.Unmarshal([]byte(data.PermittedJSON.ValueString()), &api.Permitted)
+	if !data.PermittedJSON.IsNull() && strings.ToLower(api.Type) != "permitted" {
+		diagnostics.AddError("Invalid Permitted JSON", "Permitted JSON is only valid for Permitted connectors")
+		return
+	}
+
+	if strings.ToLower(api.Type) == "permitted" {
+		api.Permitted = map[string]interface{}{}
+		if !data.PermittedJSON.IsNull() && data.PermittedJSON.String() != "{}" {
+			_ = json.Unmarshal([]byte(data.PermittedJSON.ValueString()), &api.Permitted)
+		}
+	}
+
+	if data.PlatformRequestor != nil && strings.ToLower(api.Type) != "platform" {
+		diagnostics.AddError("Invalid PlatformRequestor", "PlatformRequestor is only valid for Platform connectors")
+		return
+	} else if data.PlatformAcceptor != nil && strings.ToLower(api.Type) != "platform" {
+		diagnostics.AddError("Invalid PlatformAcceptor", "PlatformAcceptor is only valid for Platform connectors")
+		return
+	} else if data.PlatformRequestor == nil && data.PlatformAcceptor == nil && strings.ToLower(api.Type) == "platform" {
+		diagnostics.AddError("Invalid Platform", "PlatformRequestor or PlatformAcceptor is required for Platform connectors")
+		return
+	} else if data.PlatformRequestor != nil && data.PlatformAcceptor != nil {
+		diagnostics.AddError("Invalid Platform", "PlatformRequestor and PlatformAcceptor are mutually exclusive")
+		return
+	}
+
+	if data.PlatformRequestor != nil {
+		api.Platform = map[string]interface{}{
+			"targetAccountId":     data.PlatformRequestor.TargetAccountID.ValueString(),
+			"targetEnvironmentId": data.PlatformRequestor.TargetEnvironmentID.ValueString(),
+			"targetNetworkId":     data.PlatformRequestor.TargetNetworkID.ValueString(),
+		}
+	} else if data.PlatformAcceptor != nil {
+		api.Platform = map[string]interface{}{
+			"targetAccountId":     data.PlatformAcceptor.TargetAccountID.ValueString(),
+			"targetEnvironmentId": data.PlatformAcceptor.TargetEnvironmentID.ValueString(),
+			"targetNetworkId":     data.PlatformAcceptor.TargetNetworkID.ValueString(),
+			"targetConnectorId":   data.PlatformAcceptor.TargetConnectorID.ValueString(),
+		}
 	}
 
 }
@@ -121,11 +213,20 @@ func (api *ConnectorAPIModel) toData(data *ConnectorResourceModel, diagnostics *
 	data.Network = types.StringValue(api.NetworkID)
 	data.Zone = types.StringValue(api.Zone)
 
+	// TODO what does this do ?
 	info := make(map[string]attr.Value)
 	for k, v := range api.Permitted {
 		v, isString := v.(string)
 		if isString && v != "" {
 			info[k] = types.StringValue(v)
+		}
+	}
+
+	if data.PlatformRequestor != nil && api.Platform != nil {
+		if targetConnectorID, ok := api.Platform["targetConnectorId"]; ok {
+			data.PlatformRequestor.TargetConnectorID = types.StringValue(targetConnectorID.(string))
+		} else {
+			data.PlatformRequestor.TargetConnectorID = types.StringNull()
 		}
 	}
 }
@@ -151,10 +252,11 @@ func (r *connectorResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
+	if data.PlatformRequestor == nil {   // requestors will not go into ready w/o being accepted
+		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+		api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-
 }
 
 func (r *connectorResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
