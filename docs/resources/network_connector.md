@@ -26,7 +26,33 @@ description: |-
 ### Optional
 
 - `permitted_json` (String)
+- `platform_acceptor` (Attributes) (see [below for nested schema](#nestedatt--platform_acceptor))
+- `platform_requestor` (Attributes) (see [below for nested schema](#nestedatt--platform_requestor))
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--platform_acceptor"></a>
+### Nested Schema for `platform_acceptor`
+
+Required:
+
+- `target_account_id` (String)
+- `target_connector_id` (String)
+- `target_environment_id` (String)
+- `target_network_id` (String)
+
+
+<a id="nestedatt--platform_requestor"></a>
+### Nested Schema for `platform_requestor`
+
+Required:
+
+- `target_account_id` (String)
+- `target_environment_id` (String)
+- `target_network_id` (String)
+
+Read-Only:
+
+- `target_connector_id` (String)

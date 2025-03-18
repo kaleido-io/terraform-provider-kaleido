@@ -30,3 +30,13 @@ jobs:
 
       - name: Upload coverage
         run: bash <(curl -s https://codecov.io/bash)
+
+      - name: Check Docs
+        run: |
+          cd terraform-provider-kaleido
+          make docs
+          git status
+          if ! git diff-index --quiet HEAD -- ; then
+            echo "Kaleido Terraform Provider docs are out of date. Please run make docs and commit the latest updates."
+            exit 1
+          fi

@@ -27,6 +27,12 @@ make build
 
 > NOTE: binaries built via `make build-${OS}` will not be detected by Terraform's `dev_overrides`.
 
+Kaleido Terraform Provider uses [terrraform-plugin-docs](https://github.com/hashicorp/terraform-plugin-docs) to generate all documentation markdown files. To update the provider documentation after any schema, example, or description changes run:
+
+```shell
+make docs
+```
+
 ## Examples
 
 End to end example in [examples/multi_region_with_b2b](examples/multi_region_with_b2b)
