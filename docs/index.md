@@ -41,8 +41,8 @@ provider "kaleido" {
 
 ### Optional
 
-- `api` (String) Kaleido Blockchain as a Service URL
-- `api_key` (String, Sensitive) Kaleido Blockchain as a Service API Key
-- `platform_api` (String) Kaleido Platform URL
-- `platform_password` (String, Sensitive) Kaleido Platform API Key Value
-- `platform_username` (String) Kaleido Platform API Key Name
+- `api` (String)
+- `api_key` (String, Sensitive)
+- `platform_api` (String) For resources prefixed with `platform_`
+- `platform_password` (String, Sensitive) For resources prefixed with `platform_`
+- `platform_username` (String) For resources prefixed with `platform_`

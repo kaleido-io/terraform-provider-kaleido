@@ -44,26 +44,24 @@ func (p *kaleidoProvider) Schema(ctx context.Context, _ provider.SchemaRequest, 
 		Description: "The Kaleido Terraform Provider supports the full Kaleido platform including self-service, hosted, dedicated and software offerings. \n \n Resources prefixed with `platform_` are the latest generation of the Kaleido technology stack, covering the dedicated hosted offerings, and software products. Please contact Kaleido support if you are unsure which resource applies to your offering, or if you are interested in offerings that are not available for self sign-up via the Kaleido console.",
 		Attributes: map[string]schema.Attribute{
 			"api": schema.StringAttribute{
-				Optional:    true,
-				Description: "Kaleido Blockchain as a Service URL",
+				Optional: true,
 			},
 			"api_key": schema.StringAttribute{
-				Sensitive:   true,
-				Optional:    true,
-				Description: "Kaleido Blockchain as a Service API Key",
+				Sensitive: true,
+				Optional:  true,
 			},
 			"platform_api": schema.StringAttribute{
 				Optional:    true,
-				Description: "Kaleido Platform URL",
+				Description: "For resources prefixed with `platform_`",
 			},
 			"platform_username": schema.StringAttribute{
 				Optional:    true,
-				Description: "Kaleido Platform API Key Name",
+				Description: "For resources prefixed with `platform_`",
 			},
 			"platform_password": schema.StringAttribute{
 				Sensitive:   true,
 				Optional:    true,
-				Description: "Kaleido Platform API Key Value",
+				Description: "For resources prefixed with `platform_`",
 			},
 		},
 	}
