@@ -1,12 +1,15 @@
 ---
 page_title: "Kaleido Provider"
 description: |-
-  The Kaleido Terraform Provider supports the Kaleido Blockchain as a Service and Kaleido Platform products
+  The Kaleido Terraform Provider supports the full Kaleido platform including self-service, hosted, dedicated and software offerings.
+  Resources prefixed with platform_ are the latest generation of the Kaleido technology stack, covering the dedicated hosted offerings, and software products. Please contact Kaleido support if you are unsure which resource applies to your offering, or if you are interested in offerings that are not available for self sign-up via the Kaleido console.
 ---
 
 # Kaleido Provider
 
-The Kaleido Terraform Provider supports the Kaleido Blockchain as a Service and Kaleido Platform products
+The Kaleido Terraform Provider supports the full Kaleido platform including self-service, hosted, dedicated and software offerings. 
+ 
+ Resources prefixed with `platform_` are the latest generation of the Kaleido technology stack, covering the dedicated hosted offerings, and software products. Please contact Kaleido support if you are unsure which resource applies to your offering, or if you are interested in offerings that are not available for self sign-up via the Kaleido console.
 
 ## Example Usage
 
