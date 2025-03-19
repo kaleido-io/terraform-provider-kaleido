@@ -82,7 +82,7 @@ func (r *applicationResource) Metadata(_ context.Context, _ resource.MetadataReq
 
 func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido Platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.",
+		Description: "An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,

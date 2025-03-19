@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_application Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido Platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.
+  An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.
 ---
 
 # kaleido_platform_application (Resource)
 
-An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido Platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.
+An application provides configurable access control, authentication, and authorization for external systems and integrations leveraging the Kaleido platform APIs. Applications are granted access separately from users and groups via service, stack, and fine-grained policies. There are two mechanisms for authenticating applications: using an API key, or via an OIDC provider.
 
 ## Example Usage
 
