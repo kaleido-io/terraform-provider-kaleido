@@ -1,12 +1,15 @@
 ---
 page_title: "Kaleido Provider"
 description: |-
-  The Kaleido Terraform Provider supports the Kaleido Blockchain as a Service and Kaleido Platform products
+  The Kaleido Terraform Provider supports the full Kaleido platform including self-service, hosted, dedicated and software offerings.
+  Resources prefixed with platform_ are the latest generation of the Kaleido technology stack, covering the dedicated hosted offerings, and software products. Please contact Kaleido support if you are unsure which resource applies to your offering, or if you are interested in offerings that are not available for self sign-up via the Kaleido console.
 ---
 
 # Kaleido Provider
 
-The Kaleido Terraform Provider supports the Kaleido Blockchain as a Service and Kaleido Platform products
+The Kaleido Terraform Provider supports the full Kaleido platform including self-service, hosted, dedicated and software offerings. 
+ 
+ Resources prefixed with `platform_` are the latest generation of the Kaleido technology stack, covering the dedicated hosted offerings, and software products. Please contact Kaleido support if you are unsure which resource applies to your offering, or if you are interested in offerings that are not available for self sign-up via the Kaleido console.
 
 ## Example Usage
 
@@ -38,8 +41,8 @@ provider "kaleido" {
 
 ### Optional
 
-- `api` (String) Kaleido Blockchain as a Service URL
-- `api_key` (String, Sensitive) Kaleido Blockchain as a Service API Key
-- `platform_api` (String) Kaleido Platform URL
-- `platform_password` (String, Sensitive) Kaleido Platform API Key Value
-- `platform_username` (String) Kaleido Platform API Key Name
+- `api` (String)
+- `api_key` (String, Sensitive)
+- `platform_api` (String) For resources prefixed with `platform_`
+- `platform_password` (String, Sensitive) For resources prefixed with `platform_`
+- `platform_username` (String) For resources prefixed with `platform_`
