@@ -55,6 +55,7 @@ type mockPlatform struct {
 	amsFFListeners    map[string]*AMSFFListenerAPIModel
 	amsDMListeners    map[string]*AMSDMListenerAPIModel
 	amsVariableSets   map[string]*AMSVariableSetAPIModel
+	amsCollections    map[string]*AMSCollectionAPIModel
 	groups            map[string]*GroupAPIModel
 	ffsNode           *FireFlyStatusNodeAPIModel
 	ffsOrg            *FireFlyStatusOrgAPIModel
@@ -87,6 +88,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsFFListeners:    make(map[string]*AMSFFListenerAPIModel),
 		amsDMListeners:    make(map[string]*AMSDMListenerAPIModel),
 		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
+		amsCollections:    make(map[string]*AMSCollectionAPIModel),
 		groups:            make(map[string]*GroupAPIModel),
 		applications:      make(map[string]*ApplicationAPIModel),
 		serviceAccess:     make(map[string]*ServiceAccessAPIModel),
@@ -187,6 +189,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodGet, mp.getAMSVariableSet)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodPut, mp.putAMSVariableSet)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/variable-sets/{variable-set}", http.MethodDelete, mp.deleteAMSVariableSet)
+
+	// See ams_collection.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/collections/{collection}", http.MethodGet, mp.getAMSCollection)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/collections/{collection}", http.MethodPut, mp.putAMSCollection)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/collections/{collection}", http.MethodDelete, mp.deleteAMSCollection)
 
 	// See firefly_registration.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/nodes/self", http.MethodPost, mp.postFireFlyRegistrationNode)
