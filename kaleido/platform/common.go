@@ -376,6 +376,7 @@ func Resources() []func() resource.Resource {
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		WMSAssetResourceFactory,
+		WMSWalletResourceFactory,
 	}
 }
 
