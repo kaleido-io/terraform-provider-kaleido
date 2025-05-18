@@ -36,6 +36,7 @@ type StacksResourceModel struct {
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Name                types.String `tfsdk:"name"`
 	Type                types.String `tfsdk:"type"`
+	SubType             types.String `tfsdk:"sub_type"`
 	NetworkId           types.String `tfsdk:"network_id"`
 }
 
@@ -46,6 +47,7 @@ type StacksAPIModel struct {
 	EnvironmentMemberID string     `json:"environmentMemberId,omitempty"`
 	Name                string     `json:"name"`
 	Type                string     `json:"type"`
+	SubType             string     `json:"subType,omitempty"`
 	NetworkId           string     `json:"networkId,omitempty"`
 }
 
@@ -85,6 +87,16 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					),
 				},
 			},
+			"sub_type": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Stack sub type. Options include: `custody` (if type is `digital_assets`)",
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"custody",
+					),
+				},
+			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -105,6 +117,9 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
+	if !data.SubType.IsNull() {
+		api.SubType = data.SubType.ValueString()
+	}
 	if !data.NetworkId.IsNull() {
 		api.NetworkId = data.NetworkId.ValueString()
 	}
@@ -117,6 +132,9 @@ func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.Type = types.StringValue(api.Type)
 	if api.NetworkId != "" && !data.NetworkId.IsNull() {
 		data.NetworkId = types.StringValue(api.NetworkId)
+	}
+	if api.SubType != "" && !data.SubType.IsNull() {
+		data.SubType = types.StringValue(api.SubType)
 	}
 }
 
