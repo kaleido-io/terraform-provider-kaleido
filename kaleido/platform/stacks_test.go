@@ -32,6 +32,7 @@ var stacksStep1 = `
 resource "kaleido_platform_stack" "stack1" {
 	name = "stack1"
 	type = "chain_infrastructure"
+	sub_type = "BesuStack"
 	environment = "env1"
 	network_id = "network123"
 }
@@ -41,6 +42,7 @@ var stacksStep2 = `
 resource "kaleido_platform_stack" "stack1" {
 	name = "stack1_renamed"
 	type = "chain_infrastructure"
+	sub_type = "BesuStack"
 	environment = "env1"
 	network_id = "network123"
 }
@@ -74,6 +76,7 @@ func TestStacks1(t *testing.T) {
 					resource.TestCheckResourceAttrSet(Stack1Resource, "id"),
 					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1`),
 					resource.TestCheckResourceAttr(Stack1Resource, "network_id", `network123`),
+					resource.TestCheckResourceAttr(Stack1Resource, "sub_type", `BesuStack`),
 					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
 				),
 			},
@@ -84,6 +87,7 @@ func TestStacks1(t *testing.T) {
 					resource.TestCheckResourceAttr(Stack1Resource, "name", `stack1_renamed`),
 					resource.TestCheckResourceAttr(Stack1Resource, "network_id", `network123`),
 					resource.TestCheckResourceAttr(Stack1Resource, "type", `chain_infrastructure`),
+					resource.TestCheckResourceAttr(Stack1Resource, "sub_type", `BesuStack`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[Stack1Resource].Primary.Attributes["id"]
@@ -94,6 +98,7 @@ func TestStacks1(t *testing.T) {
 							"created": "%[2]s",
 							"updated": "%[3]s",
 							"type": "chain_infrastructure",
+							"subType": "BesuStack",
 							"name": "stack1_renamed",
 							"networkId": "network123",
 							"environmentMemberId": "%[4]s"
