@@ -28,6 +28,7 @@ A stack is a collection of services within Digital Assets, Web3 Middleware or Ch
 ### Optional
 
 - `network_id` (String) Specify a network ID for `chain_infrastructure` stacks that contain a Besu or IPFS network.
+- `sub_type` (String) Stack sub-type specific to each stack type. Options include: `TokenizationStack`,`CustodyStack` for `digital_assets`, `FireflyStack` for `web3_middleware` and `BesuStack`,`IPFSNetwork` for `chain_infrastructure`
 
 ### Read-Only
 
