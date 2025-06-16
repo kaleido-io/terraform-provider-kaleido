@@ -24,8 +24,8 @@ Keys that are used for signing must reside in a resource known as a wallet. Once
 
 ### Optional
 
-- `config_json` (String)
-- `creds_json` (String)
+- `config_json` (String) Optional JSON object containing configuration applicable to the wallet type.
+- `creds_json` (String) Optional JSON object containing credentials applicable to the wallet type.
 
 ### Read-Only
 
