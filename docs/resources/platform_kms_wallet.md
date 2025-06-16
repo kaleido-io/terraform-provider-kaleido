@@ -25,6 +25,7 @@ Keys that are used for signing must reside in a resource known as a wallet. Once
 ### Optional
 
 - `config_json` (String)
+- `creds_json` (String)
 
 ### Read-Only
 
