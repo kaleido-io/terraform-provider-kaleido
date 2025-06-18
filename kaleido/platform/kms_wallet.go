@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2024-2025
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -35,6 +36,7 @@ type KMSWalletResourceModel struct {
 	Type        types.String `tfsdk:"type"`
 	Name        types.String `tfsdk:"name"`
 	ConfigJSON  types.String `tfsdk:"config_json"`
+	CredsJSON   types.String `tfsdk:"creds_json"`
 }
 
 type KMSWalletAPIModel struct {
@@ -43,7 +45,8 @@ type KMSWalletAPIModel struct {
 	Updated       *time.Time             `json:"updated,omitempty"`
 	Type          string                 `json:"type"`
 	Name          string                 `json:"name"`
-	Configuration map[string]interface{} `json:"config"`
+	Configuration map[string]interface{} `json:"configuration,omitempty"`
+	Credentials   map[string]interface{} `json:"credentials,omitempty"`
 }
 
 func KMSWalletResourceFactory() resource.Resource {
@@ -86,8 +89,16 @@ func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "Wallet Display Name",
 			},
 			"config_json": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
+				Default:     stringdefault.StaticString(`{}`),
+				Optional:    true,
+				Computed:    true,
+				Description: "Optional JSON object containing configuration applicable to the wallet type.",
+			},
+			"creds_json": &schema.StringAttribute{
+				Default:     stringdefault.StaticString(`{}`),
+				Optional:    true,
+				Computed:    true,
+				Description: "Optional JSON object containing credentials applicable to the wallet type.",
 			},
 		},
 	}
@@ -98,8 +109,12 @@ func (data *KMSWalletResourceModel) toAPI(api *KMSWalletAPIModel) {
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
 	api.Configuration = map[string]interface{}{}
+	api.Credentials = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {
 		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Configuration)
+	}
+	if !data.CredsJSON.IsNull() {
+		_ = json.Unmarshal([]byte(data.CredsJSON.ValueString()), &api.Credentials)
 	}
 }
 
@@ -113,8 +128,20 @@ func (api *KMSWalletAPIModel) toData(data *KMSWalletResourceModel) {
 	} else {
 		config = `{}`
 	}
-	data.ID = types.StringValue(api.ID)
+
 	data.ConfigJSON = types.StringValue(config)
+	var credentials string
+	if api.Credentials != nil {
+		d, err := json.Marshal(api.Credentials)
+		if err == nil {
+			credentials = string(d)
+		}
+	} else {
+		credentials = `{}`
+	}
+	data.CredsJSON = types.StringValue(credentials)
+
+	data.ID = types.StringValue(api.ID)
 }
 
 func (r *kms_walletResource) apiPath(data *KMSWalletResourceModel) string {
