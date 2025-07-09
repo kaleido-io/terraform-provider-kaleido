@@ -27,3 +27,7 @@ coverage.txt
 # Folder for defining Terraform scripts to manually test the provider
 test/
 sbom.spdx.json
+
+**/.terraform.lock.hcl
+**/.terraform/
+**/input.tfvars
