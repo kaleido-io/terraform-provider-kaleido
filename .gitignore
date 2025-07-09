@@ -28,6 +28,9 @@ coverage.txt
 test/
 sbom.spdx.json
 
+# Terraform files for testing examples
 **/.terraform.lock.hcl
 **/.terraform/
 **/input.tfvars
+**/terraform.tfstate
+**/terraform.tfstate.backup

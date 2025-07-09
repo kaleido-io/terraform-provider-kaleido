@@ -64,7 +64,7 @@ variable "users" {
       email    = "john.doe@example.com"
       sub      = "john.doe.sub"
       is_admin = false
-      groups   = ["developers", "readonly"]
+      groups   = ["developers", "viewers"]
     },
     {
       name     = "jane.smith"
@@ -78,21 +78,21 @@ variable "users" {
       email    = "bob.wilson@example.com"
       sub      = "bob.wilson.sub"
       is_admin = false
-      groups   = ["developers", "api-users"]
+      groups   = ["developers"]
     },
     {
       name     = "alice.brown"
       email    = "alice.brown@example.com"
       sub      = "alice.brown.sub"
       is_admin = false
-      groups   = ["readonly"]
+      groups   = ["viewers"]
     },
     {
       name     = "service-account"
       email    = "service@example.com"
       sub      = "service.account.sub"
       is_admin = false
-      groups   = ["api-users"]
+      groups   = ["developers"]
     }
   ]
 }
@@ -138,9 +138,6 @@ resource "kaleido_platform_group_membership" "user_group_memberships" {
   user_id  = kaleido_platform_user.users[each.value.user_name].id
 }
 
-# Data source to get current account information
-data "kaleido_platform_account" "current" {}
-
 # Local values for organization
 locals {
   # Create a mapping of groups to their members
@@ -175,7 +172,6 @@ output "groups" {
     for name, group in kaleido_platform_group.groups : name => {
       id       = group.id
       name     = group.name
-      ruleset  = group.ruleset
       members  = local.group_members[name]
     }
   }
@@ -190,7 +186,7 @@ output "users" {
       name       = user.name
       email      = user.email
       is_admin   = user.is_admin
-      account_id = user.account_id
+      account = user.account
       groups     = local.user_groups[name]
     }
   }
@@ -215,7 +211,7 @@ output "group_memberships" {
 output "iam_summary" {
   description = "Summary of IAM configuration"
   value = {
-    account_id         = var.account_id
+    account         = data.kaleido_platform_account.current.account_id
     total_groups       = length(kaleido_platform_group.groups)
     total_users        = length(kaleido_platform_user.users)
     total_memberships  = length(kaleido_platform_group_membership.user_group_memberships)

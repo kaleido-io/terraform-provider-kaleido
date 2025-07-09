@@ -31,7 +31,7 @@ import (
 type UserResourceModel struct {
 	ID      types.String `tfsdk:"id"`
 	Name    types.String `tfsdk:"name"`
-	Account types.String `tfsdk:"account,omitempty"`
+	Account types.String `tfsdk:"account"`
 	Email   types.String `tfsdk:"email"`
 	Sub     types.String `tfsdk:"sub"`
 	IsAdmin types.Bool   `tfsdk:"is_admin"`
@@ -139,7 +139,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 	data.toCreateUpdateRequest(&userReq)
 
 	var api UserAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPost, "/users", userReq, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPost, "/api/v1/users", userReq, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -159,7 +159,7 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	data.toCreateUpdateRequest(&userReq)
 
 	var api UserAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, fmt.Sprintf("/users/%s", data.ID.ValueString()), userReq, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/users/%s", data.ID.ValueString()), userReq, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -175,7 +175,7 @@ func (r *userResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 
 	// Read user using GET /users/{userNameOrId}
 	var api UserAPIModel
-	ok, status := r.apiRequest(ctx, http.MethodGet, fmt.Sprintf("/users/%s", data.ID.ValueString()), nil, &api, &resp.Diagnostics, Allow404())
+	ok, status := r.apiRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/users/%s", data.ID.ValueString()), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -194,7 +194,7 @@ func (r *userResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	// Delete user using DELETE /users/{userNameOrId}
-	ok, _ := r.apiRequest(ctx, http.MethodDelete, fmt.Sprintf("/users/%s", data.ID.ValueString()), nil, nil, &resp.Diagnostics, Allow404())
+	ok, _ := r.apiRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/users/%s", data.ID.ValueString()), nil, nil, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}

@@ -1,14 +1,3 @@
-output "identity_provider" {
-  description = "Identity provider details"
-  value = {
-    id          = kaleido_platform_identity_provider.shared_oidc.id
-    name        = kaleido_platform_identity_provider.shared_oidc.name
-    client_id   = kaleido_platform_identity_provider.shared_oidc.client_id
-    client_type = kaleido_platform_identity_provider.shared_oidc.client_type
-    hostname    = kaleido_platform_identity_provider.shared_oidc.hostname
-    issuer      = kaleido_platform_identity_provider.shared_oidc.issuer
-  }
-}
 
 output "dev_account" {
   description = "Development account details"
@@ -73,7 +62,6 @@ output "all_accounts" {
 output "setup_summary" {
   description = "Summary of the platform setup"
   value = {
-    identity_provider_id = kaleido_platform_identity_provider.shared_oidc.id
     accounts_created     = 3
     account_names        = [
       kaleido_platform_account.dev_account.name,

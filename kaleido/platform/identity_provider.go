@@ -257,7 +257,7 @@ func (api *IdentityProviderAPIModel) toData(data *IdentityProviderResourceModel)
 }
 
 func (r *identityProviderResource) apiPath(data *IdentityProviderResourceModel) string {
-	path := "/oidc-clients"
+	path := "/api/v1/oidc-clients"
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}

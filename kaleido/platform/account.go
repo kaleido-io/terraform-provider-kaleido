@@ -34,7 +34,7 @@ type AccountResourceModel struct {
 	FirstUserEmail   types.String `tfsdk:"first_user_email"`
 	FirstUserSub     types.String `tfsdk:"first_user_sub"`
 	Hostnames        types.Map    `tfsdk:"hostnames"`
-	UserJITEnabled   types.Bool   `tfsdk:"user_jit_enabled,omitempty"`
+	UserJITEnabled   types.Bool   `tfsdk:"user_jit_enabled"`
 }
 
 type AccountAPIModel struct {
@@ -152,7 +152,7 @@ func (api *AccountAPIModel) toData(data *AccountResourceModel) {
 }
 
 func (r *accountResource) apiPath(data *AccountResourceModel) string {
-	path := "/accounts"
+	path := "/api/v1/accounts"
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}

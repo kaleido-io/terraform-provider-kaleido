@@ -47,6 +47,11 @@ type GroupMembershipAPIModel struct {
 	Account   string     `json:"account,omitempty"`
 }
 
+type GroupMembershipListAPIModel struct {
+	Count int                       `json:"count"`
+	Items []GroupMembershipAPIModel `json:"items"`
+}
+
 type GroupMembershipCreateAPIModel struct {
 	UserID string `json:"userId"`
 }
@@ -109,12 +114,12 @@ func (api *GroupMembershipAPIModel) toData(data *GroupMembershipResourceModel) {
 }
 
 func (r *groupMembershipResource) apiPath(data *GroupMembershipResourceModel) string {
-	return fmt.Sprintf("/groups/%s/members", data.GroupID.ValueString())
+	return fmt.Sprintf("/api/v1/groups/%s/members", data.GroupID.ValueString())
 }
 
 func (r *groupMembershipResource) memberPath(data *GroupMembershipResourceModel) string {
 	if data.ID.ValueString() != "" {
-		return fmt.Sprintf("/groups/%s/members/%s", data.GroupID.ValueString(), data.ID.ValueString())
+		return fmt.Sprintf("/api/v1/groups/%s/members/%s", data.GroupID.ValueString(), data.ID.ValueString())
 	}
 	return r.apiPath(data)
 }
@@ -149,9 +154,9 @@ func (r *groupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 	var data GroupMembershipResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	// Read the specific membership
-	var api GroupMembershipAPIModel
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.memberPath(&data), nil, &api, &resp.Diagnostics, Allow404())
+	// List all members of the group and find the specific user
+	var membersList GroupMembershipListAPIModel
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &membersList, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -160,7 +165,23 @@ func (r *groupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	api.toData(&data)
+	// Find the specific user in the members list
+	var foundMembership *GroupMembershipAPIModel
+	targetUserID := data.UserID.ValueString()
+	for _, membership := range membersList.Items {
+		if membership.UserID == targetUserID {
+			foundMembership = &membership
+			break
+		}
+	}
+
+	if foundMembership == nil {
+		// User is not in the group, remove from state
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	foundMembership.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
