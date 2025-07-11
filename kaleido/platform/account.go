@@ -27,27 +27,29 @@ import (
 )
 
 type AccountResourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	OIDCClientID     types.String `tfsdk:"oidc_client_id"`
-	ValidationPolicy types.String `tfsdk:"validation_policy"`
-	FirstUserEmail   types.String `tfsdk:"first_user_email"`
-	FirstUserSub     types.String `tfsdk:"first_user_sub"`
-	Hostnames        types.Map    `tfsdk:"hostnames"`
-	UserJITEnabled   types.Bool   `tfsdk:"user_jit_enabled"`
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	OIDCClientID        types.String `tfsdk:"oidc_client_id"`
+	ValidationPolicy    types.String `tfsdk:"validation_policy"`
+	FirstUserEmail      types.String `tfsdk:"first_user_email"`
+	FirstUserSub        types.String `tfsdk:"first_user_sub"`
+	Hostnames           types.Map    `tfsdk:"hostnames"`
+	UserJITEnabled      types.Bool   `tfsdk:"user_jit_enabled"`
+	UserJITDefaultGroup types.String `tfsdk:"user_jit_default_group"`
 }
 
 type AccountAPIModel struct {
-	ID               string              `json:"id,omitempty"`
-	Created          *time.Time          `json:"created,omitempty"`
-	Updated          *time.Time          `json:"updated,omitempty"`
-	Name             string              `json:"name"`
-	OIDCClientID     string              `json:"oidcClientId,omitempty"`
-	ValidationPolicy string              `json:"validationPolicy,omitempty"`
-	FirstUserEmail   string              `json:"firstUserEmail,omitempty"`
-	FirstUserSub     string              `json:"firstUserSub,omitempty"`
-	Hostnames        map[string][]string `json:"hostnames,omitempty"`
-	UserJITEnabled   *bool               `json:"userJITEnabled,omitempty"`
+	ID                  string              `json:"id,omitempty"`
+	Created             *time.Time          `json:"created,omitempty"`
+	Updated             *time.Time          `json:"updated,omitempty"`
+	Name                string              `json:"name"`
+	OIDCClientID        string              `json:"oidcClientId,omitempty"`
+	ValidationPolicy    string              `json:"validationPolicy,omitempty"`
+	FirstUserEmail      string              `json:"firstUserEmail,omitempty"`
+	FirstUserSub        string              `json:"firstUserSub,omitempty"`
+	Hostnames           map[string][]string `json:"hostnames,omitempty"`
+	UserJITEnabled      *bool               `json:"userJITEnabled,omitempty"`
+	UserJITDefaultGroup *string             `json:"userJITDefaultGroup,omitempty"`
 }
 
 func AccountResourceFactory() resource.Resource {
@@ -99,6 +101,10 @@ func (r *accountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:    true,
 				Description: "Enable Just-In-Time (JIT) user provisioning for the account, requires a validation policy to also be provided.",
 			},
+			"user_jit_default_group": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Default group to add users to when JIT is enabled",
+			},
 		},
 	}
 }
@@ -125,6 +131,9 @@ func (data *AccountResourceModel) toAPI(api *AccountAPIModel) {
 	if !data.UserJITEnabled.IsNull() {
 		api.UserJITEnabled = data.UserJITEnabled.ValueBoolPointer()
 	}
+	if !data.UserJITDefaultGroup.IsNull() {
+		api.UserJITDefaultGroup = data.UserJITDefaultGroup.ValueStringPointer()
+	}
 }
 
 func (api *AccountAPIModel) toData(data *AccountResourceModel) {
@@ -148,6 +157,9 @@ func (api *AccountAPIModel) toData(data *AccountResourceModel) {
 	}
 	if api.UserJITEnabled != nil {
 		data.UserJITEnabled = types.BoolValue(*api.UserJITEnabled)
+	}
+	if api.UserJITDefaultGroup != nil {
+		data.UserJITDefaultGroup = types.StringValue(*api.UserJITDefaultGroup)
 	}
 }
 
