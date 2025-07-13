@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -32,23 +33,26 @@ import (
 )
 
 type BesuNodeServiceResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Environment       types.String `tfsdk:"environment"`
-	Runtime           types.String `tfsdk:"runtime"`
-	Name              types.String `tfsdk:"name"`
-	StackID           types.String `tfsdk:"stack_id"`
-	Network           types.String `tfsdk:"network"`
-	Mode              types.String `tfsdk:"mode"`
-	Signer            types.Bool   `tfsdk:"signer"`
-	LogLevel          types.String `tfsdk:"log_level"`
-	SyncMode          types.String `tfsdk:"sync_mode"`
-	DataStorageFormat types.String `tfsdk:"data_storage_format"`
-	ApisEnabled       types.List   `tfsdk:"apis_enabled"`
-	TargetGasLimit    types.Int64  `tfsdk:"target_gas_limit"`
-	GasPrice          types.String `tfsdk:"gas_price"`
-	CustomBesuArgs    types.List   `tfsdk:"custom_besu_args"`
-	NodeKey           types.String `tfsdk:"node_key"`
-	ForceDelete       types.Bool   `tfsdk:"force_delete"`
+	ID                  types.String `tfsdk:"id"`
+	Environment         types.String `tfsdk:"environment"`
+	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
+	Runtime             types.String `tfsdk:"runtime"`
+	Name                types.String `tfsdk:"name"`
+	StackID             types.String `tfsdk:"stack_id"`
+	Network             types.String `tfsdk:"network"`
+	Mode                types.String `tfsdk:"mode"`
+	Signer              types.Bool   `tfsdk:"signer"`
+	LogLevel            types.String `tfsdk:"log_level"`
+	SyncMode            types.String `tfsdk:"sync_mode"`
+	DataStorageFormat   types.String `tfsdk:"data_storage_format"`
+	ApisEnabled         types.List   `tfsdk:"apis_enabled"`
+	TargetGasLimit      types.Int64  `tfsdk:"target_gas_limit"`
+	GasPrice            types.String `tfsdk:"gas_price"`
+	CustomBesuArgs      types.List   `tfsdk:"custom_besu_args"`
+	NodeKey             types.String `tfsdk:"node_key"`
+	// Endpoints         types.Map    `tfsdk:"endpoints"`
+	// ConnectivityJSON  types.String `tfsdk:"connectivity_json"`
+	ForceDelete types.Bool `tfsdk:"force_delete"`
 }
 
 func BesuNodeServiceResourceFactory() resource.Resource {
@@ -75,6 +79,9 @@ func (r *besuNodeServiceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Environment ID where the BesuNode service will be deployed",
+			},
+			"environment_member_id": &schema.StringAttribute{
+				Computed: true,
 			},
 			"runtime": &schema.StringAttribute{
 				Required:      true,
@@ -161,6 +168,15 @@ func (r *besuNodeServiceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 				Description: "Set to true when you plan to delete a protected BesuNode service. You must apply this value before running terraform destroy.",
 			},
+			// "endpoints": &schema.MapAttribute{
+			// 	ElementType: types.StringType,
+			// 	Computed:    true,
+			// 	Description: "Endpoints for the BesuNode service",
+			// },
+			// "connectivity_json": &schema.StringAttribute{
+			// 	Computed:    true,
+			// 	Description: "Connectivity JSON for the BesuNode service",
+			// },
 		},
 	}
 }
@@ -235,6 +251,119 @@ func (data *BesuNodeServiceResourceModel) toServiceAPI(ctx context.Context, api 
 
 func (api *ServiceAPIModel) toBesuNodeServiceData(data *BesuNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
+	// var d diag.Diagnostics
+	// data.Endpoints, d = types.MapValue(types.ObjectType{
+	// 	AttrTypes: map[string]attr.Type{
+	// 		"type": types.StringType,
+	// 		"urls": types.ListType{types.ElementType: types.StringType},
+	// 	},
+	// }, map[string]attr.Value(api.Endpoints))
+	// diagnostics.Append(d...)
+	// data.ConnectivityJSON = types.StringValue(api.StatusDetails.Connectivity.Identity)
+	// Set basic fields
+	data.ID = types.StringValue(api.ID)
+	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+	data.Runtime = types.StringValue(api.Runtime.ID)
+	data.Name = types.StringValue(api.Name)
+	data.StackID = types.StringValue(api.StackID)
+	data.Mode = types.StringValue("")
+	if v, ok := api.Config["mode"].(string); ok {
+		data.Mode = types.StringValue(v)
+	}
+	data.Signer = types.BoolValue(false)
+	if v, ok := api.Config["signer"].(bool); ok {
+		data.Signer = types.BoolValue(v)
+	}
+	data.LogLevel = types.StringValue("")
+	if v, ok := api.Config["logLevel"].(string); ok {
+		data.LogLevel = types.StringValue(v)
+	}
+	data.SyncMode = types.StringValue("")
+	if v, ok := api.Config["syncMode"].(string); ok {
+		data.SyncMode = types.StringValue(v)
+	}
+	data.DataStorageFormat = types.StringValue("")
+	if v, ok := api.Config["dataStorageFormat"].(string); ok {
+		data.DataStorageFormat = types.StringValue(v)
+	}
+	// apis_enabled
+	if v, ok := api.Config["apisEnabled"].([]interface{}); ok {
+		apis := make([]attr.Value, len(v))
+		for i, apiVal := range v {
+			if s, ok := apiVal.(string); ok {
+				apis[i] = types.StringValue(s)
+			}
+		}
+		data.ApisEnabled, _ = types.ListValue(types.StringType, apis)
+	} else {
+		data.ApisEnabled = types.ListNull(types.StringType)
+	}
+	// target_gas_limit
+	data.TargetGasLimit = types.Int64Null()
+	if v, ok := api.Config["targetGasLimit"].(int64); ok {
+		data.TargetGasLimit = types.Int64Value(v)
+	} else if v, ok := api.Config["targetGasLimit"].(float64); ok {
+		data.TargetGasLimit = types.Int64Value(int64(v))
+	}
+	// gas_price
+	data.GasPrice = types.StringNull()
+	if v, ok := api.Config["gasPrice"].(string); ok {
+		data.GasPrice = types.StringValue(v)
+	}
+	// custom_besu_args
+	if v, ok := api.Config["customBesuArgs"].([]interface{}); ok {
+		args := make([]attr.Value, len(v))
+		for i, argVal := range v {
+			if s, ok := argVal.(string); ok {
+				args[i] = types.StringValue(s)
+			}
+		}
+		data.CustomBesuArgs, _ = types.ListValue(types.StringType, args)
+	} else {
+		data.CustomBesuArgs = types.ListNull(types.StringType)
+	}
+	// node_key
+	data.NodeKey = types.StringNull()
+	if api.Credsets != nil {
+		if credSet, ok := api.Credsets["nodeKey"]; ok && credSet != nil && credSet.Key != nil {
+			data.NodeKey = types.StringValue(credSet.Key.Value)
+		}
+	}
+	// endpoints
+	// if api.Endpoints != nil {
+	// 	endpointMap := make(map[string]attr.Value)
+	// 	for k, v := range api.Endpoints {
+	// 		switch val := v.(type) {
+	// 		case string:
+	// 			endpointMap[k] = types.StringValue(val)
+	// 		case []interface{}:
+	// 			// Convert []interface{} to []attr.Value
+	// 			strList := make([]attr.Value, len(val))
+	// 			for i, item := range val {
+	// 				if s, ok := item.(string); ok {
+	// 					strList[i] = types.StringValue(s)
+	// 				}
+	// 			}
+	// 			endpointMap[k], _ = types.ListValue(types.StringType, strList)
+	// 		}
+	// 	}
+	// 	data.Endpoints, _ = types.MapValue(types.StringType, endpointMap)
+	// } else {
+	// 	data.Endpoints = types.MapNull(types.StringType)
+	// }
+	// connectivity_json
+	// data.ConnectivityJSON = types.StringNull()
+	// if api.StatusDetails != nil && api.StatusDetails.Connectivity != nil {
+	// 	if api.StatusDetails.Connectivity.Identity != "" {
+	// 		data.ConnectivityJSON = types.StringValue(api.StatusDetails.Connectivity.Identity)
+	// 	}
+	// }
+	// force_delete
+	data.ForceDelete = types.BoolNull()
+	if v, ok := api.Config["forceDelete"].(bool); ok {
+		data.ForceDelete = types.BoolValue(v)
+	}
+
 }
 
 func (r *besuNodeServiceResource) apiPath(data *BesuNodeServiceResourceModel) string {

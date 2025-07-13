@@ -15,7 +15,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -34,7 +33,6 @@ type RuntimeResourceModel struct {
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	ConfigJSON          types.String `tfsdk:"config_json"`
 	LogLevel            types.String `tfsdk:"log_level"`
 	Size                types.String `tfsdk:"size"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
@@ -107,9 +105,6 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
 			},
-			"config_json": &schema.StringAttribute{
-				Required: true,
-			},
 			"log_level": &schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
@@ -153,11 +148,8 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
 	api.StackID = data.StackID.ValueString()
-	// optional fields
+	// config is no longer really used for runtimes
 	api.Config = map[string]interface{}{}
-	if !data.ConfigJSON.IsNull() {
-		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
-	}
 	if !data.LogLevel.IsNull() {
 		api.LogLevel = data.LogLevel.ValueString()
 	}

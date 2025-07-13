@@ -46,11 +46,14 @@ resource "kaleido_platform_environment" "env_0" {
   name = var.environment_name
 }
 
+// TODO implies we need structured stack resources too
 // Create the Besu stack
 resource "kaleido_platform_stack" "chain_infra_besu_stack" {
   name = "besu-chain-infrastructure"
   environment = kaleido_platform_environment.env_0.id
-  type = "BesuStack"
+  type = "chain_infrastructure"
+  sub_type = "BesuStack"
+  network_id = kaleido_platform_besu_network.besu_net.id
 }
 
 // Create the Besu network using the structured resource
@@ -58,21 +61,15 @@ resource "kaleido_platform_besu_network" "besu_net" {
   name = "besu-mainnet"
   environment = kaleido_platform_environment.env_0.id
   
+  chain_id = 3333
   // QBFT consensus configuration
-  bootstrap_options = {
+  bootstrap_options = jsonencode({
     qbft = {
-      block_period_seconds = 3
-      epoch_length = 30000
-      request_timeout = 10000
-      message_queue_limit = 1000
-      duplicate_queue_limit = 100
-      future_messages_limit = 1000
-      future_messages_max_distance = 10
+      blockperiodseconds = 3
     }
-  }
+  })
   
   // Let the network auto-generate chain ID
-  consensus_type = "qbft"
   init_mode = "automated"
 }
 
@@ -81,11 +78,10 @@ resource "kaleido_platform_runtime" "bnr" {
   count = var.besu_node_count
   name = "${var.environment_name}_besu_runtime_${count.index+1}"
   environment = kaleido_platform_environment.env_0.id
-  type = "BesuRuntime"
-  config_json = jsonencode({
-    size = "medium"
-    zone = "us-east-1"
-  })
+  type = "BesuNode" // TODO weird .. should we embed the runtime into the service ?
+  stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
+  size = "ExtraSmall"
+  zone = "internal-zone-1"
 }
 
 // Create Besu nodes using the structured resource
@@ -96,21 +92,14 @@ resource "kaleido_platform_besunode_service" "besu_nodes" {
   runtime = kaleido_platform_runtime.bnr[count.index].id
   stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
   
-  network = {
-    id = kaleido_platform_besu_network.besu_net.id
-  }
+  network = kaleido_platform_besu_network.besu_net.id
   
   // Node configuration
   mode = "active"
   signer = true
   log_level = "INFO"
   sync_mode = "FULL"
-  data_storage_format = "FOREST"
-  
-  // Storage configuration
-  storage = {
-    size = "20Gi"
-  }
+  data_storage_format = "BONSAI"
   
   // Enable additional APIs
   apis_enabled = ["TRACE", "DEBUG"]
@@ -123,29 +112,27 @@ resource "kaleido_platform_besunode_service" "besu_nodes" {
   custom_besu_args = [
     "--tx-pool-retention-hours=999",
     "--tx-pool-limit-by-account-percentage=0.1"
-  ]
-  
-  depends_on = [kaleido_platform_besu_network.besu_net]
+  ]  
 }
 
 // Output the network information
-output "besu_network_id" {
-  value = kaleido_platform_besu_network.besu_net.id
-}
+# output "besu_network_id" {
+#   value = kaleido_platform_besu_network.besu_net.id
+# }
 
-output "besu_network_info" {
-  value = kaleido_platform_besu_network.besu_net.info
-}
+# output "besu_network_info" {
+#   value = kaleido_platform_besu_network.besu_net.info
+# }
 
-output "besu_node_endpoints" {
-  value = { for idx, node in kaleido_platform_besunode_service.besu_nodes : 
-    "node_${idx+1}" => node.endpoints
-  }
-}
+# output "besu_node_endpoints" {
+#   value = { for idx, node in kaleido_platform_besunode_service.besu_nodes : 
+#     "node_${idx+1}" => node.endpoints
+#   }
+# }
 
-output "besu_node_connectivity" {
-  value = { for idx, node in kaleido_platform_besunode_service.besu_nodes : 
-    "node_${idx+1}" => node.connectivity_json
-  }
-  sensitive = true
-} 
+# output "besu_node_connectivity" {
+#   value = { for idx, node in kaleido_platform_besunode_service.besu_nodes : 
+#     "node_${idx+1}" => node.connectivity_json
+#   }
+#   sensitive = true
+# } 

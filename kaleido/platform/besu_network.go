@@ -34,7 +34,6 @@ type BesuNetworkResourceModel struct {
 	Environment      types.String `tfsdk:"environment"`
 	Name             types.String `tfsdk:"name"`
 	ChainID          types.Int64  `tfsdk:"chain_id"`
-	ConsensusType    types.String `tfsdk:"consensus_type"`
 	BootstrapOptions types.String `tfsdk:"bootstrap_options"`
 	InitMode         types.String `tfsdk:"init_mode"`
 	Genesis          types.String `tfsdk:"genesis"`
@@ -75,12 +74,6 @@ func (r *besuNetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:    true,
 				Description: "Chain ID for the blockchain network (will be auto-generated if not provided)",
 			},
-			"consensus_type": &schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("qbft"),
-				Description: "Consensus algorithm type. Options: qbft, ibft",
-			},
 			"bootstrap_options": &schema.StringAttribute{
 				Optional:    true,
 				Description: "A JSON string defining the bootstrap configuration options for the network (e.g. for QBFT or IBFT consensus).",
@@ -111,12 +104,7 @@ func (data *BesuNetworkResourceModel) toNetworkAPI(ctx context.Context, api *Net
 
 	// Chain ID
 	if !data.ChainID.IsNull() && data.ChainID.ValueInt64() > 0 {
-		api.Config["chainId"] = data.ChainID.ValueInt64()
-	}
-
-	// Consensus type
-	if !data.ConsensusType.IsNull() {
-		api.Config["consensusType"] = data.ConsensusType.ValueString()
+		api.Config["chainID"] = data.ChainID.ValueInt64()
 	}
 
 	// Bootstrap options - passed through as raw JSON
@@ -159,16 +147,13 @@ func (data *BesuNetworkResourceModel) toNetworkAPI(ctx context.Context, api *Net
 func (api *NetworkAPIModel) toBesuNetworkData(data *BesuNetworkResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 
+	// TODO
+
 	// We only need to read back computed values, as inputs are tracked by terraform.
-	if val, ok := api.Config["chainId"]; ok {
+	if val, ok := api.Config["chainID"]; ok {
 		// Numbers from JSON unmarshalling are float64
 		if vFloat, ok := val.(float64); ok {
 			data.ChainID = types.Int64Value(int64(vFloat))
-		}
-	}
-	if val, ok := api.Config["consensusType"]; ok {
-		if vString, ok := val.(string); ok {
-			data.ConsensusType = types.StringValue(vString)
 		}
 	}
 	data.InitMode = types.StringValue(api.InitMode)
