@@ -60,12 +60,19 @@ type accountResource struct {
 	commonResource
 }
 
+var (
+	_ resource.Resource                = &accountResource{}
+	_ resource.ResourceWithConfigure   = &accountResource{}
+	_ resource.ResourceWithImportState = &accountResource{}
+)
+
 func (r *accountResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "kaleido_platform_account"
 }
 
 func (r *accountResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+
 		Description: "A platform account represents a tenant or child account that can be managed independently. Accounts provide isolation and can have their own OIDC configuration, users, and groups.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{

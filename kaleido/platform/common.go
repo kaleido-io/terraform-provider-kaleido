@@ -24,6 +24,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"gopkg.in/yaml.v3"
@@ -44,6 +45,10 @@ type commonResource struct {
 
 func (r *commonResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	r.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, &resp.Diagnostics)
+}
+
+func (r *commonResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 type commonDataSource struct {
@@ -379,6 +384,8 @@ func Resources() []func() resource.Resource {
 		IdentityProviderResourceFactory,
 		UserResourceFactory,
 		GroupMembershipResourceFactory,
+		BesuNodeServiceResourceFactory,
+		BesuNetworkResourceFactory,
 	}
 }
 
