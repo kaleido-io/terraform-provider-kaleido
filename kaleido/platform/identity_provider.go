@@ -43,8 +43,8 @@ type IdentityProviderResourceModel struct {
 	UserInfoURL             types.String `tfsdk:"user_info_url"`
 	Scopes                  types.String `tfsdk:"scopes"`
 	CACertificate           types.String `tfsdk:"ca_certificate"`
-	ConfidentialPKCEEnabled types.Bool   `tfsdk:"confidential_pkce_enabled,omitempty"`
-	IdTokenNonceEnabled     types.Bool   `tfsdk:"id_token_nonce_enabled,omitempty"`
+	ConfidentialPKCEEnabled types.Bool   `tfsdk:"confidential_pkce_enabled"`
+	IdTokenNonceEnabled     types.Bool   `tfsdk:"id_token_nonce_enabled"`
 }
 
 type IdentityProviderAPIModel struct {

@@ -386,6 +386,8 @@ func Resources() []func() resource.Resource {
 		GroupMembershipResourceFactory,
 		BesuNodeServiceResourceFactory,
 		BesuNetworkResourceFactory,
+		IPFSNetworkResourceFactory,
+		IPFSNodeServiceResourceFactory,
 	}
 }
 

@@ -35,9 +35,11 @@ type StacksResourceModel struct {
 	Environment         types.String `tfsdk:"environment"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Name                types.String `tfsdk:"name"`
-	Type                types.String `tfsdk:"type"`
-	SubType             types.String `tfsdk:"sub_type"`
-	NetworkId           types.String `tfsdk:"network_id"`
+	// chain_infrastructure, web3_middleware, digital_assets
+	Type types.String `tfsdk:"type"`
+	// TokenizationStack, CustodyStack, FireflyStack, BesuStack, IPFSNetwork
+	SubType   types.String `tfsdk:"sub_type"`
+	NetworkId types.String `tfsdk:"network_id"`
 }
 
 type StacksAPIModel struct {
