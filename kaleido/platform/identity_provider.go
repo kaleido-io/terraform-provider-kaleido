@@ -113,6 +113,7 @@ func (r *identityProviderResource) Schema(_ context.Context, _ resource.SchemaRe
 			},
 			"issuer": &schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Valid issuer for this identity provider (required if oidc_config_url not provided)",
 			},
 			"oidc_config_url": &schema.StringAttribute{
