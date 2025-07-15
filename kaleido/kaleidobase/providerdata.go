@@ -126,9 +126,9 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 		SetRetryCount(5).
 		SetRetryAfter(func(c *resty.Client, r *resty.Response) (time.Duration, error) {
 			tflog.Debug(logCtx, fmt.Sprintf("retryAfter: %s", r.Header().Get("Retry-After")))
-			retryAfter, err := strconv.ParseFloat(r.Header().Get("Retry-After"), 64)
+			retryAfter, err := strconv.ParseFloat(r.Header().Get("Retry-After"), 64) // decimal seconds
 			if err != nil {
-				return 1 * time.Second, err
+				retryAfter = 1.0
 			}
 			jitter := time.Duration(rand.NormFloat64() * float64(5*time.Second)) // up to 5 second random jitter to account for 5 concurrent connections all retrying up to 5 times
 			return time.Duration(retryAfter*float64(time.Second)) + jitter, nil
