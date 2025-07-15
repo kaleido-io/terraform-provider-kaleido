@@ -29,8 +29,8 @@ type CustomRetry struct {
 }
 
 var Retry = &CustomRetry{
-	InitialDelay: 500 * time.Millisecond,
-	MaximumDelay: 5 * time.Second,
+	InitialDelay: 5 * time.Second,
+	MaximumDelay: 30 * time.Second,
 	Factor:       2.0,
 }
 
