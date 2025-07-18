@@ -1,0 +1,274 @@
+// Copyright © Kaleido, Inc. 2024
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//     http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package platform
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
+
+type CantonGlobalSynchronizerNetworkResourceModel struct {
+	ID          types.String `tfsdk:"id"`
+	Environment types.String `tfsdk:"environment"`
+	Name        types.String `tfsdk:"name"`
+	Migrations             types.String `tfsdk:"migrations"`
+	Network                types.String `tfsdk:"network"`
+	Scanendpoint           types.String `tfsdk:"scanendpoint"`
+	Supervalidator         types.String `tfsdk:"supervalidator"`
+	Supervalidatorendpoint types.String `tfsdk:"supervalidatorendpoint"`
+	InitMode    types.String `tfsdk:"init_mode"`
+	ForceDelete types.Bool   `tfsdk:"force_delete"`
+}
+
+func CantonGlobalSynchronizerNetworkResourceFactory() resource.Resource {
+	return &cantonglobalsynchronizernetworkResource{}
+}
+
+type cantonglobalsynchronizernetworkResource struct {
+	commonResource
+}
+
+func (r *cantonglobalsynchronizernetworkResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_cantonglobalsynchronizer_network"
+}
+
+func (r *cantonglobalsynchronizernetworkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "A Canton Global Synchronizer network that provides privacy-preserving smart contract execution and interoperability.",
+		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"environment": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Environment ID where the CantonGlobalSynchronizer network will be deployed",
+			},
+			"name": &schema.StringAttribute{
+				Required:    true,
+				Description: "Display name for the CantonGlobalSynchronizer network",
+			},
+			"migrations": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Current Migrations with timestamps for the network",
+			},
+			"network": &schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("Devnet"),
+				Description: "Canton Network type",
+			},
+			"scanendpoint": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Remote Scan endpoint for the network",
+			},
+			"supervalidator": &schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("Digital-Asset-1"),
+				Description: "Remote Super Validator for the network",
+			},
+			"supervalidatorendpoint": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Remote Super validator endpoint for the network",
+			},
+			"init_mode": &schema.StringAttribute{
+				Optional:    true,
+				Default:     stringdefault.StaticString("automated"),
+				Description: "Initialization mode for the network (automated or manual)",
+			},
+			"force_delete": &schema.BoolAttribute{
+				Optional:    true,
+				Description: "Set to true when you plan to delete a protected CantonGlobalSynchronizer network. You must apply this value before running terraform destroy.",
+			},
+		},
+	}
+}
+
+func (data *CantonGlobalSynchronizerNetworkResourceModel) toNetworkAPI(ctx context.Context, api *NetworkAPIModel, diagnostics *diag.Diagnostics) {
+	api.Type = "CantonGlobalSynchronizerNetwork"
+	api.Name = data.Name.ValueString()
+	api.InitMode = data.InitMode.ValueString()
+	api.Config = make(map[string]interface{})
+
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
+	}
+	// Handle Migrations as JSON
+	if !data.Migrations.IsNull() && data.Migrations.ValueString() != "" {
+		var migrationsData interface{}
+		err := json.Unmarshal([]byte(data.Migrations.ValueString()), &migrationsData)
+		if err != nil {
+			diagnostics.AddAttributeError(
+				path.Root("migrations"),
+				"Failed to parse Migrations",
+				err.Error(),
+			)
+		} else {
+			api.Config["migrations"] = migrationsData
+		}
+	}
+	if !data.Supervalidator.IsNull() && data.Supervalidator.ValueString() != "" {
+		api.Config["superValidator"] = data.Supervalidator.ValueString()
+	}
+	if !data.Supervalidatorendpoint.IsNull() && data.Supervalidatorendpoint.ValueString() != "" {
+		api.Config["superValidatorEndpoint"] = data.Supervalidatorendpoint.ValueString()
+	}
+	if !data.Scanendpoint.IsNull() && data.Scanendpoint.ValueString() != "" {
+		api.Config["scanEndpoint"] = data.Scanendpoint.ValueString()
+	}
+}
+
+func (api *NetworkAPIModel) toCantonGlobalSynchronizerNetworkData(data *CantonGlobalSynchronizerNetworkResourceModel, diagnostics *diag.Diagnostics) {
+	data.ID = types.StringValue(api.ID)
+	data.Name = types.StringValue(api.Name)
+	data.InitMode = types.StringValue(api.InitMode)
+
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringValue("Devnet")
+	}
+	if migrationsData := api.Config["migrations"]; migrationsData != nil {
+		if migrationsJSON, err := json.Marshal(migrationsData); err == nil {
+			data.Migrations = types.StringValue(string(migrationsJSON))
+		} else {
+			data.Migrations = types.StringNull()
+		}
+	} else {
+		data.Migrations = types.StringNull()
+	}
+	if v, ok := api.Config["superValidator"].(string); ok {
+		data.Supervalidator = types.StringValue(v)
+	} else {
+		data.Supervalidator = types.StringValue("Digital-Asset-1")
+	}
+	if v, ok := api.Config["superValidatorEndpoint"].(string); ok {
+		data.Supervalidatorendpoint = types.StringValue(v)
+	} else {
+		data.Supervalidatorendpoint = types.StringNull()
+	}
+	if v, ok := api.Config["scanEndpoint"].(string); ok {
+		data.Scanendpoint = types.StringValue(v)
+	} else {
+		data.Scanendpoint = types.StringNull()
+	}
+}
+
+func (r *cantonglobalsynchronizernetworkResource) apiPath(data *CantonGlobalSynchronizerNetworkResourceModel) string {
+	path := fmt.Sprintf("/api/v1/environments/%s/networks", data.Environment.ValueString())
+	if data.ID.ValueString() != "" {
+		path = path + "/" + data.ID.ValueString()
+	}
+	if !data.ForceDelete.IsNull() && data.ForceDelete.ValueBool() {
+		path = path + "?force=true"
+	}
+	return path
+}
+
+func (r *cantonglobalsynchronizernetworkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data CantonGlobalSynchronizerNetworkResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+
+	var api NetworkAPIModel
+	data.toNetworkAPI(ctx, &api, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+
+	api.toCantonGlobalSynchronizerNetworkData(&data, &resp.Diagnostics)
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+
+	api.ID = data.ID.ValueString()
+	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+
+	api.toCantonGlobalSynchronizerNetworkData(&data, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+}
+
+func (r *cantonglobalsynchronizernetworkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data CantonGlobalSynchronizerNetworkResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+
+	var api NetworkAPIModel
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
+
+	data.toNetworkAPI(ctx, &api, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+		return
+	}
+
+	api.toCantonGlobalSynchronizerNetworkData(&data, &resp.Diagnostics)
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
+	api.toCantonGlobalSynchronizerNetworkData(&data, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+}
+
+func (r *cantonglobalsynchronizernetworkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data CantonGlobalSynchronizerNetworkResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	var api NetworkAPIModel
+	api.ID = data.ID.ValueString()
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
+	if !ok {
+		return
+	}
+	if status == 404 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	api.toCantonGlobalSynchronizerNetworkData(&data, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+}
+
+func (r *cantonglobalsynchronizernetworkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data CantonGlobalSynchronizerNetworkResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
+	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
+}

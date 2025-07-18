@@ -22,43 +22,43 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type IPFSNodeServiceResourceModel struct {
+type EVMGatewayServiceResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
 	Environment         types.String `tfsdk:"environment"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Network             types.String `tfsdk:"network"`
-	Mode                types.String `tfsdk:"mode"`
-	Profile             types.String `tfsdk:"profile"`
-	GCPeriod            types.String `tfsdk:"gc_period"`
-	GCLimit             types.Int64  `tfsdk:"gc_limit"`
+	Decoderawtransactions  types.Bool `tfsdk:"decoderawtransactions"`
+	Finegrainedpermissions types.Bool `tfsdk:"finegrainedpermissions"`
+	Loglevel               types.String `tfsdk:"loglevel"`
+	Maxbatchsize           types.Int64 `tfsdk:"maxbatchsize"`
+	Network                types.String `tfsdk:"network"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
-func IPFSNodeServiceResourceFactory() resource.Resource {
-	return &ipfsNodeServiceResource{}
+func EVMGatewayServiceResourceFactory() resource.Resource {
+	return &evmgatewayserviceResource{}
 }
 
-type ipfsNodeServiceResource struct {
+type evmgatewayserviceResource struct {
 	commonResource
 }
 
-func (r *ipfsNodeServiceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_ipfsnode_service"
+func (r *evmgatewayserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_evmgateway"
 }
 
-func (r *ipfsNodeServiceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *evmgatewayserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "An IPFS node service for storing and accessing content-addressed data.",
+		Description: "An EVM Gateway service that provides JSON-RPC endpoint access to blockchain networks.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -67,7 +67,7 @@ func (r *ipfsNodeServiceResource) Schema(_ context.Context, _ resource.SchemaReq
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the IPFSNode service will be deployed",
+				Description:   "Environment ID where the EVMGateway service will be deployed",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -75,108 +75,104 @@ func (r *ipfsNodeServiceResource) Schema(_ context.Context, _ resource.SchemaReq
 			"runtime": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime ID where the IPFSNode service will be deployed",
+				Description:   "Runtime ID where the EVMGateway service will be deployed",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "Display name for the IPFSNode service",
+				Description: "Display name for the EVMGateway service",
 			},
 			"stack_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack ID where the IPFSNode service belongs (must be an IPFSStack)",
+				Description:   "Stack ID where the EVMGateway service belongs",
+			},
+			"decoderawtransactions": &schema.BoolAttribute{
+				Optional:    true,
+				Description: "",
+			},
+			"finegrainedpermissions": &schema.BoolAttribute{
+				Optional:    true,
+				Description: "",
+			},
+			"loglevel": &schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("info"),
+				Description: "Desired log level of the gateway runtime",
+			},
+			"maxbatchsize": &schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(10),
+				Description: "Max Batch size for Batched RPC transactions",
 			},
 			"network": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The network ID where the IPFSNode service belongs (must be an IPFSNetwork)",
-			},
-			"mode": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("active"),
-				Description: "Node mode - determines if the node can receive API requests. Options: active, standby",
-			},
-			// TODO same here ?
-			"profile": &schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("server"),
-				Description: "IPFS file-system profile. Options: server, flatfs, default-networking, lowpower, badgerds",
-			},
-			"gc_period": &schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("1h"),
-				Description: "Time duration (hours) specifying how frequently to run garbage collection.",
-			},
-			// TODO do we actually allow for configuring this ?
-			"gc_limit": &schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(80),
-				Description: "Percentage of the configured storage at which garbage collection is triggered.",
+				Description: "<network><networkType>BesuNetwork</networkType></network>",
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you plan to delete a protected IPFSNode service. You must apply this value before running terraform destroy.",
+				Description: "Set to true when you plan to delete a protected EVMGateway service. You must apply this value before running terraform destroy.",
 			},
 		},
 	}
 }
 
-func (data *IPFSNodeServiceResourceModel) toServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
-	api.Type = "IPFSNodeService"
+func (data *EVMGatewayServiceResourceModel) toEVMGatewayServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
+	api.Type = "EVMGatewayService"
 	api.Name = data.Name.ValueString()
 	api.StackID = data.StackID.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() {
-		api.Config["network"] = map[string]interface{}{
-			"id": data.Network.ValueString(),
-		}
+	if !data.Maxbatchsize.IsNull() {
+		api.Config["maxBatchSize"] = data.Maxbatchsize.ValueInt64()
 	}
-	if !data.Mode.IsNull() {
-		api.Config["mode"] = data.Mode.ValueString()
+	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
+		api.Config["logLevel"] = data.Loglevel.ValueString()
 	}
-	if !data.Profile.IsNull() {
-		api.Config["profile"] = data.Profile.ValueString()
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
-	if !data.GCPeriod.IsNull() {
-		api.Config["gcPeriod"] = data.GCPeriod.ValueString()
-	}
-	if !data.GCLimit.IsNull() {
-		api.Config["gcLimit"] = data.GCLimit.ValueInt64()
-	}
+	api.Config["fineGrainedPermissions"] = data.Finegrainedpermissions.ValueBool()
+	api.Config["decodeRawTransactions"] = data.Decoderawtransactions.ValueBool()
 }
 
-func (api *ServiceAPIModel) toIPFSNodeServiceData(data *IPFSNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
+func (api *ServiceAPIModel) toEVMGatewayServiceData(data *EVMGatewayServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.Runtime = types.StringValue(api.Runtime.ID)
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	data.Mode = types.StringValue("")
-	if v, ok := api.Config["mode"].(string); ok {
-		data.Mode = types.StringValue(v)
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringNull()
 	}
-	data.Profile = types.StringValue("")
-	if v, ok := api.Config["profile"].(string); ok {
-		data.Profile = types.StringValue(v)
+	if v, ok := api.Config["fineGrainedPermissions"].(bool); ok {
+		data.Finegrainedpermissions = types.BoolValue(v)
+	} else {
+		data.Finegrainedpermissions = types.BoolValue(false)
 	}
-	data.GCPeriod = types.StringValue("")
-	if v, ok := api.Config["gcPeriod"].(string); ok {
-		data.GCPeriod = types.StringValue(v)
+	if v, ok := api.Config["decodeRawTransactions"].(bool); ok {
+		data.Decoderawtransactions = types.BoolValue(v)
+	} else {
+		data.Decoderawtransactions = types.BoolValue(false)
 	}
-	data.GCLimit = types.Int64Null()
-	if v, ok := api.Config["gcLimit"].(float64); ok { // JSON numbers are float64
-		data.GCLimit = types.Int64Value(int64(v))
+	if v, ok := api.Config["maxBatchSize"].(float64); ok {
+		data.Maxbatchsize = types.Int64Value(int64(v))
+	} else {
+		data.Maxbatchsize = types.Int64Value(10)
+	}
+	if v, ok := api.Config["logLevel"].(string); ok {
+		data.Loglevel = types.StringValue(v)
+	} else {
+		data.Loglevel = types.StringValue("info")
 	}
 }
 
-func (r *ipfsNodeServiceResource) apiPath(data *IPFSNodeServiceResourceModel) string {
+func (r *evmgatewayserviceResource) apiPath(data *EVMGatewayServiceResourceModel) string {
 	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
@@ -187,12 +183,12 @@ func (r *ipfsNodeServiceResource) apiPath(data *IPFSNodeServiceResourceModel) st
 	return path
 }
 
-func (r *ipfsNodeServiceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *evmgatewayserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data EVMGatewayServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api ServiceAPIModel
-	data.toServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toEVMGatewayServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -202,7 +198,7 @@ func (r *ipfsNodeServiceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toEVMGatewayServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	api.ID = data.ID.ValueString()
@@ -211,12 +207,12 @@ func (r *ipfsNodeServiceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toEVMGatewayServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsNodeServiceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *evmgatewayserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data EVMGatewayServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
@@ -225,7 +221,7 @@ func (r *ipfsNodeServiceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	data.toServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toEVMGatewayServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -234,18 +230,18 @@ func (r *ipfsNodeServiceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toEVMGatewayServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toEVMGatewayServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsNodeServiceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *evmgatewayserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data EVMGatewayServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	var api ServiceAPIModel
@@ -259,12 +255,12 @@ func (r *ipfsNodeServiceResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toEVMGatewayServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsNodeServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *evmgatewayserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data EVMGatewayServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
