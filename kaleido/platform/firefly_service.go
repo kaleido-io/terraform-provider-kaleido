@@ -149,9 +149,13 @@ func (r *fireflyServiceResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Optional:    true,
 				Description: "Network namespace name for multiparty mode (must be same for all members, required when multiparty_enabled is true)",
 			},
-			"multiparty_contracts_json": &schema.StringAttribute{
+			"multiparty_contract_address": &schema.StringAttribute{
 				Optional:    true,
 				Description: "JSON array of multiparty contracts configuration (required when multiparty_enabled is true)",
+			},
+			"multiparty_contract_block_number": &schema.Int64Attribute{
+				Optional:    true,
+				Description: "Block number of the multiparty contract (required when multiparty_enabled is true)",
 			},
 
 			// IPFS configuration

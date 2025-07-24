@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -72,7 +71,7 @@ type transactionManagerServiceResource struct {
 }
 
 func (r *transactionManagerServiceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_transactionmanager_service"
+	resp.TypeName = "kaleido_platform_tms_evm"
 }
 
 func (r *transactionManagerServiceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -115,72 +114,35 @@ func (r *transactionManagerServiceResource) Schema(_ context.Context, _ resource
 				Description: "Key Manager service ID (required for EVM type)",
 			},
 
-			// EVM configuration
-			"evm_connector_type": &schema.StringAttribute{
+			"connector_url": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("url"),
-				Description: "EVM connector type. Options: url, evmGateway",
+				Description: "URL for the JSON/RPC endpoint",
 			},
-			"evm_connector_url": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The JSON/RPC endpoint URL (used when connector_type is 'url')",
-			},
-			"evm_connector_gateway": &schema.StringAttribute{
-				Optional:    true,
-				Description: "EVM Gateway service ID (used when connector_type is 'evmGateway')",
-			},
-			"evm_connector_username": &schema.StringAttribute{
+
+			"connector_username": &schema.StringAttribute{
 				Optional:    true,
 				Description: "Username for JSON/RPC authentication",
 			},
-			"evm_connector_password": &schema.StringAttribute{
+			"connector_password": &schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "Password for JSON/RPC authentication",
 			},
-			"evm_connector_config_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Additional connector configuration as JSON (throttle, retry, timeouts, etc.)",
-			},
-			"evm_transactions_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Transaction handling configuration as JSON",
-			},
-			"evm_eventstreams_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Event streams configuration as JSON",
-			},
-			"evm_confirmations_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Confirmations configuration as JSON",
-			},
-			"evm_txwriter_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Transaction writer configuration as JSON",
+
+			"connector_evmgateway": &schema.StringAttribute{
+				Optional: true,
+				// TODO
 			},
 
-			// Fabric configuration
-			"fabric_signer": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Default signer for consuming events (required for Fabric type)",
+			// TODO omit for now ?
+			"transactions": &schema.ObjectAttribute{
+				Optional: true,
+				// TODO
 			},
-			"fabric_ccp_config": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Connection profile JSON configuration",
-			},
-			"fabric_ccp_files": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Additional PEM files as JSON object (file name -> content)",
-			},
-			"fabric_msp_archive": &schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "MSP archive containing keys and certificates (base64 encoded tar.gz)",
-			},
-			"fabric_configuration_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "FabConnect configuration as JSON",
+
+			"confirmations": &schema.ObjectAttribute{
+				Optional: true,
+				// TODO
 			},
 
 			"force_delete": &schema.BoolAttribute{

@@ -78,22 +78,20 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description: "Stack Display Name",
 			},
 			"type": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack Type. Options include: `chain_infrastructure`, `web3_middleware`, and `digital_assets`",
-				Validators: []validator.String{
-					stringvalidator.OneOf(
-						"chain_infrastructure",
-						"web3_middleware",
-						"digital_assets",
-					),
-				},
-			},
-			"sub_type": &schema.StringAttribute{
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack sub-type specific to each stack type. Options include: `TokenizationStack`,`CustodyStack` for `digital_assets`, `FireflyStack` for `web3_middleware` and `BesuStack`,`IPFSNetwork` for `chain_infrastructure`",
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"Tokenization",
+						"Custody",
+						"FireFly",
+						"Besu",
+						"IPFS",
+						"Canton",
+					),
+				},
+				Description: "Stack sub-type specific to each stack type. Options include: `TokenizationStack`,`CustodyStack` for `digital_assets`, `FireflyStack` for `web3_middleware` and `BesuStack`,`IPFSNetwork` for `chain_infrastructure`",
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
@@ -113,10 +111,13 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 }
 
 func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
-	api.Type = data.Type.ValueString()
-	if !data.SubType.IsNull() {
-		api.SubType = data.SubType.ValueString()
+	resourceType := data.Type.ValueString()
+	apiSubType, apiType, err := data.mapTypeToAPITypes(resourceType)
+	if err != nil {
+		return // TODO error propagation ??
 	}
+	api.SubType = apiSubType
+	api.Type = apiType
 	api.Name = data.Name.ValueString()
 	if !data.NetworkId.IsNull() {
 		api.NetworkId = data.NetworkId.ValueString()
@@ -127,13 +128,50 @@ func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.Name = types.StringValue(api.Name)
-	data.Type = types.StringValue(api.Type)
-	if api.SubType != "" {
-		data.SubType = types.StringValue(api.SubType)
+	resourceType, err := api.mapAPISubTypeToType(api.SubType)
+	if err != nil {
+		return
 	}
+	data.Type = types.StringValue(resourceType)
 	if api.NetworkId != "" && !data.NetworkId.IsNull() {
 		data.NetworkId = types.StringValue(api.NetworkId)
 	}
+}
+
+func (data *StacksResourceModel) mapTypeToAPITypes(_type string) (string, string, error) {
+	switch _type {
+	case "Tokenization":
+		return "TokenizationStack", "digital_assets", nil
+	case "Custody":
+		return "CustodyStack", "digital_assets", nil
+	case "FireFly":
+		return "FireflyStack", "web3_middleware", nil
+	case "Besu":
+		return "BesuStack", "chain_infrastructure", nil
+	case "IPFS":
+		return "IPFSNetwork", "chain_infrastructure", nil
+	case "Canton":
+		return "CantonStack", "chain_infrastructure", nil
+	}
+	return "", "", fmt.Errorf("invalid type: '%s'", _type)
+}
+
+func (data *StacksAPIModel) mapAPISubTypeToType(apiSubType string) (string, error) {
+	switch apiSubType {
+	case "TokenizationStack":
+		return "Tokenization", nil
+	case "CustodyStack":
+		return "Custody", nil
+	case "FireflyStack":
+		return "FireFly", nil
+	case "BesuStack":
+		return "Besu", nil
+	case "IPFSNetwork":
+		return "IPFS", nil
+	case "CantonStack":
+		return "Canton", nil
+	}
+	return "", fmt.Errorf("invalid type: '%s'", apiSubType)
 }
 
 func (r *stacksResource) apiPath(data *StacksResourceModel) string {

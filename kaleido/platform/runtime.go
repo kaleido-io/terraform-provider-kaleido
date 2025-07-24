@@ -19,11 +19,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -84,10 +86,25 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			// TODO generate in separate file ? Or should we generate structured runtime
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime type",
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"BesuNode",
+						"IPFSNode",
+						"EVMGateway",
+						"KeyManager",
+						"TransactionManager",
+						"PrivateDataManager",
+						"ContractManager",
+						"BlockIndexer",
+						"FireFly",
+						"AssetManager",
+					),
+				},
+				Description: "Runtime type",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
@@ -124,6 +141,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional: true,
 				Computed: true,
 			},
+			// TODO interesting example of where typed runtimes could be helpful - conveying when storage is required and subzoning is possible
 			"sub_zone": &schema.StringAttribute{
 				Optional: true,
 			},
