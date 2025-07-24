@@ -13,6 +13,10 @@
 // limitations under the License.
 package platform
 
+// This file has been replaced by generated code in zz_keymanager_service.go
+// The original manual implementation is preserved below as reference
+
+/*
 import (
 	"context"
 	"fmt"
@@ -215,3 +219,4 @@ func (r *keyManagerServiceResource) Delete(ctx context.Context, req resource.Del
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }
+*/

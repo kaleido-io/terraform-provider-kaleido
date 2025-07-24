@@ -13,10 +13,6 @@
 // limitations under the License.
 package platform
 
-// This file has been replaced by generated code in zz_assetmanager_service.go
-// The original manual implementation is preserved below as reference
-
-/*
 import (
 	"context"
 	"fmt"
@@ -26,10 +22,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -40,32 +35,23 @@ type AssetManagerServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	KeyManager          types.String `tfsdk:"key_manager"`
-
-	// Firefly configuration
-	FireflyDefaultReadAhead types.Int64 `tfsdk:"firefly_default_read_ahead"`
-
-	// Invocations configuration
-	InvocationsConcurrency         types.Int64 `tfsdk:"invocations_concurrency"`
-	InvocationsBatchSize           types.Int64 `tfsdk:"invocations_batch_size"`
-	InvocationsRecordNonIdempotent types.Bool  `tfsdk:"invocations_record_non_idempotent"`
-
-	ForceDelete types.Bool `tfsdk:"force_delete"`
+	Defaultreadahead types.Int64 `tfsdk:"defaultreadahead"`
+	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
 func AssetManagerServiceResourceFactory() resource.Resource {
-	return &assetManagerServiceResource{}
+	return &assetmanagerserviceResource{}
 }
 
-type assetManagerServiceResource struct {
+type assetmanagerserviceResource struct {
 	commonResource
 }
 
-func (r *assetManagerServiceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_assetmanager_service"
+func (r *assetmanagerserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_assetmanager"
 }
 
-func (r *assetManagerServiceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *assetmanagerserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "An Asset Manager service that provides tokenization and digital asset management capabilities.",
 		Attributes: map[string]schema.Attribute{
@@ -76,7 +62,7 @@ func (r *assetManagerServiceResource) Schema(_ context.Context, _ resource.Schem
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the Asset Manager service will be deployed",
+				Description:   "Environment ID where the AssetManager service will be deployed",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -84,92 +70,40 @@ func (r *assetManagerServiceResource) Schema(_ context.Context, _ resource.Schem
 			"runtime": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime ID where the Asset Manager service will be deployed",
+				Description:   "Runtime ID where the AssetManager service will be deployed",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "Display name for the Asset Manager service",
+				Description: "Display name for the AssetManager service",
 			},
 			"stack_id": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack ID where the Asset Manager service belongs (must be a TokenizationStack)",
+				Description:   "Stack ID where the AssetManager service belongs",
 			},
-			"key_manager": &schema.StringAttribute{
-				Required:    true,
-				Description: "Key Manager service ID that this Asset Manager service will use",
-			},
-
-			// Firefly configuration
-			"firefly_default_read_ahead": &schema.Int64Attribute{
+			"defaultreadahead": &schema.Int64Attribute{
 				Optional:    true,
 				Computed:    true,
 				Default:     int64default.StaticInt64(50),
 				Description: "Read-ahead configuration to apply to FireFly subscriptions without a custom setting",
 			},
-
-			// Invocations configuration
-			"invocations_concurrency": &schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(10),
-				Description: "Number of workers available to process asynchronous invocations",
-			},
-			"invocations_batch_size": &schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(10),
-				Description: "Maximum number of tasks an asynchronous worker will include in a batch",
-			},
-			"invocations_record_non_idempotent": &schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(true),
-				Description: "Record invocations that are performed synchronously via API without an idempotencyKey",
-			},
-
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you plan to delete a protected Asset Manager service. You must apply this value before running terraform destroy.",
+				Description: "Set to true when you plan to delete a protected AssetManager service. You must apply this value before running terraform destroy.",
 			},
 		},
 	}
 }
 
-func (data *AssetManagerServiceResourceModel) toServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
+func (data *AssetManagerServiceResourceModel) toAssetManagerServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
 	api.Type = "AssetManagerService"
 	api.Name = data.Name.ValueString()
 	api.StackID = data.StackID.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	// Key Manager reference
-	api.Config["keyManager"] = map[string]interface{}{
-		"id": data.KeyManager.ValueString(),
-	}
-
-	// Firefly configuration
-	fireflyConfig := make(map[string]interface{})
-	if !data.FireflyDefaultReadAhead.IsNull() {
-		fireflyConfig["defaultReadAhead"] = data.FireflyDefaultReadAhead.ValueInt64()
-	}
-	if len(fireflyConfig) > 0 {
-		api.Config["firefly"] = fireflyConfig
-	}
-
-	// Invocations configuration
-	invocationsConfig := make(map[string]interface{})
-	if !data.InvocationsConcurrency.IsNull() {
-		invocationsConfig["concurrency"] = data.InvocationsConcurrency.ValueInt64()
-	}
-	if !data.InvocationsBatchSize.IsNull() {
-		invocationsConfig["batchSize"] = data.InvocationsBatchSize.ValueInt64()
-	}
-	if !data.InvocationsRecordNonIdempotent.IsNull() {
-		invocationsConfig["recordNonIdempotent"] = data.InvocationsRecordNonIdempotent.ValueBool()
-	}
-	if len(invocationsConfig) > 0 {
-		api.Config["invocations"] = invocationsConfig
+	if !data.Defaultreadahead.IsNull() {
+		api.Config["defaultReadAhead"] = data.Defaultreadahead.ValueInt64()
 	}
 }
 
@@ -180,49 +114,14 @@ func (api *ServiceAPIModel) toAssetManagerServiceData(data *AssetManagerServiceR
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	// Key Manager
-	if v, ok := api.Config["keyManager"].(map[string]interface{}); ok {
-		if id, ok := v["id"].(string); ok {
-			data.KeyManager = types.StringValue(id)
-		}
-	}
-
-	// Firefly configuration
-	if v, ok := api.Config["firefly"].(map[string]interface{}); ok {
-		if defaultReadAhead, ok := v["defaultReadAhead"].(float64); ok {
-			data.FireflyDefaultReadAhead = types.Int64Value(int64(defaultReadAhead))
-		} else {
-			data.FireflyDefaultReadAhead = types.Int64Value(50)
-		}
+	if v, ok := api.Config["defaultReadAhead"].(float64); ok {
+		data.Defaultreadahead = types.Int64Value(int64(v))
 	} else {
-		data.FireflyDefaultReadAhead = types.Int64Value(50)
-	}
-
-	// Invocations configuration
-	if v, ok := api.Config["invocations"].(map[string]interface{}); ok {
-		if concurrency, ok := v["concurrency"].(float64); ok {
-			data.InvocationsConcurrency = types.Int64Value(int64(concurrency))
-		} else {
-			data.InvocationsConcurrency = types.Int64Value(10)
-		}
-		if batchSize, ok := v["batchSize"].(float64); ok {
-			data.InvocationsBatchSize = types.Int64Value(int64(batchSize))
-		} else {
-			data.InvocationsBatchSize = types.Int64Value(10)
-		}
-		if recordNonIdempotent, ok := v["recordNonIdempotent"].(bool); ok {
-			data.InvocationsRecordNonIdempotent = types.BoolValue(recordNonIdempotent)
-		} else {
-			data.InvocationsRecordNonIdempotent = types.BoolValue(true)
-		}
-	} else {
-		data.InvocationsConcurrency = types.Int64Value(10)
-		data.InvocationsBatchSize = types.Int64Value(10)
-		data.InvocationsRecordNonIdempotent = types.BoolValue(true)
+		data.Defaultreadahead = types.Int64Value(50)
 	}
 }
 
-func (r *assetManagerServiceResource) apiPath(data *AssetManagerServiceResourceModel) string {
+func (r *assetmanagerserviceResource) apiPath(data *AssetManagerServiceResourceModel) string {
 	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
@@ -233,12 +132,12 @@ func (r *assetManagerServiceResource) apiPath(data *AssetManagerServiceResourceM
 	return path
 }
 
-func (r *assetManagerServiceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *assetmanagerserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data AssetManagerServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api ServiceAPIModel
-	data.toServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toAssetManagerServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -261,7 +160,7 @@ func (r *assetManagerServiceResource) Create(ctx context.Context, req resource.C
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *assetManagerServiceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *assetmanagerserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data AssetManagerServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
@@ -271,7 +170,7 @@ func (r *assetManagerServiceResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	data.toServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toAssetManagerServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -290,7 +189,7 @@ func (r *assetManagerServiceResource) Update(ctx context.Context, req resource.U
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *assetManagerServiceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *assetmanagerserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data AssetManagerServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
@@ -309,11 +208,10 @@ func (r *assetManagerServiceResource) Read(ctx context.Context, req resource.Rea
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *assetManagerServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *assetmanagerserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data AssetManagerServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }
-*/

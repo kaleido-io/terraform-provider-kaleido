@@ -13,13 +13,8 @@
 // limitations under the License.
 package platform
 
-// This file has been replaced by generated code in zz_besu_network.go
-// The original manual implementation is preserved below as reference
-
-/*
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -28,37 +23,40 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type BesuNetworkResourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	Environment      types.String `tfsdk:"environment"`
-	Name             types.String `tfsdk:"name"`
-	ChainID          types.Int64  `tfsdk:"chain_id"`
-	BootstrapOptions types.String `tfsdk:"bootstrap_options"`
-	InitMode         types.String `tfsdk:"init_mode"`
-	Genesis          types.String `tfsdk:"genesis"`
-	ForceDelete      types.Bool   `tfsdk:"force_delete"`
+	ID          types.String `tfsdk:"id"`
+	Environment types.String `tfsdk:"environment"`
+	Name        types.String `tfsdk:"name"`
+	Blockperiodseconds    types.Int64 `tfsdk:"blockperiodseconds"`
+	Blockreward           types.String `tfsdk:"blockreward"`
+	Epochlength           types.Int64 `tfsdk:"epochlength"`
+	Miningbeneficiary     types.String `tfsdk:"miningbeneficiary"`
+	Requesttimeoutseconds types.Int64 `tfsdk:"requesttimeoutseconds"`
+	InitMode    types.String `tfsdk:"init_mode"`
+	ForceDelete types.Bool   `tfsdk:"force_delete"`
 }
 
 func BesuNetworkResourceFactory() resource.Resource {
-	return &besuNetworkResource{}
+	return &besunetworkResource{}
 }
 
-type besuNetworkResource struct {
+type besunetworkResource struct {
 	commonResource
 }
 
-func (r *besuNetworkResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *besunetworkResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "kaleido_platform_besu_network"
 }
 
-func (r *besuNetworkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *besunetworkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A Besu blockchain network that provides consensus and networking capabilities for Besu nodes.",
+		Description: "A Besu network that provides Ethereum blockchain infrastructure with customizable consensus mechanisms.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -73,24 +71,36 @@ func (r *besuNetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Required:    true,
 				Description: "Display name for the Besu network",
 			},
-			"chain_id": &schema.Int64Attribute{
+			"blockperiodseconds": &schema.Int64Attribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Chain ID for the blockchain network (will be auto-generated if not provided)",
+				Default:     int64default.StaticInt64(5),
+				Description: "Minimum block period internal in seconds",
 			},
-			"bootstrap_options": &schema.StringAttribute{
+			"blockreward": &schema.StringAttribute{
 				Optional:    true,
-				Description: "A JSON string defining the bootstrap configuration options for the network (e.g. for QBFT or IBFT consensus).",
+				Description: "The reward to give block producers (or the designated mining beneficiary) in Wei",
+			},
+			"epochlength": &schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(30000),
+				Description: "Number of blocks that should pass before pending validator votes are reset",
+			},
+			"miningbeneficiary": &schema.StringAttribute{
+				Optional:    true,
+				Description: "The ethereum address to give block rewards to. If not set",
+			},
+			"requesttimeoutseconds": &schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(10),
+				Description: "Timeout for each consensus round before a round change in seconds",
 			},
 			"init_mode": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
 				Default:     stringdefault.StaticString("automated"),
-				Description: "Initialization mode. Options: automated, manual",
-			},
-			"genesis": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The content of the genesis JSON file for the network.",
+				Description: "Initialization mode for the network (automated or manual)",
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
@@ -103,78 +113,70 @@ func (r *besuNetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 func (data *BesuNetworkResourceModel) toNetworkAPI(ctx context.Context, api *NetworkAPIModel, diagnostics *diag.Diagnostics) {
 	api.Type = "BesuNetwork"
 	api.Name = data.Name.ValueString()
+	api.InitMode = data.InitMode.ValueString()
 	api.Config = make(map[string]interface{})
-	api.Filesets = make(map[string]*FileSetAPI)
 
-	// Chain ID
-	if !data.ChainID.IsNull() && data.ChainID.ValueInt64() > 0 {
-		api.Config["chainID"] = data.ChainID.ValueInt64()
+	if !data.Blockperiodseconds.IsNull() {
+		api.Config["blockperiodseconds"] = data.Blockperiodseconds.ValueInt64()
 	}
-
-	// Bootstrap options - passed through as raw JSON
-	if !data.BootstrapOptions.IsNull() && data.BootstrapOptions.ValueString() != "" {
-		var bootstrapOptions interface{}
-		err := json.Unmarshal([]byte(data.BootstrapOptions.ValueString()), &bootstrapOptions)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("bootstrap_options"),
-				"Failed to parse bootstrap_options JSON",
-				err.Error(),
-			)
-		} else {
-			api.Config["bootstrapOptions"] = bootstrapOptions
-		}
+	if !data.Epochlength.IsNull() {
+		api.Config["epochlength"] = data.Epochlength.ValueInt64()
 	}
-
-	// Init mode
-	if !data.InitMode.IsNull() {
-		api.InitMode = data.InitMode.ValueString()
+	if !data.Requesttimeoutseconds.IsNull() {
+		api.Config["requesttimeoutseconds"] = data.Requesttimeoutseconds.ValueInt64()
 	}
-
-	// Genesis file set is constructed dynamically
-	if !data.Genesis.IsNull() && data.Genesis.ValueString() != "" {
-		api.Filesets["init_files"] = &FileSetAPI{
-			Files: map[string]*FileAPI{
-				"genesis.json": {
-					Data: FileDataAPI{
-						Text: data.Genesis.ValueString(),
-					},
-				},
-			},
-		}
-		api.Config["init_files"] = map[string]interface{}{
-			"fileSetRef": "init_files",
-		}
+	if !data.Blockreward.IsNull() && data.Blockreward.ValueString() != "" {
+		api.Config["blockreward"] = data.Blockreward.ValueString()
+	}
+	if !data.Miningbeneficiary.IsNull() && data.Miningbeneficiary.ValueString() != "" {
+		api.Config["miningbeneficiary"] = data.Miningbeneficiary.ValueString()
 	}
 }
 
 func (api *NetworkAPIModel) toBesuNetworkData(data *BesuNetworkResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
-
-	// TODO
-
-	// We only need to read back computed values, as inputs are tracked by terraform.
-	if val, ok := api.Config["chainID"]; ok {
-		// Numbers from JSON unmarshalling are float64
-		if vFloat, ok := val.(float64); ok {
-			data.ChainID = types.Int64Value(int64(vFloat))
-		}
-	}
+	data.Name = types.StringValue(api.Name)
 	data.InitMode = types.StringValue(api.InitMode)
+
+	if v, ok := api.Config["blockreward"].(string); ok {
+		data.Blockreward = types.StringValue(v)
+	} else {
+		data.Blockreward = types.StringNull()
+	}
+	if v, ok := api.Config["miningbeneficiary"].(string); ok {
+		data.Miningbeneficiary = types.StringValue(v)
+	} else {
+		data.Miningbeneficiary = types.StringNull()
+	}
+	if v, ok := api.Config["blockperiodseconds"].(float64); ok {
+		data.Blockperiodseconds = types.Int64Value(int64(v))
+	} else {
+		data.Blockperiodseconds = types.Int64Value(5)
+	}
+	if v, ok := api.Config["epochlength"].(float64); ok {
+		data.Epochlength = types.Int64Value(int64(v))
+	} else {
+		data.Epochlength = types.Int64Value(30000)
+	}
+	if v, ok := api.Config["requesttimeoutseconds"].(float64); ok {
+		data.Requesttimeoutseconds = types.Int64Value(int64(v))
+	} else {
+		data.Requesttimeoutseconds = types.Int64Value(10)
+	}
 }
 
-func (r *besuNetworkResource) apiPath(data *BesuNetworkResourceModel) string {
+func (r *besunetworkResource) apiPath(data *BesuNetworkResourceModel) string {
 	path := fmt.Sprintf("/api/v1/environments/%s/networks", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
-	if data.ForceDelete.ValueBool() {
+	if !data.ForceDelete.IsNull() && data.ForceDelete.ValueBool() {
 		path = path + "?force=true"
 	}
 	return path
 }
 
-func (r *besuNetworkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *besunetworkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data BesuNetworkResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
@@ -192,7 +194,6 @@ func (r *besuNetworkResource) Create(ctx context.Context, req resource.CreateReq
 	api.toBesuNetworkData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	// Re-read from API after readiness check
 	api.ID = data.ID.ValueString()
 	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
 	if !ok {
@@ -203,18 +204,16 @@ func (r *besuNetworkResource) Create(ctx context.Context, req resource.CreateReq
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *besuNetworkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *besunetworkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data BesuNetworkResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
-	// Read current object
 	var api NetworkAPIModel
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
-	// Update from plan
 	data.toNetworkAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -227,7 +226,6 @@ func (r *besuNetworkResource) Update(ctx context.Context, req resource.UpdateReq
 	api.toBesuNetworkData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	// Re-read from API
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
@@ -235,7 +233,7 @@ func (r *besuNetworkResource) Update(ctx context.Context, req resource.UpdateReq
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *besuNetworkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *besunetworkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data BesuNetworkResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
@@ -254,11 +252,10 @@ func (r *besuNetworkResource) Read(ctx context.Context, req resource.ReadRequest
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *besuNetworkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *besunetworkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data BesuNetworkResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }
-*/

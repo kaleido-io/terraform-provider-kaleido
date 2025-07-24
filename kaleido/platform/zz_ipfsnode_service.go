@@ -13,10 +13,6 @@
 // limitations under the License.
 package platform
 
-// This file has been replaced by generated code in zz_ipfs_network.go
-// The original manual implementation is preserved below as reference
-
-/*
 import (
 	"context"
 	"fmt"
@@ -31,29 +27,31 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type IPFSNetworkResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Environment types.String `tfsdk:"environment"`
-	Name        types.String `tfsdk:"name"`
-	SwarmKey    types.String `tfsdk:"swarm_key"`
-	ForceDelete types.Bool   `tfsdk:"force_delete"`
+type IPFSNodeServiceResourceModel struct {
+	ID                  types.String `tfsdk:"id"`
+	Environment         types.String `tfsdk:"environment"`
+	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
+	Runtime             types.String `tfsdk:"runtime"`
+	Name                types.String `tfsdk:"name"`
+	StackID             types.String `tfsdk:"stack_id"`
+	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
-func IPFSNetworkResourceFactory() resource.Resource {
-	return &ipfsNetworkResource{}
+func IPFSNodeServiceResourceFactory() resource.Resource {
+	return &ipfsnodeserviceResource{}
 }
 
-type ipfsNetworkResource struct {
+type ipfsnodeserviceResource struct {
 	commonResource
 }
 
-func (r *ipfsNetworkResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_ipfs_network"
+func (r *ipfsnodeserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_ipfsnode"
 }
 
-func (r *ipfsNetworkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *ipfsnodeserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "An IPFS network for content-addressed data storage and retrieval.",
+		Description: "An IPFS Node service that provides decentralized file storage capabilities.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -62,64 +60,76 @@ func (r *ipfsNetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the IPFS network will be deployed",
+				Description:   "Environment ID where the IPFSNode service will be deployed",
+			},
+			"environment_member_id": &schema.StringAttribute{
+				Computed: true,
+			},
+			"runtime": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Runtime ID where the IPFSNode service will be deployed",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "Display name for the IPFS network",
+				Description: "Display name for the IPFSNode service",
 			},
-			"swarm_key": &schema.StringAttribute{
+			"stack_id": &schema.StringAttribute{
 				Optional:      true,
-				Sensitive:     true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The swarm key for the IPFS network. Will be auto-generated if not provided.",
+				Description:   "Stack ID where the IPFSNode service belongs (optional)",
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you plan to delete a protected IPFS network. You must apply this value before running terraform destroy.",
+				Description: "Set to true when you plan to delete a protected IPFSNode service. You must apply this value before running terraform destroy.",
 			},
 		},
 	}
 }
 
-func (data *IPFSNetworkResourceModel) toNetworkAPI(ctx context.Context, api *NetworkAPIModel, diagnostics *diag.Diagnostics) {
-	api.Type = "IPFSNetwork"
+func (data *IPFSNodeServiceResourceModel) toIPFSNodeServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
+	api.Type = "IPFSNodeService"
 	api.Name = data.Name.ValueString()
+	api.StackID = data.StackID.ValueString()
+	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.SwarmKey.IsNull() && data.SwarmKey.ValueString() != "" {
-		api.Config["swarmKey"] = data.SwarmKey.ValueString()
+	if !data.ID.IsNull() && data.ID.ValueString() != "" {
+		api.Config["id"] = data.ID.ValueString()
 	}
 }
 
-func (api *NetworkAPIModel) toIPFSNetworkData(data *IPFSNetworkResourceModel, diagnostics *diag.Diagnostics) {
+func (api *ServiceAPIModel) toIPFSNodeServiceData(data *IPFSNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
+	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+	data.Runtime = types.StringValue(api.Runtime.ID)
 	data.Name = types.StringValue(api.Name)
-	data.SwarmKey = types.StringNull()
-	if api.Config != nil {
-		if swarmKey, ok := api.Config["swarmKey"]; ok && swarmKey != nil {
-			data.SwarmKey = types.StringValue(swarmKey.(string))
-		}
+	data.StackID = types.StringValue(api.StackID)
+
+	if v, ok := api.Config["id"].(string); ok {
+		data.ID = types.StringValue(v)
+	} else {
+		data.ID = types.StringNull()
 	}
 }
 
-func (r *ipfsNetworkResource) apiPath(data *IPFSNetworkResourceModel) string {
-	path := fmt.Sprintf("/api/v1/environments/%s/networks", data.Environment.ValueString())
+func (r *ipfsnodeserviceResource) apiPath(data *IPFSNodeServiceResourceModel) string {
+	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
-	if data.ForceDelete.ValueBool() {
+	if !data.ForceDelete.IsNull() && data.ForceDelete.ValueBool() {
 		path = path + "?force=true"
 	}
 	return path
 }
 
-func (r *ipfsNetworkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data IPFSNetworkResourceModel
+func (r *ipfsnodeserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data IPFSNodeServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	var api NetworkAPIModel
-	data.toNetworkAPI(ctx, &api, &resp.Diagnostics)
+	var api ServiceAPIModel
+	data.toIPFSNodeServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -129,33 +139,30 @@ func (r *ipfsNetworkResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	// Re-read from API after readiness check
 	api.ID = data.ID.ValueString()
 	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsNetworkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data IPFSNetworkResourceModel
+func (r *ipfsnodeserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data IPFSNodeServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
-	// Read current object
-	var api NetworkAPIModel
+	var api ServiceAPIModel
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
-	// Update from plan - for IPFS network there's nothing to update except the name
-	data.toNetworkAPI(ctx, &api, &resp.Diagnostics)
+	data.toIPFSNodeServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -164,22 +171,21 @@ func (r *ipfsNetworkResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	// Re-read from API
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsNetworkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data IPFSNetworkResourceModel
+func (r *ipfsnodeserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data IPFSNodeServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var api NetworkAPIModel
+	var api ServiceAPIModel
 	api.ID = data.ID.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
@@ -190,15 +196,14 @@ func (r *ipfsNetworkResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsNetworkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data IPFSNetworkResourceModel
+func (r *ipfsnodeserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data IPFSNodeServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }
-*/
