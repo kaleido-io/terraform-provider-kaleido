@@ -26,19 +26,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-const version = "v1.1.0"
+const version = "v2.0.0"
 
 type ProviderData struct {
-	BaaS     *kaleido.KaleidoClient
 	Platform *resty.Client
 }
 
 type ProviderModel struct {
-	API                 types.String `tfsdk:"api"`
-	APIKey              types.String `tfsdk:"api_key"`
 	PlatformAPI         types.String `tfsdk:"platform_api"`
 	PlatformUsername    types.String `tfsdk:"platform_username"`
 	PlatformPassword    types.String `tfsdk:"platform_password"`
@@ -65,22 +61,6 @@ func ConfigureProviderData(providerData any, diagnostics *diag.Diagnostics) *Pro
 }
 
 func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData {
-
-	baasAPI := conf.API.ValueString()
-	if baasAPI == "" {
-		baasAPI = os.Getenv("KALEIDO_API")
-	}
-	baasAPIKey := conf.APIKey.ValueString()
-	if baasAPIKey == "" {
-		baasAPIKey = os.Getenv("KALEIDO_API_KEY")
-	}
-	r := resty.New().
-		SetTransport(http.DefaultTransport).
-		SetBaseURL(baasAPI).
-		SetAuthToken(baasAPIKey).
-		SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (BaaS)", version))
-	AddRestyLogging(logCtx, r)
-	baas := &kaleido.KaleidoClient{Client: r}
 
 	platformAPI := conf.PlatformAPI.ValueString()
 	if platformAPI == "" {
@@ -139,7 +119,6 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	}
 
 	return &ProviderData{
-		BaaS:     baas,
 		Platform: platform,
 	}
 }
