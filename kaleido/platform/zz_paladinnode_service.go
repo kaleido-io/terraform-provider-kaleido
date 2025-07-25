@@ -24,40 +24,38 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type IPFSNodeServiceResourceModel struct {
+type PaladinNodeServiceResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
 	Environment         types.String `tfsdk:"environment"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Gclimit  types.Int64 `tfsdk:"gc_limit"`
-	Gcperiod types.String `tfsdk:"gc_period"`
-	Mode     types.String `tfsdk:"mode"`
-	Network  types.String `tfsdk:"network"`
+	Baseconfig            types.String `tfsdk:"baseconfig"`
+	Baseledgerendpoint    types.String `tfsdk:"baseledgerendpoint"`
+	Network               types.String `tfsdk:"network"`
+	Registryadminidentity types.String `tfsdk:"registryadminidentity"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
-func IPFSNodeServiceResourceFactory() resource.Resource {
-	return &ipfsnodeserviceResource{}
+func PaladinNodeServiceResourceFactory() resource.Resource {
+	return &paladinnodeserviceResource{}
 }
 
-type ipfsnodeserviceResource struct {
+type paladinnodeserviceResource struct {
 	commonResource
 }
 
-func (r *ipfsnodeserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_ipfsnode"
+func (r *paladinnodeserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_paladinnode"
 }
 
-func (r *ipfsnodeserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *paladinnodeserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "An IPFS Node service that provides decentralized file storage capabilities.",
+		Description: "A PaladinNode service that provides blockchain functionality.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -66,7 +64,7 @@ func (r *ipfsnodeserviceResource) Schema(_ context.Context, _ resource.SchemaReq
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the IPFSNode service will be deployed",
+				Description:   "Environment ID where the PaladinNode service will be deployed",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -74,98 +72,92 @@ func (r *ipfsnodeserviceResource) Schema(_ context.Context, _ resource.SchemaReq
 			"runtime": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime ID where the IPFSNode service will be deployed",
+				Description:   "Runtime ID where the PaladinNode service will be deployed",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "Display name for the IPFSNode service",
+				Description: "Display name for the PaladinNode service",
 			},
 			"stack_id": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack ID where the IPFSNode service belongs (optional)",
+				Description:   "Stack ID where the PaladinNode service belongs (optional)",
 			},
-			"gc_limit": &schema.Int64Attribute{
+			"baseconfig": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(80),
-				Description: "Percentage of the configured storage at which garbage collection is triggered",
+				Description: "",
 			},
-			"gc_period": &schema.StringAttribute{
+			"baseledgerendpoint": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("1h"),
-				Description: "Time duration (hours) specifying how frequently to run garbage collection",
-			},
-			"mode": &schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("active"),
-				Description: "Determines if the node can receive API requests",
+				Description: "Base ledger",
 			},
 			"network": &schema.StringAttribute{
 				Optional:    true,
-				Description: "ipfsNetwork",
+				Description: "paladinNetwork",
+			},
+			"registryadminidentity": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Registry admin identity",
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you plan to delete a protected IPFSNode service. You must apply this value before running terraform destroy.",
+				Description: "Set to true when you plan to delete a protected PaladinNode service. You must apply this value before running terraform destroy.",
 			},
 		},
 	}
 }
 
-func (data *IPFSNodeServiceResourceModel) toIPFSNodeServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
-	api.Type = "IPFSNodeService"
+func (data *PaladinNodeServiceResourceModel) toPaladinNodeServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
+	api.Type = "PaladinNodeService"
 	api.Name = data.Name.ValueString()
 	api.StackID = data.StackID.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Gcperiod.IsNull() && data.Gcperiod.ValueString() != "" {
-		api.Config["gcPeriod"] = data.Gcperiod.ValueString()
-	}
-	if !data.Gclimit.IsNull() {
-		api.Config["gcLimit"] = data.Gclimit.ValueInt64()
-	}
 	if !data.Network.IsNull() && data.Network.ValueString() != "" {
 		api.Config["network"] = data.Network.ValueString()
 	}
-	if !data.Mode.IsNull() && data.Mode.ValueString() != "" {
-		api.Config["mode"] = data.Mode.ValueString()
+	if !data.Baseledgerendpoint.IsNull() && data.Baseledgerendpoint.ValueString() != "" {
+		api.Config["baseLedgerEndpoint"] = data.Baseledgerendpoint.ValueString()
+	}
+	if !data.Baseconfig.IsNull() && data.Baseconfig.ValueString() != "" {
+		api.Config["baseConfig"] = data.Baseconfig.ValueString()
+	}
+	if !data.Registryadminidentity.IsNull() && data.Registryadminidentity.ValueString() != "" {
+		api.Config["registryAdminIdentity"] = data.Registryadminidentity.ValueString()
 	}
 }
 
-func (api *ServiceAPIModel) toIPFSNodeServiceData(data *IPFSNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
+func (api *ServiceAPIModel) toPaladinNodeServiceData(data *PaladinNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.Runtime = types.StringValue(api.Runtime.ID)
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["gcPeriod"].(string); ok {
-		data.Gcperiod = types.StringValue(v)
-	} else {
-		data.Gcperiod = types.StringValue("1h")
-	}
-	if v, ok := api.Config["gcLimit"].(float64); ok {
-		data.Gclimit = types.Int64Value(int64(v))
-	} else {
-		data.Gclimit = types.Int64Value(80)
-	}
 	if v, ok := api.Config["network"].(string); ok {
 		data.Network = types.StringValue(v)
 	} else {
 		data.Network = types.StringNull()
 	}
-	if v, ok := api.Config["mode"].(string); ok {
-		data.Mode = types.StringValue(v)
+	if v, ok := api.Config["baseLedgerEndpoint"].(string); ok {
+		data.Baseledgerendpoint = types.StringValue(v)
 	} else {
-		data.Mode = types.StringValue("active")
+		data.Baseledgerendpoint = types.StringNull()
+	}
+	if v, ok := api.Config["baseConfig"].(string); ok {
+		data.Baseconfig = types.StringValue(v)
+	} else {
+		data.Baseconfig = types.StringNull()
+	}
+	if v, ok := api.Config["registryAdminIdentity"].(string); ok {
+		data.Registryadminidentity = types.StringValue(v)
+	} else {
+		data.Registryadminidentity = types.StringNull()
 	}
 }
 
-func (r *ipfsnodeserviceResource) apiPath(data *IPFSNodeServiceResourceModel) string {
+func (r *paladinnodeserviceResource) apiPath(data *PaladinNodeServiceResourceModel) string {
 	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
@@ -176,12 +168,12 @@ func (r *ipfsnodeserviceResource) apiPath(data *IPFSNodeServiceResourceModel) st
 	return path
 }
 
-func (r *ipfsnodeserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *paladinnodeserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data PaladinNodeServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api ServiceAPIModel
-	data.toIPFSNodeServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toPaladinNodeServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -191,7 +183,7 @@ func (r *ipfsnodeserviceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toPaladinNodeServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	api.ID = data.ID.ValueString()
@@ -200,12 +192,12 @@ func (r *ipfsnodeserviceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toPaladinNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnodeserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *paladinnodeserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data PaladinNodeServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
@@ -214,7 +206,7 @@ func (r *ipfsnodeserviceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	data.toIPFSNodeServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toPaladinNodeServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -223,18 +215,18 @@ func (r *ipfsnodeserviceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toPaladinNodeServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toPaladinNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnodeserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *paladinnodeserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data PaladinNodeServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	var api ServiceAPIModel
@@ -248,12 +240,12 @@ func (r *ipfsnodeserviceResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toPaladinNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnodeserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *paladinnodeserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data PaladinNodeServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())

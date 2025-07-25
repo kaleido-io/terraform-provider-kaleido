@@ -15,6 +15,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -24,40 +25,39 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type IPFSNodeServiceResourceModel struct {
+type ErigonNodeServiceResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
 	Environment         types.String `tfsdk:"environment"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Gclimit  types.Int64 `tfsdk:"gc_limit"`
-	Gcperiod types.String `tfsdk:"gc_period"`
-	Mode     types.String `tfsdk:"mode"`
-	Network  types.String `tfsdk:"network"`
+	Apisenabled types.String `tfsdk:"apisenabled"`
+	Blobarchive types.Bool `tfsdk:"blobarchive"`
+	Loglevel    types.String `tfsdk:"loglevel"`
+	Network     types.String `tfsdk:"network"`
+	Nodekey     types.String `tfsdk:"nodekey"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
-func IPFSNodeServiceResourceFactory() resource.Resource {
-	return &ipfsnodeserviceResource{}
+func ErigonNodeServiceResourceFactory() resource.Resource {
+	return &erigonnodeserviceResource{}
 }
 
-type ipfsnodeserviceResource struct {
+type erigonnodeserviceResource struct {
 	commonResource
 }
 
-func (r *ipfsnodeserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_ipfsnode"
+func (r *erigonnodeserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_erigonnode"
 }
 
-func (r *ipfsnodeserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *erigonnodeserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "An IPFS Node service that provides decentralized file storage capabilities.",
+		Description: "A ErigonNode service that provides blockchain functionality.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -66,7 +66,7 @@ func (r *ipfsnodeserviceResource) Schema(_ context.Context, _ resource.SchemaReq
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the IPFSNode service will be deployed",
+				Description:   "Environment ID where the ErigonNode service will be deployed",
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
@@ -74,98 +74,131 @@ func (r *ipfsnodeserviceResource) Schema(_ context.Context, _ resource.SchemaReq
 			"runtime": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime ID where the IPFSNode service will be deployed",
+				Description:   "Runtime ID where the ErigonNode service will be deployed",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "Display name for the IPFSNode service",
+				Description: "Display name for the ErigonNode service",
 			},
 			"stack_id": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack ID where the IPFSNode service belongs (optional)",
+				Description:   "Stack ID where the ErigonNode service belongs (optional)",
 			},
-			"gc_limit": &schema.Int64Attribute{
+			"apisenabled": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(80),
-				Description: "Percentage of the configured storage at which garbage collection is triggered",
+				Description: "",
 			},
-			"gc_period": &schema.StringAttribute{
+			"blobarchive": &schema.BoolAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("1h"),
-				Description: "Time duration (hours) specifying how frequently to run garbage collection",
+				Description: "",
 			},
-			"mode": &schema.StringAttribute{
+			"loglevel": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("active"),
-				Description: "Determines if the node can receive API requests",
+				Description: "",
 			},
 			"network": &schema.StringAttribute{
 				Optional:    true,
-				Description: "ipfsNetwork",
+				Description: "ethereumPOSNetwork",
+			},
+			"nodekey": &schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "",
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you plan to delete a protected IPFSNode service. You must apply this value before running terraform destroy.",
+				Description: "Set to true when you plan to delete a protected ErigonNode service. You must apply this value before running terraform destroy.",
 			},
 		},
 	}
 }
 
-func (data *IPFSNodeServiceResourceModel) toIPFSNodeServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
-	api.Type = "IPFSNodeService"
+func (data *ErigonNodeServiceResourceModel) toErigonNodeServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
+	api.Type = "ErigonNodeService"
 	api.Name = data.Name.ValueString()
 	api.StackID = data.StackID.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Gcperiod.IsNull() && data.Gcperiod.ValueString() != "" {
-		api.Config["gcPeriod"] = data.Gcperiod.ValueString()
-	}
-	if !data.Gclimit.IsNull() {
-		api.Config["gcLimit"] = data.Gclimit.ValueInt64()
+	api.Config["blobArchive"] = data.Blobarchive.ValueBool()
+	// Handle Apisenabled as JSON
+	if !data.Apisenabled.IsNull() && data.Apisenabled.ValueString() != "" {
+		var apisenabledData interface{}
+		err := json.Unmarshal([]byte(data.Apisenabled.ValueString()), &apisenabledData)
+		if err != nil {
+			diagnostics.AddAttributeError(
+				path.Root("apisenabled"),
+				"Failed to parse Apisenabled",
+				err.Error(),
+			)
+		} else {
+			api.Config["apisEnabled"] = apisenabledData
+		}
 	}
 	if !data.Network.IsNull() && data.Network.ValueString() != "" {
 		api.Config["network"] = data.Network.ValueString()
 	}
-	if !data.Mode.IsNull() && data.Mode.ValueString() != "" {
-		api.Config["mode"] = data.Mode.ValueString()
+	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
+		api.Config["logLevel"] = data.Loglevel.ValueString()
+	}
+	// Handle Nodekey credentials
+	if !data.Nodekey.IsNull() && data.Nodekey.ValueString() != "" {
+		if api.Credsets == nil {
+			api.Credsets = make(map[string]*CredSetAPI)
+		}
+		api.Credsets["nodeKey"] = &CredSetAPI{
+			Name: "nodeKey",
+			Type: "key",
+			Key: &CredSetKeyAPI{
+				Value: data.Nodekey.ValueString(),
+			},
+		}
+		api.Config["nodeKey"] = map[string]interface{}{
+			"credSetRef": "nodeKey",
+		}
 	}
 }
 
-func (api *ServiceAPIModel) toIPFSNodeServiceData(data *IPFSNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
+func (api *ServiceAPIModel) toErigonNodeServiceData(data *ErigonNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.Runtime = types.StringValue(api.Runtime.ID)
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["gcPeriod"].(string); ok {
-		data.Gcperiod = types.StringValue(v)
+	if apisenabledData := api.Config["apisEnabled"]; apisenabledData != nil {
+		if apisenabledJSON, err := json.Marshal(apisenabledData); err == nil {
+			data.Apisenabled = types.StringValue(string(apisenabledJSON))
+		} else {
+			data.Apisenabled = types.StringNull()
+		}
 	} else {
-		data.Gcperiod = types.StringValue("1h")
-	}
-	if v, ok := api.Config["gcLimit"].(float64); ok {
-		data.Gclimit = types.Int64Value(int64(v))
-	} else {
-		data.Gclimit = types.Int64Value(80)
+		data.Apisenabled = types.StringNull()
 	}
 	if v, ok := api.Config["network"].(string); ok {
 		data.Network = types.StringValue(v)
 	} else {
 		data.Network = types.StringNull()
 	}
-	if v, ok := api.Config["mode"].(string); ok {
-		data.Mode = types.StringValue(v)
+	if v, ok := api.Config["logLevel"].(string); ok {
+		data.Loglevel = types.StringValue(v)
 	} else {
-		data.Mode = types.StringValue("active")
+		data.Loglevel = types.StringNull()
+	}
+	if credset, ok := api.Credsets["nodeKey"]; ok && credset.Key != nil {
+		data.Nodekey = types.StringValue(credset.Key.Value)
+	} else {
+		data.Nodekey = types.StringNull()
+	}
+	if v, ok := api.Config["blobArchive"].(bool); ok {
+		data.Blobarchive = types.BoolValue(v)
+	} else {
+		data.Blobarchive = types.BoolValue(false)
 	}
 }
 
-func (r *ipfsnodeserviceResource) apiPath(data *IPFSNodeServiceResourceModel) string {
+func (r *erigonnodeserviceResource) apiPath(data *ErigonNodeServiceResourceModel) string {
 	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
@@ -176,12 +209,12 @@ func (r *ipfsnodeserviceResource) apiPath(data *IPFSNodeServiceResourceModel) st
 	return path
 }
 
-func (r *ipfsnodeserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *erigonnodeserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data ErigonNodeServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api ServiceAPIModel
-	data.toIPFSNodeServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toErigonNodeServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -191,7 +224,7 @@ func (r *ipfsnodeserviceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toErigonNodeServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	api.ID = data.ID.ValueString()
@@ -200,12 +233,12 @@ func (r *ipfsnodeserviceResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toErigonNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnodeserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *erigonnodeserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ErigonNodeServiceResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
@@ -214,7 +247,7 @@ func (r *ipfsnodeserviceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	data.toIPFSNodeServiceAPI(ctx, &api, &resp.Diagnostics)
+	data.toErigonNodeServiceAPI(ctx, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -223,18 +256,18 @@ func (r *ipfsnodeserviceResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toErigonNodeServiceData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toErigonNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnodeserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *erigonnodeserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ErigonNodeServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	var api ServiceAPIModel
@@ -248,12 +281,12 @@ func (r *ipfsnodeserviceResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	api.toIPFSNodeServiceData(&data, &resp.Diagnostics)
+	api.toErigonNodeServiceData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnodeserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data IPFSNodeServiceResourceModel
+func (r *erigonnodeserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ErigonNodeServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())

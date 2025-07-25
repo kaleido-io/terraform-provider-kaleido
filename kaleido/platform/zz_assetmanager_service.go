@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -35,7 +34,7 @@ type AssetManagerServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Defaultreadahead types.Int64 `tfsdk:"defaultreadahead"`
+	Keymanager  types.String `tfsdk:"key_manager"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
@@ -81,11 +80,10 @@ func (r *assetmanagerserviceResource) Schema(_ context.Context, _ resource.Schem
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Stack ID where the AssetManager service belongs",
 			},
-			"defaultreadahead": &schema.Int64Attribute{
+			"key_manager": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(50),
-				Description: "Read-ahead configuration to apply to FireFly subscriptions without a custom setting",
+				Sensitive:   true,
+				Description: "keyManagerService",
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
@@ -102,8 +100,8 @@ func (data *AssetManagerServiceResourceModel) toAssetManagerServiceAPI(ctx conte
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Defaultreadahead.IsNull() {
-		api.Config["defaultReadAhead"] = data.Defaultreadahead.ValueInt64()
+	api.Config["keyManager"] = map[string]interface{}{
+		"id": data.Keymanager.ValueString(),
 	}
 }
 
@@ -114,10 +112,10 @@ func (api *ServiceAPIModel) toAssetManagerServiceData(data *AssetManagerServiceR
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["defaultReadAhead"].(float64); ok {
-		data.Defaultreadahead = types.Int64Value(int64(v))
-	} else {
-		data.Defaultreadahead = types.Int64Value(50)
+	if v, ok := api.Config["keyManager"].(map[string]interface{}); ok {
+		if id, ok := v["id"].(string); ok {
+			data.Keymanager = types.StringValue(id)
+		}
 	}
 }
 

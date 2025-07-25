@@ -24,22 +24,22 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type CantonGlobalSynchronizerNetworkResourceModel struct {
-	ID                     types.String `tfsdk:"id"`
-	Environment            types.String `tfsdk:"environment"`
-	Name                   types.String `tfsdk:"name"`
+	ID          types.String `tfsdk:"id"`
+	Environment types.String `tfsdk:"environment"`
+	Name        types.String `tfsdk:"name"`
 	Migrations             types.String `tfsdk:"migrations"`
 	Network                types.String `tfsdk:"network"`
 	Scanendpoint           types.String `tfsdk:"scanendpoint"`
 	Supervalidator         types.String `tfsdk:"supervalidator"`
 	Supervalidatorendpoint types.String `tfsdk:"supervalidatorendpoint"`
-	InitMode               types.String `tfsdk:"init_mode"`
-	ForceDelete            types.Bool   `tfsdk:"force_delete"`
+	InitMode    types.String `tfsdk:"init_mode"`
+	ForceDelete types.Bool   `tfsdk:"force_delete"`
 }
 
 func CantonGlobalSynchronizerNetworkResourceFactory() resource.Resource {
@@ -75,7 +75,6 @@ func (r *cantonglobalsynchronizernetworkResource) Schema(_ context.Context, _ re
 				Optional:    true,
 				Description: "Current Migrations with timestamps for the network",
 			},
-			// TODO is network the right name for this ?
 			"network": &schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
@@ -148,11 +147,6 @@ func (api *NetworkAPIModel) toCantonGlobalSynchronizerNetworkData(data *CantonGl
 	data.Name = types.StringValue(api.Name)
 	data.InitMode = types.StringValue(api.InitMode)
 
-	if v, ok := api.Config["network"].(string); ok {
-		data.Network = types.StringValue(v)
-	} else {
-		data.Network = types.StringValue("Devnet")
-	}
 	if migrationsData := api.Config["migrations"]; migrationsData != nil {
 		if migrationsJSON, err := json.Marshal(migrationsData); err == nil {
 			data.Migrations = types.StringValue(string(migrationsJSON))
@@ -176,6 +170,11 @@ func (api *NetworkAPIModel) toCantonGlobalSynchronizerNetworkData(data *CantonGl
 		data.Scanendpoint = types.StringValue(v)
 	} else {
 		data.Scanendpoint = types.StringNull()
+	}
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringValue("Devnet")
 	}
 }
 

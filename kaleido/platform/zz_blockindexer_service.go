@@ -43,7 +43,7 @@ type BlockIndexerServiceResourceModel struct {
 	Maxworkqueuesize        types.Int64 `tfsdk:"maxworkqueuesize"`
 	Node                    types.String `tfsdk:"node"`
 	Requiredconfirmations   types.Int64 `tfsdk:"requiredconfirmations"`
-	Rpcclient               types.String `tfsdk:"rpcclient"`
+	Rpcclient types.String `tfsdk:"rpcclient"`
 	Startingblock           types.String `tfsdk:"startingblock"`
 	Ui                      types.String `tfsdk:"ui"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
@@ -150,30 +150,27 @@ func (data *BlockIndexerServiceResourceModel) toBlockIndexerServiceAPI(ctx conte
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Ui.IsNull() && data.Ui.ValueString() != "" {
-		api.Config["ui"] = data.Ui.ValueString()
-	}
-	if !data.Rpcclient.IsNull() && data.Rpcclient.ValueString() != "" {
-		api.Config["rpcClient"] = data.Rpcclient.ValueString()
-	}
-	api.Config["node"] = map[string]interface{}{
-		"id": data.Node.ValueString(),
+	api.Config["contractManager"] = map[string]interface{}{
+		"id": data.Contractmanager.ValueString(),
 	}
 	api.Config["enableTraceTransactions"] = data.Enabletracetransactions.ValueBool()
 	if !data.Maxworkqueuesize.IsNull() {
 		api.Config["maxWorkQueueSize"] = data.Maxworkqueuesize.ValueInt64()
 	}
-	if !data.Requiredconfirmations.IsNull() {
-		api.Config["requiredConfirmations"] = data.Requiredconfirmations.ValueInt64()
-	}
 	api.Config["evmGateway"] = map[string]interface{}{
 		"id": data.Evmgateway.ValueString(),
 	}
-	api.Config["contractManager"] = map[string]interface{}{
-		"id": data.Contractmanager.ValueString(),
+	api.Config["node"] = map[string]interface{}{
+		"id": data.Node.ValueString(),
+	}
+	if !data.Requiredconfirmations.IsNull() {
+		api.Config["requiredConfirmations"] = data.Requiredconfirmations.ValueInt64()
 	}
 	if !data.Startingblock.IsNull() && data.Startingblock.ValueString() != "" {
 		api.Config["startingBlock"] = data.Startingblock.ValueString()
+	}
+	if !data.Ui.IsNull() && data.Ui.ValueString() != "" {
+		api.Config["ui"] = data.Ui.ValueString()
 	}
 }
 
@@ -189,10 +186,15 @@ func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceR
 			data.Evmgateway = types.StringValue(id)
 		}
 	}
-	if v, ok := api.Config["contractManager"].(map[string]interface{}); ok {
+	if v, ok := api.Config["node"].(map[string]interface{}); ok {
 		if id, ok := v["id"].(string); ok {
-			data.Contractmanager = types.StringValue(id)
+			data.Node = types.StringValue(id)
 		}
+	}
+	if v, ok := api.Config["requiredConfirmations"].(float64); ok {
+		data.Requiredconfirmations = types.Int64Value(int64(v))
+	} else {
+		data.Requiredconfirmations = types.Int64Value(0)
 	}
 	if v, ok := api.Config["startingBlock"].(string); ok {
 		data.Startingblock = types.StringValue(v)
@@ -204,14 +206,9 @@ func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceR
 	} else {
 		data.Ui = types.StringNull()
 	}
-	if v, ok := api.Config["rpcClient"].(string); ok {
-		data.Rpcclient = types.StringValue(v)
-	} else {
-		data.Rpcclient = types.StringNull()
-	}
-	if v, ok := api.Config["node"].(map[string]interface{}); ok {
+	if v, ok := api.Config["contractManager"].(map[string]interface{}); ok {
 		if id, ok := v["id"].(string); ok {
-			data.Node = types.StringValue(id)
+			data.Contractmanager = types.StringValue(id)
 		}
 	}
 	if v, ok := api.Config["enableTraceTransactions"].(bool); ok {
@@ -223,11 +220,6 @@ func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceR
 		data.Maxworkqueuesize = types.Int64Value(int64(v))
 	} else {
 		data.Maxworkqueuesize = types.Int64Value(5)
-	}
-	if v, ok := api.Config["requiredConfirmations"].(float64); ok {
-		data.Requiredconfirmations = types.Int64Value(int64(v))
-	} else {
-		data.Requiredconfirmations = types.Int64Value(0)
 	}
 }
 

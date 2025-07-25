@@ -34,7 +34,6 @@ type ContractManagerServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	URL types.String `tfsdk:"url"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
@@ -80,10 +79,6 @@ func (r *contractmanagerserviceResource) Schema(_ context.Context, _ resource.Sc
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Stack ID where the ContractManager service belongs (optional)",
 			},
-			"url": &schema.StringAttribute{
-				Optional:    true,
-				Description: "",
-			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
 				Description: "Set to true when you plan to delete a protected ContractManager service. You must apply this value before running terraform destroy.",
@@ -99,9 +94,7 @@ func (data *ContractManagerServiceResourceModel) toContractManagerServiceAPI(ctx
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.URL.IsNull() && data.URL.ValueString() != "" {
-		api.Config["url"] = data.URL.ValueString()
-	}
+
 }
 
 func (api *ServiceAPIModel) toContractManagerServiceData(data *ContractManagerServiceResourceModel, diagnostics *diag.Diagnostics) {
@@ -111,11 +104,7 @@ func (api *ServiceAPIModel) toContractManagerServiceData(data *ContractManagerSe
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["url"].(string); ok {
-		data.URL = types.StringValue(v)
-	} else {
-		data.URL = types.StringNull()
-	}
+
 }
 
 func (r *contractmanagerserviceResource) apiPath(data *ContractManagerServiceResourceModel) string {

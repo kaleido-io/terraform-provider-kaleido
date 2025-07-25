@@ -34,7 +34,11 @@ type PrivateDataManagerServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Credsetref types.String `tfsdk:"credsetref"`
+	CertificateCa types.String `tfsdk:"certificate_ca"`
+	CertificateCert types.String `tfsdk:"certificate_cert"`
+	CertificateKey types.String `tfsdk:"certificate_key"`
+	Dataexchangetype types.String `tfsdk:"data_exchange_type"`
+	Https types.String `tfsdk:"https"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
@@ -80,7 +84,26 @@ func (r *privatedatamanagerserviceResource) Schema(_ context.Context, _ resource
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Stack ID where the PrivateDataManager service belongs",
 			},
-			"credsetref": &schema.StringAttribute{
+			"certificate_ca": &schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "",
+			},
+			"certificate_cert": &schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "",
+			},
+			"certificate_key": &schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "",
+			},
+			"data_exchange_type": &schema.StringAttribute{
+				Optional:    true,
+				Description: "",
+			},
+			"https": &schema.StringAttribute{
 				Optional:    true,
 				Description: "",
 			},
@@ -99,8 +122,61 @@ func (data *PrivateDataManagerServiceResourceModel) toPrivateDataManagerServiceA
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Credsetref.IsNull() && data.Credsetref.ValueString() != "" {
-		api.Config["credSetRef"] = data.Credsetref.ValueString()
+	if !data.Dataexchangetype.IsNull() && data.Dataexchangetype.ValueString() != "" {
+		api.Config["dataExchangeType"] = data.Dataexchangetype.ValueString()
+	}
+	// Handle certificate certificate fileset
+	if !data.CertificateCa.IsNull() && data.CertificateCa.ValueString() != "" ||
+		!data.CertificateCert.IsNull() && data.CertificateCert.ValueString() != "" ||
+		!data.CertificateKey.IsNull() && data.CertificateKey.ValueString() != "" {
+		
+		if api.Filesets == nil {
+			api.Filesets = make(map[string]*FileSetAPI)
+		}
+		
+		api.Filesets["certificate"] = &FileSetAPI{
+			Name: "certificate",
+			Files: make(map[string]*FileAPI),
+		}
+		
+		if !data.CertificateCa.IsNull() && data.CertificateCa.ValueString() != "" {
+			api.Filesets["certificate"].Files["ca"] = &FileAPI{
+				Type: "pem",
+				Data: FileDataAPI{
+					Text: data.CertificateCa.ValueString(),
+				},
+			}
+		}
+		
+		if !data.CertificateCert.IsNull() && data.CertificateCert.ValueString() != "" {
+			api.Filesets["certificate"].Files["cert"] = &FileAPI{
+				Type: "pem", 
+				Data: FileDataAPI{
+					Text: data.CertificateCert.ValueString(),
+				},
+			}
+		}
+		
+		if !data.CertificateKey.IsNull() && data.CertificateKey.ValueString() != "" {
+			api.Filesets["certificate"].Files["key"] = &FileAPI{
+				Type: "pem",
+				Data: FileDataAPI{
+					Text: data.CertificateKey.ValueString(),
+				},
+			}
+		}
+		
+		api.Config["certificate"] = map[string]interface{}{
+			"ca": map[string]interface{}{
+				"fileRef": "#certificate.ca",
+			},
+			"cert": map[string]interface{}{
+				"fileRef": "#certificate.cert", 
+			},
+			"key": map[string]interface{}{
+				"fileRef": "#certificate.key",
+			},
+		}
 	}
 }
 
@@ -111,10 +187,34 @@ func (api *ServiceAPIModel) toPrivateDataManagerServiceData(data *PrivateDataMan
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["credSetRef"].(string); ok {
-		data.Credsetref = types.StringValue(v)
+	if v, ok := api.Config["dataExchangeType"].(string); ok {
+		data.Dataexchangetype = types.StringValue(v)
 	} else {
-		data.Credsetref = types.StringNull()
+		data.Dataexchangetype = types.StringNull()
+	}
+	// Extract certificate certificate files from fileset
+	if fileset, ok := api.Filesets["certificate"]; ok {
+		if caFile, ok := fileset.Files["ca"]; ok && caFile != nil {
+			data.CertificateCa = types.StringValue(caFile.Data.Text)
+		} else {
+			data.CertificateCa = types.StringNull()
+		}
+		
+		if certFile, ok := fileset.Files["cert"]; ok && certFile != nil {
+			data.CertificateCert = types.StringValue(certFile.Data.Text)
+		} else {
+			data.CertificateCert = types.StringNull()
+		}
+		
+		if keyFile, ok := fileset.Files["key"]; ok && keyFile != nil {
+			data.CertificateKey = types.StringValue(keyFile.Data.Text)
+		} else {
+			data.CertificateKey = types.StringNull()
+		}
+	} else {
+		data.CertificateCa = types.StringNull()
+		data.CertificateCert = types.StringNull()
+		data.CertificateKey = types.StringNull()
 	}
 }
 

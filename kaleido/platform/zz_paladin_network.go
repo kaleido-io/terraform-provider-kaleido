@@ -28,30 +28,31 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type IPFSNetworkResourceModel struct {
+type PaladinNetworkResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Environment types.String `tfsdk:"environment"`
 	Name        types.String `tfsdk:"name"`
-	Swarmkeyconfig types.String `tfsdk:"swarm_key"`
+	Evmregistry types.String `tfsdk:"evmregistry"`
+	Type        types.String `tfsdk:"type"`
 	InitMode    types.String `tfsdk:"init_mode"`
 	ForceDelete types.Bool   `tfsdk:"force_delete"`
 }
 
-func IPFSNetworkResourceFactory() resource.Resource {
-	return &ipfsnetworkResource{}
+func PaladinNetworkResourceFactory() resource.Resource {
+	return &paladinnetworkResource{}
 }
 
-type ipfsnetworkResource struct {
+type paladinnetworkResource struct {
 	commonResource
 }
 
-func (r *ipfsnetworkResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_ipfs_network"
+func (r *paladinnetworkResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_paladin_network"
 }
 
-func (r *ipfsnetworkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *paladinnetworkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "An IPFS network that provides decentralized file storage and content distribution.",
+		Description: "A Paladin network that provides blockchain infrastructure.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -60,16 +61,19 @@ func (r *ipfsnetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the IPFS network will be deployed",
+				Description:   "Environment ID where the Paladin network will be deployed",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "Display name for the IPFS network",
+				Description: "Display name for the Paladin network",
 			},
-			"swarm_key": &schema.StringAttribute{
+			"evmregistry": &schema.StringAttribute{
 				Optional:    true,
-				Sensitive:   true,
-				Description: "32 byte random number to seed your private IPFS network, will be generated if not set.",
+				Description: "",
+			},
+			"type": &schema.StringAttribute{
+				Optional:    true,
+				Description: "",
 			},
 			"init_mode": &schema.StringAttribute{
 				Optional:    true,
@@ -78,37 +82,44 @@ func (r *ipfsnetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true when you plan to delete a protected IPFS network. You must apply this value before running terraform destroy.",
+				Description: "Set to true when you plan to delete a protected Paladin network. You must apply this value before running terraform destroy.",
 			},
 		},
 	}
 }
 
-func (data *IPFSNetworkResourceModel) toNetworkAPI(ctx context.Context, api *NetworkAPIModel, diagnostics *diag.Diagnostics) {
-	api.Type = "IPFSNetwork"
+func (data *PaladinNetworkResourceModel) toNetworkAPI(ctx context.Context, api *NetworkAPIModel, diagnostics *diag.Diagnostics) {
+	api.Type = "PaladinNetwork"
 	api.Name = data.Name.ValueString()
 	api.InitMode = data.InitMode.ValueString()
 	api.Config = make(map[string]interface{})
 
-	// Handle Swarmkeyconfig credentials
-	if !data.Swarmkeyconfig.IsNull() && data.Swarmkeyconfig.ValueString() != "" {
-		// Implement credential handling
+	if !data.Type.IsNull() && data.Type.ValueString() != "" {
+		api.Config["type"] = data.Type.ValueString()
+	}
+	if !data.Evmregistry.IsNull() && data.Evmregistry.ValueString() != "" {
+		api.Config["evmRegistry"] = data.Evmregistry.ValueString()
 	}
 }
 
-func (api *NetworkAPIModel) toIPFSNetworkData(data *IPFSNetworkResourceModel, diagnostics *diag.Diagnostics) {
+func (api *NetworkAPIModel) toPaladinNetworkData(data *PaladinNetworkResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	data.InitMode = types.StringValue(api.InitMode)
 
-	if v, ok := api.Config["swarmKeyConfig"].(string); ok {
-		data.Swarmkeyconfig = types.StringValue(v)
+	if v, ok := api.Config["type"].(string); ok {
+		data.Type = types.StringValue(v)
 	} else {
-		data.Swarmkeyconfig = types.StringNull()
+		data.Type = types.StringNull()
+	}
+	if v, ok := api.Config["evmRegistry"].(string); ok {
+		data.Evmregistry = types.StringValue(v)
+	} else {
+		data.Evmregistry = types.StringNull()
 	}
 }
 
-func (r *ipfsnetworkResource) apiPath(data *IPFSNetworkResourceModel) string {
+func (r *paladinnetworkResource) apiPath(data *PaladinNetworkResourceModel) string {
 	path := fmt.Sprintf("/api/v1/environments/%s/networks", data.Environment.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
@@ -119,8 +130,8 @@ func (r *ipfsnetworkResource) apiPath(data *IPFSNetworkResourceModel) string {
 	return path
 }
 
-func (r *ipfsnetworkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data IPFSNetworkResourceModel
+func (r *paladinnetworkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data PaladinNetworkResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api NetworkAPIModel
@@ -134,7 +145,7 @@ func (r *ipfsnetworkResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toPaladinNetworkData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	api.ID = data.ID.ValueString()
@@ -143,12 +154,12 @@ func (r *ipfsnetworkResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toPaladinNetworkData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnetworkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data IPFSNetworkResourceModel
+func (r *paladinnetworkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data PaladinNetworkResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
@@ -166,18 +177,18 @@ func (r *ipfsnetworkResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toPaladinNetworkData(&data, &resp.Diagnostics)
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toPaladinNetworkData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnetworkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data IPFSNetworkResourceModel
+func (r *paladinnetworkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data PaladinNetworkResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	var api NetworkAPIModel
@@ -191,12 +202,12 @@ func (r *ipfsnetworkResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	api.toIPFSNetworkData(&data, &resp.Diagnostics)
+	api.toPaladinNetworkData(&data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *ipfsnetworkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data IPFSNetworkResourceModel
+func (r *paladinnetworkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data PaladinNetworkResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())

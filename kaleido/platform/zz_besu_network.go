@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -33,11 +32,8 @@ type BesuNetworkResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Environment types.String `tfsdk:"environment"`
 	Name        types.String `tfsdk:"name"`
-	Blockperiodseconds    types.Int64 `tfsdk:"blockperiodseconds"`
-	Blockreward           types.String `tfsdk:"blockreward"`
-	Epochlength           types.Int64 `tfsdk:"epochlength"`
-	Miningbeneficiary     types.String `tfsdk:"miningbeneficiary"`
-	Requesttimeoutseconds types.Int64 `tfsdk:"requesttimeoutseconds"`
+	Bootstrapoptions types.String `tfsdk:"bootstrap_options"`
+	Chainid          types.Int64 `tfsdk:"chain_id"`
 	InitMode    types.String `tfsdk:"init_mode"`
 	ForceDelete types.Bool   `tfsdk:"force_delete"`
 }
@@ -71,31 +67,13 @@ func (r *besunetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Required:    true,
 				Description: "Display name for the Besu network",
 			},
-			"blockperiodseconds": &schema.Int64Attribute{
+			"bootstrap_options": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(5),
-				Description: "Minimum block period internal in seconds",
+				Description: "Configuration options for starting a Besu network",
 			},
-			"blockreward": &schema.StringAttribute{
+			"chain_id": &schema.Int64Attribute{
 				Optional:    true,
-				Description: "The reward to give block producers (or the designated mining beneficiary) in Wei",
-			},
-			"epochlength": &schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(30000),
-				Description: "Number of blocks that should pass before pending validator votes are reset",
-			},
-			"miningbeneficiary": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The ethereum address to give block rewards to. If not set",
-			},
-			"requesttimeoutseconds": &schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(10),
-				Description: "Timeout for each consensus round before a round change in seconds",
+				Description: "Network chain ID, will be generated if not set for automatic initialization mode",
 			},
 			"init_mode": &schema.StringAttribute{
 				Optional:    true,
@@ -116,20 +94,11 @@ func (data *BesuNetworkResourceModel) toNetworkAPI(ctx context.Context, api *Net
 	api.InitMode = data.InitMode.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Blockperiodseconds.IsNull() {
-		api.Config["blockperiodseconds"] = data.Blockperiodseconds.ValueInt64()
+	if !data.Chainid.IsNull() {
+		api.Config["chainID"] = data.Chainid.ValueInt64()
 	}
-	if !data.Epochlength.IsNull() {
-		api.Config["epochlength"] = data.Epochlength.ValueInt64()
-	}
-	if !data.Requesttimeoutseconds.IsNull() {
-		api.Config["requesttimeoutseconds"] = data.Requesttimeoutseconds.ValueInt64()
-	}
-	if !data.Blockreward.IsNull() && data.Blockreward.ValueString() != "" {
-		api.Config["blockreward"] = data.Blockreward.ValueString()
-	}
-	if !data.Miningbeneficiary.IsNull() && data.Miningbeneficiary.ValueString() != "" {
-		api.Config["miningbeneficiary"] = data.Miningbeneficiary.ValueString()
+	if !data.Bootstrapoptions.IsNull() && data.Bootstrapoptions.ValueString() != "" {
+		api.Config["bootstrapOptions"] = data.Bootstrapoptions.ValueString()
 	}
 }
 
@@ -138,30 +107,15 @@ func (api *NetworkAPIModel) toBesuNetworkData(data *BesuNetworkResourceModel, di
 	data.Name = types.StringValue(api.Name)
 	data.InitMode = types.StringValue(api.InitMode)
 
-	if v, ok := api.Config["blockreward"].(string); ok {
-		data.Blockreward = types.StringValue(v)
+	if v, ok := api.Config["chainID"].(float64); ok {
+		data.Chainid = types.Int64Value(int64(v))
 	} else {
-		data.Blockreward = types.StringNull()
+		data.Chainid = types.Int64Null()
 	}
-	if v, ok := api.Config["miningbeneficiary"].(string); ok {
-		data.Miningbeneficiary = types.StringValue(v)
+	if v, ok := api.Config["bootstrapOptions"].(string); ok {
+		data.Bootstrapoptions = types.StringValue(v)
 	} else {
-		data.Miningbeneficiary = types.StringNull()
-	}
-	if v, ok := api.Config["blockperiodseconds"].(float64); ok {
-		data.Blockperiodseconds = types.Int64Value(int64(v))
-	} else {
-		data.Blockperiodseconds = types.Int64Value(5)
-	}
-	if v, ok := api.Config["epochlength"].(float64); ok {
-		data.Epochlength = types.Int64Value(int64(v))
-	} else {
-		data.Epochlength = types.Int64Value(30000)
-	}
-	if v, ok := api.Config["requesttimeoutseconds"].(float64); ok {
-		data.Requesttimeoutseconds = types.Int64Value(int64(v))
-	} else {
-		data.Requesttimeoutseconds = types.Int64Value(10)
+		data.Bootstrapoptions = types.StringNull()
 	}
 }
 
