@@ -126,16 +126,16 @@ func (data *EVMGatewayServiceResourceModel) toEVMGatewayServiceAPI(ctx context.C
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
+	api.Config["decodeRawTransactions"] = data.Decoderawtransactions.ValueBool()
+	api.Config["fineGrainedPermissions"] = data.Finegrainedpermissions.ValueBool()
 	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
 		api.Config["logLevel"] = data.Loglevel.ValueString()
 	}
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
-	}
-	api.Config["fineGrainedPermissions"] = data.Finegrainedpermissions.ValueBool()
-	api.Config["decodeRawTransactions"] = data.Decoderawtransactions.ValueBool()
 	if !data.Maxbatchsize.IsNull() {
 		api.Config["maxBatchSize"] = data.Maxbatchsize.ValueInt64()
+	}
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 }
 
@@ -146,25 +146,25 @@ func (api *ServiceAPIModel) toEVMGatewayServiceData(data *EVMGatewayServiceResou
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["fineGrainedPermissions"].(bool); ok {
-		data.Finegrainedpermissions = types.BoolValue(v)
-	} else {
-		data.Finegrainedpermissions = types.BoolValue(false)
-	}
 	if v, ok := api.Config["decodeRawTransactions"].(bool); ok {
 		data.Decoderawtransactions = types.BoolValue(v)
 	} else {
 		data.Decoderawtransactions = types.BoolValue(false)
 	}
-	if v, ok := api.Config["maxBatchSize"].(float64); ok {
-		data.Maxbatchsize = types.Int64Value(int64(v))
+	if v, ok := api.Config["fineGrainedPermissions"].(bool); ok {
+		data.Finegrainedpermissions = types.BoolValue(v)
 	} else {
-		data.Maxbatchsize = types.Int64Value(10)
+		data.Finegrainedpermissions = types.BoolValue(false)
 	}
 	if v, ok := api.Config["logLevel"].(string); ok {
 		data.Loglevel = types.StringValue(v)
 	} else {
 		data.Loglevel = types.StringValue("info")
+	}
+	if v, ok := api.Config["maxBatchSize"].(float64); ok {
+		data.Maxbatchsize = types.Int64Value(int64(v))
+	} else {
+		data.Maxbatchsize = types.Int64Value(10)
 	}
 	if v, ok := api.Config["network"].(string); ok {
 		data.Network = types.StringValue(v)

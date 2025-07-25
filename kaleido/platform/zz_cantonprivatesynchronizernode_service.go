@@ -16,6 +16,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -35,7 +36,8 @@ type CantonPrivateSynchronizerNodeServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Kms     types.String `tfsdk:"kms"`
+	KmsKeymanager types.String `tfsdk:"kms_keymanager"`
+	KmsWallet types.String `tfsdk:"kms_wallet"`
 	Network types.String `tfsdk:"network"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
@@ -82,9 +84,14 @@ func (r *cantonprivatesynchronizernodeserviceResource) Schema(_ context.Context,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Stack ID where the CantonPrivateSynchronizerNode service belongs (optional)",
 			},
-			"kms": &schema.StringAttribute{
+			"kms_keymanager": &schema.StringAttribute{
 				Optional:    true,
-				Description: "Configuration KMS for this canton node",
+				Sensitive:   true,
+				Description: "keyManagerService",
+			},
+			"kms_wallet": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Wallet name to store the keys",
 			},
 			"network": &schema.StringAttribute{
 				Optional:    true,
@@ -105,11 +112,23 @@ func (data *CantonPrivateSynchronizerNodeServiceResourceModel) toCantonPrivateSy
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
+	// Handle kms flattened fields
+	kmsConfig := make(map[string]interface{})
+	if !data.KmsFolder.IsNull() && data.KmsFolder.ValueString() != "" {
+		kmsConfig["folder"] = data.KmsFolder.ValueString()
+	}
+	if !data.KmsKeymanager.IsNull() && data.KmsKeymanager.ValueString() != "" {
+		kmsConfig["keyManager"] = data.KmsKeymanager.ValueString()
+	}
+	if !data.KmsWallet.IsNull() && data.KmsWallet.ValueString() != "" {
+		kmsConfig["wallet"] = data.KmsWallet.ValueString()
+	}
+	// Set the config if any fields were set
+	if len(kmsConfig) > 0 {
+		api.Config["kms"] = kmsConfig
+	}
 	if !data.Network.IsNull() && data.Network.ValueString() != "" {
 		api.Config["network"] = data.Network.ValueString()
-	}
-	if !data.Kms.IsNull() && data.Kms.ValueString() != "" {
-		api.Config["kms"] = data.Kms.ValueString()
 	}
 }
 
@@ -120,15 +139,32 @@ func (api *ServiceAPIModel) toCantonPrivateSynchronizerNodeServiceData(data *Can
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
+	// Extract kms flattened fields
+	if kmsConfig, ok := api.Config["kms"].(map[string]interface{}); ok {
+	if v, ok := kmsConfig["folder"].(string); ok {
+		data.KmsFolder = types.StringValue(v)
+	} else {
+		data.KmsFolder = types.StringNull()
+	}
+	if v, ok := kmsConfig["keyManager"].(string); ok {
+		data.KmsKeymanager = types.StringValue(v)
+	} else {
+		data.KmsKeymanager = types.StringNull()
+	}
+	if v, ok := kmsConfig["wallet"].(string); ok {
+		data.KmsWallet = types.StringValue(v)
+	} else {
+		data.KmsWallet = types.StringNull()
+	}
+	} else {
+		data.KmsFolder = types.StringNull()
+		data.KmsKeymanager = types.StringNull()
+		data.KmsWallet = types.StringNull()
+	}
 	if v, ok := api.Config["network"].(string); ok {
 		data.Network = types.StringValue(v)
 	} else {
 		data.Network = types.StringNull()
-	}
-	if v, ok := api.Config["kms"].(string); ok {
-		data.Kms = types.StringValue(v)
-	} else {
-		data.Kms = types.StringNull()
 	}
 }
 

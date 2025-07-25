@@ -16,6 +16,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -35,11 +37,12 @@ type PrivateDataManagerServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	CertificateCa types.String `tfsdk:"certificate_ca"`
-	CertificateCert types.String `tfsdk:"certificate_cert"`
-	CertificateKey types.String `tfsdk:"certificate_key"`
+	CertificateCa    types.String `tfsdk:"certificate_ca"`
+	CertificateCert  types.String `tfsdk:"certificate_cert"`
+	CertificateKey   types.String `tfsdk:"certificate_key"`
 	Dataexchangetype types.String `tfsdk:"data_exchange_type"`
-	Https types.String `tfsdk:"https"`
+	HttpsNetworkingtype types.String `tfsdk:"networking_type"`
+	HttpsPeerid      types.String `tfsdk:"peer_id"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
@@ -104,9 +107,15 @@ func (r *privatedatamanagerserviceResource) Schema(_ context.Context, _ resource
 				Optional:    true,
 				Description: "",
 			},
-			"https": &schema.StringAttribute{
+			"networking_type": &schema.StringAttribute{
 				Optional:    true,
-				Description: "",
+				Computed:    true,
+				Default:     stringdefault.StaticString("instance_local"),
+				Description: "The type of networking to expose for data exchange with other runtimes",
+			},
+			"peer_id": &schema.StringAttribute{
+				Optional:    true,
+				Description: "The peerId uniquely identifying the HTTPS Data Exchange",
 			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
@@ -123,61 +132,47 @@ func (data *PrivateDataManagerServiceResourceModel) toPrivateDataManagerServiceA
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
+	// Handle certificate flattened fields
+	certificateConfig := make(map[string]interface{})
+	caNestedConfig := make(map[string]interface{})
+	if !data.CertificatecaFileref.IsNull() && data.CertificatecaFileref.ValueString() != "" {
+		caConfig["fileRef"] = data.CertificatecaFileref.ValueString()
+	}
+	if len(caNestedConfig) > 0 {
+		certificateConfig["ca"] = caNestedConfig
+	}
+	certNestedConfig := make(map[string]interface{})
+	if !data.CertificatecertFileref.IsNull() && data.CertificatecertFileref.ValueString() != "" {
+		certConfig["fileRef"] = data.CertificatecertFileref.ValueString()
+	}
+	if len(certNestedConfig) > 0 {
+		certificateConfig["cert"] = certNestedConfig
+	}
+	keyNestedConfig := make(map[string]interface{})
+	if !data.CertificatekeyFileref.IsNull() && data.CertificatekeyFileref.ValueString() != "" {
+		keyConfig["fileRef"] = data.CertificatekeyFileref.ValueString()
+	}
+	if len(keyNestedConfig) > 0 {
+		certificateConfig["key"] = keyNestedConfig
+	}
+	// Set the config if any fields were set
+	if len(certificateConfig) > 0 {
+		api.Config["certificate"] = certificateConfig
+	}
 	if !data.Dataexchangetype.IsNull() && data.Dataexchangetype.ValueString() != "" {
 		api.Config["dataExchangeType"] = data.Dataexchangetype.ValueString()
 	}
-	// Handle certificate certificate fileset
-	if !data.CertificateCa.IsNull() && data.CertificateCa.ValueString() != "" ||
-		!data.CertificateCert.IsNull() && data.CertificateCert.ValueString() != "" ||
-		!data.CertificateKey.IsNull() && data.CertificateKey.ValueString() != "" {
-		
-		if api.Filesets == nil {
-			api.Filesets = make(map[string]*FileSetAPI)
-		}
-		
-		api.Filesets["certificate"] = &FileSetAPI{
-			Name: "certificate",
-			Files: make(map[string]*FileAPI),
-		}
-		
-		if !data.CertificateCa.IsNull() && data.CertificateCa.ValueString() != "" {
-			api.Filesets["certificate"].Files["ca"] = &FileAPI{
-				Type: "pem",
-				Data: FileDataAPI{
-					Text: data.CertificateCa.ValueString(),
-				},
-			}
-		}
-		
-		if !data.CertificateCert.IsNull() && data.CertificateCert.ValueString() != "" {
-			api.Filesets["certificate"].Files["cert"] = &FileAPI{
-				Type: "pem", 
-				Data: FileDataAPI{
-					Text: data.CertificateCert.ValueString(),
-				},
-			}
-		}
-		
-		if !data.CertificateKey.IsNull() && data.CertificateKey.ValueString() != "" {
-			api.Filesets["certificate"].Files["key"] = &FileAPI{
-				Type: "pem",
-				Data: FileDataAPI{
-					Text: data.CertificateKey.ValueString(),
-				},
-			}
-		}
-		
-		api.Config["certificate"] = map[string]interface{}{
-			"ca": map[string]interface{}{
-				"fileRef": "#certificate.ca",
-			},
-			"cert": map[string]interface{}{
-				"fileRef": "#certificate.cert", 
-			},
-			"key": map[string]interface{}{
-				"fileRef": "#certificate.key",
-			},
-		}
+	// Handle https flattened fields
+	httpsConfig := make(map[string]interface{})
+	if !data.HttpsNetworkingtype.IsNull() && data.HttpsNetworkingtype.ValueString() != "" {
+		httpsConfig["networkingType"] = data.HttpsNetworkingtype.ValueString()
+	}
+	if !data.HttpsPeerid.IsNull() && data.HttpsPeerid.ValueString() != "" {
+		httpsConfig["peerId"] = data.HttpsPeerid.ValueString()
+	}
+	// Set the config if any fields were set
+	if len(httpsConfig) > 0 {
+		api.Config["https"] = httpsConfig
 	}
 }
 
@@ -188,34 +183,60 @@ func (api *ServiceAPIModel) toPrivateDataManagerServiceData(data *PrivateDataMan
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
+	// Extract certificate flattened fields
+	if certificateConfig, ok := api.Config["certificate"].(map[string]interface{}); ok {
+	if caNested, ok := certificateConfig["ca"].(map[string]interface{}); ok {
+	if v, ok := caNested["fileRef"].(string); ok {
+		data.CertificatecaFileref = types.StringValue(v)
+	} else {
+		data.CertificatecaFileref = types.StringNull()
+	}
+} else {
+	data.CertificatecaFileref = types.StringNull()
+}
+	if certNested, ok := certificateConfig["cert"].(map[string]interface{}); ok {
+	if v, ok := certNested["fileRef"].(string); ok {
+		data.CertificatecertFileref = types.StringValue(v)
+	} else {
+		data.CertificatecertFileref = types.StringNull()
+	}
+} else {
+	data.CertificatecertFileref = types.StringNull()
+}
+	if keyNested, ok := certificateConfig["key"].(map[string]interface{}); ok {
+	if v, ok := keyNested["fileRef"].(string); ok {
+		data.CertificatekeyFileref = types.StringValue(v)
+	} else {
+		data.CertificatekeyFileref = types.StringNull()
+	}
+} else {
+	data.CertificatekeyFileref = types.StringNull()
+}
+	} else {
+		data.CertificateCa = types.StringNull()
+		data.CertificateCert = types.StringNull()
+		data.CertificateKey = types.StringNull()
+	}
 	if v, ok := api.Config["dataExchangeType"].(string); ok {
 		data.Dataexchangetype = types.StringValue(v)
 	} else {
 		data.Dataexchangetype = types.StringNull()
 	}
-	// Extract certificate certificate files from fileset
-	if fileset, ok := api.Filesets["certificate"]; ok {
-		if caFile, ok := fileset.Files["ca"]; ok && caFile != nil {
-			data.CertificateCa = types.StringValue(caFile.Data.Text)
-		} else {
-			data.CertificateCa = types.StringNull()
-		}
-		
-		if certFile, ok := fileset.Files["cert"]; ok && certFile != nil {
-			data.CertificateCert = types.StringValue(certFile.Data.Text)
-		} else {
-			data.CertificateCert = types.StringNull()
-		}
-		
-		if keyFile, ok := fileset.Files["key"]; ok && keyFile != nil {
-			data.CertificateKey = types.StringValue(keyFile.Data.Text)
-		} else {
-			data.CertificateKey = types.StringNull()
-		}
+	// Extract https flattened fields
+	if httpsConfig, ok := api.Config["https"].(map[string]interface{}); ok {
+	if v, ok := httpsConfig["networkingType"].(string); ok {
+		data.HttpsNetworkingtype = types.StringValue(v)
 	} else {
-		data.CertificateCa = types.StringNull()
-		data.CertificateCert = types.StringNull()
-		data.CertificateKey = types.StringNull()
+		data.HttpsNetworkingtype = types.StringValue("instance_local")
+	}
+	if v, ok := httpsConfig["peerId"].(string); ok {
+		data.HttpsPeerid = types.StringValue(v)
+	} else {
+		data.HttpsPeerid = types.StringNull()
+	}
+	} else {
+		data.HttpsNetworkingtype = types.StringNull()
+		data.HttpsPeerid = types.StringNull()
 	}
 }
 

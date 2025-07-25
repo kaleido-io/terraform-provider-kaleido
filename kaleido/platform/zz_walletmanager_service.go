@@ -16,7 +16,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -26,6 +25,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -37,7 +38,7 @@ type WalletManagerServiceResourceModel struct {
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
 	Assetmanagerservice types.String `tfsdk:"assetmanagerservice"`
-	Fireflyservices     types.String `tfsdk:"fireflyservices"`
+	Fireflyservices     types.List `tfsdk:"fireflyservices"`
 	Keymanager          types.String `tfsdk:"keymanager"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
@@ -88,7 +89,8 @@ func (r *walletmanagerserviceResource) Schema(_ context.Context, _ resource.Sche
 				Optional:    true,
 				Description: "assetManagerService",
 			},
-			"fireflyservices": &schema.StringAttribute{
+			"fireflyservices": &schema.ListAttribute{
+				ElementType: basetypes.StringType{},
 				Optional:    true,
 				Description: "fireflyServices",
 			},
@@ -112,25 +114,20 @@ func (data *WalletManagerServiceResourceModel) toWalletManagerServiceAPI(ctx con
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	api.Config["keyManager"] = map[string]interface{}{
-		"id": data.Keymanager.ValueString(),
-	}
 	api.Config["assetManagerService"] = map[string]interface{}{
 		"id": data.Assetmanagerservice.ValueString(),
 	}
-	// Handle Fireflyservices as JSON
-	if !data.Fireflyservices.IsNull() && data.Fireflyservices.ValueString() != "" {
-		var fireflyservicesData interface{}
-		err := json.Unmarshal([]byte(data.Fireflyservices.ValueString()), &fireflyservicesData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("fireflyservices"),
-				"Failed to parse Fireflyservices",
-				err.Error(),
-			)
-		} else {
-			api.Config["fireflyServices"] = fireflyservicesData
+	if !data.Fireflyservices.IsNull() && len(data.Fireflyservices.Elements()) > 0 {
+		var fireflyservicesList []string
+		for _, elem := range data.Fireflyservices.Elements() {
+			if strElem, ok := elem.(basetypes.StringValue); ok {
+				fireflyservicesList = append(fireflyservicesList, strElem.ValueString())
+			}
 		}
+		api.Config["fireflyServices"] = fireflyservicesList
+	}
+	api.Config["keyManager"] = map[string]interface{}{
+		"id": data.Keymanager.ValueString(),
 	}
 }
 
@@ -146,14 +143,21 @@ func (api *ServiceAPIModel) toWalletManagerServiceData(data *WalletManagerServic
 			data.Assetmanagerservice = types.StringValue(id)
 		}
 	}
-	if fireflyservicesData := api.Config["fireflyServices"]; fireflyservicesData != nil {
-		if fireflyservicesJSON, err := json.Marshal(fireflyservicesData); err == nil {
-			data.Fireflyservices = types.StringValue(string(fireflyservicesJSON))
+	if v, ok := api.Config["fireflyServices"].([]interface{}); ok {
+		var fireflyservicesElements []attr.Value
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				fireflyservicesElements = append(fireflyservicesElements, basetypes.NewStringValue(str))
+			}
+		}
+		if len(fireflyservicesElements) > 0 {
+			fireflyservicesList, _ := basetypes.NewListValue(basetypes.StringType{}, fireflyservicesElements)
+			data.Fireflyservices = fireflyservicesList
 		} else {
-			data.Fireflyservices = types.StringNull()
+			data.Fireflyservices = basetypes.NewListNull(basetypes.StringType{})
 		}
 	} else {
-		data.Fireflyservices = types.StringNull()
+		data.Fireflyservices = basetypes.NewListNull(basetypes.StringType{})
 	}
 	if v, ok := api.Config["keyManager"].(map[string]interface{}); ok {
 		if id, ok := v["id"].(string); ok {

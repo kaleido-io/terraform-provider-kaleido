@@ -123,17 +123,17 @@ func (data *IPFSNodeServiceResourceModel) toIPFSNodeServiceAPI(ctx context.Conte
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
-	}
-	if !data.Mode.IsNull() && data.Mode.ValueString() != "" {
-		api.Config["mode"] = data.Mode.ValueString()
+	if !data.Gclimit.IsNull() {
+		api.Config["gcLimit"] = data.Gclimit.ValueInt64()
 	}
 	if !data.Gcperiod.IsNull() && data.Gcperiod.ValueString() != "" {
 		api.Config["gcPeriod"] = data.Gcperiod.ValueString()
 	}
-	if !data.Gclimit.IsNull() {
-		api.Config["gcLimit"] = data.Gclimit.ValueInt64()
+	if !data.Mode.IsNull() && data.Mode.ValueString() != "" {
+		api.Config["mode"] = data.Mode.ValueString()
+	}
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 }
 
@@ -144,25 +144,25 @@ func (api *ServiceAPIModel) toIPFSNodeServiceData(data *IPFSNodeServiceResourceM
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["gcPeriod"].(string); ok {
-		data.Gcperiod = types.StringValue(v)
-	} else {
-		data.Gcperiod = types.StringValue("1h")
-	}
 	if v, ok := api.Config["gcLimit"].(float64); ok {
 		data.Gclimit = types.Int64Value(int64(v))
 	} else {
 		data.Gclimit = types.Int64Value(80)
 	}
-	if v, ok := api.Config["network"].(string); ok {
-		data.Network = types.StringValue(v)
+	if v, ok := api.Config["gcPeriod"].(string); ok {
+		data.Gcperiod = types.StringValue(v)
 	} else {
-		data.Network = types.StringNull()
+		data.Gcperiod = types.StringValue("1h")
 	}
 	if v, ok := api.Config["mode"].(string); ok {
 		data.Mode = types.StringValue(v)
 	} else {
 		data.Mode = types.StringValue("active")
+	}
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringNull()
 	}
 }
 

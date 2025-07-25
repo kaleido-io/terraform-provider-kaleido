@@ -108,15 +108,15 @@ func (api *NetworkAPIModel) toPaladinNetworkData(data *PaladinNetworkResourceMod
 	data.Name = types.StringValue(api.Name)
 	data.InitMode = types.StringValue(api.InitMode)
 
-	if v, ok := api.Config["type"].(string); ok {
-		data.Type = types.StringValue(v)
-	} else {
-		data.Type = types.StringNull()
-	}
 	if v, ok := api.Config["evmRegistry"].(string); ok {
 		data.Evmregistry = types.StringValue(v)
 	} else {
 		data.Evmregistry = types.StringNull()
+	}
+	if v, ok := api.Config["type"].(string); ok {
+		data.Type = types.StringValue(v)
+	} else {
+		data.Type = types.StringNull()
 	}
 }
 

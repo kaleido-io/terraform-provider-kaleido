@@ -95,11 +95,11 @@ func (data *BesuNetworkResourceModel) toNetworkAPI(ctx context.Context, api *Net
 	api.InitMode = data.InitMode.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Chainid.IsNull() {
-		api.Config["chainID"] = data.Chainid.ValueInt64()
-	}
 	if !data.Bootstrapoptions.IsNull() && data.Bootstrapoptions.ValueString() != "" {
 		api.Config["bootstrapOptions"] = data.Bootstrapoptions.ValueString()
+	}
+	if !data.Chainid.IsNull() {
+		api.Config["chainID"] = data.Chainid.ValueInt64()
 	}
 }
 
@@ -108,15 +108,15 @@ func (api *NetworkAPIModel) toBesuNetworkData(data *BesuNetworkResourceModel, di
 	data.Name = types.StringValue(api.Name)
 	data.InitMode = types.StringValue(api.InitMode)
 
-	if v, ok := api.Config["chainID"].(float64); ok {
-		data.Chainid = types.Int64Value(int64(v))
-	} else {
-		data.Chainid = types.Int64Null()
-	}
 	if v, ok := api.Config["bootstrapOptions"].(string); ok {
 		data.Bootstrapoptions = types.StringValue(v)
 	} else {
 		data.Bootstrapoptions = types.StringNull()
+	}
+	if v, ok := api.Config["chainID"].(float64); ok {
+		data.Chainid = types.Int64Value(int64(v))
+	} else {
+		data.Chainid = types.Int64Null()
 	}
 }
 

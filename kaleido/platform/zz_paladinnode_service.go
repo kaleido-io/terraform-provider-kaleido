@@ -115,14 +115,14 @@ func (data *PaladinNodeServiceResourceModel) toPaladinNodeServiceAPI(ctx context
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
+	if !data.Baseconfig.IsNull() && data.Baseconfig.ValueString() != "" {
+		api.Config["baseConfig"] = data.Baseconfig.ValueString()
 	}
 	if !data.Baseledgerendpoint.IsNull() && data.Baseledgerendpoint.ValueString() != "" {
 		api.Config["baseLedgerEndpoint"] = data.Baseledgerendpoint.ValueString()
 	}
-	if !data.Baseconfig.IsNull() && data.Baseconfig.ValueString() != "" {
-		api.Config["baseConfig"] = data.Baseconfig.ValueString()
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 	if !data.Registryadminidentity.IsNull() && data.Registryadminidentity.ValueString() != "" {
 		api.Config["registryAdminIdentity"] = data.Registryadminidentity.ValueString()
@@ -136,25 +136,25 @@ func (api *ServiceAPIModel) toPaladinNodeServiceData(data *PaladinNodeServiceRes
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["baseLedgerEndpoint"].(string); ok {
-		data.Baseledgerendpoint = types.StringValue(v)
-	} else {
-		data.Baseledgerendpoint = types.StringNull()
-	}
 	if v, ok := api.Config["baseConfig"].(string); ok {
 		data.Baseconfig = types.StringValue(v)
 	} else {
 		data.Baseconfig = types.StringNull()
 	}
-	if v, ok := api.Config["registryAdminIdentity"].(string); ok {
-		data.Registryadminidentity = types.StringValue(v)
+	if v, ok := api.Config["baseLedgerEndpoint"].(string); ok {
+		data.Baseledgerendpoint = types.StringValue(v)
 	} else {
-		data.Registryadminidentity = types.StringNull()
+		data.Baseledgerendpoint = types.StringNull()
 	}
 	if v, ok := api.Config["network"].(string); ok {
 		data.Network = types.StringValue(v)
 	} else {
 		data.Network = types.StringNull()
+	}
+	if v, ok := api.Config["registryAdminIdentity"].(string); ok {
+		data.Registryadminidentity = types.StringValue(v)
+	} else {
+		data.Registryadminidentity = types.StringNull()
 	}
 }
 

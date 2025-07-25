@@ -26,6 +26,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -37,10 +39,11 @@ type CantonSuperValidatorNodeServiceResourceModel struct {
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
 	Defaultparty types.String `tfsdk:"defaultparty"`
-	Kms          types.String `tfsdk:"kms"`
+	KmsKeymanager types.String `tfsdk:"kms_keymanager"`
+	KmsWallet    types.String `tfsdk:"kms_wallet"`
 	Network      types.String `tfsdk:"network"`
 	Nodekey      types.String `tfsdk:"nodekey"`
-	Walletusers  types.String `tfsdk:"walletusers"`
+	Walletusers  types.List `tfsdk:"walletusers"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
@@ -90,9 +93,14 @@ func (r *cantonsupervalidatornodeserviceResource) Schema(_ context.Context, _ re
 				Optional:    true,
 				Description: "Party Hint for the default party",
 			},
-			"kms": &schema.StringAttribute{
+			"kms_keymanager": &schema.StringAttribute{
 				Optional:    true,
-				Description: "Configuration KMS for this canton node",
+				Sensitive:   true,
+				Description: "keyManagerService",
+			},
+			"kms_wallet": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Wallet name to store the keys",
 			},
 			"network": &schema.StringAttribute{
 				Optional:    true,
@@ -103,7 +111,8 @@ func (r *cantonsupervalidatornodeserviceResource) Schema(_ context.Context, _ re
 				Sensitive:   true,
 				Description: "A base64 encoded secp256r1 private key for the node identity. The key will be generated if not set.",
 			},
-			"walletusers": &schema.StringAttribute{
+			"walletusers": &schema.ListAttribute{
+				ElementType: basetypes.StringType{},
 				Optional:    true,
 				Description: "A list of additional wallet users",
 			},
@@ -122,28 +131,26 @@ func (data *CantonSuperValidatorNodeServiceResourceModel) toCantonSuperValidator
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
-	}
 	if !data.Defaultparty.IsNull() && data.Defaultparty.ValueString() != "" {
 		api.Config["defaultParty"] = data.Defaultparty.ValueString()
 	}
-	// Handle Walletusers as JSON
-	if !data.Walletusers.IsNull() && data.Walletusers.ValueString() != "" {
-		var walletusersData interface{}
-		err := json.Unmarshal([]byte(data.Walletusers.ValueString()), &walletusersData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("walletusers"),
-				"Failed to parse Walletusers",
-				err.Error(),
-			)
-		} else {
-			api.Config["walletUsers"] = walletusersData
-		}
+	// Handle kms flattened fields
+	kmsConfig := make(map[string]interface{})
+	if !data.KmsFolder.IsNull() && data.KmsFolder.ValueString() != "" {
+		kmsConfig["folder"] = data.KmsFolder.ValueString()
 	}
-	if !data.Kms.IsNull() && data.Kms.ValueString() != "" {
-		api.Config["kms"] = data.Kms.ValueString()
+	if !data.KmsKeymanager.IsNull() && data.KmsKeymanager.ValueString() != "" {
+		kmsConfig["keyManager"] = data.KmsKeymanager.ValueString()
+	}
+	if !data.KmsWallet.IsNull() && data.KmsWallet.ValueString() != "" {
+		kmsConfig["wallet"] = data.KmsWallet.ValueString()
+	}
+	// Set the config if any fields were set
+	if len(kmsConfig) > 0 {
+		api.Config["kms"] = kmsConfig
+	}
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 	// Handle Nodekey credentials
 	if !data.Nodekey.IsNull() && data.Nodekey.ValueString() != "" {
@@ -161,6 +168,15 @@ func (data *CantonSuperValidatorNodeServiceResourceModel) toCantonSuperValidator
 			"credSetRef": "nodeKey",
 		}
 	}
+	if !data.Walletusers.IsNull() && len(data.Walletusers.Elements()) > 0 {
+		var walletusersList []string
+		for _, elem := range data.Walletusers.Elements() {
+			if strElem, ok := elem.(basetypes.StringValue); ok {
+				walletusersList = append(walletusersList, strElem.ValueString())
+			}
+		}
+		api.Config["walletUsers"] = walletusersList
+	}
 }
 
 func (api *ServiceAPIModel) toCantonSuperValidatorNodeServiceData(data *CantonSuperValidatorNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
@@ -170,34 +186,58 @@ func (api *ServiceAPIModel) toCantonSuperValidatorNodeServiceData(data *CantonSu
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["network"].(string); ok {
-		data.Network = types.StringValue(v)
-	} else {
-		data.Network = types.StringNull()
-	}
 	if v, ok := api.Config["defaultParty"].(string); ok {
 		data.Defaultparty = types.StringValue(v)
 	} else {
 		data.Defaultparty = types.StringNull()
 	}
-	if walletusersData := api.Config["walletUsers"]; walletusersData != nil {
-		if walletusersJSON, err := json.Marshal(walletusersData); err == nil {
-			data.Walletusers = types.StringValue(string(walletusersJSON))
-		} else {
-			data.Walletusers = types.StringNull()
-		}
+	// Extract kms flattened fields
+	if kmsConfig, ok := api.Config["kms"].(map[string]interface{}); ok {
+	if v, ok := kmsConfig["folder"].(string); ok {
+		data.KmsFolder = types.StringValue(v)
 	} else {
-		data.Walletusers = types.StringNull()
+		data.KmsFolder = types.StringNull()
 	}
-	if v, ok := api.Config["kms"].(string); ok {
-		data.Kms = types.StringValue(v)
+	if v, ok := kmsConfig["keyManager"].(string); ok {
+		data.KmsKeymanager = types.StringValue(v)
 	} else {
-		data.Kms = types.StringNull()
+		data.KmsKeymanager = types.StringNull()
+	}
+	if v, ok := kmsConfig["wallet"].(string); ok {
+		data.KmsWallet = types.StringValue(v)
+	} else {
+		data.KmsWallet = types.StringNull()
+	}
+	} else {
+		data.KmsFolder = types.StringNull()
+		data.KmsKeymanager = types.StringNull()
+		data.KmsWallet = types.StringNull()
+	}
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringNull()
 	}
 	if credset, ok := api.Credsets["nodeKey"]; ok && credset.Key != nil {
 		data.Nodekey = types.StringValue(credset.Key.Value)
 	} else {
 		data.Nodekey = types.StringNull()
+	}
+	if v, ok := api.Config["walletUsers"].([]interface{}); ok {
+		var walletusersElements []attr.Value
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				walletusersElements = append(walletusersElements, basetypes.NewStringValue(str))
+			}
+		}
+		if len(walletusersElements) > 0 {
+			walletusersList, _ := basetypes.NewListValue(basetypes.StringType{}, walletusersElements)
+			data.Walletusers = walletusersList
+		} else {
+			data.Walletusers = basetypes.NewListNull(basetypes.StringType{})
+		}
+	} else {
+		data.Walletusers = basetypes.NewListNull(basetypes.StringType{})
 	}
 }
 

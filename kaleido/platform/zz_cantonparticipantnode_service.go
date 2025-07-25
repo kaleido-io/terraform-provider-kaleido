@@ -26,6 +26,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -37,11 +39,12 @@ type CantonParticipantNodeServiceResourceModel struct {
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
 	Defaultparty        types.String `tfsdk:"defaultparty"`
-	Domainnetworks      types.String `tfsdk:"domainnetworks"`
+	Domainnetworks      types.List `tfsdk:"domainnetworks"`
 	Globaldomainnetwork types.String `tfsdk:"globaldomainnetwork"`
-	Kms                 types.String `tfsdk:"kms"`
+	KmsKeymanager       types.String `tfsdk:"kms_keymanager"`
+	KmsWallet           types.String `tfsdk:"kms_wallet"`
 	Onboardingsecret    types.String `tfsdk:"onboardingsecret"`
-	Walletusers         types.String `tfsdk:"walletusers"`
+	Walletusers         types.List `tfsdk:"walletusers"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
@@ -91,7 +94,8 @@ func (r *cantonparticipantnodeserviceResource) Schema(_ context.Context, _ resou
 				Optional:    true,
 				Description: "Party Hint for the default party",
 			},
-			"domainnetworks": &schema.StringAttribute{
+			"domainnetworks": &schema.ListAttribute{
+				ElementType: basetypes.StringType{},
 				Optional:    true,
 				Description: "CantonPrivateSynchronizerNetworks",
 			},
@@ -99,16 +103,22 @@ func (r *cantonparticipantnodeserviceResource) Schema(_ context.Context, _ resou
 				Optional:    true,
 				Description: "CantonGlobalDomainNetwork",
 			},
-			"kms": &schema.StringAttribute{
+			"kms_keymanager": &schema.StringAttribute{
 				Optional:    true,
-				Description: "Configuration KMS for this canton node",
+				Sensitive:   true,
+				Description: "keyManagerService",
+			},
+			"kms_wallet": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Wallet name to store the keys",
 			},
 			"onboardingsecret": &schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "Onboarding secret provided by the super validator",
 			},
-			"walletusers": &schema.StringAttribute{
+			"walletusers": &schema.ListAttribute{
+				ElementType: basetypes.StringType{},
 				Optional:    true,
 				Description: "A list of additional wallet users",
 			},
@@ -127,45 +137,47 @@ func (data *CantonParticipantNodeServiceResourceModel) toCantonParticipantNodeSe
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
+	if !data.Defaultparty.IsNull() && data.Defaultparty.ValueString() != "" {
+		api.Config["defaultParty"] = data.Defaultparty.ValueString()
+	}
+	if !data.Domainnetworks.IsNull() && len(data.Domainnetworks.Elements()) > 0 {
+		var domainnetworksList []string
+		for _, elem := range data.Domainnetworks.Elements() {
+			if strElem, ok := elem.(basetypes.StringValue); ok {
+				domainnetworksList = append(domainnetworksList, strElem.ValueString())
+			}
+		}
+		api.Config["domainNetworks"] = domainnetworksList
+	}
 	if !data.Globaldomainnetwork.IsNull() && data.Globaldomainnetwork.ValueString() != "" {
 		api.Config["globalDomainNetwork"] = data.Globaldomainnetwork.ValueString()
 	}
-	// Handle Domainnetworks as JSON
-	if !data.Domainnetworks.IsNull() && data.Domainnetworks.ValueString() != "" {
-		var domainnetworksData interface{}
-		err := json.Unmarshal([]byte(data.Domainnetworks.ValueString()), &domainnetworksData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("domainnetworks"),
-				"Failed to parse Domainnetworks",
-				err.Error(),
-			)
-		} else {
-			api.Config["domainNetworks"] = domainnetworksData
-		}
+	// Handle kms flattened fields
+	kmsConfig := make(map[string]interface{})
+	if !data.KmsFolder.IsNull() && data.KmsFolder.ValueString() != "" {
+		kmsConfig["folder"] = data.KmsFolder.ValueString()
 	}
-	if !data.Defaultparty.IsNull() && data.Defaultparty.ValueString() != "" {
-		api.Config["defaultParty"] = data.Defaultparty.ValueString()
+	if !data.KmsKeymanager.IsNull() && data.KmsKeymanager.ValueString() != "" {
+		kmsConfig["keyManager"] = data.KmsKeymanager.ValueString()
+	}
+	if !data.KmsWallet.IsNull() && data.KmsWallet.ValueString() != "" {
+		kmsConfig["wallet"] = data.KmsWallet.ValueString()
+	}
+	// Set the config if any fields were set
+	if len(kmsConfig) > 0 {
+		api.Config["kms"] = kmsConfig
 	}
 	if !data.Onboardingsecret.IsNull() && data.Onboardingsecret.ValueString() != "" {
 		api.Config["onBoardingSecret"] = data.Onboardingsecret.ValueString()
 	}
-	if !data.Kms.IsNull() && data.Kms.ValueString() != "" {
-		api.Config["kms"] = data.Kms.ValueString()
-	}
-	// Handle Walletusers as JSON
-	if !data.Walletusers.IsNull() && data.Walletusers.ValueString() != "" {
-		var walletusersData interface{}
-		err := json.Unmarshal([]byte(data.Walletusers.ValueString()), &walletusersData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("walletusers"),
-				"Failed to parse Walletusers",
-				err.Error(),
-			)
-		} else {
-			api.Config["walletUsers"] = walletusersData
+	if !data.Walletusers.IsNull() && len(data.Walletusers.Elements()) > 0 {
+		var walletusersList []string
+		for _, elem := range data.Walletusers.Elements() {
+			if strElem, ok := elem.(basetypes.StringValue); ok {
+				walletusersList = append(walletusersList, strElem.ValueString())
+			}
 		}
+		api.Config["walletUsers"] = walletusersList
 	}
 }
 
@@ -176,43 +188,74 @@ func (api *ServiceAPIModel) toCantonParticipantNodeServiceData(data *CantonParti
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
+	if v, ok := api.Config["defaultParty"].(string); ok {
+		data.Defaultparty = types.StringValue(v)
+	} else {
+		data.Defaultparty = types.StringNull()
+	}
+	if v, ok := api.Config["domainNetworks"].([]interface{}); ok {
+		var domainnetworksElements []attr.Value
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				domainnetworksElements = append(domainnetworksElements, basetypes.NewStringValue(str))
+			}
+		}
+		if len(domainnetworksElements) > 0 {
+			domainnetworksList, _ := basetypes.NewListValue(basetypes.StringType{}, domainnetworksElements)
+			data.Domainnetworks = domainnetworksList
+		} else {
+			data.Domainnetworks = basetypes.NewListNull(basetypes.StringType{})
+		}
+	} else {
+		data.Domainnetworks = basetypes.NewListNull(basetypes.StringType{})
+	}
 	if v, ok := api.Config["globalDomainNetwork"].(string); ok {
 		data.Globaldomainnetwork = types.StringValue(v)
 	} else {
 		data.Globaldomainnetwork = types.StringNull()
 	}
-	if domainnetworksData := api.Config["domainNetworks"]; domainnetworksData != nil {
-		if domainnetworksJSON, err := json.Marshal(domainnetworksData); err == nil {
-			data.Domainnetworks = types.StringValue(string(domainnetworksJSON))
-		} else {
-			data.Domainnetworks = types.StringNull()
-		}
+	// Extract kms flattened fields
+	if kmsConfig, ok := api.Config["kms"].(map[string]interface{}); ok {
+	if v, ok := kmsConfig["folder"].(string); ok {
+		data.KmsFolder = types.StringValue(v)
 	} else {
-		data.Domainnetworks = types.StringNull()
+		data.KmsFolder = types.StringNull()
 	}
-	if v, ok := api.Config["defaultParty"].(string); ok {
-		data.Defaultparty = types.StringValue(v)
+	if v, ok := kmsConfig["keyManager"].(string); ok {
+		data.KmsKeymanager = types.StringValue(v)
 	} else {
-		data.Defaultparty = types.StringNull()
+		data.KmsKeymanager = types.StringNull()
+	}
+	if v, ok := kmsConfig["wallet"].(string); ok {
+		data.KmsWallet = types.StringValue(v)
+	} else {
+		data.KmsWallet = types.StringNull()
+	}
+	} else {
+		data.KmsFolder = types.StringNull()
+		data.KmsKeymanager = types.StringNull()
+		data.KmsWallet = types.StringNull()
 	}
 	if v, ok := api.Config["onBoardingSecret"].(string); ok {
 		data.Onboardingsecret = types.StringValue(v)
 	} else {
 		data.Onboardingsecret = types.StringNull()
 	}
-	if v, ok := api.Config["kms"].(string); ok {
-		data.Kms = types.StringValue(v)
-	} else {
-		data.Kms = types.StringNull()
-	}
-	if walletusersData := api.Config["walletUsers"]; walletusersData != nil {
-		if walletusersJSON, err := json.Marshal(walletusersData); err == nil {
-			data.Walletusers = types.StringValue(string(walletusersJSON))
+	if v, ok := api.Config["walletUsers"].([]interface{}); ok {
+		var walletusersElements []attr.Value
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				walletusersElements = append(walletusersElements, basetypes.NewStringValue(str))
+			}
+		}
+		if len(walletusersElements) > 0 {
+			walletusersList, _ := basetypes.NewListValue(basetypes.StringType{}, walletusersElements)
+			data.Walletusers = walletusersList
 		} else {
-			data.Walletusers = types.StringNull()
+			data.Walletusers = basetypes.NewListNull(basetypes.StringType{})
 		}
 	} else {
-		data.Walletusers = types.StringNull()
+		data.Walletusers = basetypes.NewListNull(basetypes.StringType{})
 	}
 }
 

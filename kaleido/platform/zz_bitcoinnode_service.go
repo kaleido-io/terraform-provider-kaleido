@@ -115,14 +115,14 @@ func (data *BitcoinNodeServiceResourceModel) toBitcoinNodeServiceAPI(ctx context
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
-	}
 	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
 		api.Config["logLevel"] = data.Loglevel.ValueString()
 	}
 	if !data.Mode.IsNull() && data.Mode.ValueString() != "" {
 		api.Config["mode"] = data.Mode.ValueString()
+	}
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 }
 

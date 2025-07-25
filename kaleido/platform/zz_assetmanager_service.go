@@ -35,7 +35,7 @@ type AssetManagerServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Keymanager          types.String `tfsdk:"key_manager"`
+	Keymanager  types.String `tfsdk:"key_manager"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 

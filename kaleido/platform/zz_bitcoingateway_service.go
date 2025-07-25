@@ -121,8 +121,8 @@ func (data *BitcoinGatewayServiceResourceModel) toBitcoinGatewayServiceAPI(ctx c
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
+	if !data.Fallback.IsNull() && data.Fallback.ValueString() != "" {
+		api.Config["fallback"] = data.Fallback.ValueString()
 	}
 	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
 		api.Config["logLevel"] = data.Loglevel.ValueString()
@@ -130,8 +130,8 @@ func (data *BitcoinGatewayServiceResourceModel) toBitcoinGatewayServiceAPI(ctx c
 	if !data.Maxbatchsize.IsNull() {
 		api.Config["maxBatchSize"] = data.Maxbatchsize.ValueInt64()
 	}
-	if !data.Fallback.IsNull() && data.Fallback.ValueString() != "" {
-		api.Config["fallback"] = data.Fallback.ValueString()
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 }
 
@@ -142,25 +142,25 @@ func (api *ServiceAPIModel) toBitcoinGatewayServiceData(data *BitcoinGatewayServ
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["maxBatchSize"].(float64); ok {
-		data.Maxbatchsize = types.Int64Value(int64(v))
-	} else {
-		data.Maxbatchsize = types.Int64Value(10)
-	}
 	if v, ok := api.Config["fallback"].(string); ok {
 		data.Fallback = types.StringValue(v)
 	} else {
 		data.Fallback = types.StringNull()
 	}
-	if v, ok := api.Config["network"].(string); ok {
-		data.Network = types.StringValue(v)
-	} else {
-		data.Network = types.StringNull()
-	}
 	if v, ok := api.Config["logLevel"].(string); ok {
 		data.Loglevel = types.StringValue(v)
 	} else {
 		data.Loglevel = types.StringValue("info")
+	}
+	if v, ok := api.Config["maxBatchSize"].(float64); ok {
+		data.Maxbatchsize = types.Int64Value(int64(v))
+	} else {
+		data.Maxbatchsize = types.Int64Value(10)
+	}
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringNull()
 	}
 }
 

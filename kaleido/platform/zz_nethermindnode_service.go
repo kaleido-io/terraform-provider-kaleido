@@ -115,14 +115,14 @@ func (data *NethermindNodeServiceResourceModel) toNethermindNodeServiceAPI(ctx c
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
-	}
 	if !data.Basenetwork.IsNull() && data.Basenetwork.ValueString() != "" {
 		api.Config["baseNetwork"] = data.Basenetwork.ValueString()
 	}
 	if !data.Lighthouse.IsNull() && data.Lighthouse.ValueString() != "" {
 		api.Config["lighthouse"] = data.Lighthouse.ValueString()
+	}
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 	if !data.Opnode.IsNull() && data.Opnode.ValueString() != "" {
 		api.Config["opNode"] = data.Opnode.ValueString()
@@ -136,11 +136,6 @@ func (api *ServiceAPIModel) toNethermindNodeServiceData(data *NethermindNodeServ
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["network"].(string); ok {
-		data.Network = types.StringValue(v)
-	} else {
-		data.Network = types.StringNull()
-	}
 	if v, ok := api.Config["baseNetwork"].(string); ok {
 		data.Basenetwork = types.StringValue(v)
 	} else {
@@ -150,6 +145,11 @@ func (api *ServiceAPIModel) toNethermindNodeServiceData(data *NethermindNodeServ
 		data.Lighthouse = types.StringValue(v)
 	} else {
 		data.Lighthouse = types.StringNull()
+	}
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringNull()
 	}
 	if v, ok := api.Config["opNode"].(string); ok {
 		data.Opnode = types.StringValue(v)

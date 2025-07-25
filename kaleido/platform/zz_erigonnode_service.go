@@ -16,7 +16,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -26,6 +25,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -36,7 +37,7 @@ type ErigonNodeServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Apisenabled types.String `tfsdk:"apisenabled"`
+	Apisenabled types.List `tfsdk:"apisenabled"`
 	Blobarchive types.Bool `tfsdk:"blobarchive"`
 	Loglevel    types.String `tfsdk:"loglevel"`
 	Network     types.String `tfsdk:"network"`
@@ -86,7 +87,8 @@ func (r *erigonnodeserviceResource) Schema(_ context.Context, _ resource.SchemaR
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Stack ID where the ErigonNode service belongs (optional)",
 			},
-			"apisenabled": &schema.StringAttribute{
+			"apisenabled": &schema.ListAttribute{
+				ElementType: basetypes.StringType{},
 				Optional:    true,
 				Description: "",
 			},
@@ -122,11 +124,21 @@ func (data *ErigonNodeServiceResourceModel) toErigonNodeServiceAPI(ctx context.C
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
+	if !data.Apisenabled.IsNull() && len(data.Apisenabled.Elements()) > 0 {
+		var apisenabledList []string
+		for _, elem := range data.Apisenabled.Elements() {
+			if strElem, ok := elem.(basetypes.StringValue); ok {
+				apisenabledList = append(apisenabledList, strElem.ValueString())
+			}
+		}
+		api.Config["apisEnabled"] = apisenabledList
 	}
+	api.Config["blobArchive"] = data.Blobarchive.ValueBool()
 	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
 		api.Config["logLevel"] = data.Loglevel.ValueString()
+	}
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 	// Handle Nodekey credentials
 	if !data.Nodekey.IsNull() && data.Nodekey.ValueString() != "" {
@@ -144,21 +156,6 @@ func (data *ErigonNodeServiceResourceModel) toErigonNodeServiceAPI(ctx context.C
 			"credSetRef": "nodeKey",
 		}
 	}
-	api.Config["blobArchive"] = data.Blobarchive.ValueBool()
-	// Handle Apisenabled as JSON
-	if !data.Apisenabled.IsNull() && data.Apisenabled.ValueString() != "" {
-		var apisenabledData interface{}
-		err := json.Unmarshal([]byte(data.Apisenabled.ValueString()), &apisenabledData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("apisenabled"),
-				"Failed to parse Apisenabled",
-				err.Error(),
-			)
-		} else {
-			api.Config["apisEnabled"] = apisenabledData
-		}
-	}
 }
 
 func (api *ServiceAPIModel) toErigonNodeServiceData(data *ErigonNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
@@ -168,34 +165,41 @@ func (api *ServiceAPIModel) toErigonNodeServiceData(data *ErigonNodeServiceResou
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["network"].(string); ok {
-		data.Network = types.StringValue(v)
+	if v, ok := api.Config["apisEnabled"].([]interface{}); ok {
+		var apisenabledElements []attr.Value
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				apisenabledElements = append(apisenabledElements, basetypes.NewStringValue(str))
+			}
+		}
+		if len(apisenabledElements) > 0 {
+			apisenabledList, _ := basetypes.NewListValue(basetypes.StringType{}, apisenabledElements)
+			data.Apisenabled = apisenabledList
+		} else {
+			data.Apisenabled = basetypes.NewListNull(basetypes.StringType{})
+		}
 	} else {
-		data.Network = types.StringNull()
-	}
-	if v, ok := api.Config["logLevel"].(string); ok {
-		data.Loglevel = types.StringValue(v)
-	} else {
-		data.Loglevel = types.StringNull()
-	}
-	if credset, ok := api.Credsets["nodeKey"]; ok && credset.Key != nil {
-		data.Nodekey = types.StringValue(credset.Key.Value)
-	} else {
-		data.Nodekey = types.StringNull()
+		data.Apisenabled = basetypes.NewListNull(basetypes.StringType{})
 	}
 	if v, ok := api.Config["blobArchive"].(bool); ok {
 		data.Blobarchive = types.BoolValue(v)
 	} else {
 		data.Blobarchive = types.BoolValue(false)
 	}
-	if apisenabledData := api.Config["apisEnabled"]; apisenabledData != nil {
-		if apisenabledJSON, err := json.Marshal(apisenabledData); err == nil {
-			data.Apisenabled = types.StringValue(string(apisenabledJSON))
-		} else {
-			data.Apisenabled = types.StringNull()
-		}
+	if v, ok := api.Config["logLevel"].(string); ok {
+		data.Loglevel = types.StringValue(v)
 	} else {
-		data.Apisenabled = types.StringNull()
+		data.Loglevel = types.StringNull()
+	}
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringNull()
+	}
+	if credset, ok := api.Credsets["nodeKey"]; ok && credset.Key != nil {
+		data.Nodekey = types.StringValue(credset.Key.Value)
+	} else {
+		data.Nodekey = types.StringNull()
 	}
 }
 

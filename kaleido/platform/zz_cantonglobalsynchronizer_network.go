@@ -16,7 +16,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -34,7 +33,7 @@ type CantonGlobalSynchronizerNetworkResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Environment types.String `tfsdk:"environment"`
 	Name        types.String `tfsdk:"name"`
-	Migrations             types.String `tfsdk:"migrations"`
+	Migrations             types.List `tfsdk:"migrations"`
 	Network                types.String `tfsdk:"network"`
 	Scanendpoint           types.String `tfsdk:"scanendpoint"`
 	Supervalidator         types.String `tfsdk:"supervalidator"`
@@ -72,7 +71,7 @@ func (r *cantonglobalsynchronizernetworkResource) Schema(_ context.Context, _ re
 				Required:    true,
 				Description: "Display name for the CantonGlobalSynchronizer network",
 			},
-			"migrations": &schema.StringAttribute{
+			"migrations": &schema.ListAttribute{
 				Optional:    true,
 				Description: "Current Migrations with timestamps for the network",
 			},
@@ -115,31 +114,18 @@ func (data *CantonGlobalSynchronizerNetworkResourceModel) toNetworkAPI(ctx conte
 	api.InitMode = data.InitMode.ValueString()
 	api.Config = make(map[string]interface{})
 
+	// TODO: Handle Migrations (List)
 	if !data.Network.IsNull() && data.Network.ValueString() != "" {
 		api.Config["network"] = data.Network.ValueString()
 	}
-	// Handle Migrations as JSON
-	if !data.Migrations.IsNull() && data.Migrations.ValueString() != "" {
-		var migrationsData interface{}
-		err := json.Unmarshal([]byte(data.Migrations.ValueString()), &migrationsData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("migrations"),
-				"Failed to parse Migrations",
-				err.Error(),
-			)
-		} else {
-			api.Config["migrations"] = migrationsData
-		}
+	if !data.Scanendpoint.IsNull() && data.Scanendpoint.ValueString() != "" {
+		api.Config["scanEndpoint"] = data.Scanendpoint.ValueString()
 	}
 	if !data.Supervalidator.IsNull() && data.Supervalidator.ValueString() != "" {
 		api.Config["superValidator"] = data.Supervalidator.ValueString()
 	}
 	if !data.Supervalidatorendpoint.IsNull() && data.Supervalidatorendpoint.ValueString() != "" {
 		api.Config["superValidatorEndpoint"] = data.Supervalidatorendpoint.ValueString()
-	}
-	if !data.Scanendpoint.IsNull() && data.Scanendpoint.ValueString() != "" {
-		api.Config["scanEndpoint"] = data.Scanendpoint.ValueString()
 	}
 }
 
@@ -148,19 +134,16 @@ func (api *NetworkAPIModel) toCantonGlobalSynchronizerNetworkData(data *CantonGl
 	data.Name = types.StringValue(api.Name)
 	data.InitMode = types.StringValue(api.InitMode)
 
+	// TODO: Handle Migrations (List)
 	if v, ok := api.Config["network"].(string); ok {
 		data.Network = types.StringValue(v)
 	} else {
 		data.Network = types.StringValue("Devnet")
 	}
-	if migrationsData := api.Config["migrations"]; migrationsData != nil {
-		if migrationsJSON, err := json.Marshal(migrationsData); err == nil {
-			data.Migrations = types.StringValue(string(migrationsJSON))
-		} else {
-			data.Migrations = types.StringNull()
-		}
+	if v, ok := api.Config["scanEndpoint"].(string); ok {
+		data.Scanendpoint = types.StringValue(v)
 	} else {
-		data.Migrations = types.StringNull()
+		data.Scanendpoint = types.StringNull()
 	}
 	if v, ok := api.Config["superValidator"].(string); ok {
 		data.Supervalidator = types.StringValue(v)
@@ -171,11 +154,6 @@ func (api *NetworkAPIModel) toCantonGlobalSynchronizerNetworkData(data *CantonGl
 		data.Supervalidatorendpoint = types.StringValue(v)
 	} else {
 		data.Supervalidatorendpoint = types.StringNull()
-	}
-	if v, ok := api.Config["scanEndpoint"].(string); ok {
-		data.Scanendpoint = types.StringValue(v)
-	} else {
-		data.Scanendpoint = types.StringNull()
 	}
 }
 

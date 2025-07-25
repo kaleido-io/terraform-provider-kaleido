@@ -16,7 +16,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -28,6 +27,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -38,15 +39,15 @@ type BesuNodeServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Apisenabled       types.String `tfsdk:"apis_enabled"`
-	Custombesuargs    types.String `tfsdk:"custom_besu_args"`
+	Apisenabled       types.List `tfsdk:"apis_enabled"`
+	Custombesuargs    types.List `tfsdk:"custom_besu_args"`
 	Datastorageformat types.String `tfsdk:"data_storage_format"`
 	Gasprice          types.String `tfsdk:"gas_price"`
 	Loglevel          types.String `tfsdk:"log_level"`
 	Mode              types.String `tfsdk:"mode"`
 	Network           types.String `tfsdk:"network"`
 	Nodekey           types.String `tfsdk:"node_key"`
-	Signer            types.Bool `tfsdk:"signer"`
+	Signer            types.Bool `tfsdk:"validator"`
 	Syncmode          types.String `tfsdk:"sync_mode"`
 	Targetgaslimit    types.Int64 `tfsdk:"target_gas_limit"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
@@ -94,11 +95,13 @@ func (r *besunodeserviceResource) Schema(_ context.Context, _ resource.SchemaReq
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Stack ID where the BesuNode service belongs (optional)",
 			},
-			"apis_enabled": &schema.StringAttribute{
+			"apis_enabled": &schema.ListAttribute{
+				ElementType: basetypes.StringType{},
 				Optional:    true,
 				Description: "List of enabled besu API methods. ETH, QBFT/IBFT, ADMIN, NET, DEBUG, TXPOOL, and WEB3 methods will always be enabled",
 			},
-			"custom_besu_args": &schema.StringAttribute{
+			"custom_besu_args": &schema.ListAttribute{
+				ElementType: basetypes.StringType{},
 				Optional:    true,
 				Description: "A list of additional arguments to pass to the Besu command line. These are appended to the default arguments",
 			},
@@ -135,7 +138,7 @@ func (r *besunodeserviceResource) Schema(_ context.Context, _ resource.SchemaReq
 				Sensitive:   true,
 				Description: "An secp256k1 private key for the node identity, please omit '0x' when providing. The key will be generated if not set.",
 			},
-			"signer": &schema.BoolAttribute{
+			"validator": &schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
@@ -166,55 +169,38 @@ func (data *BesuNodeServiceResourceModel) toBesuNodeServiceAPI(ctx context.Conte
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Network.IsNull() && data.Network.ValueString() != "" {
-		api.Config["network"] = data.Network.ValueString()
+	if !data.Apisenabled.IsNull() && len(data.Apisenabled.Elements()) > 0 {
+		var apisenabledList []string
+		for _, elem := range data.Apisenabled.Elements() {
+			if strElem, ok := elem.(basetypes.StringValue); ok {
+				apisenabledList = append(apisenabledList, strElem.ValueString())
+			}
+		}
+		api.Config["apisEnabled"] = apisenabledList
 	}
-	if !data.Mode.IsNull() && data.Mode.ValueString() != "" {
-		api.Config["mode"] = data.Mode.ValueString()
-	}
-	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
-		api.Config["logLevel"] = data.Loglevel.ValueString()
+	if !data.Custombesuargs.IsNull() && len(data.Custombesuargs.Elements()) > 0 {
+		var custombesuargsList []string
+		for _, elem := range data.Custombesuargs.Elements() {
+			if strElem, ok := elem.(basetypes.StringValue); ok {
+				custombesuargsList = append(custombesuargsList, strElem.ValueString())
+			}
+		}
+		api.Config["customBesuArgs"] = custombesuargsList
 	}
 	if !data.Datastorageformat.IsNull() && data.Datastorageformat.ValueString() != "" {
 		api.Config["dataStorageFormat"] = data.Datastorageformat.ValueString()
 	}
-	// Handle Apisenabled as JSON
-	if !data.Apisenabled.IsNull() && data.Apisenabled.ValueString() != "" {
-		var apisenabledData interface{}
-		err := json.Unmarshal([]byte(data.Apisenabled.ValueString()), &apisenabledData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("apisenabled"),
-				"Failed to parse Apisenabled",
-				err.Error(),
-			)
-		} else {
-			api.Config["apisEnabled"] = apisenabledData
-		}
-	}
-	if !data.Targetgaslimit.IsNull() {
-		api.Config["targetGasLimit"] = data.Targetgaslimit.ValueInt64()
-	}
-	api.Config["signer"] = data.Signer.ValueBool()
-	if !data.Syncmode.IsNull() && data.Syncmode.ValueString() != "" {
-		api.Config["syncMode"] = data.Syncmode.ValueString()
-	}
 	if !data.Gasprice.IsNull() && data.Gasprice.ValueString() != "" {
 		api.Config["gasPrice"] = data.Gasprice.ValueString()
 	}
-	// Handle Custombesuargs as JSON
-	if !data.Custombesuargs.IsNull() && data.Custombesuargs.ValueString() != "" {
-		var custombesuargsData interface{}
-		err := json.Unmarshal([]byte(data.Custombesuargs.ValueString()), &custombesuargsData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("custombesuargs"),
-				"Failed to parse Custombesuargs",
-				err.Error(),
-			)
-		} else {
-			api.Config["customBesuArgs"] = custombesuargsData
-		}
+	if !data.Loglevel.IsNull() && data.Loglevel.ValueString() != "" {
+		api.Config["logLevel"] = data.Loglevel.ValueString()
+	}
+	if !data.Mode.IsNull() && data.Mode.ValueString() != "" {
+		api.Config["mode"] = data.Mode.ValueString()
+	}
+	if !data.Network.IsNull() && data.Network.ValueString() != "" {
+		api.Config["network"] = data.Network.ValueString()
 	}
 	// Handle Nodekey credentials
 	if !data.Nodekey.IsNull() && data.Nodekey.ValueString() != "" {
@@ -232,6 +218,13 @@ func (data *BesuNodeServiceResourceModel) toBesuNodeServiceAPI(ctx context.Conte
 			"credSetRef": "nodeKey",
 		}
 	}
+	api.Config["signer"] = data.Signer.ValueBool()
+	if !data.Syncmode.IsNull() && data.Syncmode.ValueString() != "" {
+		api.Config["syncMode"] = data.Syncmode.ValueString()
+	}
+	if !data.Targetgaslimit.IsNull() {
+		api.Config["targetGasLimit"] = data.Targetgaslimit.ValueInt64()
+	}
 }
 
 func (api *ServiceAPIModel) toBesuNodeServiceData(data *BesuNodeServiceResourceModel, diagnostics *diag.Diagnostics) {
@@ -241,53 +234,67 @@ func (api *ServiceAPIModel) toBesuNodeServiceData(data *BesuNodeServiceResourceM
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
-	if custombesuargsData := api.Config["customBesuArgs"]; custombesuargsData != nil {
-		if custombesuargsJSON, err := json.Marshal(custombesuargsData); err == nil {
-			data.Custombesuargs = types.StringValue(string(custombesuargsJSON))
+	if v, ok := api.Config["apisEnabled"].([]interface{}); ok {
+		var apisenabledElements []attr.Value
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				apisenabledElements = append(apisenabledElements, basetypes.NewStringValue(str))
+			}
+		}
+		if len(apisenabledElements) > 0 {
+			apisenabledList, _ := basetypes.NewListValue(basetypes.StringType{}, apisenabledElements)
+			data.Apisenabled = apisenabledList
 		} else {
-			data.Custombesuargs = types.StringNull()
+			data.Apisenabled = basetypes.NewListNull(basetypes.StringType{})
 		}
 	} else {
-		data.Custombesuargs = types.StringNull()
+		data.Apisenabled = basetypes.NewListNull(basetypes.StringType{})
 	}
-	if credset, ok := api.Credsets["nodeKey"]; ok && credset.Key != nil {
-		data.Nodekey = types.StringValue(credset.Key.Value)
+	if v, ok := api.Config["customBesuArgs"].([]interface{}); ok {
+		var custombesuargsElements []attr.Value
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				custombesuargsElements = append(custombesuargsElements, basetypes.NewStringValue(str))
+			}
+		}
+		if len(custombesuargsElements) > 0 {
+			custombesuargsList, _ := basetypes.NewListValue(basetypes.StringType{}, custombesuargsElements)
+			data.Custombesuargs = custombesuargsList
+		} else {
+			data.Custombesuargs = basetypes.NewListNull(basetypes.StringType{})
+		}
 	} else {
-		data.Nodekey = types.StringNull()
-	}
-	if v, ok := api.Config["network"].(string); ok {
-		data.Network = types.StringValue(v)
-	} else {
-		data.Network = types.StringNull()
-	}
-	if v, ok := api.Config["mode"].(string); ok {
-		data.Mode = types.StringValue(v)
-	} else {
-		data.Mode = types.StringValue("active")
-	}
-	if v, ok := api.Config["logLevel"].(string); ok {
-		data.Loglevel = types.StringValue(v)
-	} else {
-		data.Loglevel = types.StringValue("INFO")
+		data.Custombesuargs = basetypes.NewListNull(basetypes.StringType{})
 	}
 	if v, ok := api.Config["dataStorageFormat"].(string); ok {
 		data.Datastorageformat = types.StringValue(v)
 	} else {
 		data.Datastorageformat = types.StringValue("BONSAI")
 	}
-	if apisenabledData := api.Config["apisEnabled"]; apisenabledData != nil {
-		if apisenabledJSON, err := json.Marshal(apisenabledData); err == nil {
-			data.Apisenabled = types.StringValue(string(apisenabledJSON))
-		} else {
-			data.Apisenabled = types.StringNull()
-		}
+	if v, ok := api.Config["gasPrice"].(string); ok {
+		data.Gasprice = types.StringValue(v)
 	} else {
-		data.Apisenabled = types.StringNull()
+		data.Gasprice = types.StringValue("0")
 	}
-	if v, ok := api.Config["targetGasLimit"].(float64); ok {
-		data.Targetgaslimit = types.Int64Value(int64(v))
+	if v, ok := api.Config["logLevel"].(string); ok {
+		data.Loglevel = types.StringValue(v)
 	} else {
-		data.Targetgaslimit = types.Int64Null()
+		data.Loglevel = types.StringValue("INFO")
+	}
+	if v, ok := api.Config["mode"].(string); ok {
+		data.Mode = types.StringValue(v)
+	} else {
+		data.Mode = types.StringValue("active")
+	}
+	if v, ok := api.Config["network"].(string); ok {
+		data.Network = types.StringValue(v)
+	} else {
+		data.Network = types.StringNull()
+	}
+	if credset, ok := api.Credsets["nodeKey"]; ok && credset.Key != nil {
+		data.Nodekey = types.StringValue(credset.Key.Value)
+	} else {
+		data.Nodekey = types.StringNull()
 	}
 	if v, ok := api.Config["signer"].(bool); ok {
 		data.Signer = types.BoolValue(v)
@@ -299,10 +306,10 @@ func (api *ServiceAPIModel) toBesuNodeServiceData(data *BesuNodeServiceResourceM
 	} else {
 		data.Syncmode = types.StringValue("FULL")
 	}
-	if v, ok := api.Config["gasPrice"].(string); ok {
-		data.Gasprice = types.StringValue(v)
+	if v, ok := api.Config["targetGasLimit"].(float64); ok {
+		data.Targetgaslimit = types.Int64Value(int64(v))
 	} else {
-		data.Gasprice = types.StringValue("0")
+		data.Targetgaslimit = types.Int64Null()
 	}
 }
 

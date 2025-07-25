@@ -16,6 +16,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -38,15 +39,20 @@ type BlockIndexerServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	Contractmanager         types.String `tfsdk:"contractmanager"`
-	Enabletracetransactions types.Bool `tfsdk:"enabletracetransactions"`
-	Evmgateway              types.String `tfsdk:"evmgateway"`
-	Maxworkqueuesize        types.Int64 `tfsdk:"maxworkqueuesize"`
-	Node                    types.String `tfsdk:"node"`
-	Requiredconfirmations   types.Int64 `tfsdk:"requiredconfirmations"`
-	Rpcclient types.String `tfsdk:"rpcclient"`
-	Startingblock           types.String `tfsdk:"startingblock"`
-	Ui                      types.String `tfsdk:"ui"`
+	Contractmanager         types.String `tfsdk:"contract_manager"`
+	Enabletracetransactions types.Bool `tfsdk:"enable_trace_transactions"`
+	Evmgateway              types.String `tfsdk:"evm_gateway"`
+	Maxworkqueuesize        types.Int64 `tfsdk:"max_work_queue_size"`
+	Requiredconfirmations   types.Int64 `tfsdk:"required_confirmations"`
+	JsonrpcAuth             types.String `tfsdk:"jsonrpc_auth"`
+	JsonrpcHeaders          types.String `tfsdk:"jsonrpc_headers"`
+	JsonrpcPassthroughheadersenabled types.Bool `tfsdk:"passthrough_headers_enabled"`
+	JsonrpcProxyURL         types.String `tfsdk:"jsonrpc_proxy_url"`
+	JsonrpcThrottle         types.String `tfsdk:"jsonrpc_throttle"`
+	JsonrpcURL              types.String `tfsdk:"jsonrpc_url"`
+	JsonrpcWebsocketurl     types.String `tfsdk:"jsonrpc_websocketurl"`
+	Startingblock           types.String `tfsdk:"starting_block"`
+	Ui                      types.String `tfsdk:"ui_config"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 }
 
@@ -92,47 +98,70 @@ func (r *blockindexerserviceResource) Schema(_ context.Context, _ resource.Schem
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Stack ID where the BlockIndexer service belongs",
 			},
-			"contractmanager": &schema.StringAttribute{
+			"contract_manager": &schema.StringAttribute{
 				Optional:    true,
 				Description: "The Smart Contract Manager will link your custom contracts with the Block Indexer to be able to decode transactions.",
 			},
-			"enabletracetransactions": &schema.BoolAttribute{
+			"enable_trace_transactions": &schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
 				Description: "Enables indexing of internal transactions",
 			},
-			"evmgateway": &schema.StringAttribute{
+			"evm_gateway": &schema.StringAttribute{
 				Optional:    true,
 				Description: "An EVM gateway providing a JSONRPC endpoint. Specify this instead of providing a node or a JSONRPC endpoint.",
 			},
-			"maxworkqueuesize": &schema.Int64Attribute{
+			"max_work_queue_size": &schema.Int64Attribute{
 				Optional:    true,
 				Computed:    true,
 				Default:     int64default.StaticInt64(5),
 				Description: "Maximum number of workers for indexing blocks concurrently",
 			},
-			"node": &schema.StringAttribute{
-				Optional:    true,
-				Description: "A node providing a JSONRPC endpoint. Specify this instead of providing an EVM gateway or a JSONRPC endpoint.",
-			},
-			"requiredconfirmations": &schema.Int64Attribute{
+			"required_confirmations": &schema.Int64Attribute{
 				Optional:    true,
 				Computed:    true,
 				Default:     int64default.StaticInt64(0),
 				Description: "Number of confirmations required to index a block",
 			},
-			"rpcclient": &schema.StringAttribute{
+			"jsonrpc_auth": &schema.StringAttribute{
 				Optional:    true,
-				Description: "The JSON/RPC endpoint connection. Specify this connection instead of providing an EVM gateway or a node.",
+				Sensitive:   true,
+				Description: "auth",
 			},
-			"startingblock": &schema.StringAttribute{
+			"jsonrpc_headers": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Adds custom headers to the requests, format needs to be a JSON object",
+			},
+			"passthrough_headers_enabled": &schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "Whether the HTTP client should pass through any HTTP headers found on the context",
+			},
+			"jsonrpc_proxy_url": &schema.StringAttribute{
+				Optional:    true,
+				Description: "URL",
+			},
+			"jsonrpc_throttle": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Throttle configuration for the JSON/RPC client",
+			},
+			"jsonrpc_url": &schema.StringAttribute{
+				Optional:    true,
+				Description: "The JSON/RPC endpoint URL",
+			},
+			"jsonrpc_websocketurl": &schema.StringAttribute{
+				Optional:    true,
+				Description: "The JSON/RPC websocket URL",
+			},
+			"starting_block": &schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("0"),
 				Description: "The block to start indexing from. Provide a block number or 'latest'",
 			},
-			"ui": &schema.StringAttribute{
+			"ui_config": &schema.StringAttribute{
 				Optional:    true,
 				Description: "UI branding & style configurations",
 			},
@@ -151,9 +180,10 @@ func (data *BlockIndexerServiceResourceModel) toBlockIndexerServiceAPI(ctx conte
 	api.Runtime.ID = data.Runtime.ValueString()
 	api.Config = make(map[string]interface{})
 
-	if !data.Ui.IsNull() && data.Ui.ValueString() != "" {
-		api.Config["ui"] = data.Ui.ValueString()
+	api.Config["contractManager"] = map[string]interface{}{
+		"id": data.Contractmanager.ValueString(),
 	}
+	api.Config["enableTraceTransactions"] = data.Enabletracetransactions.ValueBool()
 	api.Config["evmGateway"] = map[string]interface{}{
 		"id": data.Evmgateway.ValueString(),
 	}
@@ -163,16 +193,73 @@ func (data *BlockIndexerServiceResourceModel) toBlockIndexerServiceAPI(ctx conte
 	if !data.Requiredconfirmations.IsNull() {
 		api.Config["requiredConfirmations"] = data.Requiredconfirmations.ValueInt64()
 	}
+	// Handle rpcClient flattened fields
+	rpcclientConfig := make(map[string]interface{})
+	if !data.JsonrpcAuth.IsNull() && data.JsonrpcAuth.ValueString() != "" {
+		if api.Credsets == nil {
+			api.Credsets = make(map[string]*CredSetAPI)
+		}
+		api.Credsets["rpcAuth"] = &CredSetAPI{
+			Name: "rpcAuth",
+			Type: "basic_auth",
+			Key: &CredSetKeyAPI{
+				Value: data.JsonrpcAuth.ValueString(),
+			},
+		}
+		rpcclientConfig["auth"] = map[string]interface{}{
+			"credSetRef": "rpcAuth",
+		}
+	}
+	// Handle JsonrpcHeaders as JSON
+	if !data.JsonrpcHeaders.IsNull() && data.JsonrpcHeaders.ValueString() != "" {
+		var jsonrpcheadersData interface{}
+		err := json.Unmarshal([]byte(data.JsonrpcHeaders.ValueString()), &jsonrpcheadersData)
+		if err != nil {
+			diagnostics.AddAttributeError(
+				path.Root("headers"),
+				"Failed to parse JsonrpcHeaders",
+				err.Error(),
+			)
+		} else {
+			rpcclientConfig["headers"] = jsonrpcheadersData
+		}
+	}
+	if !data.JsonrpcPassthroughheadersenabled.IsNull() {
+		rpcclientConfig["passthroughHeadersEnabled"] = data.JsonrpcPassthroughheadersenabled.ValueBool()
+	}
+	if !data.JsonrpcproxyURL.IsNull() && data.JsonrpcproxyURL.ValueString() != "" {
+		rpcclientConfig["url"] = data.JsonrpcproxyURL.ValueString()
+	}
+	// Handle JsonrpcThrottle as JSON
+	if !data.JsonrpcThrottle.IsNull() && data.JsonrpcThrottle.ValueString() != "" {
+		var jsonrpcthrottleData interface{}
+		err := json.Unmarshal([]byte(data.JsonrpcThrottle.ValueString()), &jsonrpcthrottleData)
+		if err != nil {
+			diagnostics.AddAttributeError(
+				path.Root("throttle"),
+				"Failed to parse JsonrpcThrottle",
+				err.Error(),
+			)
+		} else {
+			rpcclientConfig["throttle"] = jsonrpcthrottleData
+		}
+	}
+	if !data.JsonrpcURL.IsNull() && data.JsonrpcURL.ValueString() != "" {
+		rpcclientConfig["url"] = data.JsonrpcURL.ValueString()
+	}
+	if !data.JsonrpcWebsocketurl.IsNull() && data.JsonrpcWebsocketurl.ValueString() != "" {
+		rpcclientConfig["websocketURL"] = data.JsonrpcWebsocketurl.ValueString()
+	}
+	// Set the config if any fields were set
+	if len(rpcclientConfig) > 0 {
+		api.Config["rpcClient"] = rpcclientConfig
+	}
 	if !data.Startingblock.IsNull() && data.Startingblock.ValueString() != "" {
 		api.Config["startingBlock"] = data.Startingblock.ValueString()
 	}
-	api.Config["node"] = map[string]interface{}{
-		"id": data.Node.ValueString(),
+	if !data.Ui.IsNull() && data.Ui.ValueString() != "" {
+		api.Config["ui"] = data.Ui.ValueString()
 	}
-	api.Config["contractManager"] = map[string]interface{}{
-		"id": data.Contractmanager.ValueString(),
-	}
-	api.Config["enableTraceTransactions"] = data.Enabletracetransactions.ValueBool()
 }
 
 func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceResourceModel, diagnostics *diag.Diagnostics) {
@@ -182,15 +269,15 @@ func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceR
 	data.Name = types.StringValue(api.Name)
 	data.StackID = types.StringValue(api.StackID)
 
+	if v, ok := api.Config["contractManager"].(map[string]interface{}); ok {
+		if id, ok := v["id"].(string); ok {
+			data.Contractmanager = types.StringValue(id)
+		}
+	}
 	if v, ok := api.Config["enableTraceTransactions"].(bool); ok {
 		data.Enabletracetransactions = types.BoolValue(v)
 	} else {
 		data.Enabletracetransactions = types.BoolValue(false)
-	}
-	if v, ok := api.Config["ui"].(string); ok {
-		data.Ui = types.StringValue(v)
-	} else {
-		data.Ui = types.StringNull()
 	}
 	if v, ok := api.Config["evmGateway"].(map[string]interface{}); ok {
 		if id, ok := v["id"].(string); ok {
@@ -207,20 +294,69 @@ func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceR
 	} else {
 		data.Requiredconfirmations = types.Int64Value(0)
 	}
+	// Extract rpcClient flattened fields
+	if rpcclientConfig, ok := api.Config["rpcClient"].(map[string]interface{}); ok {
+	if credset, ok := api.Credsets["rpcAuth"]; ok && credset.Key != nil {
+		data.JsonrpcAuth = types.StringValue(credset.Key.Value)
+	} else {
+		data.JsonrpcAuth = types.StringNull()
+	}
+		if headersData := api.Config["headers"]; headersData != nil {
+		if headersJSON, err := json.Marshal(headersData); err == nil {
+			data.JsonrpcHeaders = types.StringValue(string(headersJSON))
+		} else {
+			data.JsonrpcHeaders = types.StringNull()
+		}
+	} else {
+		data.JsonrpcHeaders = types.StringNull()
+	}
+	if v, ok := rpcclientConfig["passthroughHeadersEnabled"].(bool); ok {
+		data.JsonrpcPassthroughheadersenabled = types.BoolValue(v)
+	} else {
+		data.JsonrpcPassthroughheadersenabled = types.BoolValue(false)
+	}
+	if v, ok := rpcclientConfig["url"].(string); ok {
+		data.JsonrpcproxyURL = types.StringValue(v)
+	} else {
+		data.JsonrpcproxyURL = types.StringNull()
+	}
+		if throttleData := api.Config["throttle"]; throttleData != nil {
+		if throttleJSON, err := json.Marshal(throttleData); err == nil {
+			data.JsonrpcThrottle = types.StringValue(string(throttleJSON))
+		} else {
+			data.JsonrpcThrottle = types.StringNull()
+		}
+	} else {
+		data.JsonrpcThrottle = types.StringNull()
+	}
+	if v, ok := rpcclientConfig["url"].(string); ok {
+		data.JsonrpcURL = types.StringValue(v)
+	} else {
+		data.JsonrpcURL = types.StringNull()
+	}
+	if v, ok := rpcclientConfig["websocketURL"].(string); ok {
+		data.JsonrpcWebsocketurl = types.StringValue(v)
+	} else {
+		data.JsonrpcWebsocketurl = types.StringNull()
+	}
+	} else {
+		data.JsonrpcAuth = types.StringNull()
+		data.JsonrpcHeaders = types.StringNull()
+		data.JsonrpcPassthroughheadersenabled = types.BoolNull()
+		data.JsonrpcProxy = types.StringNull()
+		data.JsonrpcThrottle = types.StringNull()
+		data.JsonrpcURL = types.StringNull()
+		data.JsonrpcWebsocketurl = types.StringNull()
+	}
 	if v, ok := api.Config["startingBlock"].(string); ok {
 		data.Startingblock = types.StringValue(v)
 	} else {
 		data.Startingblock = types.StringValue("0")
 	}
-	if v, ok := api.Config["node"].(map[string]interface{}); ok {
-		if id, ok := v["id"].(string); ok {
-			data.Node = types.StringValue(id)
-		}
-	}
-	if v, ok := api.Config["contractManager"].(map[string]interface{}); ok {
-		if id, ok := v["id"].(string); ok {
-			data.Contractmanager = types.StringValue(id)
-		}
+	if v, ok := api.Config["ui"].(string); ok {
+		data.Ui = types.StringValue(v)
+	} else {
+		data.Ui = types.StringNull()
 	}
 }
 
