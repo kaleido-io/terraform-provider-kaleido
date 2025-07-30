@@ -14,323 +14,298 @@
 // limitations under the License.
 package platform
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
+// import (
+// 	"context"
+// 	"encoding/json"
+// 	"fmt"
+// 	"net/http"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-)
+// 	"github.com/hashicorp/terraform-plugin-framework/diag"
+// 	"github.com/hashicorp/terraform-plugin-framework/path"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+// 	"github.com/hashicorp/terraform-plugin-framework/types"
+// )
 
-type PrivateDataManagerServiceResourceModel struct {
-	ID                  types.String `tfsdk:"id"`
-	Environment         types.String `tfsdk:"environment"`
-	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
-	Runtime             types.String `tfsdk:"runtime"`
-	Name                types.String `tfsdk:"name"`
-	StackID             types.String `tfsdk:"stack_id"`
-	CertificateCa    types.String `tfsdk:"certificate_ca"`
-	CertificateCert  types.String `tfsdk:"certificate_cert"`
-	CertificateKey   types.String `tfsdk:"certificate_key"`
-	Dataexchangetype types.String `tfsdk:"data_exchange_type"`
-	HttpsNetworkingtype types.String `tfsdk:"networking_type"`
-	HttpsPeerid      types.String `tfsdk:"peer_id"`
-	ForceDelete         types.Bool   `tfsdk:"force_delete"`
-}
+// type PrivateDataManagerServiceResourceModel struct {
+// 	ID                  types.String `tfsdk:"id"`
+// 	Environment         types.String `tfsdk:"environment"`
+// 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
+// 	Runtime             types.String `tfsdk:"runtime"`
+// 	Name                types.String `tfsdk:"name"`
+// 	StackID             types.String `tfsdk:"stack_id"`
+// 	Certificateca       types.String `tfsdk:"certificateca"`
+// 	Certificatecert     types.String `tfsdk:"certificatecert"`
+// 	Certificatekey      types.String `tfsdk:"certificatekey"`
+// 	Dataexchangetype    types.String `tfsdk:"data_exchange_type"`
+// 	Httpspeerid         types.String `tfsdk:"peer_id"`
+// 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
+// }
 
-func PrivateDataManagerServiceResourceFactory() resource.Resource {
-	return &privatedatamanagerserviceResource{}
-}
+// func PrivateDataManagerServiceResourceFactory() resource.Resource {
+// 	return &privatedatamanagerserviceResource{}
+// }
 
-type privatedatamanagerserviceResource struct {
-	commonResource
-}
+// type privatedatamanagerserviceResource struct {
+// 	commonResource
+// }
 
-func (r *privatedatamanagerserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_privatedatamanager"
-}
+// func (r *privatedatamanagerserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+// 	resp.TypeName = "kaleido_platform_privatedatamanager"
+// }
 
-func (r *privatedatamanagerserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		Description: "",
-		Attributes: map[string]schema.Attribute{
-			"id": &schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"environment": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the PrivateDataManager service will be deployed",
-			},
-			"environment_member_id": &schema.StringAttribute{
-				Computed: true,
-			},
-			"runtime": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime ID where the PrivateDataManager service will be deployed",
-			},
-			"name": &schema.StringAttribute{
-				Required:    true,
-				Description: "Display name for the PrivateDataManager service",
-			},
-			"stack_id": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack ID where the PrivateDataManager service belongs",
-			},
-			"certificate_ca": &schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "",
-			},
-			"certificate_cert": &schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "",
-			},
-			"certificate_key": &schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "",
-			},
-			"data_exchange_type": &schema.StringAttribute{
-				Optional:    true,
-				Description: "",
-			},
-			"networking_type": &schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("instance_local"),
-				Description: "The type of networking to expose for data exchange with other runtimes",
-			},
-			"peer_id": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The peerId uniquely identifying the HTTPS Data Exchange",
-			},
-			"force_delete": &schema.BoolAttribute{
-				Optional:    true,
-				Description: "Set to true when you plan to delete a protected PrivateDataManager service. You must apply this value before running terraform destroy.",
-			},
-		},
-	}
-}
+// func (r *privatedatamanagerserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+// 	resp.Schema = schema.Schema{
+// 		Description: "",
+// 		Attributes: map[string]schema.Attribute{
+// 			"id": &schema.StringAttribute{
+// 				Computed:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+// 			},
+// 			"environment": &schema.StringAttribute{
+// 				Required:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+// 				Description:   "Environment ID where the PrivateDataManager service will be deployed",
+// 			},
+// 			"environment_member_id": &schema.StringAttribute{
+// 				Computed: true,
+// 			},
+// 			"runtime": &schema.StringAttribute{
+// 				Required:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+// 				Description:   "Runtime ID where the PrivateDataManager service will be deployed",
+// 			},
+// 			"name": &schema.StringAttribute{
+// 				Required:    true,
+// 				Description: "Display name for the PrivateDataManager service",
+// 			},
+// 			"stack_id": &schema.StringAttribute{
+// 				Required:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+// 				Description:   "Stack ID where the PrivateDataManager service belongs",
+// 			},
+// 			"certificateca": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "",
+// 			},
+// 			"certificatecert": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "",
+// 			},
+// 			"certificatekey": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Sensitive:   true,
+// 				Description: "",
+// 			},
+// 			"data_exchange_type": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "",
+// 			},
+// 			"peer_id": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "The peerId uniquely identifying the HTTPS Data Exchange",
+// 			},
+// 			"force_delete": &schema.BoolAttribute{
+// 				Optional:    true,
+// 				Description: "Set to true when you plan to delete a protected PrivateDataManager service. You must apply this value before running terraform destroy.",
+// 			},
+// 		},
+// 	}
+// }
 
-func (data *PrivateDataManagerServiceResourceModel) toPrivateDataManagerServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
-	api.Type = "PrivateDataManagerService"
-	api.Name = data.Name.ValueString()
-	api.StackID = data.StackID.ValueString()
-	api.Runtime.ID = data.Runtime.ValueString()
-	api.Config = make(map[string]interface{})
+// func (data *PrivateDataManagerServiceResourceModel) toPrivateDataManagerServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
+// 	api.Type = "PrivateDataManagerService"
+// 	api.Name = data.Name.ValueString()
+// 	api.StackID = data.StackID.ValueString()
+// 	api.Runtime.ID = data.Runtime.ValueString()
+// 	api.Config = make(map[string]interface{})
 
-	// Handle certificate flattened fields
-	certificateConfig := make(map[string]interface{})
-	caNestedConfig := make(map[string]interface{})
-	if !data.CertificatecaFileref.IsNull() && data.CertificatecaFileref.ValueString() != "" {
-		caConfig["fileRef"] = data.CertificatecaFileref.ValueString()
-	}
-	if len(caNestedConfig) > 0 {
-		certificateConfig["ca"] = caNestedConfig
-	}
-	certNestedConfig := make(map[string]interface{})
-	if !data.CertificatecertFileref.IsNull() && data.CertificatecertFileref.ValueString() != "" {
-		certConfig["fileRef"] = data.CertificatecertFileref.ValueString()
-	}
-	if len(certNestedConfig) > 0 {
-		certificateConfig["cert"] = certNestedConfig
-	}
-	keyNestedConfig := make(map[string]interface{})
-	if !data.CertificatekeyFileref.IsNull() && data.CertificatekeyFileref.ValueString() != "" {
-		keyConfig["fileRef"] = data.CertificatekeyFileref.ValueString()
-	}
-	if len(keyNestedConfig) > 0 {
-		certificateConfig["key"] = keyNestedConfig
-	}
-	// Set the config if any fields were set
-	if len(certificateConfig) > 0 {
-		api.Config["certificate"] = certificateConfig
-	}
-	if !data.Dataexchangetype.IsNull() && data.Dataexchangetype.ValueString() != "" {
-		api.Config["dataExchangeType"] = data.Dataexchangetype.ValueString()
-	}
-	// Handle https flattened fields
-	httpsConfig := make(map[string]interface{})
-	if !data.HttpsNetworkingtype.IsNull() && data.HttpsNetworkingtype.ValueString() != "" {
-		httpsConfig["networkingType"] = data.HttpsNetworkingtype.ValueString()
-	}
-	if !data.HttpsPeerid.IsNull() && data.HttpsPeerid.ValueString() != "" {
-		httpsConfig["peerId"] = data.HttpsPeerid.ValueString()
-	}
-	// Set the config if any fields were set
-	if len(httpsConfig) > 0 {
-		api.Config["https"] = httpsConfig
-	}
-}
+// 	// Handle certificate flattened fields
+// 	certificateConfig := make(map[string]interface{})
+// 	if !data.Certificateca.IsNull() && data.Certificateca.ValueString() != "" {
+// 		certificateConfig["ca"] = map[string]interface{}{
+// 			"fileRef": data.Certificateca.ValueString(),
+// 		}
+// 	}
+// 	if !data.Certificatecert.IsNull() && data.Certificatecert.ValueString() != "" {
+// 		certificateConfig["cert"] = map[string]interface{}{
+// 			"fileRef": data.Certificatecert.ValueString(),
+// 		}
+// 	}
+// 	if !data.Certificatekey.IsNull() && data.Certificatekey.ValueString() != "" {
+// 		certificateConfig["key"] = map[string]interface{}{
+// 			"fileRef": data.Certificatekey.ValueString(),
+// 		}
+// 	}
+// 	// Set the config if any fields were set
+// 	if len(certificateConfig) > 0 {
+// 		api.Config["certificate"] = certificateConfig
+// 	}
+// 	if !data.Dataexchangetype.IsNull() && data.Dataexchangetype.ValueString() != "" {
+// 		api.Config["dataExchangeType"] = data.Dataexchangetype.ValueString()
+// 	}
+// 	// Handle https flattened fields
+// 	httpsConfig := make(map[string]interface{})
+// 	if !data.Httpspeerid.IsNull() && data.Httpspeerid.ValueString() != "" {
+// 		httpsConfig["peerId"] = data.Httpspeerid.ValueString()
+// 	}
+// 	// Set the config if any fields were set
+// 	if len(httpsConfig) > 0 {
+// 		api.Config["https"] = httpsConfig
+// 	}
+// }
 
-func (api *ServiceAPIModel) toPrivateDataManagerServiceData(data *PrivateDataManagerServiceResourceModel, diagnostics *diag.Diagnostics) {
-	data.ID = types.StringValue(api.ID)
-	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
-	data.Runtime = types.StringValue(api.Runtime.ID)
-	data.Name = types.StringValue(api.Name)
-	data.StackID = types.StringValue(api.StackID)
+// func (api *ServiceAPIModel) toPrivateDataManagerServiceData(data *PrivateDataManagerServiceResourceModel, diagnostics *diag.Diagnostics) {
+// 	data.ID = types.StringValue(api.ID)
+// 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+// 	data.Runtime = types.StringValue(api.Runtime.ID)
+// 	data.Name = types.StringValue(api.Name)
+// 	data.StackID = types.StringValue(api.StackID)
 
-	// Extract certificate flattened fields
-	if certificateConfig, ok := api.Config["certificate"].(map[string]interface{}); ok {
-	if caNested, ok := certificateConfig["ca"].(map[string]interface{}); ok {
-	if v, ok := caNested["fileRef"].(string); ok {
-		data.CertificatecaFileref = types.StringValue(v)
-	} else {
-		data.CertificatecaFileref = types.StringNull()
-	}
-} else {
-	data.CertificatecaFileref = types.StringNull()
-}
-	if certNested, ok := certificateConfig["cert"].(map[string]interface{}); ok {
-	if v, ok := certNested["fileRef"].(string); ok {
-		data.CertificatecertFileref = types.StringValue(v)
-	} else {
-		data.CertificatecertFileref = types.StringNull()
-	}
-} else {
-	data.CertificatecertFileref = types.StringNull()
-}
-	if keyNested, ok := certificateConfig["key"].(map[string]interface{}); ok {
-	if v, ok := keyNested["fileRef"].(string); ok {
-		data.CertificatekeyFileref = types.StringValue(v)
-	} else {
-		data.CertificatekeyFileref = types.StringNull()
-	}
-} else {
-	data.CertificatekeyFileref = types.StringNull()
-}
-	} else {
-		data.CertificateCa = types.StringNull()
-		data.CertificateCert = types.StringNull()
-		data.CertificateKey = types.StringNull()
-	}
-	if v, ok := api.Config["dataExchangeType"].(string); ok {
-		data.Dataexchangetype = types.StringValue(v)
-	} else {
-		data.Dataexchangetype = types.StringNull()
-	}
-	// Extract https flattened fields
-	if httpsConfig, ok := api.Config["https"].(map[string]interface{}); ok {
-	if v, ok := httpsConfig["networkingType"].(string); ok {
-		data.HttpsNetworkingtype = types.StringValue(v)
-	} else {
-		data.HttpsNetworkingtype = types.StringValue("instance_local")
-	}
-	if v, ok := httpsConfig["peerId"].(string); ok {
-		data.HttpsPeerid = types.StringValue(v)
-	} else {
-		data.HttpsPeerid = types.StringNull()
-	}
-	} else {
-		data.HttpsNetworkingtype = types.StringNull()
-		data.HttpsPeerid = types.StringNull()
-	}
-}
+// 	// Extract certificate flattened fields
+// 	if certificateConfig, ok := api.Config["certificate"].(map[string]interface{}); ok {
+// 		if caNested, ok := certificateConfig["ca"].(map[string]interface{}); ok {
+// 			if v, ok := caNested["fileRef"].(string); ok {
+// 				data.Certificateca = types.StringValue(v)
+// 			} else {
+// 				data.Certificateca = types.StringNull()
+// 			}
+// 		} else {
+// 			data.Certificateca = types.StringNull()
+// 		}
+// 		if certNested, ok := certificateConfig["cert"].(map[string]interface{}); ok {
+// 			if v, ok := certNested["fileRef"].(string); ok {
+// 				data.Certificatecert = types.StringValue(v)
+// 			} else {
+// 				data.Certificatecert = types.StringNull()
+// 			}
+// 		} else {
+// 			data.Certificatecert = types.StringNull()
+// 		}
+// 		if keyNested, ok := certificateConfig["key"].(map[string]interface{}); ok {
+// 			if v, ok := keyNested["fileRef"].(string); ok {
+// 				data.Certificatekey = types.StringValue(v)
+// 			} else {
+// 				data.Certificatekey = types.StringNull()
+// 			}
+// 		} else {
+// 			data.Certificatekey = types.StringNull()
+// 		}
+// 	} else {
+// 		data.Certificateca = types.StringNull()
+// 		data.Certificatecert = types.StringNull()
+// 		data.Certificatekey = types.StringNull()
+// 	}
+// 	if v, ok := api.Config["dataExchangeType"].(string); ok {
+// 		data.Dataexchangetype = types.StringValue(v)
+// 	} else {
+// 		data.Dataexchangetype = types.StringNull()
+// 	}
+// 	// Extract https flattened fields
+// 	if httpsConfig, ok := api.Config["https"].(map[string]interface{}); ok {
+// 		if v, ok := httpsConfig["peerId"].(string); ok {
+// 			data.Httpspeerid = types.StringValue(v)
+// 		} else {
+// 			data.Httpspeerid = types.StringNull()
+// 		}
+// 	} else {
+// 		data.Httpspeerid = types.StringNull()
+// 	}
+// }
 
-func (r *privatedatamanagerserviceResource) apiPath(data *PrivateDataManagerServiceResourceModel) string {
-	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
-	if data.ID.ValueString() != "" {
-		path = path + "/" + data.ID.ValueString()
-	}
-	if !data.ForceDelete.IsNull() && data.ForceDelete.ValueBool() {
-		path = path + "?force=true"
-	}
-	return path
-}
+// func (r *privatedatamanagerserviceResource) apiPath(data *PrivateDataManagerServiceResourceModel) string {
+// 	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
+// 	if data.ID.ValueString() != "" {
+// 		path = path + "/" + data.ID.ValueString()
+// 	}
+// 	if !data.ForceDelete.IsNull() && data.ForceDelete.ValueBool() {
+// 		path = path + "?force=true"
+// 	}
+// 	return path
+// }
 
-func (r *privatedatamanagerserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data PrivateDataManagerServiceResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+// func (r *privatedatamanagerserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+// 	var data PrivateDataManagerServiceResourceModel
+// 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	var api ServiceAPIModel
-	data.toPrivateDataManagerServiceAPI(ctx, &api, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+// 	var api ServiceAPIModel
+// 	data.toPrivateDataManagerServiceAPI(ctx, &api, &resp.Diagnostics)
+// 	if resp.Diagnostics.HasError() {
+// 		return
+// 	}
 
-	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
-	if !ok {
-		return
-	}
+// 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+// 	if !ok {
+// 		return
+// 	}
 
-	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+// 	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
+// 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	api.ID = data.ID.ValueString()
-	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
-	if !ok {
-		return
-	}
+// 	api.ID = data.ID.ValueString()
+// 	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
+// 	if !ok {
+// 		return
+// 	}
 
-	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
-	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-}
+// 	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
+// 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+// }
 
-func (r *privatedatamanagerserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data PrivateDataManagerServiceResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+// func (r *privatedatamanagerserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+// 	var data PrivateDataManagerServiceResourceModel
+// 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+// 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
-	var api ServiceAPIModel
-	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
-		return
-	}
+// 	var api ServiceAPIModel
+// 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+// 		return
+// 	}
 
-	data.toPrivateDataManagerServiceAPI(ctx, &api, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+// 	data.toPrivateDataManagerServiceAPI(ctx, &api, &resp.Diagnostics)
+// 	if resp.Diagnostics.HasError() {
+// 		return
+// 	}
 
-	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
-		return
-	}
+// 	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+// 		return
+// 	}
 
-	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+// 	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
+// 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
-		return
-	}
-	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
-	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-}
+// 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+// 		return
+// 	}
+// 	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
+// 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+// }
 
-func (r *privatedatamanagerserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data PrivateDataManagerServiceResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+// func (r *privatedatamanagerserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+// 	var data PrivateDataManagerServiceResourceModel
+// 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var api ServiceAPIModel
-	api.ID = data.ID.ValueString()
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
-	if !ok {
-		return
-	}
-	if status == 404 {
-		resp.State.RemoveResource(ctx)
-		return
-	}
+// 	var api ServiceAPIModel
+// 	api.ID = data.ID.ValueString()
+// 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
+// 	if !ok {
+// 		return
+// 	}
+// 	if status == 404 {
+// 		resp.State.RemoveResource(ctx)
+// 		return
+// 	}
 
-	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
-	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-}
+// 	api.toPrivateDataManagerServiceData(&data, &resp.Diagnostics)
+// 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+// }
 
-func (r *privatedatamanagerserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data PrivateDataManagerServiceResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+// func (r *privatedatamanagerserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+// 	var data PrivateDataManagerServiceResourceModel
+// 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
-	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
-}
+// 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
+// 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
+// }

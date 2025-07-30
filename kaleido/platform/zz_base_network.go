@@ -24,8 +24,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -33,7 +33,7 @@ type BaseNetworkResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Environment types.String `tfsdk:"environment"`
 	Name        types.String `tfsdk:"name"`
-	Chain types.String `tfsdk:"chain"`
+	Chain       types.String `tfsdk:"chain"`
 	InitMode    types.String `tfsdk:"init_mode"`
 	ForceDelete types.Bool   `tfsdk:"force_delete"`
 }
@@ -73,6 +73,7 @@ func (r *basenetworkResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"init_mode": &schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Default:     stringdefault.StaticString("automated"),
 				Description: "Initialization mode for the network (automated or manual)",
 			},

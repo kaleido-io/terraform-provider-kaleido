@@ -14,443 +14,387 @@
 // limitations under the License.
 package platform
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
+// import (
+// 	"context"
+// 	"encoding/json"
+// 	"fmt"
+// 	"net/http"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-)
+// 	"github.com/hashicorp/terraform-plugin-framework/diag"
+// 	"github.com/hashicorp/terraform-plugin-framework/path"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+// 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+// 	"github.com/hashicorp/terraform-plugin-framework/types"
+// )
 
-type BlockIndexerServiceResourceModel struct {
-	ID                  types.String `tfsdk:"id"`
-	Environment         types.String `tfsdk:"environment"`
-	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
-	Runtime             types.String `tfsdk:"runtime"`
-	Name                types.String `tfsdk:"name"`
-	StackID             types.String `tfsdk:"stack_id"`
-	Contractmanager         types.String `tfsdk:"contract_manager"`
-	Enabletracetransactions types.Bool `tfsdk:"enable_trace_transactions"`
-	Evmgateway              types.String `tfsdk:"evm_gateway"`
-	Maxworkqueuesize        types.Int64 `tfsdk:"max_work_queue_size"`
-	Requiredconfirmations   types.Int64 `tfsdk:"required_confirmations"`
-	JsonrpcAuth             types.String `tfsdk:"jsonrpc_auth"`
-	JsonrpcHeaders          types.String `tfsdk:"jsonrpc_headers"`
-	JsonrpcPassthroughheadersenabled types.Bool `tfsdk:"passthrough_headers_enabled"`
-	JsonrpcProxyURL         types.String `tfsdk:"jsonrpc_proxy_url"`
-	JsonrpcThrottle         types.String `tfsdk:"jsonrpc_throttle"`
-	JsonrpcURL              types.String `tfsdk:"jsonrpc_url"`
-	JsonrpcWebsocketurl     types.String `tfsdk:"jsonrpc_websocketurl"`
-	Startingblock           types.String `tfsdk:"starting_block"`
-	Ui                      types.String `tfsdk:"ui_config"`
-	ForceDelete         types.Bool   `tfsdk:"force_delete"`
-}
+// type BlockIndexerServiceResourceModel struct {
+// 	ID                               types.String `tfsdk:"id"`
+// 	Environment                      types.String `tfsdk:"environment"`
+// 	EnvironmentMemberID              types.String `tfsdk:"environment_member_id"`
+// 	Runtime                          types.String `tfsdk:"runtime"`
+// 	Name                             types.String `tfsdk:"name"`
+// 	StackID                          types.String `tfsdk:"stack_id"`
+// 	Contractmanager                  types.String `tfsdk:"contract_manager"`
+// 	Enabletracetransactions          types.Bool   `tfsdk:"enable_trace_transactions"`
+// 	Evmgateway                       types.String `tfsdk:"evm_gateway"`
+// 	Maxworkqueuesize                 types.Int64  `tfsdk:"max_work_queue_size"`
+// 	Requiredconfirmations            types.Int64  `tfsdk:"required_confirmations"`
+// 	Jsonrpcheaders                   types.String `tfsdk:"jsonrpcheaders"`
+// 	Jsonrpcpassthroughheadersenabled types.Bool   `tfsdk:"passthrough_headers_enabled"`
+// 	ProxyURL                         types.String `tfsdk:"proxy_url"`
+// 	Jsonrpcurl                       types.String `tfsdk:"jsonrpcurl"`
+// 	Jsonrpcwebsocketurl              types.String `tfsdk:"jsonrpcwebsocketurl"`
+// 	Startingblock                    types.String `tfsdk:"starting_block"`
+// 	Ui                               types.String `tfsdk:"ui_config"`
+// 	ForceDelete                      types.Bool   `tfsdk:"force_delete"`
+// }
 
-func BlockIndexerServiceResourceFactory() resource.Resource {
-	return &blockindexerserviceResource{}
-}
+// func BlockIndexerServiceResourceFactory() resource.Resource {
+// 	return &blockindexerserviceResource{}
+// }
 
-type blockindexerserviceResource struct {
-	commonResource
-}
+// type blockindexerserviceResource struct {
+// 	commonResource
+// }
 
-func (r *blockindexerserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_blockindexer"
-}
+// func (r *blockindexerserviceResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+// 	resp.TypeName = "kaleido_platform_blockindexer"
+// }
 
-func (r *blockindexerserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		Description: "",
-		Attributes: map[string]schema.Attribute{
-			"id": &schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"environment": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID where the BlockIndexer service will be deployed",
-			},
-			"environment_member_id": &schema.StringAttribute{
-				Computed: true,
-			},
-			"runtime": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime ID where the BlockIndexer service will be deployed",
-			},
-			"name": &schema.StringAttribute{
-				Required:    true,
-				Description: "Display name for the BlockIndexer service",
-			},
-			"stack_id": &schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack ID where the BlockIndexer service belongs",
-			},
-			"contract_manager": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The Smart Contract Manager will link your custom contracts with the Block Indexer to be able to decode transactions.",
-			},
-			"enable_trace_transactions": &schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "Enables indexing of internal transactions",
-			},
-			"evm_gateway": &schema.StringAttribute{
-				Optional:    true,
-				Description: "An EVM gateway providing a JSONRPC endpoint. Specify this instead of providing a node or a JSONRPC endpoint.",
-			},
-			"max_work_queue_size": &schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(5),
-				Description: "Maximum number of workers for indexing blocks concurrently",
-			},
-			"required_confirmations": &schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     int64default.StaticInt64(0),
-				Description: "Number of confirmations required to index a block",
-			},
-			"jsonrpc_auth": &schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "auth",
-			},
-			"jsonrpc_headers": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Adds custom headers to the requests, format needs to be a JSON object",
-			},
-			"passthrough_headers_enabled": &schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "Whether the HTTP client should pass through any HTTP headers found on the context",
-			},
-			"jsonrpc_proxy_url": &schema.StringAttribute{
-				Optional:    true,
-				Description: "URL",
-			},
-			"jsonrpc_throttle": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Throttle configuration for the JSON/RPC client",
-			},
-			"jsonrpc_url": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The JSON/RPC endpoint URL",
-			},
-			"jsonrpc_websocketurl": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The JSON/RPC websocket URL",
-			},
-			"starting_block": &schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     stringdefault.StaticString("0"),
-				Description: "The block to start indexing from. Provide a block number or 'latest'",
-			},
-			"ui_config": &schema.StringAttribute{
-				Optional:    true,
-				Description: "UI branding & style configurations",
-			},
-			"force_delete": &schema.BoolAttribute{
-				Optional:    true,
-				Description: "Set to true when you plan to delete a protected BlockIndexer service. You must apply this value before running terraform destroy.",
-			},
-		},
-	}
-}
+// func (r *blockindexerserviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+// 	resp.Schema = schema.Schema{
+// 		Description: "",
+// 		Attributes: map[string]schema.Attribute{
+// 			"id": &schema.StringAttribute{
+// 				Computed:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+// 			},
+// 			"environment": &schema.StringAttribute{
+// 				Required:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+// 				Description:   "Environment ID where the BlockIndexer service will be deployed",
+// 			},
+// 			"environment_member_id": &schema.StringAttribute{
+// 				Computed: true,
+// 			},
+// 			"runtime": &schema.StringAttribute{
+// 				Required:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+// 				Description:   "Runtime ID where the BlockIndexer service will be deployed",
+// 			},
+// 			"name": &schema.StringAttribute{
+// 				Required:    true,
+// 				Description: "Display name for the BlockIndexer service",
+// 			},
+// 			"stack_id": &schema.StringAttribute{
+// 				Required:      true,
+// 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+// 				Description:   "Stack ID where the BlockIndexer service belongs",
+// 			},
+// 			"contract_manager": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "The Smart Contract Manager will link your custom contracts with the Block Indexer to be able to decode transactions.",
+// 			},
+// 			"enable_trace_transactions": &schema.BoolAttribute{
+// 				Optional:    true,
+// 				Computed:    true,
+// 				Default:     booldefault.StaticBool(false),
+// 				Description: "Enables indexing of internal transactions",
+// 			},
+// 			"evm_gateway": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "An EVM gateway providing a JSONRPC endpoint. Specify this instead of providing a node or a JSONRPC endpoint.",
+// 			},
+// 			"max_work_queue_size": &schema.Int64Attribute{
+// 				Optional:    true,
+// 				Computed:    true,
+// 				Default:     int64default.StaticInt64(5),
+// 				Description: "Maximum number of workers for indexing blocks concurrently",
+// 			},
+// 			"required_confirmations": &schema.Int64Attribute{
+// 				Optional:    true,
+// 				Computed:    true,
+// 				Default:     int64default.StaticInt64(0),
+// 				Description: "Number of confirmations required to index a block",
+// 			},
+// 			"jsonrpcheaders": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "Adds custom headers to the requests, format needs to be a JSON object",
+// 			},
+// 			"passthrough_headers_enabled": &schema.BoolAttribute{
+// 				Optional:    true,
+// 				Computed:    true,
+// 				Default:     booldefault.StaticBool(false),
+// 				Description: "Whether the HTTP client should pass through any HTTP headers found on the context",
+// 			},
+// 			"proxy_url": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "URL",
+// 			},
+// 			"jsonrpcurl": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "The JSON/RPC endpoint URL",
+// 			},
+// 			"jsonrpcwebsocketurl": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "The JSON/RPC websocket URL",
+// 			},
+// 			"starting_block": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Computed:    true,
+// 				Default:     stringdefault.StaticString("0"),
+// 				Description: "The block to start indexing from. Provide a block number or 'latest'",
+// 			},
+// 			"ui_config": &schema.StringAttribute{
+// 				Optional:    true,
+// 				Description: "UI branding & style configurations",
+// 			},
+// 			"force_delete": &schema.BoolAttribute{
+// 				Optional:    true,
+// 				Description: "Set to true when you plan to delete a protected BlockIndexer service. You must apply this value before running terraform destroy.",
+// 			},
+// 		},
+// 	}
+// }
 
-func (data *BlockIndexerServiceResourceModel) toBlockIndexerServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
-	api.Type = "BlockIndexerService"
-	api.Name = data.Name.ValueString()
-	api.StackID = data.StackID.ValueString()
-	api.Runtime.ID = data.Runtime.ValueString()
-	api.Config = make(map[string]interface{})
+// func (data *BlockIndexerServiceResourceModel) toBlockIndexerServiceAPI(ctx context.Context, api *ServiceAPIModel, diagnostics *diag.Diagnostics) {
+// 	api.Type = "BlockIndexerService"
+// 	api.Name = data.Name.ValueString()
+// 	api.StackID = data.StackID.ValueString()
+// 	api.Runtime.ID = data.Runtime.ValueString()
+// 	api.Config = make(map[string]interface{})
 
-	api.Config["contractManager"] = map[string]interface{}{
-		"id": data.Contractmanager.ValueString(),
-	}
-	api.Config["enableTraceTransactions"] = data.Enabletracetransactions.ValueBool()
-	api.Config["evmGateway"] = map[string]interface{}{
-		"id": data.Evmgateway.ValueString(),
-	}
-	if !data.Maxworkqueuesize.IsNull() {
-		api.Config["maxWorkQueueSize"] = data.Maxworkqueuesize.ValueInt64()
-	}
-	if !data.Requiredconfirmations.IsNull() {
-		api.Config["requiredConfirmations"] = data.Requiredconfirmations.ValueInt64()
-	}
-	// Handle rpcClient flattened fields
-	rpcclientConfig := make(map[string]interface{})
-	if !data.JsonrpcAuth.IsNull() && data.JsonrpcAuth.ValueString() != "" {
-		if api.Credsets == nil {
-			api.Credsets = make(map[string]*CredSetAPI)
-		}
-		api.Credsets["rpcAuth"] = &CredSetAPI{
-			Name: "rpcAuth",
-			Type: "basic_auth",
-			Key: &CredSetKeyAPI{
-				Value: data.JsonrpcAuth.ValueString(),
-			},
-		}
-		rpcclientConfig["auth"] = map[string]interface{}{
-			"credSetRef": "rpcAuth",
-		}
-	}
-	// Handle JsonrpcHeaders as JSON
-	if !data.JsonrpcHeaders.IsNull() && data.JsonrpcHeaders.ValueString() != "" {
-		var jsonrpcheadersData interface{}
-		err := json.Unmarshal([]byte(data.JsonrpcHeaders.ValueString()), &jsonrpcheadersData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("headers"),
-				"Failed to parse JsonrpcHeaders",
-				err.Error(),
-			)
-		} else {
-			rpcclientConfig["headers"] = jsonrpcheadersData
-		}
-	}
-	if !data.JsonrpcPassthroughheadersenabled.IsNull() {
-		rpcclientConfig["passthroughHeadersEnabled"] = data.JsonrpcPassthroughheadersenabled.ValueBool()
-	}
-	if !data.JsonrpcproxyURL.IsNull() && data.JsonrpcproxyURL.ValueString() != "" {
-		rpcclientConfig["url"] = data.JsonrpcproxyURL.ValueString()
-	}
-	// Handle JsonrpcThrottle as JSON
-	if !data.JsonrpcThrottle.IsNull() && data.JsonrpcThrottle.ValueString() != "" {
-		var jsonrpcthrottleData interface{}
-		err := json.Unmarshal([]byte(data.JsonrpcThrottle.ValueString()), &jsonrpcthrottleData)
-		if err != nil {
-			diagnostics.AddAttributeError(
-				path.Root("throttle"),
-				"Failed to parse JsonrpcThrottle",
-				err.Error(),
-			)
-		} else {
-			rpcclientConfig["throttle"] = jsonrpcthrottleData
-		}
-	}
-	if !data.JsonrpcURL.IsNull() && data.JsonrpcURL.ValueString() != "" {
-		rpcclientConfig["url"] = data.JsonrpcURL.ValueString()
-	}
-	if !data.JsonrpcWebsocketurl.IsNull() && data.JsonrpcWebsocketurl.ValueString() != "" {
-		rpcclientConfig["websocketURL"] = data.JsonrpcWebsocketurl.ValueString()
-	}
-	// Set the config if any fields were set
-	if len(rpcclientConfig) > 0 {
-		api.Config["rpcClient"] = rpcclientConfig
-	}
-	if !data.Startingblock.IsNull() && data.Startingblock.ValueString() != "" {
-		api.Config["startingBlock"] = data.Startingblock.ValueString()
-	}
-	if !data.Ui.IsNull() && data.Ui.ValueString() != "" {
-		api.Config["ui"] = data.Ui.ValueString()
-	}
-}
+// 	api.Config["contractManager"] = map[string]interface{}{
+// 		"id": data.Contractmanager.ValueString(),
+// 	}
+// 	api.Config["enableTraceTransactions"] = data.Enabletracetransactions.ValueBool()
+// 	api.Config["evmGateway"] = map[string]interface{}{
+// 		"id": data.Evmgateway.ValueString(),
+// 	}
+// 	if !data.Maxworkqueuesize.IsNull() {
+// 		api.Config["maxWorkQueueSize"] = data.Maxworkqueuesize.ValueInt64()
+// 	}
+// 	if !data.Requiredconfirmations.IsNull() {
+// 		api.Config["requiredConfirmations"] = data.Requiredconfirmations.ValueInt64()
+// 	}
+// 	// Handle rpcClient flattened fields
+// 	rpcclientConfig := make(map[string]interface{})
+// 	// Handle Jsonrpcheaders as JSON
+// 	if !data.Jsonrpcheaders.IsNull() && data.Jsonrpcheaders.ValueString() != "" {
+// 		var jsonrpcheadersData interface{}
+// 		err := json.Unmarshal([]byte(data.Jsonrpcheaders.ValueString()), &jsonrpcheadersData)
+// 		if err != nil {
+// 			diagnostics.AddAttributeError(
+// 				path.Root("headers"),
+// 				"Failed to parse Jsonrpcheaders",
+// 				err.Error(),
+// 			)
+// 		} else {
+// 			rpcclientConfig["headers"] = jsonrpcheadersData
+// 		}
+// 	}
+// 	if !data.Jsonrpcpassthroughheadersenabled.IsNull() {
+// 		rpcclientConfig["passthroughHeadersEnabled"] = data.Jsonrpcpassthroughheadersenabled.ValueBool()
+// 	}
+// 	if !data.ProxyURL.IsNull() && data.ProxyURL.ValueString() != "" {
+// 		rpcclientConfig["url"] = data.ProxyURL.ValueString()
+// 	}
+// 	if !data.Jsonrpcurl.IsNull() && data.Jsonrpcurl.ValueString() != "" {
+// 		rpcclientConfig["url"] = data.Jsonrpcurl.ValueString()
+// 	}
+// 	if !data.Jsonrpcwebsocketurl.IsNull() && data.Jsonrpcwebsocketurl.ValueString() != "" {
+// 		rpcclientConfig["websocketURL"] = data.Jsonrpcwebsocketurl.ValueString()
+// 	}
+// 	// Set the config if any fields were set
+// 	if len(rpcclientConfig) > 0 {
+// 		api.Config["rpcClient"] = rpcclientConfig
+// 	}
+// 	if !data.Startingblock.IsNull() && data.Startingblock.ValueString() != "" {
+// 		api.Config["startingBlock"] = data.Startingblock.ValueString()
+// 	}
+// 	if !data.Ui.IsNull() && data.Ui.ValueString() != "" {
+// 		api.Config["ui"] = data.Ui.ValueString()
+// 	}
+// }
 
-func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceResourceModel, diagnostics *diag.Diagnostics) {
-	data.ID = types.StringValue(api.ID)
-	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
-	data.Runtime = types.StringValue(api.Runtime.ID)
-	data.Name = types.StringValue(api.Name)
-	data.StackID = types.StringValue(api.StackID)
+// func (api *ServiceAPIModel) toBlockIndexerServiceData(data *BlockIndexerServiceResourceModel, diagnostics *diag.Diagnostics) {
+// 	data.ID = types.StringValue(api.ID)
+// 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+// 	data.Runtime = types.StringValue(api.Runtime.ID)
+// 	data.Name = types.StringValue(api.Name)
+// 	data.StackID = types.StringValue(api.StackID)
 
-	if v, ok := api.Config["contractManager"].(map[string]interface{}); ok {
-		if id, ok := v["id"].(string); ok {
-			data.Contractmanager = types.StringValue(id)
-		}
-	}
-	if v, ok := api.Config["enableTraceTransactions"].(bool); ok {
-		data.Enabletracetransactions = types.BoolValue(v)
-	} else {
-		data.Enabletracetransactions = types.BoolValue(false)
-	}
-	if v, ok := api.Config["evmGateway"].(map[string]interface{}); ok {
-		if id, ok := v["id"].(string); ok {
-			data.Evmgateway = types.StringValue(id)
-		}
-	}
-	if v, ok := api.Config["maxWorkQueueSize"].(float64); ok {
-		data.Maxworkqueuesize = types.Int64Value(int64(v))
-	} else {
-		data.Maxworkqueuesize = types.Int64Value(5)
-	}
-	if v, ok := api.Config["requiredConfirmations"].(float64); ok {
-		data.Requiredconfirmations = types.Int64Value(int64(v))
-	} else {
-		data.Requiredconfirmations = types.Int64Value(0)
-	}
-	// Extract rpcClient flattened fields
-	if rpcclientConfig, ok := api.Config["rpcClient"].(map[string]interface{}); ok {
-	if credset, ok := api.Credsets["rpcAuth"]; ok && credset.Key != nil {
-		data.JsonrpcAuth = types.StringValue(credset.Key.Value)
-	} else {
-		data.JsonrpcAuth = types.StringNull()
-	}
-		if headersData := api.Config["headers"]; headersData != nil {
-		if headersJSON, err := json.Marshal(headersData); err == nil {
-			data.JsonrpcHeaders = types.StringValue(string(headersJSON))
-		} else {
-			data.JsonrpcHeaders = types.StringNull()
-		}
-	} else {
-		data.JsonrpcHeaders = types.StringNull()
-	}
-	if v, ok := rpcclientConfig["passthroughHeadersEnabled"].(bool); ok {
-		data.JsonrpcPassthroughheadersenabled = types.BoolValue(v)
-	} else {
-		data.JsonrpcPassthroughheadersenabled = types.BoolValue(false)
-	}
-	if v, ok := rpcclientConfig["url"].(string); ok {
-		data.JsonrpcproxyURL = types.StringValue(v)
-	} else {
-		data.JsonrpcproxyURL = types.StringNull()
-	}
-		if throttleData := api.Config["throttle"]; throttleData != nil {
-		if throttleJSON, err := json.Marshal(throttleData); err == nil {
-			data.JsonrpcThrottle = types.StringValue(string(throttleJSON))
-		} else {
-			data.JsonrpcThrottle = types.StringNull()
-		}
-	} else {
-		data.JsonrpcThrottle = types.StringNull()
-	}
-	if v, ok := rpcclientConfig["url"].(string); ok {
-		data.JsonrpcURL = types.StringValue(v)
-	} else {
-		data.JsonrpcURL = types.StringNull()
-	}
-	if v, ok := rpcclientConfig["websocketURL"].(string); ok {
-		data.JsonrpcWebsocketurl = types.StringValue(v)
-	} else {
-		data.JsonrpcWebsocketurl = types.StringNull()
-	}
-	} else {
-		data.JsonrpcAuth = types.StringNull()
-		data.JsonrpcHeaders = types.StringNull()
-		data.JsonrpcPassthroughheadersenabled = types.BoolNull()
-		data.JsonrpcProxy = types.StringNull()
-		data.JsonrpcThrottle = types.StringNull()
-		data.JsonrpcURL = types.StringNull()
-		data.JsonrpcWebsocketurl = types.StringNull()
-	}
-	if v, ok := api.Config["startingBlock"].(string); ok {
-		data.Startingblock = types.StringValue(v)
-	} else {
-		data.Startingblock = types.StringValue("0")
-	}
-	if v, ok := api.Config["ui"].(string); ok {
-		data.Ui = types.StringValue(v)
-	} else {
-		data.Ui = types.StringNull()
-	}
-}
+// 	if v, ok := api.Config["contractManager"].(map[string]interface{}); ok {
+// 		if id, ok := v["id"].(string); ok {
+// 			data.Contractmanager = types.StringValue(id)
+// 		}
+// 	}
+// 	if v, ok := api.Config["enableTraceTransactions"].(bool); ok {
+// 		data.Enabletracetransactions = types.BoolValue(v)
+// 	} else {
+// 		data.Enabletracetransactions = types.BoolValue(false)
+// 	}
+// 	if v, ok := api.Config["evmGateway"].(map[string]interface{}); ok {
+// 		if id, ok := v["id"].(string); ok {
+// 			data.Evmgateway = types.StringValue(id)
+// 		}
+// 	}
+// 	if v, ok := api.Config["maxWorkQueueSize"].(float64); ok {
+// 		data.Maxworkqueuesize = types.Int64Value(int64(v))
+// 	} else {
+// 		data.Maxworkqueuesize = types.Int64Value(5)
+// 	}
+// 	if v, ok := api.Config["requiredConfirmations"].(float64); ok {
+// 		data.Requiredconfirmations = types.Int64Value(int64(v))
+// 	} else {
+// 		data.Requiredconfirmations = types.Int64Value(0)
+// 	}
+// 	// Extract rpcClient flattened fields
+// 	if rpcclientConfig, ok := api.Config["rpcClient"].(map[string]interface{}); ok {
+// 		if headersData := api.Config["headers"]; headersData != nil {
+// 			if headersJSON, err := json.Marshal(headersData); err == nil {
+// 				data.Jsonrpcheaders = types.StringValue(string(headersJSON))
+// 			} else {
+// 				data.Jsonrpcheaders = types.StringNull()
+// 			}
+// 		} else {
+// 			data.Jsonrpcheaders = types.StringNull()
+// 		}
+// 		if v, ok := rpcclientConfig["passthroughHeadersEnabled"].(bool); ok {
+// 			data.Jsonrpcpassthroughheadersenabled = types.BoolValue(v)
+// 		} else {
+// 			data.Jsonrpcpassthroughheadersenabled = types.BoolValue(false)
+// 		}
+// 		if v, ok := rpcclientConfig["url"].(string); ok {
+// 			data.ProxyURL = types.StringValue(v)
+// 		} else {
+// 			data.ProxyURL = types.StringNull()
+// 		}
+// 		if v, ok := rpcclientConfig["url"].(string); ok {
+// 			data.Jsonrpcurl = types.StringValue(v)
+// 		} else {
+// 			data.Jsonrpcurl = types.StringNull()
+// 		}
+// 		if v, ok := rpcclientConfig["websocketURL"].(string); ok {
+// 			data.Jsonrpcwebsocketurl = types.StringValue(v)
+// 		} else {
+// 			data.Jsonrpcwebsocketurl = types.StringNull()
+// 		}
+// 	} else {
+// 		data.Jsonrpcheaders = types.StringNull()
+// 		data.Jsonrpcpassthroughheadersenabled = types.BoolNull()
+// 		data.Jsonrpcproxy = types.StringNull()
+// 		data.Jsonrpcurl = types.StringNull()
+// 		data.Jsonrpcwebsocketurl = types.StringNull()
+// 	}
+// 	if v, ok := api.Config["startingBlock"].(string); ok {
+// 		data.Startingblock = types.StringValue(v)
+// 	} else {
+// 		data.Startingblock = types.StringValue("0")
+// 	}
+// 	if v, ok := api.Config["ui"].(string); ok {
+// 		data.Ui = types.StringValue(v)
+// 	} else {
+// 		data.Ui = types.StringNull()
+// 	}
+// }
 
-func (r *blockindexerserviceResource) apiPath(data *BlockIndexerServiceResourceModel) string {
-	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
-	if data.ID.ValueString() != "" {
-		path = path + "/" + data.ID.ValueString()
-	}
-	if !data.ForceDelete.IsNull() && data.ForceDelete.ValueBool() {
-		path = path + "?force=true"
-	}
-	return path
-}
+// func (r *blockindexerserviceResource) apiPath(data *BlockIndexerServiceResourceModel) string {
+// 	path := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
+// 	if data.ID.ValueString() != "" {
+// 		path = path + "/" + data.ID.ValueString()
+// 	}
+// 	if !data.ForceDelete.IsNull() && data.ForceDelete.ValueBool() {
+// 		path = path + "?force=true"
+// 	}
+// 	return path
+// }
 
-func (r *blockindexerserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data BlockIndexerServiceResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+// func (r *blockindexerserviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+// 	var data BlockIndexerServiceResourceModel
+// 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	var api ServiceAPIModel
-	data.toBlockIndexerServiceAPI(ctx, &api, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+// 	var api ServiceAPIModel
+// 	data.toBlockIndexerServiceAPI(ctx, &api, &resp.Diagnostics)
+// 	if resp.Diagnostics.HasError() {
+// 		return
+// 	}
 
-	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
-	if !ok {
-		return
-	}
+// 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+// 	if !ok {
+// 		return
+// 	}
 
-	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+// 	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
+// 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	api.ID = data.ID.ValueString()
-	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
-	if !ok {
-		return
-	}
+// 	api.ID = data.ID.ValueString()
+// 	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
+// 	if !ok {
+// 		return
+// 	}
 
-	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
-	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-}
+// 	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
+// 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+// }
 
-func (r *blockindexerserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data BlockIndexerServiceResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+// func (r *blockindexerserviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+// 	var data BlockIndexerServiceResourceModel
+// 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+// 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
-	var api ServiceAPIModel
-	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
-		return
-	}
+// 	var api ServiceAPIModel
+// 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+// 		return
+// 	}
 
-	data.toBlockIndexerServiceAPI(ctx, &api, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+// 	data.toBlockIndexerServiceAPI(ctx, &api, &resp.Diagnostics)
+// 	if resp.Diagnostics.HasError() {
+// 		return
+// 	}
 
-	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
-		return
-	}
+// 	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+// 		return
+// 	}
 
-	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+// 	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
+// 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 
-	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
-		return
-	}
-	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
-	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-}
+// 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+// 		return
+// 	}
+// 	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
+// 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+// }
 
-func (r *blockindexerserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data BlockIndexerServiceResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+// func (r *blockindexerserviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+// 	var data BlockIndexerServiceResourceModel
+// 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var api ServiceAPIModel
-	api.ID = data.ID.ValueString()
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
-	if !ok {
-		return
-	}
-	if status == 404 {
-		resp.State.RemoveResource(ctx)
-		return
-	}
+// 	var api ServiceAPIModel
+// 	api.ID = data.ID.ValueString()
+// 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
+// 	if !ok {
+// 		return
+// 	}
+// 	if status == 404 {
+// 		resp.State.RemoveResource(ctx)
+// 		return
+// 	}
 
-	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
-	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-}
+// 	api.toBlockIndexerServiceData(&data, &resp.Diagnostics)
+// 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+// }
 
-func (r *blockindexerserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data BlockIndexerServiceResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+// func (r *blockindexerserviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+// 	var data BlockIndexerServiceResourceModel
+// 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
-	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
-}
+// 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
+// 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
+// }

@@ -24,22 +24,22 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type CantonGlobalSynchronizerNetworkResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Environment types.String `tfsdk:"environment"`
-	Name        types.String `tfsdk:"name"`
-	Migrations             types.List `tfsdk:"migrations"`
+	ID                     types.String `tfsdk:"id"`
+	Environment            types.String `tfsdk:"environment"`
+	Name                   types.String `tfsdk:"name"`
+	Migrations             types.List   `tfsdk:"migrations"`
 	Network                types.String `tfsdk:"network"`
 	Scanendpoint           types.String `tfsdk:"scanendpoint"`
 	Supervalidator         types.String `tfsdk:"supervalidator"`
 	Supervalidatorendpoint types.String `tfsdk:"supervalidatorendpoint"`
-	InitMode    types.String `tfsdk:"init_mode"`
-	ForceDelete types.Bool   `tfsdk:"force_delete"`
+	InitMode               types.String `tfsdk:"init_mode"`
+	ForceDelete            types.Bool   `tfsdk:"force_delete"`
 }
 
 func CantonGlobalSynchronizerNetworkResourceFactory() resource.Resource {
@@ -97,6 +97,7 @@ func (r *cantonglobalsynchronizernetworkResource) Schema(_ context.Context, _ re
 			},
 			"init_mode": &schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Default:     stringdefault.StaticString("automated"),
 				Description: "Initialization mode for the network (automated or manual)",
 			},
