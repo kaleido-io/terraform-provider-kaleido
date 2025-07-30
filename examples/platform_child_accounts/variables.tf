@@ -6,12 +6,21 @@ variable "kaleido_platform_api" {
 variable "kaleido_platform_username" {
   description = "Kaleido platform username"
   type        = string
+  default     = null
 }
 
 variable "kaleido_platform_password" {
   description = "Kaleido platform password"
   type        = string
   sensitive   = true
+  default     = null
+}
+
+variable "kaleido_platform_bearer_token" {
+  description = "Kaleido platform bearer token"
+  type        = string
+  sensitive   = true
+  default     = null
 }
 
 variable "oidc_client_id" {

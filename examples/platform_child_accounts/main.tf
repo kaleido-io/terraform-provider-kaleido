@@ -10,6 +10,7 @@ provider "kaleido" {
   platform_api = var.kaleido_platform_api
   platform_username = var.kaleido_platform_username
   platform_password = var.kaleido_platform_password
+  platform_bearer_token = var.kaleido_platform_bearer_token
 }
 
 # Create development account

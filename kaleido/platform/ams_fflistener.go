@@ -82,6 +82,7 @@ func (r *ams_fflistenerResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Computed: true,
 				Default:  booldefault.StaticBool(false),
 			},
+			// TODO what is this and can be it properly typed ?
 			"config_json": &schema.StringAttribute{
 				Required: true,
 			},

@@ -15,16 +15,17 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -34,7 +35,6 @@ type RuntimeResourceModel struct {
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
 	StackID             types.String `tfsdk:"stack_id"`
-	ConfigJSON          types.String `tfsdk:"config_json"`
 	LogLevel            types.String `tfsdk:"log_level"`
 	Size                types.String `tfsdk:"size"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
@@ -86,10 +86,25 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			// TODO generate in separate file ? Or should we generate structured runtime
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Runtime type",
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"BesuNode",
+						"IPFSNode",
+						"EVMGateway",
+						"KeyManager",
+						"TransactionManager",
+						"PrivateDataManager",
+						"ContractManager",
+						"BlockIndexer",
+						"FireFly",
+						"AssetManager",
+					),
+				},
+				Description: "Runtime type",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
@@ -106,9 +121,6 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"environment_member_id": &schema.StringAttribute{
 				Computed: true,
-			},
-			"config_json": &schema.StringAttribute{
-				Required: true,
 			},
 			"log_level": &schema.StringAttribute{
 				Optional:    true,
@@ -129,6 +141,7 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional: true,
 				Computed: true,
 			},
+			// TODO interesting example of where typed runtimes could be helpful - conveying when storage is required and subzoning is possible
 			"sub_zone": &schema.StringAttribute{
 				Optional: true,
 			},
@@ -153,11 +166,8 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
 	api.StackID = data.StackID.ValueString()
-	// optional fields
+	// config is no longer really used for runtimes
 	api.Config = map[string]interface{}{}
-	if !data.ConfigJSON.IsNull() {
-		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
-	}
 	if !data.LogLevel.IsNull() {
 		api.LogLevel = data.LogLevel.ValueString()
 	}

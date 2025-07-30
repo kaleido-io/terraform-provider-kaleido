@@ -28,47 +28,37 @@ import (
 )
 
 var cms_buildStep1 = `
-resource "kaleido_platform_cms_build" "cms_build1" {
+resource "kaleido_platform_cms_github_build" "cms_build1" {
     environment = "env1"
 	service = "service1"
-    type = "github"
     name = "build1"
     path = "some/path"
-	github = {
-		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
-		contract_name = "Firefly"
-		auth_token = "token12345"
-	}
-	optimizer = {
-	    enabled = true
-		runs = 150
-		via_ir = true
-	}
+	contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
+	contract_name = "Firefly"
+	auth_token = "token12345"
+	optimizer_enabled = true
+	optimizer_runs = 150
+	optimizer_via_ir = true
 }
 `
 
 var cms_buildStep2 = `
-resource "kaleido_platform_cms_build" "cms_build1" {
+resource "kaleido_platform_cms_github_build" "cms_build1" {
     environment = "env1"
 	service = "service1"
-    type = "github"
     name = "build1"
 	description = "shiny contract that does things and stuff"
     path = "some/new/path"
-	github = {
-		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
-		contract_name = "Firefly"
+	contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
+	contract_name = "Firefly"
 		auth_token = "token12345"
-	}
-	optimizer = {
-	    enabled = true
-		runs = 150
-		via_ir = true
-	}
+	optimizer_enabled = true
+	optimizer_runs = 150
+	optimizer_via_ir = true
 }
 `
 
-func TestCMSBuild1(t *testing.T) {
+func TestCMSBuildGitHub(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	defer func() {
@@ -86,7 +76,7 @@ func TestCMSBuild1(t *testing.T) {
 		mp.server.Close()
 	}()
 
-	cms_build1Resource := "kaleido_platform_cms_build.cms_build1"
+	cms_build1Resource := "kaleido_platform_cms_github_build.cms_build1"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
@@ -96,7 +86,6 @@ func TestCMSBuild1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "id"),
 					resource.TestCheckResourceAttr(cms_build1Resource, "name", `build1`),
-					resource.TestCheckResourceAttr(cms_build1Resource, "type", `github`),
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "abi"),
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "bytecode"),
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "dev_docs"),
@@ -108,7 +97,6 @@ func TestCMSBuild1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "id"),
 					resource.TestCheckResourceAttr(cms_build1Resource, "name", `build1`),
-					resource.TestCheckResourceAttr(cms_build1Resource, "type", `github`),
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "abi"),
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "bytecode"),
 					resource.TestCheckResourceAttrSet(cms_build1Resource, "dev_docs"),
@@ -153,16 +141,13 @@ func TestCMSBuild1(t *testing.T) {
 }
 
 var cms_buildPrecompiled = `
-resource "kaleido_platform_cms_build" "cms_build_precompiled" {
+resource "kaleido_platform_cms_precompiled_build" "cms_build_precompiled" {
     environment = "env1"
 	  service = "service1"
-    type = "precompiled"
     name = "build2"
     path = "some/path"
-	  precompiled = {
     bytecode = "0xB17EC0DE"
     abi = "[{\"some\":\"precompiled_abi\"}]"
-	}
 }
 `
 
@@ -181,7 +166,7 @@ func TestCMSBuildPreCompiled(t *testing.T) {
 		mp.server.Close()
 	}()
 
-	cms_buildPreCompiledResource := "kaleido_platform_cms_build.cms_build_precompiled"
+	cms_buildPreCompiledResource := "kaleido_platform_cms_precompiled_build.cms_build_precompiled"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
@@ -191,10 +176,8 @@ func TestCMSBuildPreCompiled(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "id"),
 					resource.TestCheckResourceAttr(cms_buildPreCompiledResource, "name", `build2`),
-					resource.TestCheckResourceAttr(cms_buildPreCompiledResource, "type", `precompiled`),
 					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "abi"),
 					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "bytecode"),
-					resource.TestCheckResourceAttrSet(cms_buildPreCompiledResource, "dev_docs"),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						assert.NotNil(t, s.RootModule().Resources[cms_buildPreCompiledResource])
@@ -206,11 +189,9 @@ func TestCMSBuildPreCompiled(t *testing.T) {
 							"created": "%[2]s",
 							"updated": "%[3]s",
 							"name": "build2",
-							"optimizer": {"enabled": false, "runs": 200, "viaIR": false},
 							"path": "some/path",
               "abi": [{"some":"precompiled_abi"}],
               "bytecode": "0xB17EC0DE",
-							"devDocs": "[\"some\":\"devdocs\"]",
 							"status": "succeeded"
 						}
 						`,
@@ -242,8 +223,8 @@ func (mp *mockPlatform) getCMSBuild(res http.ResponseWriter, req *http.Request) 
 		if obj.Bytecode == "" {
 			obj.Bytecode = `0xAAABBBCCCDDD`
 		}
-		obj.DevDocs = `["some":"devdocs"]`
 		if obj.GitHub != nil {
+			obj.DevDocs = `["some":"devdocs"]`
 			obj.GitHub.CommitHash = nanoid.New()
 		}
 	}

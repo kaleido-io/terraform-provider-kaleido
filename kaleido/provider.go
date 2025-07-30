@@ -23,22 +23,6 @@ import (
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/platform"
 )
 
-type baasBaseResource struct {
-	*kaleidobase.ProviderData
-}
-
-type baasBaseDatasource struct {
-	*kaleidobase.ProviderData
-}
-
-func (r *baasBaseResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	r.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, &resp.Diagnostics)
-}
-
-func (d *baasBaseDatasource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
-	d.ProviderData = kaleidobase.ConfigureProviderData(req.ProviderData, &resp.Diagnostics)
-}
-
 func newTestProviderData() *kaleidobase.ProviderData {
 	return kaleidobase.NewProviderData(context.Background(), &kaleidobase.ProviderModel{})
 }
@@ -47,22 +31,12 @@ func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return kaleidobase.New(
 			version,
-			append([]func() resource.Resource{
-				ResourceConsortiumFactory,
-				ResourceEnvironmentFactory,
-				ResourceMembershipFactory,
-				ResourceNodeFactory,
-				ResourceServiceFactory,
-				ResourceAppCredsFactory,
-				ResourceInvitationFactory,
-				ResourceCZoneFactory,
-				ResourceEZoneFactory,
-				ResourceConfigurationFactory,
-				ResourceDestinationFactory,
-			}, platform.Resources()...),
-			append([]func() datasource.DataSource{
-				DatasourcePrivateStackBridgeFactory,
-			}, platform.DataSources()...),
+			append([]func() resource.Resource{},
+				// TODO global resources
+				platform.Resources()...),
+			append([]func() datasource.DataSource{},
+				// TODO global datasources
+				platform.DataSources()...),
 		)
 	}
 }

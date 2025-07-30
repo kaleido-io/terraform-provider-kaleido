@@ -60,7 +60,7 @@ resource "kaleido_platform_runtime" "bnr_signer_net_og" {
   type = "BesuNode"
   name = "${var.originator_name}_signer${count.index+1}"
   environment = kaleido_platform_environment.env_og.id
-  config_json = jsonencode({})
+  //config_json = jsonencode({})
   count = var.originator_signer_count
 }
 
@@ -85,7 +85,7 @@ resource "kaleido_platform_runtime" "bnr_peer_net_og" {
   name = "${var.originator_name}_peer${count.index+1}"
   environment = kaleido_platform_environment.env_og.id
   zone = var.originator_peer_network_dz
-  config_json = jsonencode({})
+  //config_json = jsonencode({})
   count = var.originator_peer_count
 }
 
@@ -109,7 +109,7 @@ resource "kaleido_platform_runtime" "gwr_net_og" {
   type = "EVMGateway"
   name = "${var.originator_name}_gateway"
   environment = kaleido_platform_environment.env_og.id
-  config_json = jsonencode({})
+  //config_json = jsonencode({})
   count = var.originator_gateway_count
 }
 
@@ -167,7 +167,7 @@ resource "kaleido_platform_runtime" "bnr_peer_net_sec" {
   name = "${var.secondary_name}_peer${count.index+1}"
   environment = kaleido_platform_environment.env_sec.id
   zone = var.secondary_peer_network_dz
-  config_json = jsonencode({})
+  //config_json = jsonencode({})
   count = var.secondary_peer_count
   depends_on = [kaleido_platform_network.net_sec] 
 }
@@ -192,7 +192,7 @@ resource "kaleido_platform_runtime" "gwr_net_sec" {
   type = "EVMGateway"
   name = "${var.originator_name}_gateway"
   environment = kaleido_platform_environment.env_sec.id
-  config_json = jsonencode({})
+ // config_json = jsonencode({})
   depends_on = [kaleido_platform_network.net_sec]
   count = var.secondary_gateway_count
 }
