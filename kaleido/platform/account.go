@@ -15,6 +15,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -27,29 +28,39 @@ import (
 )
 
 type AccountResourceModel struct {
-	ID                  types.String `tfsdk:"id"`
-	Name                types.String `tfsdk:"name"`
-	OIDCClientID        types.String `tfsdk:"oidc_client_id"`
-	ValidationPolicy    types.String `tfsdk:"validation_policy"`
-	FirstUserEmail      types.String `tfsdk:"first_user_email"`
-	FirstUserSub        types.String `tfsdk:"first_user_sub"`
-	Hostnames           types.Map    `tfsdk:"hostnames"`
-	UserJITEnabled      types.Bool   `tfsdk:"user_jit_enabled"`
-	UserJITDefaultGroup types.String `tfsdk:"user_jit_default_group"`
+	ID                                   types.String `tfsdk:"id"`
+	Name                                 types.String `tfsdk:"name"`
+	OIDCClientID                         types.String `tfsdk:"oidc_client_id"`
+	ValidationPolicy                     types.String `tfsdk:"validation_policy"`
+	FirstUserEmail                       types.String `tfsdk:"first_user_email"`
+	FirstUserSub                         types.String `tfsdk:"first_user_sub"`
+	Hostnames                            types.Map    `tfsdk:"hostnames"`
+	UserJITEnabled                       types.Bool   `tfsdk:"user_jit_enabled"`
+	UserJITDefaultGroup                  types.String `tfsdk:"user_jit_default_group"`
+	BootstrapApplicationName             types.String `tfsdk:"bootstrap_application_name"`
+	BootstrapApplicationOAuthJSON        types.String `tfsdk:"bootstrap_application_oauth_json"`
+	BootstrapApplicationValidationPolicy types.String `tfsdk:"bootstrap_application_validation_policy"`
 }
 
 type AccountAPIModel struct {
-	ID                  string              `json:"id,omitempty"`
-	Created             *time.Time          `json:"created,omitempty"`
-	Updated             *time.Time          `json:"updated,omitempty"`
-	Name                string              `json:"name"`
-	OIDCClientID        string              `json:"oidcClientId,omitempty"`
-	ValidationPolicy    string              `json:"validationPolicy,omitempty"`
-	FirstUserEmail      string              `json:"firstUserEmail,omitempty"`
-	FirstUserSub        string              `json:"firstUserSub,omitempty"`
-	Hostnames           map[string][]string `json:"hostnames,omitempty"`
-	UserJITEnabled      *bool               `json:"userJITEnabled,omitempty"`
-	UserJITDefaultGroup *string             `json:"userJITDefaultGroup,omitempty"`
+	ID                   string                               `json:"id,omitempty"`
+	Created              *time.Time                           `json:"created,omitempty"`
+	Updated              *time.Time                           `json:"updated,omitempty"`
+	Name                 string                               `json:"name"`
+	OIDCClientID         string                               `json:"oidcClientId,omitempty"`
+	ValidationPolicy     string                               `json:"validationPolicy,omitempty"`
+	FirstUserEmail       string                               `json:"firstUserEmail,omitempty"`
+	FirstUserSub         string                               `json:"firstUserSub,omitempty"`
+	Hostnames            map[string][]string                  `json:"hostnames,omitempty"`
+	UserJITEnabled       *bool                                `json:"userJITEnabled,omitempty"`
+	UserJITDefaultGroup  *string                              `json:"userJITDefaultGroup,omitempty"`
+	BootstrapApplication *AccountBootstrapApplicationAPIModel `json:"bootstrapApplication,omitempty"`
+}
+
+type AccountBootstrapApplicationAPIModel struct {
+	Name             string            `json:"name"`
+	OAuth            map[string]string `json:"oauth,omitempty"`
+	ValidationPolicy string            `json:"validationPolicy,omitempty"`
 }
 
 func AccountResourceFactory() resource.Resource {
@@ -60,12 +71,19 @@ type accountResource struct {
 	commonResource
 }
 
+var (
+	_ resource.Resource                = &accountResource{}
+	_ resource.ResourceWithConfigure   = &accountResource{}
+	_ resource.ResourceWithImportState = &accountResource{}
+)
+
 func (r *accountResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "kaleido_platform_account"
 }
 
 func (r *accountResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+
 		Description: "A platform account represents a tenant or child account that can be managed independently. Accounts provide isolation and can have their own OIDC configuration, users, and groups.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
@@ -105,6 +123,18 @@ func (r *accountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:    true,
 				Description: "Default group to add users to when JIT is enabled",
 			},
+			"bootstrap_application_name": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Name of the bootstrap application for the account",
+			},
+			"bootstrap_application_oauth_json": &schema.StringAttribute{
+				Optional:    true,
+				Description: "OAuth configuration for the bootstrap application",
+			},
+			"bootstrap_application_validation_policy": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Validation policy for the bootstrap application",
+			},
 		},
 	}
 }
@@ -134,6 +164,25 @@ func (data *AccountResourceModel) toAPI(api *AccountAPIModel) {
 	if !data.UserJITDefaultGroup.IsNull() {
 		api.UserJITDefaultGroup = data.UserJITDefaultGroup.ValueStringPointer()
 	}
+	if !data.BootstrapApplicationName.IsNull() && !data.BootstrapApplicationOAuthJSON.IsNull() {
+		api.BootstrapApplication = &AccountBootstrapApplicationAPIModel{
+			Name:             data.BootstrapApplicationName.ValueString(),
+			OAuth:            make(map[string]string),
+			ValidationPolicy: data.BootstrapApplicationValidationPolicy.ValueString(),
+		}
+
+		if err := json.Unmarshal([]byte(data.BootstrapApplicationOAuthJSON.ValueString()), &api.BootstrapApplication.OAuth); err != nil {
+			api.BootstrapApplication.OAuth = make(map[string]string)
+			// log warning ??
+		}
+
+		if !data.BootstrapApplicationValidationPolicy.IsNull() {
+			api.BootstrapApplication.ValidationPolicy = data.BootstrapApplicationValidationPolicy.ValueString()
+		} else {
+			api.BootstrapApplication.ValidationPolicy = ""
+		}
+	}
+
 }
 
 func (api *AccountAPIModel) toData(data *AccountResourceModel) {
@@ -160,6 +209,10 @@ func (api *AccountAPIModel) toData(data *AccountResourceModel) {
 	}
 	if api.UserJITDefaultGroup != nil {
 		data.UserJITDefaultGroup = types.StringValue(*api.UserJITDefaultGroup)
+	}
+	if api.BootstrapApplication != nil {
+		data.BootstrapApplicationName = types.StringValue(api.BootstrapApplication.Name)
+		data.BootstrapApplicationValidationPolicy = types.StringValue(api.BootstrapApplication.ValidationPolicy)
 	}
 }
 
