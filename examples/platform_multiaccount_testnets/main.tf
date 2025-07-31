@@ -247,6 +247,7 @@ resource "kaleido_platform_runtime" "originator_besu_signer_runtime" {
   name = "originator_signer${count.index + 1}"
   environment = kaleido_platform_environment.originator_environment.id
   config_json = jsonencode({})
+  zone = var.deployment_zone
   stack_id = kaleido_platform_stack.originator_besu_stack.id
 }
 
@@ -267,37 +268,6 @@ resource "kaleido_platform_service" "originator_besu_signer_service" {
   })
   
   force_delete = var.enable_force_delete
-  stack_id = kaleido_platform_stack.originator_besu_stack.id
-}
-
-resource "kaleido_platform_runtime" "originator_besu_peer_runtime" {
-  provider = kaleido.child_0
-  count = var.originator_peer_count
-  
-  type = "BesuNode"
-  name = "originator_peer${count.index + 1}"
-  environment = kaleido_platform_environment.originator_environment.id
-  zone = var.deployment_zone
-  config_json = jsonencode({})
-  stack_id = kaleido_platform_stack.originator_besu_stack.id
-}
-
-resource "kaleido_platform_service" "originator_besu_peer_service" {
-  provider = kaleido.child_0
-  count = var.originator_peer_count
-  
-  type = "BesuNode"
-  name = "originator_peer${count.index + 1}"
-  environment = kaleido_platform_environment.originator_environment.id
-  runtime = kaleido_platform_runtime.originator_besu_peer_runtime[count.index].id
-  
-  config_json = jsonencode({
-    network = {
-      id = kaleido_platform_network.originator_besu_network.id
-    }
-    signer = false
-  })
-  
   stack_id = kaleido_platform_stack.originator_besu_stack.id
 }
 

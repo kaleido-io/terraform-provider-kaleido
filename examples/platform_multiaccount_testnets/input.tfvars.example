@@ -1,6 +1,5 @@
 # ============================================================================
 # Example Terraform Variables Configuration
-# N-Account Hub-Spoke Network Deployment
 # ============================================================================
 
 # Root Account Authentication
@@ -10,7 +9,7 @@ root_platform_bearer_token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlctNmdBb2sxYUpLSFNrSF
 # OAuth Identity Provider Configuration
 kaleido_id_client_id = "your_client_id_here"
 kaleido_id_client_secret = "your_client_secret_here"
-kaleido_id_config_url = "https://sso-dev.photic.io/api/v1/.well-known/openid-configuration"
+kaleido_id_config_url = "https://sso.kaleido.io/api/v1/.well-known/openid-configuration"
 first_user_email = "admin@your-domain.com"
 
 # Kubernetes Service Account Trust Configuration
@@ -18,23 +17,7 @@ bootstrap_application_issuer = "https://kubernetes.default.svc.cluster.local"
 bootstrap_application_jwks_endpoint = "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"
 bootstrap_application_ca_certificate = <<EOF
 -----BEGIN CERTIFICATE-----
-MIIDBTCCAe2gAwIBAgIIWBqbjjcftHgwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
-AxMKa3ViZXJuZXRlczAeFw0yNTA3MjgxMjI4MjJaFw0zNTA3MjYxMjMzMjJaMBUx
-EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-AoIBAQCxxW2+9ugV4gaYGZzmD0rBARu1OEnJ9JmWEZg6YOz3pA09VlhAiW5K0S19
-7bsrjk3Q7diz6PTpUPiq01BL5qXOrlFFemTqrpTkxnW7i365tSagrBcvwnugSH8N
-jkGHaXeTYXGA5Pmr1vMCQG4md1b/PeZxpIYKqC8V5CWLkzQMgFeu2TLE0TEGet/u
-3p8OqmrGgHCQh/E8ii7QavieyeKt69/+FhGqH6ppdqjx09I3JIjrMvsTBPu1SvS3
-JGR3yUWQo/s6gPMpz6MtZe7y0JTAffiCOtoPzKRC5tEPLAMGKRliL/y7Mo76JDj9
-0V9Y9SLnbNkpSOtjsJ8v3SE5lO1JAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
-BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSCA/tZ/nm6HxAe9nRixtnEYcOHqjAV
-BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQAn4VSLuUS7
-/N+ng0wtOvlA5W7qABeGDznpMjgcv6RMyHTe+OFvAq4QmEzRFPdHJKZamZ9mdH2j
-LWe8aJSVJTeBuTOI9buP77AZwMQV7wq3t7EvrweG1qUw8kylAFGu1nowYgyLI3l+
-ky+oQJJsSX27IiICeXn43bdcS2Var29gVQqjn/8G0YYECWMVTWiy3dZt9AfVa+WZ
-Szf6UUzvGlUHnRYZs28P3v7FuhBJk2Umq1I8TESzwTF8OOQnee1nS4KDX3Iw2kjR
-+Z2LBilX+/+l8hcH+tNjKCBYnwx1Ou5L6sD0RpYUCt5WleSbvNCLtlJbv0cVAlh7
-mBHSdT6vc4EJ
+...
 -----END CERTIFICATE-----
 EOF
 
@@ -74,8 +57,7 @@ initial_balances = {
 deployment_zone = "platform-conn"
 
 # Node counts for originator (hub)
-originator_signer_count = 2  # Validator nodes for consensus
-originator_peer_count = 2    # Peer nodes for connectivity
+originator_signer_count = 1        # Validator nodes for BFT consensus, recommend 4 at a minimum for production environments
 
 # Gateway configuration
 gateway_count = 1  # 1 EVM gateway per account
@@ -94,34 +76,10 @@ enable_full_mesh_connectivity = false
 # ============================================================================
 
 # Paladin node sizing
-paladin_node_size = "Large"
+paladin_node_size = "Small"
 
 # Development settings
 enable_force_delete = true
-
-# ============================================================================
-# Tagging and Metadata
-# ============================================================================
-
-common_tags = {
-  Environment = "development"
-  Project     = "enterprise-blockchain"
-  ManagedBy   = "terraform"
-  Purpose     = "hub-spoke-network"
-  Owner       = "blockchain-team"
-}
-
-originator_tags = {
-  Role = "originator"
-  NetworkRole = "primary"
-  Critical = "true"
-}
-
-joiner_tags = {
-  Role = "joiner" 
-  NetworkRole = "peer"
-  Critical = "false"
-}
 
 # ============================================================================
 # Examples for Different Scenarios (All use full mesh connectivity)
@@ -130,21 +88,19 @@ joiner_tags = {
 # Example 1: Small Development Setup (3 accounts)
 # child_account_count = 3
 # originator_signer_count = 1
-# originator_peer_count = 1
-# paladin_node_size = "Medium"
+# paladin_node_size = "Small"
 
 # Example 2: Enterprise Setup (5 accounts)  
 # child_account_count = 5
-# originator_signer_count = 3
-# originator_peer_count = 2
-# paladin_node_size = "Large"
+# originator_signer_count = 4
+# paladin_node_size = "Medium"
 
 # Example 3: Production-like Setup (4 accounts)
 # child_account_count = 4
-# originator_signer_count = 4  # High availability consensus
-# originator_peer_count = 3    # Multiple connectivity points
+# originator_signer_count = 4  # High availability consensus for BFT
 # paladin_node_size = "Large"
 # gateway_count = 1
+# enable_force_delete = false
 
 # Note: All examples use full mesh connectivity for Paladin P2P selective disclosure
-# Each account connects to every other account for complete network coverage
+#       Each account connects to every other account for complete network coverage

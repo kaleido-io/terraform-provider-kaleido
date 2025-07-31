@@ -43,12 +43,11 @@ graph TD
 ```mermaid
 graph LR
     subgraph ORIG ["🏛️ ORIGINATOR (node1)"]
-        OB["🔗 Besu Network<br/>Validators + Peers<br/>init_mode: automated"]
+        OB["🔗 Besu Network<br/>Validators<br/>init_mode: automated"]
         OI["📁 IPFS Network<br/>Shared swarm key<br/>Bootstrap node"]
         OP["🔒 Paladin Network<br/>Registry admin<br/>Deploy contract"]
         
         OBS["⚡ Besu Signers<br/>(Validators)"]
-        OBP["🌐 Besu Peers<br/>(Connectable)"]
         OGW["🚪 EVM Gateway<br/>(API Access)"]
         
         OIS["📦 IPFS Service<br/>(File Storage)"]
@@ -60,7 +59,7 @@ graph LR
     end
     
     subgraph JOIN ["🏢 JOINERS (node2, node3, ...)"]
-        JB["🔗 Besu Network<br/>Peers only<br/>init_mode: manual"]
+        JB["🔗 Besu Network<br/>Peers Only<br/>init_mode: manual"]
         JI["📁 IPFS Network<br/>Same swarm key<br/>Connect to bootstrap"]
         JP["🔒 Paladin Network<br/>Existing registry<br/>Join network"]
         
@@ -155,7 +154,7 @@ graph TD
 # terraform.tfvars
 child_account_count = 5
 account_name_prefix = "node"
-root_platform_bearer_token = "eyJhbGciOiJSUzI1NiIs..."
+root_platform_bearer_token = "..."
 kaleido_id_client_id = "your_client_id"
 kaleido_id_client_secret = "your_client_secret"
 kaleido_id_config_url = "https://sso.your-domain.com/.well-known/openid-configuration"
@@ -177,24 +176,21 @@ terraform apply -var-file="terraform.tfvars"
 ```hcl
 child_account_count = 3
 originator_signer_count = 1
-originator_peer_count = 1
 paladin_node_size = "Medium"
 ```
 
 ### Enterprise Production Setup (5 accounts)
 ```hcl
 child_account_count = 5
-originator_signer_count = 4  # HA consensus
-originator_peer_count = 3    # Multiple connectivity points
+originator_signer_count = 4 
 gateway_count = 1
-paladin_node_size = "Large"
+paladin_node_size = "Medium"
 ```
 
 ### High Performance Network (4 accounts)
 ```hcl
 child_account_count = 4
-originator_signer_count = 3
-originator_peer_count = 2
+originator_signer_count = 4
 paladin_node_size = "Large"
 gateway_count = 1
 ```
@@ -226,8 +222,7 @@ Account (node1, node2, ..., nodeN)
 ├── Users Group (with stack_access)
 ├── Besu Network
 │   ├── Chain Infrastructure Stack
-│   ├── Signer Nodes (originator only)
-│   ├── Peer Nodes
+│   ├── Peer Nodes (validators for originator only)
 │   └── EVM Gateway (optional)
 ├── IPFS Network
 │   ├── Chain Infrastructure Stack

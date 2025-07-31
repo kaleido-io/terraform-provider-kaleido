@@ -44,6 +44,7 @@ output "joiner_accounts" {
   }
 }
 
+# TODO a lot of this feels a bit overkill
 # ============================================================================
 # Network Infrastructure Outputs
 # ============================================================================
@@ -71,7 +72,6 @@ output "besu_networks" {
       chain_id   = var.chain_id
       stack_id   = kaleido_platform_stack.originator_besu_stack.id
       signer_nodes = var.originator_signer_count
-      peer_nodes   = var.originator_peer_count
     }
     note = "Joiner networks would be created with init_mode='manual' using originator bootstrap data"
   }

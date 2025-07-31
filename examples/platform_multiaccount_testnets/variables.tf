@@ -118,9 +118,10 @@ variable "block_period_seconds" {
 variable "initial_balances" {
   description = "Initial account balances for the Besu network"
   type        = map(string)
-  default = {
-    "0x12F62772C4652280d06E64CfBC9033d409559aD4" = "0x111111111111"
-  }
+  default     = {}
+  # default = {
+  #   "0x12F62772C4652280d06E64CfBC9033d409559aD4" = "0x111111111111"
+  # }
 }
 
 # ============================================================================
@@ -141,17 +142,6 @@ variable "originator_signer_count" {
   validation {
     condition     = var.originator_signer_count >= 1
     error_message = "At least 1 signer node is required for consensus."
-  }
-}
-
-variable "originator_peer_count" {
-  description = "Number of peer nodes in the originator account"
-  type        = number
-  default     = 1
-  
-  validation {
-    condition     = var.originator_peer_count >= 1
-    error_message = "At least 1 peer node is required for connectivity."
   }
 }
 
@@ -180,7 +170,7 @@ variable "gateway_count" {
 variable "paladin_node_size" {
   description = "Size configuration for Paladin nodes"
   type        = string
-  default     = "Large"
+  default     = "Small"
   
   validation {
     condition = contains(["Small", "Medium", "Large"], var.paladin_node_size)
@@ -200,6 +190,7 @@ variable "enable_force_delete" {
   default     = true
 }
 
+# TODO maybe remove these ?
 # ============================================================================
 # Tags and Labels
 # ============================================================================
@@ -219,7 +210,7 @@ variable "originator_tags" {
   type        = map(string)
   default = {
     Role = "originator"
-    NetworkRole = "hub"
+    NetworkRole = "validator"
   }
 }
 
@@ -228,6 +219,6 @@ variable "joiner_tags" {
   type        = map(string)
   default = {
     Role = "joiner"
-    NetworkRole = "spoke"
+    NetworkRole = "peer"
   }
 }
