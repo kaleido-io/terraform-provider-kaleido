@@ -1,0 +1,150 @@
+# ============================================================================
+# Example Terraform Variables Configuration
+# N-Account Hub-Spoke Network Deployment
+# ============================================================================
+
+# Root Account Authentication
+root_platform_api = "https://account1.kaleido.dev"
+root_platform_bearer_token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlctNmdBb2sxYUpLSFNrSFlYazBEU051TnR2Si1yakpQMzhjSHdwSEpnWmsifQ...."
+
+# OAuth Identity Provider Configuration
+kaleido_id_client_id = "your_client_id_here"
+kaleido_id_client_secret = "your_client_secret_here"
+kaleido_id_config_url = "https://sso-dev.photic.io/api/v1/.well-known/openid-configuration"
+first_user_email = "admin@your-domain.com"
+
+# Kubernetes Service Account Trust Configuration
+bootstrap_application_issuer = "https://kubernetes.default.svc.cluster.local"
+bootstrap_application_jwks_endpoint = "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"
+bootstrap_application_ca_certificate = <<EOF
+-----BEGIN CERTIFICATE-----
+MIIDBTCCAe2gAwIBAgIIWBqbjjcftHgwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+AxMKa3ViZXJuZXRlczAeFw0yNTA3MjgxMjI4MjJaFw0zNTA3MjYxMjMzMjJaMBUx
+EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+AoIBAQCxxW2+9ugV4gaYGZzmD0rBARu1OEnJ9JmWEZg6YOz3pA09VlhAiW5K0S19
+7bsrjk3Q7diz6PTpUPiq01BL5qXOrlFFemTqrpTkxnW7i365tSagrBcvwnugSH8N
+jkGHaXeTYXGA5Pmr1vMCQG4md1b/PeZxpIYKqC8V5CWLkzQMgFeu2TLE0TEGet/u
+3p8OqmrGgHCQh/E8ii7QavieyeKt69/+FhGqH6ppdqjx09I3JIjrMvsTBPu1SvS3
+JGR3yUWQo/s6gPMpz6MtZe7y0JTAffiCOtoPzKRC5tEPLAMGKRliL/y7Mo76JDj9
+0V9Y9SLnbNkpSOtjsJ8v3SE5lO1JAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSCA/tZ/nm6HxAe9nRixtnEYcOHqjAV
+BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQAn4VSLuUS7
+/N+ng0wtOvlA5W7qABeGDznpMjgcv6RMyHTe+OFvAq4QmEzRFPdHJKZamZ9mdH2j
+LWe8aJSVJTeBuTOI9buP77AZwMQV7wq3t7EvrweG1qUw8kylAFGu1nowYgyLI3l+
+ky+oQJJsSX27IiICeXn43bdcS2Var29gVQqjn/8G0YYECWMVTWiy3dZt9AfVa+WZ
+Szf6UUzvGlUHnRYZs28P3v7FuhBJk2Umq1I8TESzwTF8OOQnee1nS4KDX3Iw2kjR
++Z2LBilX+/+l8hcH+tNjKCBYnwx1Ou5L6sD0RpYUCt5WleSbvNCLtlJbv0cVAlh7
+mBHSdT6vc4EJ
+-----END CERTIFICATE-----
+EOF
+
+# ============================================================================
+# Child Account Configuration
+# ============================================================================
+
+# Number of child accounts to create (2-5 supported in this example)
+# Account 1 becomes the originator (hub), accounts 2-N become joiners (spokes)
+child_account_count = 3
+
+# Account naming
+account_name_prefix = "node"  # Creates node1, node2, node3, node4, node5
+
+# ============================================================================
+# Network Configuration
+# ============================================================================
+
+# Network names
+besu_network_name = "enterprise_testnet"
+ipfs_network_name = "enterprise_filenet"
+paladin_network_name = "enterprise_paladinnet"
+
+# Besu blockchain configuration
+chain_id = 54321
+block_period_seconds = 3
+initial_balances = {
+  "0x12F62772C4652280d06E64CfBC9033d409559aD4" = "0x111111111111"
+  "0x742d35Cc6634C0532925a3b8D21fDaF37CAbc883" = "0x222222222222"
+}
+
+# ============================================================================
+# Infrastructure Configuration
+# ============================================================================
+
+# Deployment zone for peerable nodes
+deployment_zone = "platform-conn"
+
+# Node counts for originator (hub)
+originator_signer_count = 2  # Validator nodes for consensus
+originator_peer_count = 2    # Peer nodes for connectivity
+
+# Gateway configuration
+gateway_count = 1  # 1 EVM gateway per account
+
+# ============================================================================
+# Connectivity Options
+# ============================================================================
+
+# Hub-and-spoke (false) vs full mesh (true)
+# Hub-and-spoke: All joiners connect to originator only
+# Full mesh: All accounts connect to all other accounts
+enable_full_mesh_connectivity = false
+
+# ============================================================================
+# Advanced Configuration
+# ============================================================================
+
+# Paladin node sizing
+paladin_node_size = "Large"
+
+# Development settings
+enable_force_delete = true
+
+# ============================================================================
+# Tagging and Metadata
+# ============================================================================
+
+common_tags = {
+  Environment = "development"
+  Project     = "enterprise-blockchain"
+  ManagedBy   = "terraform"
+  Purpose     = "hub-spoke-network"
+  Owner       = "blockchain-team"
+}
+
+originator_tags = {
+  Role = "originator"
+  NetworkRole = "primary"
+  Critical = "true"
+}
+
+joiner_tags = {
+  Role = "joiner" 
+  NetworkRole = "peer"
+  Critical = "false"
+}
+
+# ============================================================================
+# Examples for Different Scenarios (All use full mesh connectivity)
+# ============================================================================
+
+# Example 1: Small Development Setup (3 accounts)
+# child_account_count = 3
+# originator_signer_count = 1
+# originator_peer_count = 1
+# paladin_node_size = "Medium"
+
+# Example 2: Enterprise Setup (5 accounts)  
+# child_account_count = 5
+# originator_signer_count = 3
+# originator_peer_count = 2
+# paladin_node_size = "Large"
+
+# Example 3: Production-like Setup (4 accounts)
+# child_account_count = 4
+# originator_signer_count = 4  # High availability consensus
+# originator_peer_count = 3    # Multiple connectivity points
+# paladin_node_size = "Large"
+# gateway_count = 1
+
+# Note: All examples use full mesh connectivity for Paladin P2P selective disclosure
+# Each account connects to every other account for complete network coverage
