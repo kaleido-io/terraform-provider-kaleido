@@ -8,7 +8,18 @@ variable "root_platform_api" {
   default     = "https://account1.kaleido.dev"
 }
 
-variable "root_platform_bearer_token" {
+variable "root_platform_username" {
+  description = "Root account platform username"
+  type        = string
+}
+
+variable "root_platform_password" {
+  description = "Root account platform password"
+  type        = string
+  sensitive   = true
+}
+
+variable "bootstrap_platform_bearer_token" {
   description = "Bearer token for root account authentication (from Kubernetes service account)"
   type        = string
   sensitive   = true
@@ -190,35 +201,3 @@ variable "enable_force_delete" {
   default     = true
 }
 
-# TODO maybe remove these ?
-# ============================================================================
-# Tags and Labels
-# ============================================================================
-
-variable "common_tags" {
-  description = "Common tags to apply to all resources"
-  type        = map(string)
-  default = {
-    Environment = "development"
-    ManagedBy   = "terraform"
-    Purpose     = "hub-spoke-network"
-  }
-}
-
-variable "originator_tags" {
-  description = "Additional tags specific to originator account resources"
-  type        = map(string)
-  default = {
-    Role = "originator"
-    NetworkRole = "validator"
-  }
-}
-
-variable "joiner_tags" {
-  description = "Additional tags specific to joiner account resources"
-  type        = map(string)
-  default = {
-    Role = "joiner"
-    NetworkRole = "peer"
-  }
-}

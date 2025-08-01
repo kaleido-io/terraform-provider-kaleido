@@ -289,7 +289,7 @@ resource "kaleido_platform_service" "joiner_paladin_service" {
 # Outputs
 output "account_id" {
   description = "Account ID for this joiner"
-  value = var.child_accounts[var.account_index].account_id
+  value = var.child_accounts[var.account_index].id
 }
 
 output "environment" {

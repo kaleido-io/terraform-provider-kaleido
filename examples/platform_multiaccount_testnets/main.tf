@@ -13,38 +13,39 @@ terraform {
 # Root provider for account creation
 provider "kaleido" {
   platform_api = var.root_platform_api
-  platform_bearer_token = var.root_platform_bearer_token
+  platform_username = var.root_platform_username
+  platform_password = var.root_platform_password
   alias = "root"
 }
 
-# Child account providers (explicitly defined for up to 10 accounts)
+# Child account providers (explicitly defined for up to 5 accounts)
 provider "kaleido" {
   platform_api = "https://${var.account_name_prefix}1.kaleido.dev"
-  platform_bearer_token = var.root_platform_bearer_token
+  platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_0"
 }
 
 provider "kaleido" {
   platform_api = "https://${var.account_name_prefix}2.kaleido.dev"
-  platform_bearer_token = var.root_platform_bearer_token
+  platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_1"
 }
 
 provider "kaleido" {
   platform_api = "https://${var.account_name_prefix}3.kaleido.dev"
-  platform_bearer_token = var.root_platform_bearer_token
+  platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_2"
 }
 
 provider "kaleido" {
   platform_api = "https://${var.account_name_prefix}4.kaleido.dev"
-  platform_bearer_token = var.root_platform_bearer_token
+  platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_3"
 }
 
 provider "kaleido" {
   platform_api = "https://${var.account_name_prefix}5.kaleido.dev"
-  platform_bearer_token = var.root_platform_bearer_token
+  platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_4"
 }
 
@@ -234,10 +235,6 @@ resource "kaleido_platform_stack" "originator_paladin_stack" {
   network_id = kaleido_platform_network.originator_paladin_network.id
 }
 
-# Stack access for originator
-# Note: Stack access is managed through the users group created above
-# The "users" group in each account provides appropriate access to chain infrastructure stacks
-
 # Besu nodes for originator
 resource "kaleido_platform_runtime" "originator_besu_signer_runtime" {
   provider = kaleido.child_0
@@ -383,206 +380,1166 @@ resource "kaleido_platform_service" "originator_paladin_service" {
 }
 
 # ============================================================================
-# JOINER ACCOUNTS (Remaining child accounts)
-# Implements full mesh connectivity for Paladin P2P selective disclosure
+# JOINER ACCOUNTS (Statically defined modules for each potential joiner)
 # ============================================================================
 
-# Account data providers for connectors
-data "kaleido_platform_account" "originator_account" {
-  provider = kaleido.child_0
-}
 
-data "kaleido_platform_account" "joiner_accounts" {
-  count = var.child_account_count - 1
-  provider = count.index == 0 ? kaleido.child_1 : (
-    count.index == 1 ? kaleido.child_2 : (
-      count.index == 2 ? kaleido.child_3 : kaleido.child_4
-    )
-  )
-}
 
-# Joiner Account Modules - Create one for each joiner (accounts 2-N)
-module "joiner_accounts" {
+# Joiner 1 (Account 2)
+module "joiner_1" {
   source = "./modules/joiner_account"
-  count = var.child_account_count - 1
+  count = var.child_account_count > 1 ? 1 : 0
 
-  # Account configuration
-  account_index = count.index
+  providers = {
+    kaleido = kaleido.child_1
+  }
+
+  account_index = 1
   account_name_prefix = var.account_name_prefix
-  
-  # Network configuration
   besu_network_name = var.besu_network_name
   ipfs_network_name = var.ipfs_network_name
   paladin_network_name = var.paladin_network_name
-  
-  # Shared resources
   shared_swarm_key = random_id.shared_swarm_key.hex
   originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
-  
-  # Infrastructure configuration
   deployment_zone = var.deployment_zone
   gateway_count = var.gateway_count
   paladin_node_size = var.paladin_node_size
   enable_force_delete = var.enable_force_delete
-  
-  # Dependencies
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
-  
-  providers = {
-    kaleido = count.index == 0 ? kaleido.child_1 : (
-      count.index == 1 ? kaleido.child_2 : (
-        count.index == 2 ? kaleido.child_3 : kaleido.child_4
-      )
-    )
-  }
 }
 
-# Network Connectors Module - Calculates full mesh connectivity
-module "network_connectors" {
-  source = "./modules/network_connectors"
-  
-  child_account_count = var.child_account_count
-  deployment_zone = var.deployment_zone
+# Joiner 2 (Account 3)
+module "joiner_2" {
+  source = "./modules/joiner_account"
+  count = var.child_account_count > 2 ? 1 : 0
+
+  providers = {
+    kaleido = kaleido.child_2
+  }
+
+  account_index = 2
   account_name_prefix = var.account_name_prefix
-  
-  # Originator data
-  originator_account_id = data.kaleido_platform_account.originator_account.account_id
-  originator_environment_id = kaleido_platform_environment.originator_environment.id
-  originator_besu_network_id = kaleido_platform_network.originator_besu_network.id
-  originator_ipfs_network_id = kaleido_platform_network.originator_ipfs_network.id
-  originator_paladin_network_id = kaleido_platform_network.originator_paladin_network.id
-  
-  # Joiner data
-  joiner_account_ids = data.kaleido_platform_account.joiner_accounts[*].account_id
-  joiner_environment_ids = module.joiner_accounts[*].environment.id
-  joiner_besu_network_ids = module.joiner_accounts[*].besu_network.id
-  joiner_ipfs_network_ids = module.joiner_accounts[*].ipfs_network.id
-  joiner_paladin_network_ids = module.joiner_accounts[*].paladin_network.id
+  besu_network_name = var.besu_network_name
+  ipfs_network_name = var.ipfs_network_name
+  paladin_network_name = var.paladin_network_name
+  shared_swarm_key = random_id.shared_swarm_key.hex
+  originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
+  deployment_zone = var.deployment_zone
+  gateway_count = var.gateway_count
+  paladin_node_size = var.paladin_node_size
+  enable_force_delete = var.enable_force_delete
+  child_accounts = kaleido_platform_account.child_accounts
+  originator_besu_network = kaleido_platform_network.originator_besu_network
+  originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+}
+
+# Joiner 3 (Account 4)
+module "joiner_3" {
+  source = "./modules/joiner_account"
+  count = var.child_account_count > 3 ? 1 : 0
+
+  providers = {
+    kaleido = kaleido.child_3
+  }
+
+  account_index = 3
+  account_name_prefix = var.account_name_prefix
+  besu_network_name = var.besu_network_name
+  ipfs_network_name = var.ipfs_network_name
+  paladin_network_name = var.paladin_network_name
+  shared_swarm_key = random_id.shared_swarm_key.hex
+  originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
+  deployment_zone = var.deployment_zone
+  gateway_count = var.gateway_count
+  paladin_node_size = var.paladin_node_size
+  enable_force_delete = var.enable_force_delete
+  child_accounts = kaleido_platform_account.child_accounts
+  originator_besu_network = kaleido_platform_network.originator_besu_network
+  originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+}
+
+# Joiner 4 (Account 5)
+module "joiner_4" {
+  source = "./modules/joiner_account"
+  count = var.child_account_count > 4 ? 1 : 0
+
+  providers = {
+    kaleido = kaleido.child_4
+  }
+
+  account_index = 4
+  account_name_prefix = var.account_name_prefix
+  besu_network_name = var.besu_network_name
+  ipfs_network_name = var.ipfs_network_name
+  paladin_network_name = var.paladin_network_name
+  shared_swarm_key = random_id.shared_swarm_key.hex
+  originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
+  deployment_zone = var.deployment_zone
+  gateway_count = var.gateway_count
+  paladin_node_size = var.paladin_node_size
+  enable_force_delete = var.enable_force_delete
+  child_accounts = kaleido_platform_account.child_accounts
+  originator_besu_network = kaleido_platform_network.originator_besu_network
+  originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
 }
 
 # ============================================================================
 # FULL MESH NETWORK CONNECTORS IMPLEMENTATION
-# Due to Terraform provider limitations, we implement key connectors explicitly
 # ============================================================================
 
-# Example: Originator to Joiner 1 connections (all networks)
-# Besu: Originator requests connection to Joiner 1
-resource "kaleido_network_connector" "originator_to_joiner1_besu_request" {
+
+
+resource "kaleido_network_connector" "account1_to_account2_besu_request" {
   count = var.child_account_count > 1 ? 1 : 0
   provider = kaleido.child_0
   
   type = "Platform"
-  name = "originator_to_joiner1_besu"
+  name = "account1_to_account2_besu"
   environment = kaleido_platform_environment.originator_environment.id
   network = kaleido_platform_network.originator_besu_network.id
   zone = var.deployment_zone
 
   platform_requestor = {
-    target_account_id = data.kaleido_platform_account.joiner_accounts[0].account_id
-    target_environment_id = module.joiner_accounts[0].environment.id
-    target_network_id = module.joiner_accounts[0].besu_network.id
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].besu_network.id
   }
 }
 
-# Besu: Joiner 1 accepts connection from Originator
-resource "kaleido_network_connector" "joiner1_accept_originator_besu" {
+resource "kaleido_network_connector" "account2_accept_account1_besu" {
   count = var.child_account_count > 1 ? 1 : 0
   provider = kaleido.child_1
   
   type = "Platform"
-  name = "joiner1_accept_originator_besu"
-  environment = module.joiner_accounts[0].environment.id
-  network = module.joiner_accounts[0].besu_network.id
+  name = "account2_accept_account1_besu"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].besu_network.id
   zone = var.deployment_zone
 
   platform_acceptor = {
-    target_account_id = data.kaleido_platform_account.originator_account.account_id
+    target_account_id = kaleido_platform_account.child_accounts[0].id
     target_environment_id = kaleido_platform_environment.originator_environment.id
     target_network_id = kaleido_platform_network.originator_besu_network.id
-    target_connector_id = kaleido_network_connector.originator_to_joiner1_besu_request[0].id
+    target_connector_id = kaleido_network_connector.account1_to_account2_besu_request[0].id
   }
 }
 
-# IPFS: Originator to Joiner 1
-resource "kaleido_network_connector" "originator_to_joiner1_ipfs_request" {
+resource "kaleido_network_connector" "account1_to_account2_ipfs_request" {
   count = var.child_account_count > 1 ? 1 : 0
   provider = kaleido.child_0
   
   type = "Platform"
-  name = "originator_to_joiner1_ipfs"
+  name = "account1_to_account2_ipfs"
   environment = kaleido_platform_environment.originator_environment.id
   network = kaleido_platform_network.originator_ipfs_network.id
   zone = var.deployment_zone
 
   platform_requestor = {
-    target_account_id = data.kaleido_platform_account.joiner_accounts[0].account_id
-    target_environment_id = module.joiner_accounts[0].environment.id
-    target_network_id = module.joiner_accounts[0].ipfs_network.id
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].ipfs_network.id
   }
 }
 
-resource "kaleido_network_connector" "joiner1_accept_originator_ipfs" {
+resource "kaleido_network_connector" "account2_accept_account1_ipfs" {
   count = var.child_account_count > 1 ? 1 : 0
   provider = kaleido.child_1
   
   type = "Platform"
-  name = "joiner1_accept_originator_ipfs"
-  environment = module.joiner_accounts[0].environment.id
-  network = module.joiner_accounts[0].ipfs_network.id
+  name = "account2_accept_account1_ipfs"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].ipfs_network.id
   zone = var.deployment_zone
 
   platform_acceptor = {
-    target_account_id = data.kaleido_platform_account.originator_account.account_id
+    target_account_id = kaleido_platform_account.child_accounts[0].id
     target_environment_id = kaleido_platform_environment.originator_environment.id
     target_network_id = kaleido_platform_network.originator_ipfs_network.id
-    target_connector_id = kaleido_network_connector.originator_to_joiner1_ipfs_request[0].id
+    target_connector_id = kaleido_network_connector.account1_to_account2_ipfs_request[0].id
   }
 }
 
-# Paladin: Originator to Joiner 1 (Critical for P2P selective disclosure)
-resource "kaleido_network_connector" "originator_to_joiner1_paladin_request" {
+resource "kaleido_network_connector" "account1_to_account2_paladin_request" {
   count = var.child_account_count > 1 ? 1 : 0
   provider = kaleido.child_0
   
   type = "Platform"
-  name = "originator_to_joiner1_paladin"
+  name = "account1_to_account2_paladin"
   environment = kaleido_platform_environment.originator_environment.id
   network = kaleido_platform_network.originator_paladin_network.id
   zone = var.deployment_zone
 
   platform_requestor = {
-    target_account_id = data.kaleido_platform_account.joiner_accounts[0].account_id
-    target_environment_id = module.joiner_accounts[0].environment.id
-    target_network_id = module.joiner_accounts[0].paladin_network.id
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].paladin_network.id
   }
 }
 
-resource "kaleido_network_connector" "joiner1_accept_originator_paladin" {
+resource "kaleido_network_connector" "account2_accept_account1_paladin" {
   count = var.child_account_count > 1 ? 1 : 0
   provider = kaleido.child_1
   
   type = "Platform"
-  name = "joiner1_accept_originator_paladin"
-  environment = module.joiner_accounts[0].environment.id
-  network = module.joiner_accounts[0].paladin_network.id
+  name = "account2_accept_account1_paladin"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].paladin_network.id
   zone = var.deployment_zone
 
   platform_acceptor = {
-    target_account_id = data.kaleido_platform_account.originator_account.account_id
+    target_account_id = kaleido_platform_account.child_accounts[0].id
     target_environment_id = kaleido_platform_environment.originator_environment.id
     target_network_id = kaleido_platform_network.originator_paladin_network.id
-    target_connector_id = kaleido_network_connector.originator_to_joiner1_paladin_request[0].id
+    target_connector_id = kaleido_network_connector.account1_to_account2_paladin_request[0].id
   }
 }
 
-# Additional connector pairs can be implemented following the same pattern
-# For production deployments with more accounts, consider using:
-# 1. Multiple Terraform modules with workspace-based provider configurations
-# 2. External tooling to generate connector configurations
-# 3. GitOps-based approaches for scaling beyond 5 accounts
+resource "kaleido_network_connector" "account1_to_account3_besu_request" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account3_besu"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_besu_network.id
+  zone = var.deployment_zone
 
-# Note: Full mesh connectivity means every account connects to every other account
-# For N accounts, this requires N*(N-1) total connections (bidirectional)
-# This example demonstrates the pattern for the critical connections
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account3_accept_account1_besu" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_accept_account1_besu"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_besu_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account3_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account3_ipfs_request" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account3_ipfs"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account3_accept_account1_ipfs" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_accept_account1_ipfs"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_ipfs_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account3_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account3_paladin_request" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account3_paladin"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account3_accept_account1_paladin" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_accept_account1_paladin"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_paladin_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account3_paladin_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account4_besu_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account4_besu"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account1_besu" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account1_besu"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_besu_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account4_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account4_ipfs_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account4_ipfs"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account1_ipfs" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account1_ipfs"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_ipfs_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account4_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account4_paladin_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account4_paladin"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account1_paladin" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account1_paladin"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_paladin_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account4_paladin_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account5_besu_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account5_besu"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account1_besu" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account1_besu"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_besu_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account5_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account5_ipfs_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account5_ipfs"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account1_ipfs" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account1_ipfs"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_ipfs_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account5_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account1_to_account5_paladin_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_0
+  
+  type = "Platform"
+  name = "account1_to_account5_paladin"
+  environment = kaleido_platform_environment.originator_environment.id
+  network = kaleido_platform_network.originator_paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account1_paladin" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account1_paladin"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[0].id
+    target_environment_id = kaleido_platform_environment.originator_environment.id
+    target_network_id = kaleido_platform_network.originator_paladin_network.id
+    target_connector_id = kaleido_network_connector.account1_to_account5_paladin_request[0].id
+  }
+}
+
+
+resource "kaleido_network_connector" "account2_to_account3_besu_request" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account3_besu"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account3_accept_account2_besu" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_accept_account2_besu"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].besu_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account3_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account3_ipfs_request" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account3_ipfs"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account3_accept_account2_ipfs" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_accept_account2_ipfs"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].ipfs_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account3_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account3_paladin_request" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account3_paladin"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account3_accept_account2_paladin" {
+  count = var.child_account_count > 2 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_accept_account2_paladin"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].paladin_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account3_paladin_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account4_besu_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account4_besu"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account2_besu" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account2_besu"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].besu_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account4_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account4_ipfs_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account4_ipfs"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account2_ipfs" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account2_ipfs"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].ipfs_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account4_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account4_paladin_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account4_paladin"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account2_paladin" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account2_paladin"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].paladin_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account4_paladin_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account5_besu_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account5_besu"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account2_besu" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account2_besu"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].besu_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account5_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account5_ipfs_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account5_ipfs"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account2_ipfs" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account2_ipfs"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].ipfs_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account5_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account2_to_account5_paladin_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_1
+  
+  type = "Platform"
+  name = "account2_to_account5_paladin"
+  environment = module.joiner_1[0].environment.id
+  network = module.joiner_1[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account2_paladin" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account2_paladin"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[1].id
+    target_environment_id = module.joiner_1[0].environment.id
+    target_network_id = module.joiner_1[0].paladin_network.id
+    target_connector_id = kaleido_network_connector.account2_to_account5_paladin_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account3_to_account4_besu_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_to_account4_besu"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account3_besu" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account3_besu"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].besu_network.id
+    target_connector_id = kaleido_network_connector.account3_to_account4_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account3_to_account4_ipfs_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_to_account4_ipfs"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account3_ipfs" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account3_ipfs"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].ipfs_network.id
+    target_connector_id = kaleido_network_connector.account3_to_account4_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account3_to_account4_paladin_request" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_to_account4_paladin"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account4_accept_account3_paladin" {
+  count = var.child_account_count > 3 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_accept_account3_paladin"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].paladin_network.id
+    target_connector_id = kaleido_network_connector.account3_to_account4_paladin_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account3_to_account5_besu_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_to_account5_besu"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account3_besu" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account3_besu"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].besu_network.id
+    target_connector_id = kaleido_network_connector.account3_to_account5_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account3_to_account5_ipfs_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_to_account5_ipfs"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account3_ipfs" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account3_ipfs"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].ipfs_network.id
+    target_connector_id = kaleido_network_connector.account3_to_account5_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account3_to_account5_paladin_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_2
+  
+  type = "Platform"
+  name = "account3_to_account5_paladin"
+  environment = module.joiner_2[0].environment.id
+  network = module.joiner_2[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account3_paladin" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account3_paladin"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[2].id
+    target_environment_id = module.joiner_2[0].environment.id
+    target_network_id = module.joiner_2[0].paladin_network.id
+    target_connector_id = kaleido_network_connector.account3_to_account5_paladin_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account4_to_account5_besu_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_to_account5_besu"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].besu_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account4_besu" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account4_besu"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].besu_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].besu_network.id
+    target_connector_id = kaleido_network_connector.account4_to_account5_besu_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account4_to_account5_ipfs_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_to_account5_ipfs"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].ipfs_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account4_ipfs" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account4_ipfs"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].ipfs_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].ipfs_network.id
+    target_connector_id = kaleido_network_connector.account4_to_account5_ipfs_request[0].id
+  }
+}
+
+resource "kaleido_network_connector" "account4_to_account5_paladin_request" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_3
+  
+  type = "Platform"
+  name = "account4_to_account5_paladin"
+  environment = module.joiner_3[0].environment.id
+  network = module.joiner_3[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_requestor = {
+    target_account_id = kaleido_platform_account.child_accounts[4].id
+    target_environment_id = module.joiner_4[0].environment.id
+    target_network_id = module.joiner_4[0].paladin_network.id
+  }
+}
+
+resource "kaleido_network_connector" "account5_accept_account4_paladin" {
+  count = var.child_account_count > 4 ? 1 : 0
+  provider = kaleido.child_4
+  
+  type = "Platform"
+  name = "account5_accept_account4_paladin"
+  environment = module.joiner_4[0].environment.id
+  network = module.joiner_4[0].paladin_network.id
+  zone = var.deployment_zone
+
+  platform_acceptor = {
+    target_account_id = kaleido_platform_account.child_accounts[3].id
+    target_environment_id = module.joiner_3[0].environment.id
+    target_network_id = module.joiner_3[0].paladin_network.id
+    target_connector_id = kaleido_network_connector.account4_to_account5_paladin_request[0].id
+  }
+}
+
+
