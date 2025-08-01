@@ -250,6 +250,30 @@ resource "kaleido_platform_service" "joiner_ipfs_service" {
   stack_id = kaleido_platform_stack.joiner_ipfs_stack.id
 }
 
+# Key Manager - Joiner
+resource "kaleido_platform_runtime" "joiner_kms_runtime" {
+  type = "KeyManager"
+  name = "${local.account_name}_kms"
+  environment = kaleido_platform_environment.joiner_environment.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "joiner_kms_service" {
+  type = "KeyManager"
+  name = "${local.account_name}_kms"
+  environment = kaleido_platform_environment.joiner_environment.id
+  runtime = kaleido_platform_runtime.joiner_kms_runtime.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_kms_wallet" "paladin_wallet" {
+  type = "hdwallet"
+  name = "${local.account_name}_paladin_wallet"
+  environment = kaleido_platform_environment.joiner_environment.id
+  service = kaleido_platform_service.joiner_kms_service.id
+  config_json = jsonencode({})
+}
+
 # Paladin Node - Joiner
 resource "kaleido_platform_runtime" "joiner_paladin_runtime" {
   type = "PaladinNodeRuntime"
@@ -271,16 +295,22 @@ resource "kaleido_platform_service" "joiner_paladin_service" {
     network = {
       id = kaleido_platform_network.joiner_paladin_network.id
     }
+    keyManager = {
+      id = kaleido_platform_service.joiner_kms_service.id
+    }
     baseLedgerEndpoint = {
       type = "local"
       local = {
-        node = {
-          id = kaleido_platform_service.joiner_besu_peer_service.id
+        gateway = {
+          id = kaleido_platform_service.joiner_gateway_service[0].id
         }
       }
     }
+    wallets = {
+      kmsKeyStore = kaleido_platform_kms_wallet.paladin_wallet.name
+    }
     baseConfig = "{\"blockIndexer\":{\"fromBlock\": 0 }}"
-    registryAdminIdentity = "registry.admin"
+    registryAdminIdentity = "registry.admin" // TODO can this not be hardcoded ?
   })
   
   stack_id = kaleido_platform_stack.joiner_paladin_stack.id

@@ -462,6 +462,10 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
+func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	importStateEnvrionmentResource(ctx, req, resp)
+}
+
 func (r *serviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data ServiceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)

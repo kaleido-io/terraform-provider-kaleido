@@ -285,3 +285,7 @@ func (r *runtimeResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }
+
+func (r *runtimeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	importStateEnvrionmentResource(ctx, req, resp)
+}

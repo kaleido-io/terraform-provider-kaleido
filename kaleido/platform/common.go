@@ -346,6 +346,16 @@ func (r *commonResource) ImportState(ctx context.Context, req resource.ImportSta
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
+func importStateEnvrionmentResource(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	ids := strings.Split(req.ID, "/")
+	if len(ids) != 2 {
+		resp.Diagnostics.AddError("invalid import ID", "expected format: <environment_id>/<id>")
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), ids[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment"), ids[0])...)
+}
+
 func DataSources() []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		EVMNetInfoDataSourceFactory,

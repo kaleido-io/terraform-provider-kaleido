@@ -340,6 +340,35 @@ resource "kaleido_platform_service" "originator_ipfs_service" {
   stack_id = kaleido_platform_stack.originator_ipfs_stack.id
 }
 
+resource "kaleido_platform_runtime" "originator_kms_runtime" {
+  provider = kaleido.child_0
+  
+  type = "KeyManager"
+  name = "originator_kms"
+  environment = kaleido_platform_environment.originator_environment.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "originator_kms_service" {
+  provider = kaleido.child_0
+  
+  type = "KeyManager"
+  name = "originator_kms"
+  environment = kaleido_platform_environment.originator_environment.id
+  runtime = kaleido_platform_runtime.originator_kms_runtime.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_kms_wallet" "paladin_wallet" {
+  provider = kaleido.child_0
+
+  type = "hdwallet"
+  name = "paladin_wallet"
+  environment = kaleido_platform_environment.originator_environment.id
+  service = kaleido_platform_service.originator_kms_service.id
+  config_json = jsonencode({})
+}
+
 resource "kaleido_platform_runtime" "originator_paladin_runtime" {
   provider = kaleido.child_0
   
@@ -364,16 +393,22 @@ resource "kaleido_platform_service" "originator_paladin_service" {
     network = {
       id = kaleido_platform_network.originator_paladin_network.id
     }
+    keyManager = {
+      id = kaleido_platform_service.originator_kms_service.id
+    }
     baseLedgerEndpoint = {
       type = "local"
       local = {
-        node = {
-          id = kaleido_platform_service.originator_besu_signer_service[0].id
+        gateway = {
+          id = kaleido_platform_service.originator_gateway_service[0].id
         }
       }
     }
+    wallets = {
+      kmsKeyStore = kaleido_platform_kms_wallet.paladin_wallet.name
+    }
     baseConfig = "{\"blockIndexer\":{\"fromBlock\": 0 }}"
-    registryAdminIdentity = "registry.admin"
+    registryAdminIdentity = "registry.admin" // TODO can this not be hardcoded ?
   })
   
   stack_id = kaleido_platform_stack.originator_paladin_stack.id
@@ -408,6 +443,14 @@ module "joiner_1" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+
+  depends_on = [
+    kaleido_platform_service.originator_besu_signer_service,
+    kaleido_platform_service.originator_paladin_service,
+    kaleido_platform_network.originator_besu_network,
+    kaleido_platform_network.originator_ipfs_network,
+    kaleido_platform_network.originator_paladin_network,
+  ]
 }
 
 # Joiner 2 (Account 3)
@@ -433,6 +476,14 @@ module "joiner_2" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+
+  depends_on = [
+    kaleido_platform_service.originator_besu_signer_service,
+    kaleido_platform_service.originator_paladin_service,
+    kaleido_platform_network.originator_besu_network,
+    kaleido_platform_network.originator_ipfs_network,
+    kaleido_platform_network.originator_paladin_network,
+  ]
 }
 
 # Joiner 3 (Account 4)
@@ -458,6 +509,14 @@ module "joiner_3" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+
+  depends_on = [
+    kaleido_platform_service.originator_besu_signer_service,
+    kaleido_platform_service.originator_paladin_service,
+    kaleido_platform_network.originator_besu_network,
+    kaleido_platform_network.originator_ipfs_network,
+    kaleido_platform_network.originator_paladin_network,
+  ]
 }
 
 # Joiner 4 (Account 5)
@@ -483,6 +542,14 @@ module "joiner_4" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+
+  depends_on = [
+    kaleido_platform_service.originator_besu_signer_service,
+    kaleido_platform_service.originator_paladin_service,
+    kaleido_platform_network.originator_besu_network,
+    kaleido_platform_network.originator_ipfs_network,
+    kaleido_platform_network.originator_paladin_network,
+  ]
 }
 
 # ============================================================================

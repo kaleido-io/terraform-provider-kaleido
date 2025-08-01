@@ -310,3 +310,14 @@ func (r *connectorResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }
+
+func (r *connectorResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	ids := strings.Split(req.ID, "/")
+	if len(ids) != 3 {
+		resp.Diagnostics.AddError("invalid import ID", "expected format: <environment_id>/<network_id>/<connector_id>")
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), ids[2])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment"), ids[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("network"), ids[1])...)
+}
