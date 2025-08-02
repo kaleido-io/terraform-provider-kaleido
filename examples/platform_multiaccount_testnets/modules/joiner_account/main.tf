@@ -77,6 +77,22 @@ variable "originator_besu_signer_services" {
   type = any
 }
 
+variable "paladin_from_block" {
+  description = "From block for Paladin"
+  type = any // can be number or "latest"
+  default = 0
+}
+
+variable "paladin_noto_factory_address" {
+  description = "Paladin Noto factory address"
+  type = string
+}
+
+variable "paladin_pente_factory_address" {
+  description = "Paladin Pente factory address"
+  type = string
+}
+
 # Local computed values
 locals {
   account_name = "${var.account_name_prefix}${var.account_index + 1}"
@@ -309,8 +325,29 @@ resource "kaleido_platform_service" "joiner_paladin_service" {
     wallets = {
       kmsKeyStore = kaleido_platform_kms_wallet.paladin_wallet.name
     }
-    baseConfig = "{\"blockIndexer\":{\"fromBlock\": 0 }}"
     registryAdminIdentity = "registry.admin" // TODO can this not be hardcoded ?
+    baseConfig = jsonencode({
+      blockIndexer = {
+        fromBlock = var.paladin_from_block
+      }
+      domains = {
+        noto = {
+          plugin = {
+            library = "/app/domains/libnoto.so"
+            type = "c-shared"
+          }
+          registryAddress = var.paladin_noto_factory_address
+        }
+        pente = {
+          plugin = {
+            class = "io.kaleido.paladin.pente.domain.PenteDomainFactory"
+            library = "/app/domains/pente.jar"
+            type = "jar"
+          }
+          registryAddress = var.paladin_pente_factory_address
+        }
+      }
+    })
   })
   
   stack_id = kaleido_platform_stack.joiner_paladin_stack.id

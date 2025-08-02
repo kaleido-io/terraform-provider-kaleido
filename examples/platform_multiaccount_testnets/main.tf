@@ -149,6 +149,76 @@ resource "kaleido_platform_environment" "originator_environment" {
   depends_on = [kaleido_platform_account.child_accounts]
 }
 
+resource "kaleido_platform_runtime" "originator_cms_runtime" {
+  provider = kaleido.child_0
+
+  type = "ContractManager"
+  name = "originator_cms"
+  environment = kaleido_platform_environment.originator_environment.id
+  config_json = jsonencode({})
+  size = "Medium"
+}
+
+resource "kaleido_platform_service" "originator_cms_service" {
+  provider = kaleido.child_0
+
+  type = "ContractManager"
+  name = "originator_cms"
+  environment = kaleido_platform_environment.originator_environment.id
+  runtime = kaleido_platform_runtime.originator_cms_runtime.id
+  config_json = jsonencode({})
+  // TODO proxy option ?
+}
+
+resource "kaleido_platform_runtime" "originator_kms_runtime" {
+  provider = kaleido.child_0
+
+  type = "KeyManager"
+  name = "originator_kms"
+  environment = kaleido_platform_environment.originator_environment.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_service" "originator_kms_service" {
+  provider = kaleido.child_0
+
+  type = "KeyManager"
+  name = "originator_kms"
+  environment = kaleido_platform_environment.originator_environment.id
+  runtime = kaleido_platform_runtime.originator_kms_runtime.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_kms_wallet" "paladin_wallet" {
+  provider = kaleido.child_0
+
+  type = "hdwallet"
+  name = "paladin_wallet"
+  environment = kaleido_platform_environment.originator_environment.id
+  service = kaleido_platform_service.originator_kms_service.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_kms_wallet" "admin_wallet" {
+  provider = kaleido.child_0
+
+  type = "hdwallet"
+  name = "admin_wallet"
+  environment = kaleido_platform_environment.originator_environment.id
+  service = kaleido_platform_service.originator_kms_service.id
+  config_json = jsonencode({})
+}
+
+resource "kaleido_platform_kms_key" "contract_deployer_key" {
+  provider = kaleido.child_0
+
+  name = "contract_deployer_key"
+  environment = kaleido_platform_environment.originator_environment.id
+  service = kaleido_platform_service.originator_kms_service.id
+  wallet = kaleido_platform_kms_wallet.admin_wallet.name
+}
+
+
 # Networks for originator
 resource "kaleido_platform_network" "originator_besu_network" {
   provider = kaleido.child_0
@@ -340,35 +410,6 @@ resource "kaleido_platform_service" "originator_ipfs_service" {
   stack_id = kaleido_platform_stack.originator_ipfs_stack.id
 }
 
-resource "kaleido_platform_runtime" "originator_kms_runtime" {
-  provider = kaleido.child_0
-  
-  type = "KeyManager"
-  name = "originator_kms"
-  environment = kaleido_platform_environment.originator_environment.id
-  config_json = jsonencode({})
-}
-
-resource "kaleido_platform_service" "originator_kms_service" {
-  provider = kaleido.child_0
-  
-  type = "KeyManager"
-  name = "originator_kms"
-  environment = kaleido_platform_environment.originator_environment.id
-  runtime = kaleido_platform_runtime.originator_kms_runtime.id
-  config_json = jsonencode({})
-}
-
-resource "kaleido_platform_kms_wallet" "paladin_wallet" {
-  provider = kaleido.child_0
-
-  type = "hdwallet"
-  name = "paladin_wallet"
-  environment = kaleido_platform_environment.originator_environment.id
-  service = kaleido_platform_service.originator_kms_service.id
-  config_json = jsonencode({})
-}
-
 resource "kaleido_platform_runtime" "originator_paladin_runtime" {
   provider = kaleido.child_0
   
@@ -407,18 +448,130 @@ resource "kaleido_platform_service" "originator_paladin_service" {
     wallets = {
       kmsKeyStore = kaleido_platform_kms_wallet.paladin_wallet.name
     }
-    baseConfig = "{\"blockIndexer\":{\"fromBlock\": 0 }}"
     registryAdminIdentity = "registry.admin" // TODO can this not be hardcoded ?
+    baseConfig = jsonencode({
+      blockIndexer = {
+        fromBlock = 0
+      }
+      domains = {
+        noto = {
+          plugin = {
+            library = "/app/domains/libnoto.so"
+            type = "c-shared"
+          }
+          registryAddress = kaleido_platform_cms_action_deploy.contracts["noto_factory"].contract_address
+        }
+        pente = {
+          plugin = {
+            class = "io.kaleido.paladin.pente.domain.PenteDomainFactory"
+            library = "/app/domains/pente.jar"
+            type = "jar"
+          }
+          registryAddress = kaleido_platform_cms_action_deploy.contracts["pente_factory"].contract_address
+        }
+      }
+    })
   })
   
   stack_id = kaleido_platform_stack.originator_paladin_stack.id
 }
 
+resource "kaleido_platform_stack" "originator_web3_middleware_stack" {
+  provider = kaleido.child_0
+
+  environment = kaleido_platform_environment.originator_environment.id
+  name = "web3_middleware"
+  type = "web3_middleware"
+}
+
+resource "kaleido_platform_runtime" "originator_tms_runtime" {
+  provider = kaleido.child_0
+
+  type = "TransactionManager"
+  name = "originator_tms"
+  environment = kaleido_platform_environment.originator_environment.id
+  config_json = jsonencode({})
+  stack_id = kaleido_platform_stack.originator_web3_middleware_stack.id
+}
+
+resource "kaleido_platform_service" "originator_tms_service" {
+  provider = kaleido.child_0
+
+  type = "TransactionManager"
+  name = "originator_tms"
+  environment = kaleido_platform_environment.originator_environment.id
+  runtime = kaleido_platform_runtime.originator_tms_runtime.id
+  config_json = jsonencode({
+    keyManager = {
+      id = kaleido_platform_service.originator_kms_service.id
+    }
+    type = "evm"
+    evm = {
+      confirmations = {
+        required = 0
+      }
+      connector = {
+        evmGateway = {
+          id =  kaleido_platform_service.originator_gateway_service[0].id
+        }
+      }
+    }
+  })
+  stack_id = kaleido_platform_stack.originator_web3_middleware_stack.id
+}
+
+locals {
+  contracts = {
+    noto_factory = {
+      name = "NotoFactory"
+      contract_url = "https://github.com/LF-Decentralized-Trust-labs/paladin/blob/9318ea383074b1bc5d3196587aa07109c8cf17e0/solidity/contracts/domains/noto/NotoFactory.sol"
+      path = "Paladin"
+    }
+    pente_factory = {
+      name = "PenteFactory"
+      contract_url = "https://github.com/LF-Decentralized-Trust-labs/paladin/blob/9318ea383074b1bc5d3196587aa07109c8cf17e0/solidity/contracts/domains/pente/PenteFactory.sol"
+      path = "Paladin"
+    }
+  }
+}
+
+
+resource "kaleido_platform_cms_build" "contracts" {
+  for_each = local.contracts
+  environment = kaleido_platform_environment.originator_environment.id
+  service     = kaleido_platform_service.originator_cms_service.id
+  type        = "github"
+  name        = each.value.name
+  path        = each.value.path
+  evm_version = "shanghai" // prague ?
+  github = {
+    contract_url  = each.value.contract_url
+    contract_name = each.value.name
+  }
+  optimizer = {
+    enabled = true
+    runs    = 200
+    via_ir = false
+  }
+
+  provider = kaleido.child_0
+}
+
+resource "kaleido_platform_cms_action_deploy" "contracts" {
+  for_each = local.contracts
+  environment         = kaleido_platform_environment.originator_environment.id
+  service             = kaleido_platform_service.originator_cms_service.id
+  build               = kaleido_platform_cms_build.contracts[each.key].id
+  name                = "deploy_${each.value.name}"
+  transaction_manager = kaleido_platform_service.originator_tms_service.id
+  signing_key         = kaleido_platform_kms_key.contract_deployer_key.address
+
+  provider = kaleido.child_0
+}
+
 # ============================================================================
 # JOINER ACCOUNTS (Statically defined modules for each potential joiner)
 # ============================================================================
-
-
 
 # Joiner 1 (Account 2)
 module "joiner_1" {
@@ -443,6 +596,8 @@ module "joiner_1" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+  paladin_noto_factory_address = kaleido_platform_cms_action_deploy.contracts["noto_factory"].contract_address
+  paladin_pente_factory_address = kaleido_platform_cms_action_deploy.contracts["pente_factory"].contract_address
 
   depends_on = [
     kaleido_platform_service.originator_besu_signer_service,
@@ -476,6 +631,8 @@ module "joiner_2" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+  paladin_noto_factory_address = kaleido_platform_cms_action_deploy.contracts["noto_factory"].contract_address
+  paladin_pente_factory_address = kaleido_platform_cms_action_deploy.contracts["pente_factory"].contract_address
 
   depends_on = [
     kaleido_platform_service.originator_besu_signer_service,
@@ -509,6 +666,8 @@ module "joiner_3" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+  paladin_noto_factory_address = kaleido_platform_cms_action_deploy.contracts["noto_factory"].contract_address
+  paladin_pente_factory_address = kaleido_platform_cms_action_deploy.contracts["pente_factory"].contract_address
 
   depends_on = [
     kaleido_platform_service.originator_besu_signer_service,
@@ -542,6 +701,8 @@ module "joiner_4" {
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
   originator_besu_signer_services = kaleido_platform_service.originator_besu_signer_service
+  paladin_noto_factory_address = kaleido_platform_cms_action_deploy.contracts["noto_factory"].contract_address
+  paladin_pente_factory_address = kaleido_platform_cms_action_deploy.contracts["pente_factory"].contract_address
 
   depends_on = [
     kaleido_platform_service.originator_besu_signer_service,
