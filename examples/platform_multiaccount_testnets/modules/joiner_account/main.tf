@@ -52,7 +52,7 @@ variable "gateway_count" {
   type = number
 }
 
-variable "paladin_node_size" {
+variable "node_runtime_size" {
   description = "Size of Paladin nodes"
   type = string
 }
@@ -190,6 +190,7 @@ resource "kaleido_platform_runtime" "joiner_besu_peer_runtime" {
   zone = var.deployment_zone
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.joiner_besu_stack.id
+  size = var.node_runtime_size
   
   depends_on = [kaleido_platform_network.joiner_besu_network]
 }
@@ -205,6 +206,9 @@ resource "kaleido_platform_service" "joiner_besu_peer_service" {
       id = kaleido_platform_network.joiner_besu_network.id
     }
     signer = false
+    customBesuArgs = ["--revert-reason-enabled=true"]
+    dataStorageFormat = "BONSAI"
+    logLevel = "DEBUG"
   })
   
   force_delete = var.enable_force_delete
@@ -249,6 +253,7 @@ resource "kaleido_platform_runtime" "joiner_ipfs_runtime" {
   environment = kaleido_platform_environment.joiner_environment.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.joiner_ipfs_stack.id
+  size = var.node_runtime_size
 }
 
 resource "kaleido_platform_service" "joiner_ipfs_service" {
@@ -297,7 +302,7 @@ resource "kaleido_platform_runtime" "joiner_paladin_runtime" {
   environment = kaleido_platform_environment.joiner_environment.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.joiner_paladin_stack.id
-  size = var.paladin_node_size
+  size = var.node_runtime_size
   zone = var.deployment_zone
 }
 

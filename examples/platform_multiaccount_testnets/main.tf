@@ -12,39 +12,40 @@ terraform {
 
 # Root provider for account creation
 provider "kaleido" {
-  platform_api = var.root_platform_api
+  platform_api = "https://${var.root_platform_account_name}.${var.platform_instance_domain}"
   platform_username = var.root_platform_username
   platform_password = var.root_platform_password
   alias = "root"
 }
 
+// TODO make domain variables
 # Child account providers (explicitly defined for up to 5 accounts)
 provider "kaleido" {
-  platform_api = "https://${var.account_name_prefix}1.kaleido.dev"
+  platform_api = "https://${var.account_name_prefix}1.${var.platform_instance_domain}"
   platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_0"
 }
 
 provider "kaleido" {
-  platform_api = "https://${var.account_name_prefix}2.kaleido.dev"
+  platform_api = "https://${var.account_name_prefix}2.${var.platform_instance_domain}"
   platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_1"
 }
 
 provider "kaleido" {
-  platform_api = "https://${var.account_name_prefix}3.kaleido.dev"
+  platform_api = "https://${var.account_name_prefix}3.${var.platform_instance_domain}"
   platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_2"
 }
 
 provider "kaleido" {
-  platform_api = "https://${var.account_name_prefix}4.kaleido.dev"
+  platform_api = "https://${var.account_name_prefix}4.${var.platform_instance_domain}"
   platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_3"
 }
 
 provider "kaleido" {
-  platform_api = "https://${var.account_name_prefix}5.kaleido.dev"
+  platform_api = "https://${var.account_name_prefix}5.${var.platform_instance_domain}"
   platform_bearer_token = var.bootstrap_platform_bearer_token
   alias = "child_4"
 }
@@ -55,8 +56,9 @@ provider "random" {}
 resource "kaleido_platform_identity_provider" "kaleido_id" {
   provider = kaleido.root
   
-  name = "kaleido-id"
-  hostname = "kaleido-id"
+  // TODO make configurable
+  name = var.child_identity_provider_name
+  hostname = var.child_identity_provider_hostname
   client_type = "confidential"
   client_id = var.kaleido_id_client_id
   client_secret = var.kaleido_id_client_secret
@@ -119,7 +121,7 @@ package k8s_application_validation
 
 default allow := false
 
-is_valid_sa(sub) := sub == "system:serviceaccount:default:kaleidoplatform"
+is_valid_sa(sub) := sub == "system:serviceaccount:${var.bootstrap_application_sa_namespace}:${var.bootstrap_application_sa_name}"
 
 allow {
   is_valid_sa(input.sub)
@@ -316,6 +318,7 @@ resource "kaleido_platform_runtime" "originator_besu_signer_runtime" {
   config_json = jsonencode({})
   zone = var.deployment_zone
   stack_id = kaleido_platform_stack.originator_besu_stack.id
+  size = var.node_runtime_size
 }
 
 resource "kaleido_platform_service" "originator_besu_signer_service" {
@@ -332,6 +335,36 @@ resource "kaleido_platform_service" "originator_besu_signer_service" {
       id = kaleido_platform_network.originator_besu_network.id
     }
     signer = true
+    customBesuArgs = ["--revert-reason-enabled=true"]
+    dataStorageFormat = "BONSAI"
+    logLevel = "DEBUG"
+  })
+  
+  force_delete = var.enable_force_delete
+  stack_id = kaleido_platform_stack.originator_besu_stack.id
+}
+
+resource "kaleido_platform_runtime" "originator_block_indexer" {
+  provider = kaleido.child_0
+
+  type = "BlockIndexer"
+  name = "originator_block_indexer"
+  config_json = jsonencode({})
+  environment = kaleido_platform_environment.originator_environment.id
+  stack_id = kaleido_platform_stack.originator_besu_stack.id
+}
+
+resource "kaleido_platform_service" "originator_block_indexer_service" {
+  provider = kaleido.child_0
+
+  type = "BlockIndexer"
+  name = "originator_block_indexer"
+  environment = kaleido_platform_environment.originator_environment.id
+  runtime = kaleido_platform_runtime.originator_block_indexer.id
+  config_json = jsonencode({
+    node = {
+      id = kaleido_platform_service.originator_besu_signer_service[0].id
+    }
   })
   
   force_delete = var.enable_force_delete
@@ -391,6 +424,7 @@ resource "kaleido_platform_runtime" "originator_ipfs_runtime" {
   environment = kaleido_platform_environment.originator_environment.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.originator_ipfs_stack.id
+  size = var.node_runtime_size
 }
 
 resource "kaleido_platform_service" "originator_ipfs_service" {
@@ -418,7 +452,7 @@ resource "kaleido_platform_runtime" "originator_paladin_runtime" {
   environment = kaleido_platform_environment.originator_environment.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.originator_paladin_stack.id
-  size = var.paladin_node_size
+  size = var.node_runtime_size
   zone = var.deployment_zone
 }
 
@@ -524,12 +558,12 @@ locals {
   contracts = {
     noto_factory = {
       name = "NotoFactory"
-      contract_url = "https://github.com/LF-Decentralized-Trust-labs/paladin/blob/9318ea383074b1bc5d3196587aa07109c8cf17e0/solidity/contracts/domains/noto/NotoFactory.sol"
+      contract_url = "hhttps://github.com/kaleido-io/paladin/blob/9318ea383074b1bc5d3196587aa07109c8cf17e0/solidity/contracts/domains/noto/NotoFactory.sol"
       path = "Paladin"
     }
     pente_factory = {
       name = "PenteFactory"
-      contract_url = "https://github.com/LF-Decentralized-Trust-labs/paladin/blob/9318ea383074b1bc5d3196587aa07109c8cf17e0/solidity/contracts/domains/pente/PenteFactory.sol"
+      contract_url = "https://github.com/kaleido-io/paladin/blob/9318ea383074b1bc5d3196587aa07109c8cf17e0/solidity/contracts/domains/pente/PenteFactory.sol"
       path = "Paladin"
     }
   }
@@ -543,15 +577,10 @@ resource "kaleido_platform_cms_build" "contracts" {
   type        = "github"
   name        = each.value.name
   path        = each.value.path
-  evm_version = "shanghai" // prague ?
+  evm_version = "shanghai"
   github = {
     contract_url  = each.value.contract_url
     contract_name = each.value.name
-  }
-  optimizer = {
-    enabled = true
-    runs    = 200
-    via_ir = false
   }
 
   provider = kaleido.child_0
@@ -591,7 +620,7 @@ module "joiner_1" {
   originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
   deployment_zone = var.deployment_zone
   gateway_count = var.gateway_count
-  paladin_node_size = var.paladin_node_size
+  node_runtime_size = var.node_runtime_size
   enable_force_delete = var.enable_force_delete
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
@@ -626,7 +655,7 @@ module "joiner_2" {
   originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
   deployment_zone = var.deployment_zone
   gateway_count = var.gateway_count
-  paladin_node_size = var.paladin_node_size
+  node_runtime_size = var.node_runtime_size
   enable_force_delete = var.enable_force_delete
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
@@ -661,7 +690,7 @@ module "joiner_3" {
   originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
   deployment_zone = var.deployment_zone
   gateway_count = var.gateway_count
-  paladin_node_size = var.paladin_node_size
+  node_runtime_size = var.node_runtime_size
   enable_force_delete = var.enable_force_delete
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network
@@ -696,7 +725,7 @@ module "joiner_4" {
   originator_bootstrap_files = data.kaleido_platform_network_bootstrap_data.originator_bootstrap.bootstrap_files
   deployment_zone = var.deployment_zone
   gateway_count = var.gateway_count
-  paladin_node_size = var.paladin_node_size
+  node_runtime_size = var.node_runtime_size
   enable_force_delete = var.enable_force_delete
   child_accounts = kaleido_platform_account.child_accounts
   originator_besu_network = kaleido_platform_network.originator_besu_network

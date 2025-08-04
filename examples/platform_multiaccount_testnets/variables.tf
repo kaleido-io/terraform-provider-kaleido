@@ -2,10 +2,17 @@
 # Root Account & Authentication Variables
 # ============================================================================
 
-variable "root_platform_api" {
-  description = "Root account platform API URL (e.g., https://account1.kaleido.dev)"
+
+variable "platform_instance_domain" {
+  description = "Domain of the instance"
   type        = string
-  default     = "https://account1.kaleido.dev"
+  default     = "kaleido.dev"
+}
+
+variable "root_platform_account_name" {
+  description = "Root account name"
+  type        = string
+  default     = "account1"
 }
 
 variable "root_platform_username" {
@@ -28,6 +35,19 @@ variable "bootstrap_platform_bearer_token" {
 # ============================================================================
 # OAuth & Identity Provider Configuration
 # ============================================================================
+
+variable "child_identity_provider_name" {
+  description = "Name of the child identity provider"
+  type        = string
+  default     = "kaleido-id"
+}
+
+
+variable "child_identity_provider_hostname" {
+  description = "Hostname of the child identity provider"
+  type        = string
+  default     = "kaleido-id"
+}
 
 variable "kaleido_id_client_id" {
   description = "Kaleido ID OIDC client ID"
@@ -69,6 +89,18 @@ variable "bootstrap_application_jwks_endpoint" {
 variable "bootstrap_application_ca_certificate" {
   description = "Bootstrap application CA certificate for Kubernetes cluster"
   type        = string
+}
+
+variable "bootstrap_application_sa_namespace" {
+  description = "Namespace of the bootstrap application service account"
+  type        = string
+  default     = "default"
+}
+
+variable "bootstrap_application_sa_name" {
+  description = "Name of the bootstrap application service account"
+  type        = string
+  default     = "kaleidoplatform"
 }
 
 # ============================================================================
@@ -178,13 +210,13 @@ variable "gateway_count" {
 # Optional Advanced Configuration
 # ============================================================================
 
-variable "paladin_node_size" {
+variable "node_runtime_size" {
   description = "Size configuration for Paladin nodes"
   type        = string
   default     = "Small"
   
   validation {
-    condition = contains(["Small", "Medium", "Large"], var.paladin_node_size)
+    condition = contains(["Small", "Medium", "Large"], var.node_runtime_size)
     error_message = "Paladin node size must be Small, Medium, or Large."
   }
 }
@@ -200,4 +232,3 @@ variable "enable_force_delete" {
   type        = bool
   default     = true
 }
-
