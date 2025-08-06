@@ -361,6 +361,7 @@ func DataSources() []func() datasource.DataSource {
 		EVMNetInfoDataSourceFactory,
 		NetworkBootstrapDatasourceModelFactory,
 		AccountDatasourceModelFactory,
+		BesuQBFTNetworkGenesisDatasourceFactory,
 	}
 }
 
@@ -394,6 +395,8 @@ func Resources() []func() resource.Resource {
 		IdentityProviderResourceFactory,
 		UserResourceFactory,
 		GroupMembershipResourceFactory,
+		BesuNodeKeyResourceFactory,
+		// BesuNetworkGenesisResourceFactory,
 	}
 }
 
