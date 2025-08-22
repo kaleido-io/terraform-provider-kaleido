@@ -170,7 +170,6 @@ func (r *kms_walletResource) Create(ctx context.Context, req resource.CreateRequ
 }
 
 func (r *kms_walletResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-
 	var data KMSWalletResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
@@ -181,9 +180,15 @@ func (r *kms_walletResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	// Add the credentials from the plan
+	if !data.CredsJSON.IsNull() {
+		api.Credentials = map[string]interface{}{}
+		_ = json.Unmarshal([]byte(data.CredsJSON.ValueString()), &api.Credentials)
+	}
+
 	// Update from plan
 	data.toAPI(&api)
-	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+	if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
@@ -193,7 +198,9 @@ func (r *kms_walletResource) Update(ctx context.Context, req resource.UpdateRequ
 
 func (r *kms_walletResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data KMSWalletResourceModel
+
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	currentCreds := data.CredsJSON
 
 	var api KMSWalletAPIModel
 	api.ID = data.ID.ValueString()
@@ -207,6 +214,12 @@ func (r *kms_walletResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	api.toData(&data)
+
+	// Set the current creds value in the state so that any future updates can be checked for previous state
+	if currentCreds.ValueString() != "" {
+		data.CredsJSON = currentCreds
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 

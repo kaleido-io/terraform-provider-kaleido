@@ -69,7 +69,7 @@ func TestKMSWallet1(t *testing.T) {
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"PUT /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
@@ -154,8 +154,8 @@ func (mp *mockPlatform) postKMSWallet(res http.ResponseWriter, req *http.Request
 	mp.respond(res, &obj, 201)
 }
 
-func (mp *mockPlatform) putKMSWallet(res http.ResponseWriter, req *http.Request) {
-	obj := mp.kmsWallets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]] // expected behavior of provider is PUT only on exists
+func (mp *mockPlatform) patchKMSWallet(res http.ResponseWriter, req *http.Request) {
+	obj := mp.kmsWallets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]] // expected behavior of provider is PATCH only on exists
 	assert.NotNil(mp.t, obj)
 	var newObj KMSWalletAPIModel
 	mp.getBody(req, &newObj)
