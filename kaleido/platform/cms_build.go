@@ -174,7 +174,6 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"github": &schema.SingleNestedAttribute{
 				Optional: true,
-				Computed: true,
 				Attributes: map[string]schema.Attribute{
 					"contract_url": &schema.StringAttribute{
 						Required:      true,
@@ -186,23 +185,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					},
 					"auth_token": &schema.StringAttribute{
 						Optional:  true,
-						Sensitive: true,
+						WriteOnly: true,
 					},
 				},
-				Default: objectdefault.StaticValue(
-					types.ObjectValueMust(
-						map[string]attr.Type{
-							"contract_url":  types.StringType,
-							"contract_name": types.StringType,
-							"auth_token":    types.StringType,
-						},
-						map[string]attr.Value{
-							"contract_url":  types.StringValue(""),
-							"contract_name": types.StringValue(""),
-							"auth_token":    types.StringValue(""),
-						},
-					),
-				),
 			},
 			"source_code": &schema.SingleNestedAttribute{
 				Optional: true,
