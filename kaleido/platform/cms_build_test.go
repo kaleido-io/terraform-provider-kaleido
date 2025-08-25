@@ -193,8 +193,7 @@ func TestCMSBuild1(t *testing.T) {
 }
 
 // TestCMSBuildAuthToken tests that changing the github auth token in the configuration
-// does not result in an actual update to the stored resource, since the mock server
-// only updates specific fields (name, path, description) and ignores github field changes.
+// does not result in an actual update to the stored resource
 func TestCMSBuildAuthToken(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
