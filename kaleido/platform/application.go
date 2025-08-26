@@ -31,21 +31,25 @@ import (
 )
 
 type ApplicationResourceModel struct {
-	ID           types.String                   `tfsdk:"id"`
-	Name         types.String                   `tfsdk:"name"`
-	OAuthEnabled types.Bool                     `tfsdk:"oauth_enabled"`
-	AdminEnabled types.Bool                     `tfsdk:"admin_enabled"`
-	OAuth        *ApplicationOAuthResourceModel `tfsdk:"oauth"`
+	ID                    types.String                   `tfsdk:"id"`
+	Name                  types.String                   `tfsdk:"name"`
+	OAuthEnabled          types.Bool                     `tfsdk:"oauth_enabled"`
+	AdminEnabled          types.Bool                     `tfsdk:"admin_enabled"`
+	OAuth                 *ApplicationOAuthResourceModel `tfsdk:"oauth"`
+	ValidationPolicy      types.String                   `tfsdk:"validation_policy"`
+	IdentityContextPolicy types.String                   `tfsdk:"identity_context_policy"`
 }
 
 type ApplicationAPIModel struct {
-	ID          string                    `json:"id,omitempty"`
-	Created     *time.Time                `json:"created,omitempty"`
-	Updated     *time.Time                `json:"updated,omitempty"`
-	Name        string                    `json:"name"`
-	OAuth       *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
-	IsAdmin     *bool                     `json:"isAdmin,omitempty"`
-	EnableOAuth *bool                     `json:"enableOAuth,omitempty"`
+	ID                    string                    `json:"id,omitempty"`
+	Created               *time.Time                `json:"created,omitempty"`
+	Updated               *time.Time                `json:"updated,omitempty"`
+	Name                  string                    `json:"name"`
+	OAuth                 *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
+	IsAdmin               *bool                     `json:"isAdmin,omitempty"`
+	EnableOAuth           *bool                     `json:"enableOAuth,omitempty"`
+	ValidationPolicy      string                    `json:"validationPolicy,omitempty"`
+	IdentityContextPolicy string                    `json:"identityContextPolicy,omitempty"`
 }
 
 type ApplicationOAuthAPIModel struct {
@@ -150,6 +154,12 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 					),
 				),
 			},
+			"validation_policy": &schema.StringAttribute{
+				Optional: true,
+			},
+			"identity_context_policy": &schema.StringAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -183,7 +193,12 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 			}
 		}
 	}
-
+	if !data.ValidationPolicy.IsNull() {
+		api.ValidationPolicy = data.ValidationPolicy.ValueString()
+	}
+	if !data.IdentityContextPolicy.IsNull() {
+		api.IdentityContextPolicy = data.IdentityContextPolicy.ValueString()
+	}
 }
 
 func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
@@ -217,6 +232,12 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 				data.OAuth.Audience = types.StringValue(api.OAuth.Audience)
 			}
 		}
+	}
+	if api.ValidationPolicy != "" {
+		data.ValidationPolicy = types.StringValue(api.ValidationPolicy)
+	}
+	if api.IdentityContextPolicy != "" {
+		data.IdentityContextPolicy = types.StringValue(api.IdentityContextPolicy)
 	}
 }
 
