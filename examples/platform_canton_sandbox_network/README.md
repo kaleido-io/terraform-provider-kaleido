@@ -2,7 +2,7 @@
 
 This module creates a Canton sandbox network in the Kaleido platform instances. The sandbox network mimics The Global Synchronizer network and is enabled with canton coins. 
 
-> **NOTE**: Please contact Kaleido support to ensure you have canton enabled on your Kaleido platform.
+> **NOTE**: Please contact Kaleido support to ensure you have Canton enabled on your Kaleido platform.
 
 The following resources are created
 - **Networks**

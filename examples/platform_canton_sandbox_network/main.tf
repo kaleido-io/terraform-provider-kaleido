@@ -55,6 +55,7 @@ resource "kaleido_platform_network" "sandbox_network" {
   })
 }
 
+// super validator node
 resource "kaleido_platform_runtime" "canton_sv_runtime" {
   type = "CantonSuperValidatorNodeRuntime"
   name = "canton-sv-node"
@@ -97,6 +98,7 @@ resource "kaleido_platform_network" "synchronizer_network" {
   count = var.enable_synchronizer_network ? 1 : 0
 }
 
+// synchronizer node
 resource "kaleido_platform_runtime" "canton_synchronizer_runtime" {
   type = "CantonSynchronizerNodeRuntime"
   name = "canton-synchronizer-node"
@@ -126,6 +128,7 @@ resource "kaleido_platform_service" "canton_synchronizer_service" {
   count = var.enable_synchronizer_network ? 1 : 0
 }
 
+// participant node
 resource "kaleido_platform_runtime" "canton_participant_runtime" {
   type = "CantonParticipantNodeRuntime"
   name = "canton-participant-node"
@@ -159,4 +162,24 @@ resource "kaleido_platform_service" "canton_participant_service" {
       wallet = kaleido_platform_kms_wallet.canton_wallet.name
     }
   })
+  depends_on = [kaleido_platform_service.canton_kms_service, kaleido_platform_service.canton_sv_service]
+}
+
+// hostnames for participant ledger and admin
+resource "kaleido_platform_hostname" "canton_participant_ledger_hostname" {
+  environment = kaleido_platform_environment.canton_env.id
+  service = kaleido_platform_service.canton_participant_service.id
+  name = "canton-participant-hostname"
+  hostname = "participant-ledger"
+  endpoints = ["ledger"]
+  mtls = false
+}
+
+resource "kaleido_platform_hostname" "canton_participant_admin_hostname" {
+  environment = kaleido_platform_environment.canton_env.id
+  service = kaleido_platform_service.canton_participant_service.id
+  name = "canton-participant-hostname"
+  hostname = "participant-admin"
+  endpoints = ["admin"]
+  mtls = false
 }
