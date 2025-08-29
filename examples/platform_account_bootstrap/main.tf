@@ -18,6 +18,10 @@ variable "kaleido_platform_api" {
   default = "https://account1.kaleido.dev"
 }
 
+locals {
+  kaleido_platform_domain = regex("https://[^.]+\\.(.+)", var.kaleido_platform_api)[0]
+}
+
 variable "kaleido_platform_bearer_token" {
   type = string
 }
@@ -34,6 +38,18 @@ variable "bootstrap_application_jwks_endpoint" {
 
 variable "bootstrap_application_ca_certificate" {
   type = string
+  default = ""
+}
+
+variable "bootstrap_application_k8s_namespace" {
+  type = string
+  default = "default"
+}
+
+
+variable "bootstrap_application_k8s_sa_name" {
+  type = string
+  default = "kaleidoplatform"
 }
 
 variable "kaleido_id_client_id" {
@@ -108,14 +124,14 @@ EOF
   bootstrap_application_oauth_json = jsonencode({
     issuer = var.bootstrap_application_issuer
     jwksEndpoint = var.bootstrap_application_jwks_endpoint
-    caCertificate = var.bootstrap_application_ca_certificate
+    caCertificate = var.bootstrap_application_ca_certificate != "" ? var.bootstrap_application_ca_certificate : null
   })
   bootstrap_application_validation_policy = <<EOF
 package k8s_application_validation
 
 default allow := false
 
-is_valid_sa(sub) := sub == "system:serviceaccount:default:kaleidoplatform"
+is_valid_sa(sub) := sub == "system:serviceaccount:${var.bootstrap_application_k8s_namespace}:${var.bootstrap_application_k8s_sa_name}"
 
 allow {
   is_valid_sa(input.sub)
@@ -125,7 +141,7 @@ EOF
 }
 
 provider "kaleido" {
-  platform_api = "https://bootstrapped.kaleido.dev"
+  platform_api = "https://bootstrapped.${local.kaleido_platform_domain}"
   platform_bearer_token = var.kaleido_platform_bearer_token
 
   alias = "bootstrapped"
