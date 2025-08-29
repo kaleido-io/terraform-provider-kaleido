@@ -38,3 +38,8 @@ variable "synchronizer_node_size" {
   type = string
   default = "Small"
 }
+
+variable "canton_key_spec" {
+  type = string
+  default = "secp256r1"
+}

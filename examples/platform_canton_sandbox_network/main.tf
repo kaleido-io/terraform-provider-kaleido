@@ -37,7 +37,9 @@ resource "kaleido_platform_kms_wallet" "canton_wallet" {
   name = var.canton_wallet_name
   environment = kaleido_platform_environment.canton_env.id
   service = kaleido_platform_service.canton_kms_service.id
-  config_json = jsonencode({})
+  config_json = jsonencode({
+    keySpec = var.canton_key_spec
+  })
   depends_on = [kaleido_platform_service.canton_kms_service]
 }
 
