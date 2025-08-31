@@ -120,7 +120,7 @@ func (api *DNSRegistrationAPIModel) toData(ctx context.Context, data *DNSRegistr
 }
 
 func (r *dnsRegistrationResource) apiPath(data *DNSRegistrationResourceModel) string {
-	path := fmt.Sprintf("/environments/%s/dnsregistrations", data.Environment.ValueString())
+	path := fmt.Sprintf("/api/v1/environments/%s/dnsregistrations", data.Environment.ValueString())
 
 	if data.ID.ValueString() != "" {
 		path = fmt.Sprintf("%s/%s", path, data.ID.ValueString())

@@ -396,7 +396,7 @@ func Resources() []func() resource.Resource {
 		UserResourceFactory,
 		GroupMembershipResourceFactory,
 		BesuNodeKeyResourceFactory,
-		// BesuNetworkGenesisResourceFactory,
+		DNSRegistrationResourceFactory,
 	}
 }
 
