@@ -30,7 +30,7 @@ type DNSRegistrationAPIModel struct {
 	Created *time.Time `json:"created,omitempty"`
 	Updated *time.Time `json:"updated,omitempty"`
 
-	Environment string `json:"environment"`
+	Environment string `json:"environmentId"`
 	Subdomain   string `json:"subdomain"`
 	Zone        string `json:"zone"`
 
