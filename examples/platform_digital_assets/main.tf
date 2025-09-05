@@ -239,7 +239,7 @@ resource "kaleido_platform_service" "bis_0"{
       }
     }
   )
-  hostnames = {"${lower(replace(var.environment_name, "/[^\\w]/", ""))}_${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
+  hostnames = {"${lower(replace(var.environment_name, "/[^\\w]/", ""))}-${kaleido_platform_network.net_0.name}" = ["ui", "rest"]}
   stack_id = kaleido_platform_stack.chain_infra_stack.id
 }
 
