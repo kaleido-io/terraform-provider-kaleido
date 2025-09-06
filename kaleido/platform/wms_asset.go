@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -66,54 +65,6 @@ type WMSAssetConfigUnitResourceModel struct {
 	Name   types.String `tfsdk:"name"`
 	Factor types.Int64  `tfsdk:"factor"`
 	Prefix types.Bool   `tfsdk:"prefix"`
-}
-
-// normalizeJSON normalizes JSON by unmarshaling and remarshaling with sorted keys
-func normalizeJSON(jsonStr string) (string, error) {
-	var data interface{}
-	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
-		return "", err
-	}
-
-	// Recursively sort map keys for consistency
-	data = sortMapKeys(data)
-
-	// Marshal with sorted keys for consistency
-	normalized, err := json.Marshal(data)
-	if err != nil {
-		return "", err
-	}
-
-	return string(normalized), nil
-}
-
-// sortMapKeys recursively sorts map keys for consistent JSON output
-func sortMapKeys(data interface{}) interface{} {
-	switch v := data.(type) {
-	case map[string]interface{}:
-		// Create a new map with sorted keys
-		sorted := make(map[string]interface{})
-		keys := make([]string, 0, len(v))
-		for k := range v {
-			keys = append(keys, k)
-		}
-		// Sort keys using Go's built-in sort
-		sort.Strings(keys)
-		// Recursively sort values
-		for _, k := range keys {
-			sorted[k] = sortMapKeys(v[k])
-		}
-		return sorted
-	case []interface{}:
-		// Recursively sort array elements
-		sorted := make([]interface{}, len(v))
-		for i, item := range v {
-			sorted[i] = sortMapKeys(item)
-		}
-		return sorted
-	default:
-		return v
-	}
 }
 
 func WMSAssetResourceFactory() resource.Resource {
@@ -172,7 +123,6 @@ func (r *wms_assetResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"config_json": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
 				Description: "The asset configuration",
 			},
 		},
@@ -205,26 +155,10 @@ func (api *WMSAssetAPIModel) toData(data *WMSAssetResourceModel, diagnostics *di
 		data.IconID = types.StringValue(api.IconID)
 	}
 
-	// Handle config - ensure it's always valid JSON
-	if api.Config == nil {
-		data.ConfigJSON = types.StringValue("{}")
-	} else {
-		// Marshal the config
-		jsonBytes, err := json.Marshal(api.Config)
-		if err != nil {
-			diagnostics.AddError("Error marshalling config", err.Error())
-			return false
-		}
-
-		// Normalize the JSON to ensure consistent field ordering
-		normalized, err := normalizeJSON(string(jsonBytes))
-		if err != nil {
-			diagnostics.AddError("Error normalizing config", err.Error())
-			return false
-		}
-
-		data.ConfigJSON = types.StringValue(normalized)
-	}
+	// we don't write data.ConfigJSON because it causes errors like Error: Provider produced inconsistent result after apply
+	// due to the fact that it is always compared to the string specified in the plan which may or may not be compact JSON
+	// and may have the fields in any order and not necessarily match what the API returns
+	// TODO in the old SDK, we could have used DiffSuppressFunc to suppress the error if the 2 values are equivalent JSON.  Should try to figure out how to do the same in the new provider framework
 
 	return true
 
@@ -251,15 +185,9 @@ func (data *WMSAssetResourceModel) toAPI(api *WMSAssetAPIModel, diagnostics *dia
 	}
 
 	if !data.ConfigJSON.IsNull() {
-		// Normalize the input JSON to ensure consistent field ordering
-		normalized, err := normalizeJSON(data.ConfigJSON.ValueString())
-		if err != nil {
-			diagnostics.AddError("Error normalizing config", err.Error())
-			return false
-		}
 
 		var config map[string]any
-		err = json.Unmarshal([]byte(normalized), &config)
+		err := json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &config)
 		if err != nil {
 			diagnostics.AddError("Error unmarshalling config", err.Error())
 			return false
