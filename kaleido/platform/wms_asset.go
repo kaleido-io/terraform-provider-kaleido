@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -43,17 +44,76 @@ type WMSAssetResourceModel struct {
 }
 
 type WMSAssetAPIModel struct {
-	ID                    string      `json:"id,omitempty"`
-	Created               string      `json:"created,omitempty"`
-	Updated               string      `json:"updated,omitempty"`
-	Name                  string      `json:"name,omitempty"`
-	Symbol                string      `json:"symbol,omitempty"`
-	ProtocolID            string      `json:"protocolId,omitempty"`
-	AccountIdentifierType string      `json:"accountIdentifierType,omitempty"`
-	Description           string      `json:"description,omitempty"`
-	Color                 string      `json:"color,omitempty"`
-	Config                interface{} `json:"config,omitempty,omitempty"`
-	IconID                string      `json:"iconId,omitempty"`
+	ID                    string         `json:"id,omitempty"`
+	Created               string         `json:"created,omitempty"`
+	Updated               string         `json:"updated,omitempty"`
+	Name                  string         `json:"name,omitempty"`
+	Symbol                string         `json:"symbol,omitempty"`
+	ProtocolID            string         `json:"protocolId,omitempty"`
+	AccountIdentifierType string         `json:"accountIdentifierType,omitempty"`
+	Description           string         `json:"description,omitempty"`
+	Color                 string         `json:"color,omitempty"`
+	Config                map[string]any `json:"config,omitempty"`
+	IconID                string         `json:"iconId,omitempty"`
+}
+
+type WMSAssetConfigTransfersResourceModel struct {
+	Backend   types.String `tfsdk:"backend"`
+	BackendID types.String `tfsdk:"backend_id"`
+}
+
+type WMSAssetConfigUnitResourceModel struct {
+	Name   types.String `tfsdk:"name"`
+	Factor types.Int64  `tfsdk:"factor"`
+	Prefix types.Bool   `tfsdk:"prefix"`
+}
+
+// normalizeJSON normalizes JSON by unmarshaling and remarshaling with sorted keys
+func normalizeJSON(jsonStr string) (string, error) {
+	var data interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+		return "", err
+	}
+
+	// Recursively sort map keys for consistency
+	data = sortMapKeys(data)
+
+	// Marshal with sorted keys for consistency
+	normalized, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+
+	return string(normalized), nil
+}
+
+// sortMapKeys recursively sorts map keys for consistent JSON output
+func sortMapKeys(data interface{}) interface{} {
+	switch v := data.(type) {
+	case map[string]interface{}:
+		// Create a new map with sorted keys
+		sorted := make(map[string]interface{})
+		keys := make([]string, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		// Sort keys using Go's built-in sort
+		sort.Strings(keys)
+		// Recursively sort values
+		for _, k := range keys {
+			sorted[k] = sortMapKeys(v[k])
+		}
+		return sorted
+	case []interface{}:
+		// Recursively sort array elements
+		sorted := make([]interface{}, len(v))
+		for i, item := range v {
+			sorted[i] = sortMapKeys(item)
+		}
+		return sorted
+	default:
+		return v
+	}
 }
 
 func WMSAssetResourceFactory() resource.Resource {
@@ -111,14 +171,15 @@ func (r *wms_assetResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Description: "The id of the icon associated with the asset, if one has been uploaded",
 			},
 			"config_json": &schema.StringAttribute{
-				Required:    true,
+				Optional:    true,
+				Computed:    true,
 				Description: "The asset configuration",
 			},
 		},
 	}
 }
 
-func (api *WMSAssetAPIModel) toData(data *WMSAssetResourceModel) {
+func (api *WMSAssetAPIModel) toData(data *WMSAssetResourceModel, diagnostics *diag.Diagnostics) bool {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	data.Symbol = types.StringValue(api.Symbol)
@@ -130,13 +191,43 @@ func (api *WMSAssetAPIModel) toData(data *WMSAssetResourceModel) {
 	} else {
 		data.Description = types.StringValue(api.Description)
 	}
-	data.Color = types.StringValue(api.Color)
+
+	// Handle color field - only set if not empty, otherwise let it be computed
+	if api.Color == "" {
+		data.Color = types.StringNull()
+	} else {
+		data.Color = types.StringValue(api.Color)
+	}
+
 	if api.IconID == "" {
 		data.IconID = types.StringNull()
 	} else {
 		data.IconID = types.StringValue(api.IconID)
 	}
-	//TODO do we need to set data.ConfigJSON here?
+
+	// Handle config - ensure it's always valid JSON
+	if api.Config == nil {
+		data.ConfigJSON = types.StringValue("{}")
+	} else {
+		// Marshal the config
+		jsonBytes, err := json.Marshal(api.Config)
+		if err != nil {
+			diagnostics.AddError("Error marshalling config", err.Error())
+			return false
+		}
+
+		// Normalize the JSON to ensure consistent field ordering
+		normalized, err := normalizeJSON(string(jsonBytes))
+		if err != nil {
+			diagnostics.AddError("Error normalizing config", err.Error())
+			return false
+		}
+
+		data.ConfigJSON = types.StringValue(normalized)
+	}
+
+	return true
+
 }
 
 func (data *WMSAssetResourceModel) toAPI(api *WMSAssetAPIModel, diagnostics *diag.Diagnostics) bool {
@@ -145,11 +236,13 @@ func (data *WMSAssetResourceModel) toAPI(api *WMSAssetAPIModel, diagnostics *dia
 	api.Symbol = data.Symbol.ValueString()
 	api.ProtocolID = data.ProtocolID.ValueString()
 	api.AccountIdentifierType = data.AccountIdentifierType.ValueString()
-	api.Color = data.Color.ValueString()
 	api.ID = data.ID.ValueString()
+
+	// Handle color field - only set if not null
 	if !data.Color.IsNull() {
 		api.Color = data.Color.ValueString()
 	}
+
 	if !data.Description.IsNull() {
 		api.Description = data.Description.ValueString()
 	}
@@ -157,11 +250,24 @@ func (data *WMSAssetResourceModel) toAPI(api *WMSAssetAPIModel, diagnostics *dia
 		api.IconID = data.IconID.ValueString()
 	}
 
-	err := json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
-	if err != nil {
-		diagnostics.AddError("failed to serialize config JSON", err.Error())
-		return false
+	if !data.ConfigJSON.IsNull() {
+		// Normalize the input JSON to ensure consistent field ordering
+		normalized, err := normalizeJSON(data.ConfigJSON.ValueString())
+		if err != nil {
+			diagnostics.AddError("Error normalizing config", err.Error())
+			return false
+		}
+
+		var config map[string]any
+		err = json.Unmarshal([]byte(normalized), &config)
+		if err != nil {
+			diagnostics.AddError("Error unmarshalling config", err.Error())
+			return false
+		}
+
+		api.Config = config
 	}
+
 	return true
 
 }
@@ -184,13 +290,13 @@ func (r *wms_assetResource) Create(ctx context.Context, req resource.CreateReque
 	if ok {
 		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), &api, &api, &resp.Diagnostics)
 	}
+	if ok {
+		ok = api.toData(&data, &resp.Diagnostics)
+	}
 	if !ok {
 		return
 	}
-
-	api.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-
 }
 
 func (r *wms_assetResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -204,11 +310,12 @@ func (r *wms_assetResource) Update(ctx context.Context, req resource.UpdateReque
 	if ok {
 		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), &api, &api, &resp.Diagnostics)
 	}
+	if ok {
+		ok = api.toData(&data, &resp.Diagnostics)
+	}
 	if !ok {
 		return
 	}
-
-	api.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -219,6 +326,9 @@ func (r *wms_assetResource) Read(ctx context.Context, req resource.ReadRequest, 
 	var api WMSAssetAPIModel
 	api.ID = data.ID.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
+	if ok {
+		ok = api.toData(&data, &resp.Diagnostics)
+	}
 	if !ok {
 		return
 	}
@@ -227,7 +337,6 @@ func (r *wms_assetResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	api.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 

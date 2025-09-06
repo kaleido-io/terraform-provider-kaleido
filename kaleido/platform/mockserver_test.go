@@ -64,6 +64,8 @@ type mockPlatform struct {
 	apiKeys           map[string]*APIKeyAPIModel
 	serviceAccess     map[string]*ServiceAccessAPIModel
 	stackAccess       map[string]*StackAccessAPIModel
+	wmsWallets        map[string]*WMSWalletAPIModel
+	wmsAssets         map[string]*WMSAssetAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -94,6 +96,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		serviceAccess:     make(map[string]*ServiceAccessAPIModel),
 		stackAccess:       make(map[string]*StackAccessAPIModel),
 		apiKeys:           make(map[string]*APIKeyAPIModel),
+		wmsWallets:        make(map[string]*WMSWalletAPIModel),
+		wmsAssets:         make(map[string]*WMSAssetAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
 	}
@@ -135,10 +139,10 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}/networks/{network}/initdata", http.MethodGet, mp.getNetworkInitData)
 
 	// See kms_wallet.go
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postKMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getKMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPut, mp.putKMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteKMSWallet)
+	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postKMSWallet)
+	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getKMSWallet)
+	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPut, mp.putKMSWallet)
+	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteKMSWallet)
 
 	// See kms_key.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys", http.MethodPut, mp.putKMSKey)
@@ -199,6 +203,20 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/nodes/self", http.MethodPost, mp.postFireFlyRegistrationNode)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/organizations/self", http.MethodPost, mp.postFireFlyRegistrationOrg)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/status", http.MethodGet, mp.getFireFlyStatus)
+
+	// See wms_wallet.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getWMSWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPut, mp.putWMSWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteWMSWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postWMSWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPatch, mp.patchWMSWallet)
+
+	// See wms_asset.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}", http.MethodGet, mp.getWMSAsset)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}", http.MethodPut, mp.putWMSAsset)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}", http.MethodDelete, mp.deleteWMSAsset)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets", http.MethodPost, mp.postWMSAsset)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}", http.MethodPatch, mp.patchWMSAsset)
 
 	// See group_test.go
 	mp.register("/api/v1/groups", http.MethodPost, mp.postGroup)

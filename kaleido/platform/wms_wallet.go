@@ -22,7 +22,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -72,7 +71,7 @@ type WMSWalletAPIModel struct {
 	Updated string                  `json:"updated,omitempty"`
 	Name    string                  `json:"name,omitempty"`
 	Color   string                  `json:"color,omitempty"`
-	Config  WMSWalletConfigAPIModel `json:"config,omitempty,omitempty"`
+	Config  WMSWalletConfigAPIModel `json:"config,omitempty"`
 	IconID  string                  `json:"iconId,omitempty"`
 }
 
@@ -116,8 +115,7 @@ func (r *wms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "The id of the icon associated with the asset, if one has been uploaded",
 			},
 			"config": &schema.SingleNestedAttribute{
-				Optional:      true,
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.RequiresReplace()},
+				Optional: true,
 				Attributes: map[string]schema.Attribute{
 					"type": &schema.StringAttribute{
 						Required: true,
