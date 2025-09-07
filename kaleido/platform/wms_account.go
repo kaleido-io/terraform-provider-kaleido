@@ -26,19 +26,23 @@ import (
 )
 
 type WMSAccountResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Environment types.String `tfsdk:"environment"`
-	Service     types.String `tfsdk:"service"`
-	Asset       types.String `tfsdk:"asset"`
-	Wallet      types.String `tfsdk:"wallet"`
+	ID             types.String `tfsdk:"id"`
+	Environment    types.String `tfsdk:"environment"`
+	Service        types.String `tfsdk:"service"`
+	Asset          types.String `tfsdk:"asset"`
+	Wallet         types.String `tfsdk:"wallet"`
+	Identifier     types.String `tfsdk:"identifier"`
+	IdentifierType types.String `tfsdk:"identifier_type"`
 }
 
 type WMSAccountAPIModel struct {
-	ID      string `json:"id,omitempty"`
-	Created string `json:"created,omitempty"`
-	Updated string `json:"updated,omitempty"`
-	Asset   string `json:"assetId,omitempty"`
-	Wallet  string `json:"walletId,omitempty"`
+	ID             string `json:"id,omitempty"`
+	Created        string `json:"created,omitempty"`
+	Updated        string `json:"updated,omitempty"`
+	AssetID        string `json:"assetId,omitempty"`
+	WalletID       string `json:"walletId,omitempty"`
+	Identifier     string `json:"identifier,omitempty"`
+	IdentifierType string `json:"identifierType,omitempty"`
 }
 
 func WMSAccountResourceFactory() resource.Resource {
@@ -76,11 +80,17 @@ func (r *wms_accountResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"identifier": &schema.StringAttribute{
+				Computed: true,
+			},
+			"identifier_type": &schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
 
-func (r *wms_accountResource) createAPIPath(data *WMSAccountResourceModel) string {
+func (r *wms_accountResource) apiPathConnect(data *WMSAccountResourceModel) string {
 	path := fmt.Sprintf(
 		"/endpoint/%s/%s/rest/api/v1/assets/%s/connect/%s",
 		data.Environment.ValueString(),
@@ -94,7 +104,7 @@ func (r *wms_accountResource) createAPIPath(data *WMSAccountResourceModel) strin
 
 func (r *wms_accountResource) apiPath(data *WMSAccountResourceModel) string {
 	path := fmt.Sprintf(
-		"/endpoint/%s/%s/rest/api/v1/accouints/%s",
+		"/endpoint/%s/%s/rest/api/v1/accounts/%s",
 		data.Environment.ValueString(),
 		data.Service.ValueString(),
 		data.ID.ValueString(),
@@ -105,8 +115,10 @@ func (r *wms_accountResource) apiPath(data *WMSAccountResourceModel) string {
 
 func (api *WMSAccountAPIModel) toData(data *WMSAccountResourceModel) {
 	data.ID = types.StringValue(api.ID)
-	data.Wallet = types.StringValue(api.Wallet)
-	data.Asset = types.StringValue(api.Asset)
+	data.Wallet = types.StringValue(api.WalletID)
+	data.Asset = types.StringValue(api.AssetID)
+	data.Identifier = types.StringValue(api.Identifier)
+	data.IdentifierType = types.StringValue(api.IdentifierType)
 
 }
 
@@ -117,7 +129,7 @@ func (r *wms_accountResource) Create(ctx context.Context, req resource.CreateReq
 
 	var api WMSAccountAPIModel
 
-	ok, _ := r.apiRequest(ctx, http.MethodPost, r.createAPIPath(&data), &api, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPathConnect(&data), &api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
