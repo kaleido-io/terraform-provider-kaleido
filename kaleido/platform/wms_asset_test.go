@@ -233,7 +233,10 @@ func (mp *mockPlatform) putWMSAsset(res http.ResponseWriter, req *http.Request) 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	newObj.Created = obj.Created
 	newObj.Updated = now
-	mp.wmsAssets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["asset"]] = &newObj
+	delete(mp.wmsAssets, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+obj.Name)
+	delete(mp.wmsAssets, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+newObj.ID)
+	mp.wmsAssets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+newObj.Name] = &newObj
+	mp.wmsAssets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+newObj.ID] = &newObj
 	mp.respond(res, &newObj, 200)
 
 }
@@ -241,7 +244,8 @@ func (mp *mockPlatform) putWMSAsset(res http.ResponseWriter, req *http.Request) 
 func (mp *mockPlatform) deleteWMSAsset(res http.ResponseWriter, req *http.Request) {
 	obj := mp.wmsAssets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["asset"]]
 	assert.NotNil(mp.t, obj)
-	delete(mp.wmsAssets, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["asset"])
+	delete(mp.wmsAssets, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+obj.Name)
+	delete(mp.wmsAssets, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+obj.ID)
 	mp.respond(res, nil, 204)
 }
 
@@ -252,7 +256,13 @@ func (mp *mockPlatform) postWMSAsset(res http.ResponseWriter, req *http.Request)
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	obj.Created = now
 	obj.Updated = now
-	mp.wmsAssets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+obj.ID] = &obj
+
+	// Store with both ID and name as keys for different lookup patterns
+	env := mux.Vars(req)["env"]
+	service := mux.Vars(req)["service"]
+	mp.wmsAssets[env+"/"+service+"/"+obj.ID] = &obj
+	mp.wmsAssets[env+"/"+service+"/"+obj.Name] = &obj
+
 	mp.respond(res, &obj, 201)
 }
 

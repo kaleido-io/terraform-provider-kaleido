@@ -119,6 +119,7 @@ func (r *wms_assetResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"icon_id": &schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "The id of the icon associated with the asset, if one has been uploaded",
 			},
 			"config_json": &schema.StringAttribute{

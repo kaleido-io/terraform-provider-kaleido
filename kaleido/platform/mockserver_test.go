@@ -66,6 +66,8 @@ type mockPlatform struct {
 	stackAccess       map[string]*StackAccessAPIModel
 	wmsWallets        map[string]*WMSWalletAPIModel
 	wmsAssets         map[string]*WMSAssetAPIModel
+	wmsAssetIcons     map[string]*struct{}
+	wmsAccounts       map[string]*WMSAccountAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -98,6 +100,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		apiKeys:           make(map[string]*APIKeyAPIModel),
 		wmsWallets:        make(map[string]*WMSWalletAPIModel),
 		wmsAssets:         make(map[string]*WMSAssetAPIModel),
+		wmsAssetIcons:     make(map[string]*struct{}),
+		wmsAccounts:       make(map[string]*WMSAccountAPIModel),
 		router:            mux.NewRouter(),
 		calls:             []string{},
 	}
@@ -217,6 +221,16 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}", http.MethodDelete, mp.deleteWMSAsset)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets", http.MethodPost, mp.postWMSAsset)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}", http.MethodPatch, mp.patchWMSAsset)
+
+	// See wms_asset_icon.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}/icon", http.MethodGet, mp.getWMSAssetIcon)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}/icon", http.MethodPost, mp.postWMSAssetIcon)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}/icon", http.MethodDelete, mp.deleteWMSAssetIcon)
+
+	// See wms_account.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}/connect/{wallet}", http.MethodPost, mp.connectWMSAccount)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/accounts/{account}", http.MethodGet, mp.getWMSAccount)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/accounts/{account}", http.MethodDelete, mp.deleteWMSAccount)
 
 	// See group_test.go
 	mp.register("/api/v1/groups", http.MethodPost, mp.postGroup)
