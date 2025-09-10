@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -241,7 +240,7 @@ func (r *policyIdentityResource) apiPath(data *PolicyIdentityResourceModel) stri
 	if data.ID.IsNull() || data.ID.IsUnknown() {
 		return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identities", env, service)
 	}
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identities/%s", env, service, data.ID.ValueString())
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identities/%s?fetchDetails=true", env, service, data.ID.ValueString())
 }
 
 func (r *policyIdentityResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -299,10 +298,6 @@ func (r *policyIdentityResource) Delete(ctx context.Context, req resource.Delete
 	}
 
 	_, _ = r.apiRequest(ctx, "DELETE", r.apiPath(&data), nil, nil, &resp.Diagnostics)
-}
-
-func (r *policyIdentityResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *PolicyIdentityAPIModel) {
