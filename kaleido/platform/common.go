@@ -380,6 +380,7 @@ func Resources() []func() resource.Resource {
 		WMSAssetIconResourceFactory,
 		WMSWalletResourceFactory,
 		PMSIdentityResourceFactory,
+		PMSIdentityListResourceFactory,
 	}
 }
 
