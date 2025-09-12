@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -31,31 +30,29 @@ import (
 )
 
 type PMSPolicyDeploymentResourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	Description      types.String `tfsdk:"description"`
-	Environment      types.String `tfsdk:"environment"`
-	Service          types.String `tfsdk:"service"`
-	Policy           types.String `tfsdk:"policy"`
-	PolicyVersion    types.String `tfsdk:"policy_version"`
-	Config           types.String `tfsdk:"config"`
-	AttachmentPoints types.Map    `tfsdk:"attachment_points"` // Map of string to list of strings
-	CurrentVersion   types.String `tfsdk:"current_version"`
-	Created          types.String `tfsdk:"created"`
-	Updated          types.String `tfsdk:"updated"`
+	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Description    types.String `tfsdk:"description"`
+	Environment    types.String `tfsdk:"environment"`
+	Service        types.String `tfsdk:"service"`
+	Policy         types.String `tfsdk:"policy"`
+	PolicyVersion  types.String `tfsdk:"policy_version"`
+	Config         types.String `tfsdk:"config"`
+	CurrentVersion types.String `tfsdk:"current_version"`
+	Created        types.String `tfsdk:"created"`
+	Updated        types.String `tfsdk:"updated"`
 }
 
 type PMSPolicyDeploymentAPIModel struct {
-	ID               string              `json:"id,omitempty"`
-	Name             string              `json:"name,omitempty"`
-	Description      string              `json:"description,omitempty"`
-	Policy           string              `json:"policy,omitempty"`
-	PolicyVersion    string              `json:"policyVersion,omitempty"`
-	Config           map[string]any      `json:"config,omitempty"`
-	AttachmentPoints map[string][]string `json:"attachmentPoints,omitempty"`
-	CurrentVersion   string              `json:"currentVersion,omitempty"`
-	Created          *time.Time          `json:"created,omitempty"`
-	Updated          *time.Time          `json:"updated,omitempty"`
+	ID             string         `json:"id,omitempty"`
+	Name           string         `json:"name,omitempty"`
+	Description    string         `json:"description,omitempty"`
+	Policy         string         `json:"policy,omitempty"`
+	PolicyVersion  string         `json:"policyVersion,omitempty"`
+	Config         map[string]any `json:"config,omitempty"`
+	CurrentVersion string         `json:"currentVersion,omitempty"`
+	Created        *time.Time     `json:"created,omitempty"`
+	Updated        *time.Time     `json:"updated,omitempty"`
 }
 
 type PMSPolicyDeploymentVersionAPIModel struct {
@@ -126,11 +123,6 @@ func (r *pms_policy_deploymentResource) Schema(_ context.Context, _ resource.Sch
 				Required:    true,
 				Description: "The policy-specific configuration as JSON",
 			},
-			"attachment_points": &schema.MapAttribute{
-				Required:    true,
-				ElementType: types.ListType{ElemType: types.StringType},
-				Description: "Map of attachment point types to lists of attachment points (e.g., KIDs) where the policy is applied",
-			},
 			"current_version": &schema.StringAttribute{
 				Computed:    true,
 				Description: "The currently applied version of the policy deployment",
@@ -181,25 +173,6 @@ func (r *pms_policy_deploymentResource) toAPI(data *PMSPolicyDeploymentResourceM
 		return
 	}
 	api.Config = config
-
-	// Convert attachment points from Terraform map to API map
-	attachmentPoints := make(map[string][]string)
-	if !data.AttachmentPoints.IsNull() && !data.AttachmentPoints.IsUnknown() {
-		for key, value := range data.AttachmentPoints.Elements() {
-			if value.IsNull() || value.IsUnknown() {
-				continue
-			}
-			listValue := value.(types.List)
-			points := make([]string, 0, len(listValue.Elements()))
-			for _, point := range listValue.Elements() {
-				if !point.IsNull() && !point.IsUnknown() {
-					points = append(points, point.(types.String).ValueString())
-				}
-			}
-			attachmentPoints[key] = points
-		}
-	}
-	api.AttachmentPoints = attachmentPoints
 }
 
 func (r *pms_policy_deploymentResource) toData(api *PMSPolicyDeploymentAPIModel, data *PMSPolicyDeploymentResourceModel, diagnostics *diag.Diagnostics) {
@@ -232,21 +205,6 @@ func (r *pms_policy_deploymentResource) toData(api *PMSPolicyDeploymentAPIModel,
 	data.Created = types.StringValue(api.Created.Format(time.RFC3339))
 	data.Updated = types.StringValue(api.Updated.Format(time.RFC3339))
 
-	// Convert attachment points from API map to Terraform map
-	attachmentPointsMap := make(map[string]attr.Value)
-	for key, points := range api.AttachmentPoints {
-		stringTypePoints := make([]attr.Value, 0, len(points))
-		for _, point := range points {
-			stringTypePoints = append(stringTypePoints, types.StringValue(point))
-		}
-		pointsList, d := types.ListValue(types.StringType, stringTypePoints)
-		diagnostics.Append(d...)
-		attachmentPointsMap[key] = pointsList
-	}
-
-	attachmentPoints, d := types.MapValue(types.ListType{ElemType: types.StringType}, attachmentPointsMap)
-	data.AttachmentPoints = attachmentPoints
-	diagnostics.Append(d...)
 }
 
 func (r *pms_policy_deploymentResource) toVersionAPI(data *PMSPolicyDeploymentResourceModel, versionAPI *PMSPolicyDeploymentVersionAPIModel, diagnostics *diag.Diagnostics) bool {

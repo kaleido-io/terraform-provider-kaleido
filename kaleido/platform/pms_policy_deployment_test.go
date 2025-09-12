@@ -38,10 +38,6 @@ resource "kaleido_platform_pms_policy_deployment" "test_policy_deployment" {
     "maxApprovals" = 2
     "timeout" = "24h"
   })
-  attachment_points = {
-    "wallet_id" = ["wal:12345abcde", "wal:67890fghij"]
-    "asset_id" = ["was:12345abcde"]
-  }
 }
 `
 
@@ -58,10 +54,6 @@ resource "kaleido_platform_pms_policy_deployment" "test_policy_deployment" {
     "maxApprovals" = 3
     "timeout" = "48h"
   })
-  attachment_points = {
-    "wallet_id" = ["wal:abcde12345", "wal:fghij67890"]
-    "asset_id" = ["was:abcde12345", "was:fghij67890"]
-  }
 }
 `
 
@@ -100,9 +92,6 @@ func TestPMSPolicyDeployment1(t *testing.T) {
 					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "policy", "kaleido.policy.approval"),
 					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "policy_version", "25.6.0"),
 					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "config", `{"maxApprovals":2,"timeout":"24h"}`),
-					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "attachment_points.wallet_id.0", "wal:12345abcde"),
-					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "attachment_points.wallet_id.1", "wal:67890fghij"),
-					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "attachment_points.asset_id.0", "was:12345abcde"),
 					resource.TestCheckResourceAttrSet(pms_policy_deployment_resource, "current_version"),
 					resource.TestCheckResourceAttrSet(pms_policy_deployment_resource, "created"),
 					resource.TestCheckResourceAttrSet(pms_policy_deployment_resource, "updated"),
@@ -119,10 +108,6 @@ func TestPMSPolicyDeployment1(t *testing.T) {
 					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "policy", "kaleido.policy.approval"),
 					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "policy_version", "25.6.0"),
 					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "config", `{"maxApprovals":3,"timeout":"48h"}`),
-					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "attachment_points.wallet_id.0", "wal:abcde12345"),
-					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "attachment_points.wallet_id.1", "wal:fghij67890"),
-					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "attachment_points.asset_id.0", "was:abcde12345"),
-					resource.TestCheckResourceAttr(pms_policy_deployment_resource, "attachment_points.asset_id.1", "was:fghij67890"),
 					resource.TestCheckResourceAttrSet(pms_policy_deployment_resource, "current_version"),
 					resource.TestCheckResourceAttrSet(pms_policy_deployment_resource, "created"),
 					resource.TestCheckResourceAttrSet(pms_policy_deployment_resource, "updated"),
@@ -180,9 +165,6 @@ func (mp *mockPlatform) patchPMSPolicyDeployment(res http.ResponseWriter, req *h
 	mp.getBody(req, &updates)
 	if updates.Description != "" {
 		policyDeployment.Description = updates.Description
-	}
-	if updates.AttachmentPoints != nil {
-		policyDeployment.AttachmentPoints = updates.AttachmentPoints
 	}
 	now := time.Now().UTC()
 	policyDeployment.Updated = &now

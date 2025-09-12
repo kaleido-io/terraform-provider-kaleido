@@ -382,6 +382,7 @@ func Resources() []func() resource.Resource {
 		PMSIdentityResourceFactory,
 		PMSIdentityListResourceFactory,
 		PMSPolicyDeploymentResourceFactory,
+		PMSPolicyAttachmentResourceFactory,
 	}
 }
 
