@@ -68,6 +68,46 @@ resource "kaleido_platform_cms_build" "cms_build1" {
 }
 `
 
+var cms_buildAuthTokenStep1 = `
+resource "kaleido_platform_cms_build" "cms_build_auth_token" {
+    environment = "env1"
+	service = "service1"
+    type = "github"
+    name = "build_auth_token"
+    path = "some/path"
+	github = {
+		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
+		contract_name = "Firefly"
+		auth_token = "initial_token_123"
+	}
+	optimizer = {
+	    enabled = true
+		runs = 200
+		via_ir = false
+	}
+}
+`
+
+var cms_buildAuthTokenStep2 = `
+resource "kaleido_platform_cms_build" "cms_build_auth_token" {
+    environment = "env1"
+	service = "service1"
+    type = "github"
+    name = "build_auth_token"
+    path = "some/path"
+	github = {
+		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
+		contract_name = "Firefly"
+		auth_token = "updated_token_456"
+	}
+	optimizer = {
+	    enabled = true
+		runs = 200
+		via_ir = false
+	}
+}
+`
+
 func TestCMSBuild1(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
@@ -130,6 +170,89 @@ func TestCMSBuild1(t *testing.T) {
 								"contractUrl": "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol",
 								"contractName": "Firefly",
 								"oauthToken": "token12345",
+								"commitHash": "%[4]s"
+							},
+							"abi": "[{\"some\":\"abi\"}]",
+							"bytecode": "0xAAABBBCCCDDD",
+							"devDocs": "[\"some\":\"devdocs\"]",
+							"status": "succeeded"
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							obj.Created.UTC().Format(time.RFC3339Nano),
+							obj.Updated.UTC().Format(time.RFC3339Nano),
+							obj.GitHub.CommitHash,
+						))
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
+// TestCMSBuildAuthToken tests that changing the github auth token in the configuration
+// does not result in an actual update to the stored resource
+func TestCMSBuildAuthToken(t *testing.T) {
+
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v1/builds",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+		})
+		mp.server.Close()
+	}()
+
+	cms_buildAuthTokenResource := "kaleido_platform_cms_build.cms_build_auth_token"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + cms_buildAuthTokenStep1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "id"),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "name", `build_auth_token`),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "type", `github`),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "abi"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "bytecode"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "dev_docs"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "commit_hash"),
+				),
+			},
+			{
+				Config: providerConfig + cms_buildAuthTokenStep2,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "id"),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "name", `build_auth_token`),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "type", `github`),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "abi"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "bytecode"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "dev_docs"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "commit_hash"),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[cms_buildAuthTokenResource].Primary.Attributes["id"]
+						obj := mp.cmsBuilds[fmt.Sprintf("env1/service1/%s", id)]
+						testJSONEqual(t, obj, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"name": "build_auth_token",
+							"optimizer":{"enabled": true, "runs": 200, "viaIR": false},
+							"path": "some/path",
+							"github": {
+								"contractUrl": "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol",
+								"contractName": "Firefly",
 								"commitHash": "%[4]s"
 							},
 							"abi": "[{\"some\":\"abi\"}]",
