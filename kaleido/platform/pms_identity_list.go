@@ -17,9 +17,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -128,10 +128,14 @@ func (r *pms_identity_listResource) Configure(ctx context.Context, req resource.
 	r.commonResource.Configure(ctx, req, resp)
 }
 
+func (r *pms_identity_listResource) apiGetPath(data *PMSIdentityListResourceModel, idOrName string) string {
+	return r.apiPath(data, idOrName) + "?withActive=true"
+}
+
 func (r *pms_identity_listResource) apiPath(data *PMSIdentityListResourceModel, idOrName string) string {
 	env := data.Environment.ValueString()
 	service := data.Service.ValueString()
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identity-lists/%s?withActive=true", env, service, idOrName)
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identity-lists/%s", env, service, idOrName)
 }
 
 func (r *pms_identity_listResource) apiIdentityListVersionPath(data *PMSIdentityListResourceModel, idOrName string) string {
@@ -156,14 +160,11 @@ func (r *pms_identity_listResource) toData(api *PMSIdentityListAPIModel, data *P
 	data.Created = types.StringValue(api.Created.Format(time.RFC3339))
 	data.Updated = types.StringValue(api.Updated.Format(time.RFC3339))
 
-	stringTypeIdentities := make([]attr.Value, 0, len(api.Identities))
-	for _, identity := range api.Identities {
-		stringTypeIdentities = append(stringTypeIdentities, types.StringValue(identity))
-	}
+	if !r.identitiesEqual(data.Identities, api.Identities) {
+		diagnostics.AddError("Identities mismatch", "The identities in the API do not match the plan")
+		return
+	} //else leave the identities in the data as they are which matches the current state of the plan
 
-	identities, d := types.ListValue(types.StringType, stringTypeIdentities)
-	data.Identities = identities
-	diagnostics.Append(d...)
 }
 
 func (r *pms_identity_listResource) toVersionAPI(data *PMSIdentityListResourceModel, versionAPI *PMSIdentityListVersionAPIModel, diagnostics *diag.Diagnostics) bool {
@@ -212,7 +213,7 @@ func (r *pms_identity_listResource) Create(ctx context.Context, req resource.Cre
 
 	// Fetch the updated identity list with the current version
 	var updatedAPI PMSIdentityListAPIModel
-	getPath := r.apiPath(&data, api.Name)
+	getPath := r.apiGetPath(&data, api.Name)
 	ok, _ = r.apiRequest(ctx, http.MethodGet, getPath, nil, &updatedAPI, &resp.Diagnostics)
 	if !ok {
 		return
@@ -230,7 +231,7 @@ func (r *pms_identity_listResource) Read(ctx context.Context, req resource.ReadR
 	}
 
 	var api PMSIdentityListAPIModel
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data, data.ID.ValueString()), nil, &api, &resp.Diagnostics, Allow404())
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiGetPath(&data, data.ID.ValueString()), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -275,7 +276,7 @@ func (r *pms_identity_listResource) Update(ctx context.Context, req resource.Upd
 
 	// Fetch the updated identity list with the current version
 	var updatedAPI PMSIdentityListAPIModel
-	getPath := r.apiPath(&data, identityListID)
+	getPath := r.apiGetPath(&data, identityListID)
 	ok, _ = r.apiRequest(ctx, http.MethodGet, getPath, nil, &updatedAPI, &resp.Diagnostics)
 	if !ok {
 		return
@@ -294,4 +295,26 @@ func (r *pms_identity_listResource) Delete(ctx context.Context, req resource.Del
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data, data.ID.ValueString()), nil, nil, &resp.Diagnostics, Allow404())
 	r.waitForRemoval(ctx, r.apiPath(&data, data.ID.ValueString()), &resp.Diagnostics)
+}
+
+func (r *pms_identity_listResource) identitiesEqual(planIdentities types.List, updatedIdentitiesFromAPI []string) bool {
+	if len(planIdentities.Elements()) != len(updatedIdentitiesFromAPI) {
+		fmt.Println("Identities mismatch: length of planIdentities does not match length of updatedIdentitiesFromAPI")
+		return false
+	}
+	sortedPlanIdentities := planIdentities.Elements()
+	sortedUpdatedIdentitiesFromAPI := updatedIdentitiesFromAPI
+	sort.Slice(sortedPlanIdentities, func(i, j int) bool {
+		return sortedPlanIdentities[i].String() < sortedPlanIdentities[j].String()
+	})
+	sort.Slice(sortedUpdatedIdentitiesFromAPI, func(i, j int) bool {
+		return sortedUpdatedIdentitiesFromAPI[i] < sortedUpdatedIdentitiesFromAPI[j]
+	})
+	for i, identity := range sortedPlanIdentities {
+		if identity.(types.String).ValueString() != sortedUpdatedIdentitiesFromAPI[i] {
+			fmt.Println("Identities mismatch: identity", identity.(types.String).ValueString(), "does not match updatedIdentitiesFromAPI[", i, "]", sortedUpdatedIdentitiesFromAPI[i])
+			return false
+		}
+	}
+	return true
 }
