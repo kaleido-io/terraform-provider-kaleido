@@ -381,6 +381,7 @@ func Resources() []func() resource.Resource {
 		WMSWalletResourceFactory,
 		PMSIdentityResourceFactory,
 		PMSIdentityListResourceFactory,
+		PMSPolicyDeploymentResourceFactory,
 	}
 }
 
