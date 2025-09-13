@@ -383,6 +383,7 @@ func Resources() []func() resource.Resource {
 		PMSIdentityListResourceFactory,
 		PMSPolicyDeploymentResourceFactory,
 		PMSPolicyAttachmentResourceFactory,
+		WFEWorkflowResourceFactory,
 	}
 }
 

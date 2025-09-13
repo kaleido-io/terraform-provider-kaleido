@@ -73,6 +73,8 @@ type mockPlatform struct {
 	pmsIdentityListVersions     map[string]map[string]*PMSIdentityListVersionAPIModel
 	pmsPolicyDeployments        map[string]*PMSPolicyDeploymentAPIModel
 	pmsPolicyDeploymentVersions map[string]map[string]*PMSPolicyDeploymentVersionAPIModel
+	wfeWorkflows                map[string]*WFEWorkflowAPIModel
+	wfeWorkflowVersions         map[string]map[string]*WFEWorkflowVersionAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -112,6 +114,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		pmsIdentityListVersions:     make(map[string]map[string]*PMSIdentityListVersionAPIModel),
 		pmsPolicyDeployments:        make(map[string]*PMSPolicyDeploymentAPIModel),
 		pmsPolicyDeploymentVersions: make(map[string]map[string]*PMSPolicyDeploymentVersionAPIModel),
+		wfeWorkflows:                make(map[string]*WFEWorkflowAPIModel),
+		wfeWorkflowVersions:         make(map[string]map[string]*WFEWorkflowVersionAPIModel),
 		router:                      mux.NewRouter(),
 		calls:                       []string{},
 	}
@@ -293,6 +297,14 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/stack-access/{stack}/permissions", http.MethodPost, mp.postStackAccessPermission)
 	mp.register("/api/v1/stack-access/{stack}/permissions/{permission}", http.MethodGet, mp.getStackAccessPermission)
 	mp.register("/api/v1/stack-access/{stack}/permissions/{permission}", http.MethodDelete, mp.deleteStackAccessPermission)
+
+	// see wfe_workflow_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}", "PUT", mp.putWFEWorkflow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}", "GET", mp.getWFEWorkflow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}", "PATCH", mp.patchWFEWorkflow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}", "DELETE", mp.deleteWFEWorkflow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}/versions", "POST", mp.postWFEWorkflowVersion)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}/versions/{version}", "GET", mp.getWFEWorkflowVersion)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
