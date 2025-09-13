@@ -94,14 +94,12 @@ func (r *pms_identity_listResource) Schema(_ context.Context, _ resource.SchemaR
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
-				Required:      true,
-				Description:   "The name of the identity list",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Required:    true,
+				Description: "The name of the identity list",
 			},
 			"description": &schema.StringAttribute{
-				Optional:      true,
-				Description:   "A description of the identity list",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Optional:    true,
+				Description: "A description of the identity list",
 			},
 			"identities": &schema.ListAttribute{
 				Required:    true,

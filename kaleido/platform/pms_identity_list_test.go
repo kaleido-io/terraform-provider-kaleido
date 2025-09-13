@@ -46,7 +46,7 @@ resource "kaleido_platform_pms_identity_list" "test_identity_list" {
   environment = "test-env"
   service = "test-service"
   name = "test-identity-list"
-  description = "Test identity list for policy management"
+  description = "Test identity list for policy management - updated"
   identities = [
     "pmi:abcde12345",
     "pmi:fghij67890",
@@ -102,7 +102,7 @@ func TestPMSIdentityList1(t *testing.T) {
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "environment", "test-env"),
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "service", "test-service"),
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "name", "test-identity-list"),
-					resource.TestCheckResourceAttr(pms_identity_list_resource, "description", "Test identity list for policy management"),
+					resource.TestCheckResourceAttr(pms_identity_list_resource, "description", "Test identity list for policy management - updated"),
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "identities.0", "pmi:abcde12345"),
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "identities.1", "pmi:fghij67890"),
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "identities.2", "pmi:fghij12345"),
