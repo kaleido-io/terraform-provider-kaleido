@@ -333,6 +333,6 @@ func (r *pms_policy_deploymentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data, data.ID.ValueString()), nil, nil, &resp.Diagnostics, Allow404())
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data, data.ID.ValueString())+"?force=true", nil, nil, &resp.Diagnostics, Allow404())
 	r.waitForRemoval(ctx, r.apiPath(&data, data.ID.ValueString()), &resp.Diagnostics)
 }
