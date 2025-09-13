@@ -75,6 +75,7 @@ type mockPlatform struct {
 	pmsPolicyDeploymentVersions map[string]map[string]*PMSPolicyDeploymentVersionAPIModel
 	wfeWorkflows                map[string]*WFEWorkflowAPIModel
 	wfeWorkflowVersions         map[string]map[string]*WFEWorkflowVersionAPIModel
+	wfeStreams                  map[string]*WFEStreamAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -116,6 +117,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		pmsPolicyDeploymentVersions: make(map[string]map[string]*PMSPolicyDeploymentVersionAPIModel),
 		wfeWorkflows:                make(map[string]*WFEWorkflowAPIModel),
 		wfeWorkflowVersions:         make(map[string]map[string]*WFEWorkflowVersionAPIModel),
+		wfeStreams:                  make(map[string]*WFEStreamAPIModel),
 		router:                      mux.NewRouter(),
 		calls:                       []string{},
 	}
@@ -305,6 +307,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}", "DELETE", mp.deleteWFEWorkflow)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}/versions", "POST", mp.postWFEWorkflowVersion)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/workflows/{workflow}/versions/{version}", "GET", mp.getWFEWorkflowVersion)
+
+	// See wfe_stream_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "PUT", mp.putWFEStream)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "GET", mp.getWFEStream)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "PATCH", mp.patchWFEStream)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "DELETE", mp.deleteWFEStream)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
