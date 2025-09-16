@@ -131,8 +131,11 @@ func (r *firefly_registrationResource) ensureRegistered(ctx context.Context, dat
 	orgSubmitted := false
 	cancelInfo := APICancelInfo()
 	_ = kaleidobase.Retry.Do(ctx, "register", func(attempt int) (retry bool, err error) {
-		ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(data, "status"), nil, &status, diagnostics, cancelInfo)
+		ok, statusCode := r.apiRequest(ctx, http.MethodGet, r.apiPath(data, "status"), nil, &status, diagnostics, cancelInfo)
 		if !ok {
+			if statusCode == 429 {
+				return true, fmt.Errorf("rate limit exceeded")
+			}
 			return false, fmt.Errorf("status-check failed") // already set in diag
 		}
 		if registered := status.toData(data, diagnostics); registered {

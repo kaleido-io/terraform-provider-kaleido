@@ -310,8 +310,11 @@ func (r *commonResource) waitForReadyStatus(ctx context.Context, path string, di
 	cancelInfo := APICancelInfo()
 	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("ready-check %s", path), func(attempt int) (retry bool, err error) {
 		var res statusResponse
-		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &res, diagnostics, cancelInfo)
+		ok, statusCode := r.apiRequest(ctx, http.MethodGet, path, nil, &res, diagnostics, cancelInfo)
 		if !ok {
+			if statusCode == 429 {
+				return true, fmt.Errorf("rate limit exceeded")
+			}
 			return false, fmt.Errorf("ready-check failed") // already set in diag
 		}
 		cancelInfo.CancelInfo = fmt.Sprintf("(waiting for ready - status: %s)", res.Status)
