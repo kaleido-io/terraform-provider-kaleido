@@ -2,9 +2,9 @@ name: Go
 
 on:
   push:
-    branches: [master, v1.1]
+    branches: [main, release-1.0, release-1.1]
   pull_request:
-    branches: [master, v1.1]
+    branches: [main, release-1.0, release-1.1]
   workflow_dispatch:
 
 jobs:
@@ -15,15 +15,15 @@ jobs:
         with:
           path: 'terraform-provider-kaleido'
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: opentofu/setup-tofu@v1
         with:
-          terraform_version: "1.8.5"
+          terraform_version: "1.10.6"
           terraform_wrapper: false
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version: 1.24
 
       - name: Build and Test
         run: cd terraform-provider-kaleido && make
