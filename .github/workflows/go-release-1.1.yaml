@@ -1,4 +1,4 @@
-name: Go
+name: Go (Release 1.1.x)
 
 on:
   push:
