@@ -24,6 +24,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"gopkg.in/yaml.v3"
@@ -190,6 +191,11 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 	}
 	return ok, statusCode
 }
+
+func (r *commonResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
 
 func (r *commonDataSource) apiRequest(ctx context.Context, method, path string, body, result interface{}, diagnostics *diag.Diagnostics, options ...*APIRequestOption) (bool, int) {
 	var bodyBytes []byte
