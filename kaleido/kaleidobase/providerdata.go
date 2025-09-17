@@ -94,6 +94,7 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 		platformUsername = os.Getenv("KALEIDO_PLATFORM_USERNAME")
 		platformPassword = os.Getenv("KALEIDO_PLATFORM_PASSWORD")
 		platformBearerToken = os.Getenv("KALEIDO_PLATFORM_BEARER_TOKEN")
+	}
 
 	// mostly the default settings, barring less conns to avoid concurrency limits w/in the Platform
 	platformHttp := &http.Transport{
