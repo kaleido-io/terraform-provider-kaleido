@@ -375,6 +375,8 @@ func Resources() []func() resource.Resource {
 		ConnectorResourceFactory,
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
+		UserResourceFactory,
+		GroupMembershipResourceFactory,
 		BesuNodeKeyResourceFactory,
 	}
 }
