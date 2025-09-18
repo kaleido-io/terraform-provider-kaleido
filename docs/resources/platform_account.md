@@ -70,17 +70,17 @@ EOT
 
 ### Required
 
+- `first_user_email` (String) Email address of the initial admin user for the new account
+- `hostnames` (Map of List of String) Hostname binding map for the account
 - `name` (String) Unique name of the account
+- `oidc_client_id` (String) ID of an existing OIDC Client to use for authentication
 
 ### Optional
 
 - `bootstrap_application_name` (String) Name of the bootstrap application for the account
 - `bootstrap_application_oauth_json` (String) OAuth configuration for the bootstrap application
 - `bootstrap_application_validation_policy` (String) Validation policy for the bootstrap application
-- `first_user_email` (String) Email address of the initial admin user for the new account
 - `first_user_sub` (String) OIDC subject identifier of the initial admin user for the new account
-- `hostnames` (Map of List of String) Hostname binding map for the account
-- `oidc_client_id` (String) ID of an existing OIDC Client to use for authentication
 - `user_jit_default_group` (String) Default group to add users to when JIT is enabled
 - `user_jit_enabled` (Boolean) Enable Just-In-Time (JIT) user provisioning for the account, requires a validation policy to also be provided.
 - `validation_policy` (String) Optional policy for validating the account identity
