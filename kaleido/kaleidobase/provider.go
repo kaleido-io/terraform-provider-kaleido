@@ -63,6 +63,11 @@ func (p *kaleidoProvider) Schema(ctx context.Context, _ provider.SchemaRequest, 
 				Optional:    true,
 				Description: "For resources prefixed with `platform_`",
 			},
+			"platform_bearer_token": schema.StringAttribute{
+				Sensitive:   true,
+				Optional:    true,
+				Description: "For resources prefixed with `platform_`",
+			},
 		},
 	}
 }

@@ -44,5 +44,6 @@ provider "kaleido" {
 - `api` (String)
 - `api_key` (String, Sensitive)
 - `platform_api` (String) For resources prefixed with `platform_`
+- `platform_bearer_token` (String, Sensitive) For resources prefixed with `platform_`
 - `platform_password` (String, Sensitive) For resources prefixed with `platform_`
 - `platform_username` (String) For resources prefixed with `platform_`
