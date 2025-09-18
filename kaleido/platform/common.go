@@ -382,6 +382,9 @@ func Resources() []func() resource.Resource {
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		AccountResourceFactory,
+		UserResourceFactory,
+		GroupMembershipResourceFactory,
+		BesuNodeKeyResourceFactory,
 	}
 }
 

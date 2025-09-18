@@ -95,7 +95,7 @@ func (r *accountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Unique name of the account",
 			},
 			"oidc_client_id": &schema.StringAttribute{
-				Optional:    true,
+				Required:    true,
 				Description: "ID of an existing OIDC Client to use for authentication",
 			},
 			"validation_policy": &schema.StringAttribute{
@@ -103,7 +103,7 @@ func (r *accountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Optional policy for validating the account identity",
 			},
 			"first_user_email": &schema.StringAttribute{
-				Optional:    true,
+				Required:    true,
 				Description: "Email address of the initial admin user for the new account",
 			},
 			"first_user_sub": &schema.StringAttribute{
@@ -112,7 +112,7 @@ func (r *accountResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"hostnames": &schema.MapAttribute{
 				ElementType: types.ListType{ElemType: types.StringType},
-				Optional:    true,
+				Required:    true,
 				Description: "Hostname binding map for the account",
 			},
 			"user_jit_enabled": &schema.BoolAttribute{
