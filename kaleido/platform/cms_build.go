@@ -412,6 +412,8 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 	if api.Libraries != nil {
 		librariesBytes, _ := json.Marshal(api.Libraries)
 		data.LibrariesJSON = types.StringValue(string(librariesBytes))
+	} else {
+		data.LibrariesJSON = types.StringValue("{}")
 	}
 }
 

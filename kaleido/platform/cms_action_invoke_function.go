@@ -15,8 +15,10 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -33,13 +35,14 @@ type CMSActionInvokeFunctionResourceModel struct {
 	Name             types.String `tfsdk:"name"`
 	Description      types.String `tfsdk:"description"`
 	FireFlyNamespace types.String `tfsdk:"firefly_namespace"`
-	SigningKey         types.String `tfsdk:"signing_key"`
-	ParamsJSON         types.String `tfsdk:"params_json"`
-	TransactionID      types.String `tfsdk:"transaction_id"`
-	IdempotencyKey     types.String `tfsdk:"idempotency_key"`
-	OperationID        types.String `tfsdk:"operation_id"`
-	ContractAddress    types.String `tfsdk:"contract_address"`
+	SigningKey       types.String `tfsdk:"signing_key"`
+	ParamsJSON       types.String `tfsdk:"params_json"`
 	MethodPath       types.String `tfsdk:"method_path"`
+	ContractAddress  types.String `tfsdk:"contract_address"`
+	TransactionID    types.String `tfsdk:"transaction_id"`
+	IdempotencyKey   types.String `tfsdk:"idempotency_key"`
+	OperationID      types.String `tfsdk:"operation_id"`
+	BlockNumber      types.String `tfsdk:"block_number"`
 }
 
 type CMSActionInvokeFunctionAPIModel struct {
@@ -49,22 +52,24 @@ type CMSActionInvokeFunctionAPIModel struct {
 }
 
 type CMSInvokeFunctionActionInputAPIModel struct {
-	Namespace string                                   `json:"namespace,omitempty"`
-	MethodPath string `json:"methodPath,omitempty"`
-	SigningKey string `json:"signingKey,omitempty"`
-	Params map[string]interface{} `json:"params,omitempty"`
-	Build *CMSActionInvokeFunctionBuildInputAPIModel `json:"build,omitempty"`
-	Location  *CMSInvokeFunctionActionInputLocationAPIModel `json:"location,omitempty"`
+	Namespace  string                                        `json:"namespace,omitempty"`
+	MethodPath string                                        `json:"methodPath,omitempty"`
+	SigningKey string                                        `json:"signingKey,omitempty"`
+	Params     interface{}                                   `json:"params,omitempty"`
+	Build      *CMSActionInvokeFunctionBuildInputAPIModel    `json:"build,omitempty"`
+	Location   *CMSInvokeFunctionActionInputLocationAPIModel `json:"location,omitempty"`
 }
 
 type CMSInvokeFunctionActionInputLocationAPIModel struct {
 	Address string `json:"address,omitempty"`
-	BlockNumber string `json:"blockNumber,omitempty"`
 }
 
 type CMSInvokeFunctionActionOutputAPIModel struct {
 	CMSActionOutputBaseAPIModel
-	APIID string `json:"apiId,omitempty"`
+	TransactionID  string `json:"transactionId,omitempty"`
+	IdempotencyKey string `json:"idempotencyKey,omitempty"`
+	OperationID    string `json:"operationId,omitempty"`
+	BlockNumber    string `json:"blockNumber,omitempty"`
 }
 
 type CMSActionInvokeFunctionBuildInputAPIModel struct {
@@ -72,12 +77,11 @@ type CMSActionInvokeFunctionBuildInputAPIModel struct {
 }
 
 func CMSActionInvokeFunctionResourceFactory() resource.Resource {
-	return &cms_action_createapiResource{}
+	return &cms_action_invokefunctionResource{}
 }
 
 func (data *CMSActionInvokeFunctionResourceModel) ResourceIdentifiers() (types.String, types.String, types.String) {
-	//return data.Environment, data.Service, data.ID
-	return "", "", ""
+	return data.Environment, data.Service, data.ID
 }
 
 type cms_action_invokefunctionResource struct {
@@ -92,7 +96,7 @@ func (a *CMSActionInvokeFunctionAPIModel) OutputBase() *CMSActionOutputBaseAPIMo
 }
 
 func (r *cms_action_invokefunctionResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_cms_action_createapi"
+	resp.TypeName = "kaleido_platform_cms_action_invoke_function"
 }
 
 func (r *cms_action_invokefunctionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -110,6 +114,10 @@ func (r *cms_action_invokefunctionResource) Schema(_ context.Context, _ resource
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"build": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
 			"name": &schema.StringAttribute{
 				Required: true,
 			},
@@ -120,47 +128,71 @@ func (r *cms_action_invokefunctionResource) Schema(_ context.Context, _ resource
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"api_name": &schema.StringAttribute{
+			"signing_key": &schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"method_path": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"contract_address": &schema.StringAttribute{
-				Optional:      true,
+				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"api_id": &schema.StringAttribute{
-				Computed: true,
 			},
 			"params_json": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"transaction_id": &schema.StringAttribute{
+				Computed: true,
+			},
+			"idempotency_key": &schema.StringAttribute{
+				Computed: true,
+			},
+			"operation_id": &schema.StringAttribute{
+				Computed: true,
+			},
+			"block_number": &schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
 
-func (data *CMSActionInvokeFunctionResourceModel) toAPI(api *CMSActionInvokeFunctionAPIModel) {
+func (data *CMSActionInvokeFunctionResourceModel) toAPI(api *CMSActionInvokeFunctionAPIModel, diagnostics *diag.Diagnostics) bool {
 	api.Type = "invoke"
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
 	api.Input = CMSInvokeFunctionActionInputAPIModel{
-		Namespace: data.FireFlyNamespace.ValueString(),
-		// Build: &CMSActionCreateAPIBuildInputAPIModel{
-		// 	ID: data.Build.ValueString(),
-		// },
-		APIName: data.APIName.ValueString(),
-	}
-	if data.ContractAddress.ValueString() != "" {
-		api.Input.Location = &CMSInvokeFunctionActionInputLocationAPIModel{
+		Namespace:  data.FireFlyNamespace.ValueString(),
+		MethodPath: data.MethodPath.ValueString(),
+		SigningKey: data.SigningKey.ValueString(),
+		Build: &CMSActionInvokeFunctionBuildInputAPIModel{
+			ID: data.Build.ValueString(),
+		},
+		Location: &CMSInvokeFunctionActionInputLocationAPIModel{
 			Address: data.ContractAddress.ValueString(),
+		},
+	}
+	
+	if data.ParamsJSON.ValueString() != "" {
+		err := json.Unmarshal([]byte(data.ParamsJSON.ValueString()), &api.Input.Params)
+		if err != nil {
+			diagnostics.AddError("failed to serialize params JSON", err.Error())
+			return false
 		}
 	}
+	return true
 }
 
 func (api *CMSActionInvokeFunctionAPIModel) toData(data *CMSActionInvokeFunctionResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	if api.Output != nil {
-		data.APIID = types.StringValue(api.Output.APIID)
+		data.TransactionID = types.StringValue(api.Output.TransactionID)
+		data.IdempotencyKey = types.StringValue(api.Output.IdempotencyKey)
+		data.OperationID = types.StringValue(api.Output.OperationID)
+		data.BlockNumber = types.StringValue(api.Output.BlockNumber)
 	}
 }
 
@@ -170,15 +202,17 @@ func (r *cms_action_invokefunctionResource) Create(ctx context.Context, req reso
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api CMSActionInvokeFunctionAPIModel
-	data.toAPI(&api)
-	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	ok := data.toAPI(&api, &resp.Diagnostics)
+	if ok {
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	}
 	if !ok {
 		return
 	}
 
 	api.toData(&data) // need the ID copied over
 	r.waitForActionStatus(ctx, &data, &api, &resp.Diagnostics)
-	api.toData(&data) // capture the build info
+	api.toData(&data) // capture the transaction info
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -191,8 +225,16 @@ func (r *cms_action_invokefunctionResource) Update(ctx context.Context, req reso
 
 	// Update from plan
 	var api CMSActionInvokeFunctionAPIModel
-	data.toAPI(&api)
-	if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
+	ok := data.toAPI(&api, &resp.Diagnostics)
+	// PATCH only supports editing the Name/Description fields
+	patchAPI := CMSActionBaseAPIModel{
+		Name:        api.Name,
+		Description: api.Description,
+	}
+	if ok {
+		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), patchAPI, &api, &resp.Diagnostics)
+	}
+	if !ok {
 		return
 	}
 

@@ -369,6 +369,7 @@ func Resources() []func() resource.Resource {
 		CMSBuildResourceFactory,
 		CMSActionDeployResourceFactory,
 		CMSActionCreateAPIResourceFactory,
+		CMSActionInvokeFunctionResourceFactory,
 		AMSTaskResourceFactory,
 		AMSPolicyResourceFactory,
 		AMSFFListenerResourceFactory,
