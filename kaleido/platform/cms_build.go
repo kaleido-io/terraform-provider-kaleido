@@ -100,7 +100,7 @@ type CMSBuildAPIModel struct {
 	CompileError string                      `json:"compileError,omitempty"`
 	Status       string                      `json:"status,omitempty"`
 	Libraries map[string]interface{} `json:"libraries,omitempty"`
-	CompilationMetadata string `json:"compilationMetadata,omitempty"` // json string of raw compiler metadata output
+	CompilationMetadata map[string]interface{} `json:"compilationMetadata,omitempty"` // json string of raw compiler metadata output
 }
 
 type CMSBuildGithubAPIModel struct {
@@ -417,8 +417,9 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 		librariesBytes, _ := json.Marshal(api.Libraries)
 		data.LibrariesJSON = types.StringValue(string(librariesBytes))
 	}
-	if api.CompilationMetadata != "" {
-		data.CompilationMetadataJSON = types.StringValue(api.CompilationMetadata)
+	if api.CompilationMetadata != nil {
+		compilationMetadataBytes, _ := json.Marshal(api.CompilationMetadata)
+		data.CompilationMetadataJSON = types.StringValue(string(compilationMetadataBytes))
 	} else {
 		data.CompilationMetadataJSON = types.StringValue("{}")
 	}

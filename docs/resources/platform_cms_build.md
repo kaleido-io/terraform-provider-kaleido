@@ -39,6 +39,7 @@ description: |-
 - `abi` (String)
 - `bytecode` (String)
 - `commit_hash` (String)
+- `compilation_metadata_json` (String)
 - `dev_docs` (String)
 - `id` (String) The ID of this resource.
 
