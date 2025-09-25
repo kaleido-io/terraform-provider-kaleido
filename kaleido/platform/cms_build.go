@@ -56,6 +56,7 @@ type CMSBuildResourceModel struct {
 	DevDocs     types.String                     `tfsdk:"dev_docs"`
 	LibrariesJSON types.String                     `tfsdk:"libraries_json"`
 	CommitHash  types.String                     `tfsdk:"commit_hash"`
+	CompilationMetadataJSON types.String                     `tfsdk:"compilation_metadata_json"`
 }
 
 type CMSBuildPrecompiledResourceModel struct {
@@ -99,6 +100,7 @@ type CMSBuildAPIModel struct {
 	CompileError string                      `json:"compileError,omitempty"`
 	Status       string                      `json:"status,omitempty"`
 	Libraries map[string]interface{} `json:"libraries,omitempty"`
+	CompilationMetadata string `json:"compilationMetadata,omitempty"` // json string of raw compiler metadata output
 }
 
 type CMSBuildGithubAPIModel struct {
@@ -266,7 +268,6 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"libraries_json": &schema.StringAttribute{
 				Optional: true,
-				Computed: true,
 			},
 			"abi": &schema.StringAttribute{
 				Computed: true,
@@ -278,6 +279,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Computed: true,
 			},
 			"commit_hash": &schema.StringAttribute{
+				Computed: true,
+			},
+			"compilation_metadata_json": &schema.StringAttribute{
 				Computed: true,
 			},
 			"optimizer": &schema.SingleNestedAttribute{
@@ -412,8 +416,11 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 	if api.Libraries != nil {
 		librariesBytes, _ := json.Marshal(api.Libraries)
 		data.LibrariesJSON = types.StringValue(string(librariesBytes))
+	}
+	if api.CompilationMetadata != "" {
+		data.CompilationMetadataJSON = types.StringValue(api.CompilationMetadata)
 	} else {
-		data.LibrariesJSON = types.StringValue("{}")
+		data.CompilationMetadataJSON = types.StringValue("{}")
 	}
 }
 
