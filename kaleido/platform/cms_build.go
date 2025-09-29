@@ -54,7 +54,9 @@ type CMSBuildResourceModel struct {
 	ABI         types.String                     `tfsdk:"abi"`
 	Bytecode    types.String                     `tfsdk:"bytecode"`
 	DevDocs     types.String                     `tfsdk:"dev_docs"`
+	LibrariesJSON types.String                     `tfsdk:"libraries_json"`
 	CommitHash  types.String                     `tfsdk:"commit_hash"`
+	CompilationMetadataJSON types.String                     `tfsdk:"compilation_metadata_json"`
 }
 
 type CMSBuildPrecompiledResourceModel struct {
@@ -97,6 +99,8 @@ type CMSBuildAPIModel struct {
 	DevDocs      interface{}                 `json:"devDocs,omitempty"`
 	CompileError string                      `json:"compileError,omitempty"`
 	Status       string                      `json:"status,omitempty"`
+	Libraries map[string]interface{} `json:"libraries,omitempty"`
+	CompilationMetadata map[string]interface{} `json:"compilationMetadata,omitempty"` // json string of raw compiler metadata output
 }
 
 type CMSBuildGithubAPIModel struct {
@@ -262,6 +266,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					),
 				),
 			},
+			"libraries_json": &schema.StringAttribute{
+				Optional: true,
+			},
 			"abi": &schema.StringAttribute{
 				Computed: true,
 			},
@@ -272,6 +279,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Computed: true,
 			},
 			"commit_hash": &schema.StringAttribute{
+				Computed: true,
+			},
+			"compilation_metadata_json": &schema.StringAttribute{
 				Computed: true,
 			},
 			"optimizer": &schema.SingleNestedAttribute{
@@ -362,6 +372,10 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
 				FileContents: data.SourceCode.FileContents.ValueString(),
 			}
 		}
+
+		if data.LibrariesJSON.ValueString() != "" {
+			_ = json.Unmarshal(([]byte)(data.LibrariesJSON.ValueString()), &api.Libraries)
+		}
 	}
 }
 
@@ -398,6 +412,16 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 		} else {
 			data.Optimizer.Runs = types.Int64Value(200)
 		}
+	}
+	if api.Libraries != nil {
+		librariesBytes, _ := json.Marshal(api.Libraries)
+		data.LibrariesJSON = types.StringValue(string(librariesBytes))
+	}
+	if api.CompilationMetadata != nil {
+		compilationMetadataBytes, _ := json.Marshal(api.CompilationMetadata)
+		data.CompilationMetadataJSON = types.StringValue(string(compilationMetadataBytes))
+	} else {
+		data.CompilationMetadataJSON = types.StringValue("{}")
 	}
 }
 
