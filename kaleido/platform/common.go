@@ -385,7 +385,7 @@ func Resources() []func() resource.Resource {
 		AccountResourceFactory,
 		UserResourceFactory,
 		GroupMembershipResourceFactory,
-		BesuNodeKeyResourceFactory,
+		Secp256k1NodeKeyResourceFactory,
 	}
 }
 
