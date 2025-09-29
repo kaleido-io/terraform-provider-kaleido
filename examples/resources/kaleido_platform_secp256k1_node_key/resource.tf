@@ -1,5 +1,5 @@
 // Generates a SECP256K1 key pair for a Besu node to use for P2P and block proposals
-resource "kaleido_platform_besu_node_key" "besu_node_key" {}
+resource "kaleido_platform_secp256k1_node_key" "secp256k1_node_key" {}
 
 // Provide the private key securely to the Besu node in the config_json via a cred set
 resource "kaleido_platform_service" "besu_node" {
@@ -20,7 +20,7 @@ resource "kaleido_platform_service" "besu_node" {
     nodeKey = {
       type = "key"
       key = {
-        value = kaleido_platform_besu_node_key.besu_node_key.private_key
+        value = kaleido_platform_secp256k1_node_key.secp256k1_node_key.private_key
       }
     }
   }
