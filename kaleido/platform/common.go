@@ -376,6 +376,7 @@ func Resources() []func() resource.Resource {
 		AMSFFListenerResourceFactory,
 		AMSDMListenerResourceFactory,
 		AMSDMUpsertResourceFactory,
+		AMSAddressResourceFactory,
 		AMSVariableSetResourceFactory,
 		AMSCollectionResourceFactory,
 		FireFlyRegistrationResourceFactory,
