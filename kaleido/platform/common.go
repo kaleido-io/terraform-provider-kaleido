@@ -352,6 +352,7 @@ func DataSources() []func() datasource.DataSource {
 		EVMNetInfoDataSourceFactory,
 		NetworkBootstrapDatasourceModelFactory,
 		AccountDatasourceModelFactory,
+		PaladinEVMRegistryDatasourceModelFactory,
 	}
 }
 
@@ -386,6 +387,7 @@ func Resources() []func() resource.Resource {
 		UserResourceFactory,
 		GroupMembershipResourceFactory,
 		Secp256k1NodeKeyResourceFactory,
+		DNSRegistrationResourceFactory,
 	}
 }
 
