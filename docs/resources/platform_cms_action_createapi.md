@@ -28,6 +28,7 @@ description: |-
 
 - `contract_address` (String)
 - `description` (String)
+- `ignore_destroy` (Boolean)
 - `publish` (Boolean)
 
 ### Read-Only

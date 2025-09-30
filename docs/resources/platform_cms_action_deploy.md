@@ -27,6 +27,7 @@ description: |-
 
 - `description` (String)
 - `firefly_namespace` (String)
+- `ignore_destroy` (Boolean)
 - `params_json` (String)
 - `transaction_manager` (String)
 

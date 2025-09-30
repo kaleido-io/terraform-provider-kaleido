@@ -37,6 +37,7 @@ type CMSActionCreateAPIResourceModel struct {
 	ContractAddress  types.String `tfsdk:"contract_address"`
 	APIID            types.String `tfsdk:"api_id"`
 	Publish          types.Bool   `tfsdk:"publish"`
+	IgnoreDestroy    types.Bool   `tfsdk:"ignore_destroy"`
 }
 
 type CMSActionCreateAPIAPIModel struct {
@@ -132,6 +133,9 @@ func (r *cms_action_createapiResource) Schema(_ context.Context, _ resource.Sche
 			"publish": &schema.BoolAttribute{
 				Optional: true,
 			},
+			"ignore_destroy": &schema.BoolAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -223,6 +227,10 @@ func (r *cms_action_createapiResource) Read(ctx context.Context, req resource.Re
 func (r *cms_action_createapiResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CMSActionCreateAPIResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if !data.IgnoreDestroy.IsNull() && data.IgnoreDestroy.ValueBool() {
+		return
+	}
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 

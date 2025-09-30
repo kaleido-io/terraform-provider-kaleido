@@ -57,6 +57,7 @@ type CMSBuildResourceModel struct {
 	LibrariesJSON           types.String                     `tfsdk:"libraries_json"`
 	CommitHash              types.String                     `tfsdk:"commit_hash"`
 	CompilationMetadataJSON types.String                     `tfsdk:"compilation_metadata_json"`
+	IgnoreDestroy           types.Bool                       `tfsdk:"ignore_destroy"`
 }
 
 type CMSBuildPrecompiledResourceModel struct {
@@ -316,6 +317,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					),
 				),
 			},
+			"ignore_destroy": &schema.BoolAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -511,6 +515,10 @@ func (r *cms_buildResource) Read(ctx context.Context, req resource.ReadRequest, 
 func (r *cms_buildResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CMSBuildResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if !data.IgnoreDestroy.IsNull() && data.IgnoreDestroy.ValueBool() {
+		return
+	}
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 
