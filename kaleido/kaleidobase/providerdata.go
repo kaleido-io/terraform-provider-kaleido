@@ -37,11 +37,11 @@ type ProviderData struct {
 }
 
 type ProviderModel struct {
-	API              types.String `tfsdk:"api"`
-	APIKey           types.String `tfsdk:"api_key"`
-	PlatformAPI      types.String `tfsdk:"platform_api"`
-	PlatformUsername types.String `tfsdk:"platform_username"`
-	PlatformPassword types.String `tfsdk:"platform_password"`
+	API                 types.String `tfsdk:"api"`
+	APIKey              types.String `tfsdk:"api_key"`
+	PlatformAPI         types.String `tfsdk:"platform_api"`
+	PlatformUsername    types.String `tfsdk:"platform_username"`
+	PlatformPassword    types.String `tfsdk:"platform_password"`
 	PlatformBearerToken types.String `tfsdk:"platform_bearer_token"`
 }
 

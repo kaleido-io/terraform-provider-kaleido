@@ -24,6 +24,7 @@ Runtimes are the highly-available workloads that run the function of the service
 
 ### Optional
 
+- `dns_registrations` (List of String)
 - `force_delete` (Boolean) Set to `true` when you plan to delete a protected runtime like a Besu signing node. You must apply the value before you can successfully `terraform destroy` the protected runtime.
 - `log_level` (String) Log Level setting. Updating this field will prompt a runtime restart when applied. ERROR, DEBUG, TRACE
 - `size` (String) Specification for the runtime's size.
