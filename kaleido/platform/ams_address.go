@@ -15,10 +15,12 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -34,7 +36,7 @@ type AMSAddressResourceModel struct {
 	Address            types.String `tfsdk:"address"`
 	DisplayName        types.String `tfsdk:"display_name"`
 	Description        types.String `tfsdk:"description"`
-	Info               types.String `tfsdk:"info"`
+	InfoJSON               types.String `tfsdk:"info"`
 	Contract           types.Bool   `tfsdk:"contract"`
 	ContractManagerService types.String `tfsdk:"contract_manager_service"`
 	ContractManagerBuild   types.String `tfsdk:"contract_manager_build"`
@@ -83,7 +85,7 @@ func (r *ams_addressResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Description: "Description of the address",
 			},
-			"info": &schema.StringAttribute{
+			"info_json": &schema.StringAttribute{
 				Optional:    true,
 				Description: "Additional metadata as JSON string",
 			},
@@ -122,7 +124,7 @@ func (r *ams_addressResource) Schema(_ context.Context, _ resource.SchemaRequest
 	}
 }
 
-func (data *AMSAddressResourceModel) toAPI() map[string]interface{} {
+func (data *AMSAddressResourceModel) toAPI(diagnostics *diag.Diagnostics) map[string]interface{} {
 	payload := make(map[string]interface{})
 	
 	// Required field - normalize to lowercase
@@ -139,9 +141,17 @@ func (data *AMSAddressResourceModel) toAPI() map[string]interface{} {
 		payload["description"] = data.Description.ValueString()
 	}
 	
-	if !data.Info.IsNull() && !data.Info.IsUnknown() {
+	if !data.InfoJSON.IsNull() && !data.InfoJSON.IsUnknown() {
 		// Assume info is JSON - could parse it here if needed
-		payload["info"] = data.Info.ValueString()
+		raw := data.InfoJSON.ValueString()
+		obj := make(map[string]interface{})
+		err := json.Unmarshal([]byte(raw), &obj)
+		if err != nil {
+			diagnostics.AddError("Error unmarshalling info", err.Error())
+			return nil
+		}
+		json.Unmarshal([]byte(raw), &obj)
+		payload["info"] = obj
 	}
 	
 	if !data.Contract.IsNull() && !data.Contract.IsUnknown() {
@@ -176,7 +186,7 @@ func (data *AMSAddressResourceModel) toAPI() map[string]interface{} {
 	return payload
 }
 
-func (data *AMSAddressResourceModel) fromAPI(apiResponse map[string]interface{}) {
+func (data *AMSAddressResourceModel) fromAPI(apiResponse map[string]interface{}, diagnostics *diag.Diagnostics) {
 	if val, ok := apiResponse["address"]; ok && val != nil {
 		data.Address = types.StringValue(val.(string))
 	}
@@ -195,9 +205,14 @@ func (data *AMSAddressResourceModel) fromAPI(apiResponse map[string]interface{})
 	
 	if val, ok := apiResponse["info"]; ok && val != nil {
 		// Convert info back to JSON string if needed
-		data.Info = types.StringValue(fmt.Sprintf("%v", val))
+		raw, err := json.Marshal(val)
+		if err != nil {
+			diagnostics.AddError("Error marshalling info", err.Error())
+			return
+		}
+		data.InfoJSON = types.StringValue(string(raw))
 	} else {
-		data.Info = types.StringNull()
+		data.InfoJSON = types.StringNull()
 	}
 	
 	if val, ok := apiResponse["contract"]; ok && val != nil {
@@ -265,7 +280,7 @@ func (r *ams_addressResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	payload := data.toAPI()
+	payload := data.toAPI(&resp.Diagnostics)
 	
 	// Create address via POST to collection endpoint
 	var apiResponse map[string]interface{}
@@ -275,7 +290,7 @@ func (r *ams_addressResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	// Update data model from API response
-	data.fromAPI(apiResponse)
+	data.fromAPI(apiResponse, &resp.Diagnostics)
 	
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -300,7 +315,7 @@ func (r *ams_addressResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 
 	// Update data model from API response
-	data.fromAPI(apiResponse)
+	data.fromAPI(apiResponse, &resp.Diagnostics)
 	
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -312,7 +327,7 @@ func (r *ams_addressResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	payload := data.toAPI()
+	payload := data.toAPI(&resp.Diagnostics)
 	
 	// Update address via PUT to resource endpoint
 	var apiResponse map[string]interface{}
@@ -322,7 +337,7 @@ func (r *ams_addressResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	// Update data model from API response
-	data.fromAPI(apiResponse)
+	data.fromAPI(apiResponse, &resp.Diagnostics)
 	
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
