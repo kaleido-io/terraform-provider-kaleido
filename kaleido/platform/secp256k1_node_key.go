@@ -43,16 +43,16 @@ func (r *secp256k1NodeKeyResource) Schema(_ context.Context, _ resource.SchemaRe
 		 For secp256k1 keys used for transaction signing, see the 'kaleido_platform_kms_key' resource within our Key Management Service (KMS).`,
 		Attributes: map[string]schema.Attribute{
 			"private_key": &schema.StringAttribute{
-				Computed:  true,
-				Sensitive: true,
+				Computed:    true,
+				Sensitive:   true,
 				Description: "The private key of the key pair, can be uploaded to a blockchain node service's config when creating nodes.",
 			},
 			"public_key": &schema.StringAttribute{
-				Computed: true,
+				Computed:    true,
 				Description: "The public key of the key pair, also node as enode ID in Ethereum.",
 			},
 			"address": &schema.StringAttribute{
-				Computed: true,
+				Computed:    true,
 				Description: "The (public) address of the key pair, used for validator identities in Ethereum and BFT consensus.",
 			},
 		},

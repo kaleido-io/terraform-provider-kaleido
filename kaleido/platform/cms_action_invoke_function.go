@@ -175,7 +175,7 @@ func (data *CMSActionInvokeFunctionResourceModel) toAPI(api *CMSActionInvokeFunc
 			Address: data.ContractAddress.ValueString(),
 		},
 	}
-	
+
 	if data.ParamsJSON.ValueString() != "" {
 		err := json.Unmarshal([]byte(data.ParamsJSON.ValueString()), &api.Input.Params)
 		if err != nil {

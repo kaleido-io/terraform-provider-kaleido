@@ -196,7 +196,6 @@ func (r *commonResource) ImportState(ctx context.Context, req resource.ImportSta
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-
 func (r *commonDataSource) apiRequest(ctx context.Context, method, path string, body, result interface{}, diagnostics *diag.Diagnostics, options ...*APIRequestOption) (bool, int) {
 	var bodyBytes []byte
 	var err error

@@ -28,7 +28,7 @@ func TestSecp256k1NodeKeyResource(t *testing.T) {
 	var (
 		privateKey string
 		publicKey  string
-		address      string
+		address    string
 	)
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,

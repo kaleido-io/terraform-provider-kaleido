@@ -31,19 +31,19 @@ import (
 )
 
 type AMSAddressResourceModel struct {
-	Environment         types.String `tfsdk:"environment"`
-	Service            types.String `tfsdk:"service"`
-	Address            types.String `tfsdk:"address"`
-	DisplayName        types.String `tfsdk:"display_name"`
-	Description        types.String `tfsdk:"description"`
-	InfoJSON               types.String `tfsdk:"info"`
-	Contract           types.Bool   `tfsdk:"contract"`
+	Environment            types.String `tfsdk:"environment"`
+	Service                types.String `tfsdk:"service"`
+	Address                types.String `tfsdk:"address"`
+	DisplayName            types.String `tfsdk:"display_name"`
+	Description            types.String `tfsdk:"description"`
+	InfoJSON               types.String `tfsdk:"info_json"`
+	Contract               types.Bool   `tfsdk:"contract"`
 	ContractManagerService types.String `tfsdk:"contract_manager_service"`
 	ContractManagerBuild   types.String `tfsdk:"contract_manager_build"`
 	FireflyNamespace       types.String `tfsdk:"firefly_namespace"`
 	FireflyAPI             types.String `tfsdk:"firefly_api"`
-	Created            types.String `tfsdk:"created"`
-	Updated            types.String `tfsdk:"updated"`
+	Created                types.String `tfsdk:"created"`
+	Updated                types.String `tfsdk:"updated"`
 }
 
 func AMSAddressResourceFactory() resource.Resource {
@@ -126,21 +126,21 @@ func (r *ams_addressResource) Schema(_ context.Context, _ resource.SchemaRequest
 
 func (data *AMSAddressResourceModel) toAPI(diagnostics *diag.Diagnostics) map[string]interface{} {
 	payload := make(map[string]interface{})
-	
+
 	// Required field - normalize to lowercase
 	if !data.Address.IsNull() && !data.Address.IsUnknown() {
 		payload["address"] = strings.ToLower(data.Address.ValueString())
 	}
-	
+
 	// Optional fields
 	if !data.DisplayName.IsNull() && !data.DisplayName.IsUnknown() {
 		payload["displayName"] = data.DisplayName.ValueString()
 	}
-	
+
 	if !data.Description.IsNull() && !data.Description.IsUnknown() {
 		payload["description"] = data.Description.ValueString()
 	}
-	
+
 	if !data.InfoJSON.IsNull() && !data.InfoJSON.IsUnknown() {
 		// Assume info is JSON - could parse it here if needed
 		raw := data.InfoJSON.ValueString()
@@ -153,10 +153,10 @@ func (data *AMSAddressResourceModel) toAPI(diagnostics *diag.Diagnostics) map[st
 		json.Unmarshal([]byte(raw), &obj)
 		payload["info"] = obj
 	}
-	
+
 	if !data.Contract.IsNull() && !data.Contract.IsUnknown() {
 		payload["contract"] = data.Contract.ValueBool()
-		
+
 		// Contract manager fields only valid if contract=true
 		if data.Contract.ValueBool() {
 			contractManager := make(map[string]interface{})
@@ -169,7 +169,7 @@ func (data *AMSAddressResourceModel) toAPI(diagnostics *diag.Diagnostics) map[st
 			if len(contractManager) > 0 {
 				payload["contractManager"] = contractManager
 			}
-			
+
 			firefly := make(map[string]interface{})
 			if !data.FireflyNamespace.IsNull() && !data.FireflyNamespace.IsUnknown() {
 				firefly["namespace"] = data.FireflyNamespace.ValueString()
@@ -182,7 +182,7 @@ func (data *AMSAddressResourceModel) toAPI(diagnostics *diag.Diagnostics) map[st
 			}
 		}
 	}
-	
+
 	return payload
 }
 
@@ -190,19 +190,19 @@ func (data *AMSAddressResourceModel) fromAPI(apiResponse map[string]interface{},
 	if val, ok := apiResponse["address"]; ok && val != nil {
 		data.Address = types.StringValue(val.(string))
 	}
-	
+
 	if val, ok := apiResponse["displayName"]; ok && val != nil {
 		data.DisplayName = types.StringValue(val.(string))
 	} else {
 		data.DisplayName = types.StringNull()
 	}
-	
+
 	if val, ok := apiResponse["description"]; ok && val != nil {
 		data.Description = types.StringValue(val.(string))
 	} else {
 		data.Description = types.StringNull()
 	}
-	
+
 	if val, ok := apiResponse["info"]; ok && val != nil {
 		// Convert info back to JSON string if needed
 		raw, err := json.Marshal(val)
@@ -214,13 +214,13 @@ func (data *AMSAddressResourceModel) fromAPI(apiResponse map[string]interface{},
 	} else {
 		data.InfoJSON = types.StringNull()
 	}
-	
+
 	if val, ok := apiResponse["contract"]; ok && val != nil {
 		data.Contract = types.BoolValue(val.(bool))
 	} else {
 		data.Contract = types.BoolValue(false)
 	}
-	
+
 	// Handle contract manager
 	if cm, ok := apiResponse["contractManager"].(map[string]interface{}); ok {
 		if val, exists := cm["service"]; exists && val != nil {
@@ -237,7 +237,7 @@ func (data *AMSAddressResourceModel) fromAPI(apiResponse map[string]interface{},
 		data.ContractManagerService = types.StringNull()
 		data.ContractManagerBuild = types.StringNull()
 	}
-	
+
 	// Handle firefly
 	if ff, ok := apiResponse["firefly"].(map[string]interface{}); ok {
 		if val, exists := ff["namespace"]; exists && val != nil {
@@ -254,11 +254,11 @@ func (data *AMSAddressResourceModel) fromAPI(apiResponse map[string]interface{},
 		data.FireflyNamespace = types.StringNull()
 		data.FireflyAPI = types.StringNull()
 	}
-	
+
 	if val, ok := apiResponse["created"]; ok && val != nil {
 		data.Created = types.StringValue(val.(string))
 	}
-	
+
 	if val, ok := apiResponse["updated"]; ok && val != nil {
 		data.Updated = types.StringValue(val.(string))
 	}
@@ -281,7 +281,7 @@ func (r *ams_addressResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	payload := data.toAPI(&resp.Diagnostics)
-	
+
 	// Create address via POST to collection endpoint
 	var apiResponse map[string]interface{}
 	_, _ = r.apiRequest(ctx, http.MethodPost, r.apiPathCollection(&data), payload, &apiResponse, &resp.Diagnostics)
@@ -291,7 +291,7 @@ func (r *ams_addressResource) Create(ctx context.Context, req resource.CreateReq
 
 	// Update data model from API response
 	data.fromAPI(apiResponse, &resp.Diagnostics)
-	
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -316,7 +316,7 @@ func (r *ams_addressResource) Read(ctx context.Context, req resource.ReadRequest
 
 	// Update data model from API response
 	data.fromAPI(apiResponse, &resp.Diagnostics)
-	
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -328,7 +328,7 @@ func (r *ams_addressResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	payload := data.toAPI(&resp.Diagnostics)
-	
+
 	// Update address via PUT to resource endpoint
 	var apiResponse map[string]interface{}
 	_, _ = r.apiRequest(ctx, http.MethodPut, r.apiPathResource(&data), payload, &apiResponse, &resp.Diagnostics)
@@ -338,7 +338,7 @@ func (r *ams_addressResource) Update(ctx context.Context, req resource.UpdateReq
 
 	// Update data model from API response
 	data.fromAPI(apiResponse, &resp.Diagnostics)
-	
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 

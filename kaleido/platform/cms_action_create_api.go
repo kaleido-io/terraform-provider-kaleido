@@ -36,7 +36,7 @@ type CMSActionCreateAPIResourceModel struct {
 	APIName          types.String `tfsdk:"api_name"`
 	ContractAddress  types.String `tfsdk:"contract_address"`
 	APIID            types.String `tfsdk:"api_id"`
-	Publish        types.Bool   `tfsdk:"publish"`
+	Publish          types.Bool   `tfsdk:"publish"`
 }
 
 type CMSActionCreateAPIAPIModel struct {
@@ -50,7 +50,7 @@ type CMSCreateAPIActionInputAPIModel struct {
 	Build     *CMSActionCreateAPIBuildInputAPIModel    `json:"build,omitempty"`
 	APIName   string                                   `json:"apiName,omitempty"`
 	Location  *CMSCreateAPIActionInputLocationAPIModel `json:"location,omitempty"`
-	Publish *bool                                     `json:"publish,omitempty"`
+	Publish   *bool                                    `json:"publish,omitempty"`
 }
 
 type CMSCreateAPIActionInputLocationAPIModel struct {
