@@ -28,6 +28,7 @@ description: |-
 - `description` (String)
 - `evm_version` (String)
 - `github` (Attributes) (see [below for nested schema](#nestedatt--github))
+- `ignore_destroy` (Boolean)
 - `libraries_json` (String)
 - `optimizer` (Attributes) (see [below for nested schema](#nestedatt--optimizer))
 - `precompiled` (Attributes) (see [below for nested schema](#nestedatt--precompiled))

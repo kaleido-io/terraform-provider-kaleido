@@ -196,7 +196,6 @@ func (r *commonResource) ImportState(ctx context.Context, req resource.ImportSta
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-
 func (r *commonDataSource) apiRequest(ctx context.Context, method, path string, body, result interface{}, diagnostics *diag.Diagnostics, options ...*APIRequestOption) (bool, int) {
 	var bodyBytes []byte
 	var err error
@@ -352,6 +351,7 @@ func DataSources() []func() datasource.DataSource {
 		EVMNetInfoDataSourceFactory,
 		NetworkBootstrapDatasourceModelFactory,
 		AccountDatasourceModelFactory,
+		PaladinEVMRegistryDatasourceModelFactory,
 	}
 }
 
@@ -375,6 +375,7 @@ func Resources() []func() resource.Resource {
 		AMSFFListenerResourceFactory,
 		AMSDMListenerResourceFactory,
 		AMSDMUpsertResourceFactory,
+		AMSAddressResourceFactory,
 		AMSVariableSetResourceFactory,
 		AMSCollectionResourceFactory,
 		FireFlyRegistrationResourceFactory,
@@ -386,6 +387,7 @@ func Resources() []func() resource.Resource {
 		UserResourceFactory,
 		GroupMembershipResourceFactory,
 		Secp256k1NodeKeyResourceFactory,
+		DNSRegistrationResourceFactory,
 	}
 }
 

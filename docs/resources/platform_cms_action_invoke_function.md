@@ -29,6 +29,7 @@ description: |-
 ### Optional
 
 - `description` (String)
+- `ignore_destroy` (Boolean)
 - `params_json` (String)
 
 ### Read-Only

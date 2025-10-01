@@ -43,6 +43,7 @@ type CMSActionInvokeFunctionResourceModel struct {
 	IdempotencyKey   types.String `tfsdk:"idempotency_key"`
 	OperationID      types.String `tfsdk:"operation_id"`
 	BlockNumber      types.String `tfsdk:"block_number"`
+	IgnoreDestroy    types.Bool   `tfsdk:"ignore_destroy"`
 }
 
 type CMSActionInvokeFunctionAPIModel struct {
@@ -156,6 +157,9 @@ func (r *cms_action_invokefunctionResource) Schema(_ context.Context, _ resource
 			"block_number": &schema.StringAttribute{
 				Computed: true,
 			},
+			"ignore_destroy": &schema.BoolAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -175,7 +179,7 @@ func (data *CMSActionInvokeFunctionResourceModel) toAPI(api *CMSActionInvokeFunc
 			Address: data.ContractAddress.ValueString(),
 		},
 	}
-	
+
 	if data.ParamsJSON.ValueString() != "" {
 		err := json.Unmarshal([]byte(data.ParamsJSON.ValueString()), &api.Input.Params)
 		if err != nil {
@@ -264,6 +268,10 @@ func (r *cms_action_invokefunctionResource) Read(ctx context.Context, req resour
 func (r *cms_action_invokefunctionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CMSActionInvokeFunctionResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if !data.IgnoreDestroy.IsNull() && data.IgnoreDestroy.ValueBool() {
+		return
+	}
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 
