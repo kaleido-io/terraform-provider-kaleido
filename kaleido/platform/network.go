@@ -65,9 +65,7 @@ type NetworkAPIModel struct {
 	StatusDetails       NetworkStatusDetails   `json:"statusDetails,omitempty"`
 }
 
-type NetworkStatusDetails struct {
-	InitFiles map[string]string `json:"initFiles,omitempty"`
-}
+type NetworkStatusDetails map[string]interface{}
 
 func NetworkResourceFactory() resource.Resource {
 	return &networkResource{}
@@ -339,9 +337,24 @@ func (api *NetworkAPIModel) toData(data *NetworkResourceModel, diagnostics *diag
 
 	//status init files
 	statusInitFiles := make(map[string]attr.Value)
-	for name, data := range api.StatusDetails.InitFiles {
-		initFileData := types.StringValue(data)
-		statusInitFiles[name] = initFileData
+
+	_, initFilesExist := api.StatusDetails["initFiles"]
+	if initFilesExist {
+		initFiles, ok := api.StatusDetails["initFiles"].(map[string]interface{})
+		if !ok {
+			diagnostics.AddError("invalid initFiles", "initFiles must be a map of strings")
+			return
+		}
+		for name, data := range initFiles {
+			strData, ok := data.(string)
+			if !ok {
+				diagnostics.AddError("invalid initFiles", "initFiles must be a map of strings")
+				return
+			}
+
+			initFileData := types.StringValue(strData)
+			statusInitFiles[name] = initFileData
+		}
 	}
 	data.StatusInitFiles, d = types.MapValue(types.StringType, statusInitFiles)
 	diagnostics.Append(d...)

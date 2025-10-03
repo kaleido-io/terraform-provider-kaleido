@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2024-2025
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,9 @@ resource "kaleido_platform_kms_wallet" "kms_wallet1" {
     config_json = jsonencode({
         "setting1": "value1"
     })
+		creds_json = jsonencode({
+        "cred1": "value1"
+    })
 }
 `
 
@@ -50,6 +53,10 @@ resource "kaleido_platform_kms_wallet" "kms_wallet1" {
         "setting1": "value1"
         "setting2": "value2"
     })
+		creds_json = jsonencode({
+        "cred1": "value1"
+				"cred2": "value2"
+    })
 }
 `
 
@@ -62,7 +69,7 @@ func TestKMSWallet1(t *testing.T) {
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"PUT /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
@@ -82,6 +89,7 @@ func TestKMSWallet1(t *testing.T) {
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "name", `kms_wallet1`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "type", `hdwallet`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "config_json", `{"setting1":"value1"}`),
+					resource.TestCheckResourceAttr(kms_wallet1Resource, "creds_json", `{"cred1":"value1"}`),
 				),
 			},
 			{
@@ -91,6 +99,7 @@ func TestKMSWallet1(t *testing.T) {
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "name", `kms_wallet1`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "type", `hdwallet`),
 					resource.TestCheckResourceAttr(kms_wallet1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
+					resource.TestCheckResourceAttr(kms_wallet1Resource, "creds_json", `{"cred1":"value1","cred2":"value2"}`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[kms_wallet1Resource].Primary.Attributes["id"]
@@ -102,9 +111,13 @@ func TestKMSWallet1(t *testing.T) {
 							"updated": "%[3]s",
 							"type": "hdwallet",
 							"name": "kms_wallet1",
-							"config": {
+							"configuration": {
 								"setting1": "value1",
 								"setting2": "value2"
+							},
+							"credentials": {
+								"cred1": "value1",
+								"cred2": "value2"
 							}
 						}
 						`,
@@ -141,8 +154,8 @@ func (mp *mockPlatform) postKMSWallet(res http.ResponseWriter, req *http.Request
 	mp.respond(res, &obj, 201)
 }
 
-func (mp *mockPlatform) putKMSWallet(res http.ResponseWriter, req *http.Request) {
-	obj := mp.kmsWallets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]] // expected behavior of provider is PUT only on exists
+func (mp *mockPlatform) patchKMSWallet(res http.ResponseWriter, req *http.Request) {
+	obj := mp.kmsWallets[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]] // expected behavior of provider is PATCH only on exists
 	assert.NotNil(mp.t, obj)
 	var newObj KMSWalletAPIModel
 	mp.getBody(req, &newObj)

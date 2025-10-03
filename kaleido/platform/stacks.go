@@ -89,13 +89,9 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"sub_type": &schema.StringAttribute{
 				Optional:      true,
+				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Stack sub type. Options include: `custody` (if type is `digital_assets`)",
-				Validators: []validator.String{
-					stringvalidator.OneOf(
-						"custody",
-					),
-				},
+				Description:   "Stack sub-type specific to each stack type. Options include: `TokenizationStack`,`CustodyStack` for `digital_assets`, `FireflyStack` for `web3_middleware` and `BesuStack`,`IPFSNetwork` for `chain_infrastructure`",
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
@@ -116,6 +112,9 @@ func (r *stacksResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 
 func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 	api.Type = data.Type.ValueString()
+	if !data.SubType.IsNull() {
+		api.SubType = data.SubType.ValueString()
+	}
 	api.Name = data.Name.ValueString()
 	if !data.SubType.IsNull() {
 		api.SubType = data.SubType.ValueString()
@@ -130,6 +129,9 @@ func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.Name = types.StringValue(api.Name)
 	data.Type = types.StringValue(api.Type)
+	if api.SubType != "" {
+		data.SubType = types.StringValue(api.SubType)
+	}
 	if api.NetworkId != "" && !data.NetworkId.IsNull() {
 		data.NetworkId = types.StringValue(api.NetworkId)
 	}

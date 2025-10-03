@@ -161,7 +161,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	// See kms_wallet.go
 	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postKMSWallet)
 	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getKMSWallet)
-	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPut, mp.putKMSWallet)
+	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPatch, mp.patchKMSWallet)
 	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteKMSWallet)
 
 	// See kms_key.go
