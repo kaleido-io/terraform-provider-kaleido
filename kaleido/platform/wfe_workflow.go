@@ -41,6 +41,7 @@ type WFEWorkflowResourceModel struct {
 	Created             types.String `tfsdk:"created"`
 	Updated             types.String `tfsdk:"updated"`
 	HandlerBindingsJSON types.String `tfsdk:"handler_bindings_json"`
+	SubflowBindingsJSON types.String `tfsdk:"subflow_bindings_json"`
 }
 
 type WFEWorkflowAPIModel struct {
@@ -51,6 +52,7 @@ type WFEWorkflowAPIModel struct {
 	Updated         *time.Time             `json:"updated,omitempty"`
 	CurrentVersion  string                 `json:"currentVersion,omitempty"`
 	HandlerBindings map[string]interface{} `json:"handlerBindings,omitempty"`
+	SubflowBindings map[string]interface{} `json:"subflowBindings,omitempty"`
 }
 
 type Definition map[string]interface{}
@@ -126,6 +128,10 @@ func (r *wfe_workflowResource) Schema(_ context.Context, _ resource.SchemaReques
 				Optional:    true,
 				Description: "The workflow handler bindings as JSON",
 			},
+			"subflow_bindings_json": &schema.StringAttribute{
+				Optional:    true,
+				Description: "The workflow subflow bindings as JSON",
+			},
 		},
 	}
 }
@@ -153,12 +159,20 @@ func (r *wfe_workflowResource) apiWorkflowVersionPath(data *WFEWorkflowResourceM
 func (r *wfe_workflowResource) toAPI(data *WFEWorkflowResourceModel, api *WFEWorkflowAPIModel, diagnostics *diag.Diagnostics) {
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
+
 	handlerBindings := make(map[string]interface{})
 	if err := json.Unmarshal([]byte(data.HandlerBindingsJSON.ValueString()), &handlerBindings); err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow handler bindings JSON: %v", err))
+		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow handler bindings JSON: %v.  %s", err, data.HandlerBindingsJSON.ValueString()))
 		return
 	}
 	api.HandlerBindings = handlerBindings
+
+	subflowBindings := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(data.SubflowBindingsJSON.ValueString()), &subflowBindings); err != nil {
+		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow subflow bindings JSON: %v.  %s", err, data.SubflowBindingsJSON.ValueString()))
+		return
+	}
+	api.SubflowBindings = subflowBindings
 }
 
 func (r *wfe_workflowResource) toData(api *WFEWorkflowAPIModel, data *WFEWorkflowResourceModel, diagnostics *diag.Diagnostics) {
