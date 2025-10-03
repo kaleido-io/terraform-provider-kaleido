@@ -45,6 +45,7 @@ type ServiceResourceModel struct {
 	Credsets            types.Map    `tfsdk:"cred_sets"`
 	ConnectivityJSON    types.String `tfsdk:"connectivity_json"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
+	WaitForReady        types.Bool   `tfsdk:"wait_for_ready"`
 }
 
 type ServiceAPIModel struct {
@@ -232,6 +233,10 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
 				Description: "Set to `true` when you plan to delete a protected service like a Besu validator node. You must apply the value before you can successfully `terraform destroy` the protected service.",
+			},
+			"wait_for_ready": &schema.BoolAttribute{
+				Optional:    true,
+				Description: "Set to `false` to ignore the service's readiness status before proceeding. Defaults to `true`.",
 			},
 		},
 	}
@@ -421,7 +426,14 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
-	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+
+	if data.WaitForReady.IsNull() || data.WaitForReady.ValueBool() {
+		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	} else {
+		// no need to re-read from api, so just set the state and return
+		resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+		return
+	}
 
 	//re-read from api
 	api.ID = data.ID.ValueString()
