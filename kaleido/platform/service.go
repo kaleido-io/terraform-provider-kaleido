@@ -427,7 +427,7 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 
-	if data.WaitForReady.IsNull() || !data.WaitForReady.ValueBool() {
+	if data.WaitForReady.IsNull() || data.WaitForReady.ValueBool() {
 		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
 	} else {
 		// no need to re-read from api, so just set the state and return

@@ -30,6 +30,7 @@ Each capability of the Kaleido platform is made available as a service.
 - `force_delete` (Boolean) Set to `true` when you plan to delete a protected service like a Besu validator node. You must apply the value before you can successfully `terraform destroy` the protected service.
 - `hostnames` (Map of List of String)
 - `stack_id` (String)
+- `wait_for_ready` (Boolean) Set to `false` to ignore the service's readiness status before proceeding. Defaults to `true`.
 
 ### Read-Only
 
