@@ -1,0 +1,42 @@
+name: Go (Release 1.1.x)
+
+on:
+  push:
+    branches: ["release-1.1"]
+  pull_request:
+    branches: ["release-1.1"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: "terraform-provider-kaleido"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.5"
+          terraform_wrapper: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+
+      - name: Build and Test
+        run: cd terraform-provider-kaleido && make
+
+      - name: Upload coverage
+        run: bash <(curl -s https://codecov.io/bash)
+
+      - name: Check Docs
+        run: |
+          cd terraform-provider-kaleido
+          make docs
+          git status
+          if ! git diff-index --quiet HEAD -- ; then
+            echo "Kaleido Terraform Provider docs are out of date. Please run make docs and commit the latest updates."
+            exit 1
+          fi

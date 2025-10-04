@@ -43,6 +43,7 @@ type CMSActionDeployResourceModel struct {
 	OperationID        types.String `tfsdk:"operation_id"`
 	ContractAddress    types.String `tfsdk:"contract_address"`
 	BlockNumber        types.String `tfsdk:"block_number"`
+	IgnoreDestroy      types.Bool   `tfsdk:"ignore_destroy"`
 }
 
 type CMSActionDeployAPIModel struct {
@@ -155,6 +156,9 @@ func (r *cms_action_deployResource) Schema(_ context.Context, _ resource.SchemaR
 			"block_number": &schema.StringAttribute{
 				Computed: true,
 			},
+			"ignore_destroy": &schema.BoolAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -260,6 +264,10 @@ func (r *cms_action_deployResource) Read(ctx context.Context, req resource.ReadR
 func (r *cms_action_deployResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CMSActionDeployResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if !data.IgnoreDestroy.IsNull() && data.IgnoreDestroy.ValueBool() {
+		return
+	}
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 
