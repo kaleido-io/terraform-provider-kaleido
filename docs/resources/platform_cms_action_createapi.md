@@ -29,7 +29,7 @@ description: |-
 - `contract_address` (String)
 - `description` (String)
 - `ignore_destroy` (Boolean)
-- `publish` (Boolean)
+- `publish` (String)
 
 ### Read-Only
 

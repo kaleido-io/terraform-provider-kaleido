@@ -17,11 +17,13 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -36,7 +38,7 @@ type CMSActionCreateAPIResourceModel struct {
 	APIName          types.String `tfsdk:"api_name"`
 	ContractAddress  types.String `tfsdk:"contract_address"`
 	APIID            types.String `tfsdk:"api_id"`
-	Publish          types.Bool   `tfsdk:"publish"`
+	Publish          types.String `tfsdk:"publish"`
 	IgnoreDestroy    types.Bool   `tfsdk:"ignore_destroy"`
 }
 
@@ -51,7 +53,7 @@ type CMSCreateAPIActionInputAPIModel struct {
 	Build     *CMSActionCreateAPIBuildInputAPIModel    `json:"build,omitempty"`
 	APIName   string                                   `json:"apiName,omitempty"`
 	Location  *CMSCreateAPIActionInputLocationAPIModel `json:"location,omitempty"`
-	Publish   *bool                                    `json:"publish,omitempty"`
+	Publish   *string                                  `json:"publish,omitempty"`
 }
 
 type CMSCreateAPIActionInputLocationAPIModel struct {
@@ -130,8 +132,14 @@ func (r *cms_action_createapiResource) Schema(_ context.Context, _ resource.Sche
 			"api_id": &schema.StringAttribute{
 				Computed: true,
 			},
-			"publish": &schema.BoolAttribute{
+			"publish": &schema.StringAttribute{
 				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"never",
+						"auto",
+					),
+				},
 			},
 			"ignore_destroy": &schema.BoolAttribute{
 				Optional: true,
@@ -158,7 +166,8 @@ func (data *CMSActionCreateAPIResourceModel) toAPI(api *CMSActionCreateAPIAPIMod
 	}
 
 	if !data.Publish.IsNull() && !data.Publish.IsUnknown() {
-		api.Input.Publish = data.Publish.ValueBoolPointer()
+		publish := data.Publish.ValueString()
+		api.Input.Publish = &publish
 	}
 }
 
