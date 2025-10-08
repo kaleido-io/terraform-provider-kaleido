@@ -37,3 +37,8 @@ variable "pdm_service_peer_id" {
     type = string
     default = "testnet-pdm"
 }
+
+variable "runtime_size" {
+  type = string
+  default = "Small"
+}
