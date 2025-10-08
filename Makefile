@@ -54,4 +54,5 @@ ${TFPLUGIN_DOCS}: ${LOCALBIN}
 
 .PHONY: docs
 docs: tfplugin-docs
+	gofmt -w ./
 	${TFPLUGIN_DOCS} generate
