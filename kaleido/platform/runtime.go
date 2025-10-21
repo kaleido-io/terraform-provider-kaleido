@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -44,6 +45,7 @@ type RuntimeResourceModel struct {
 	StorageSize         types.Int64  `tfsdk:"storage_size"`
 	StorageType         types.String `tfsdk:"storage_type"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
+	DNSRegistrations    types.List   `tfsdk:"dns_registrations"`
 }
 
 type RuntimeAPIModel struct {
@@ -64,6 +66,7 @@ type RuntimeAPIModel struct {
 	SubZone             string                 `json:"subZone,omitempty"`
 	StorageSize         int64                  `json:"storageSize,omitempty"`
 	StorageType         string                 `json:"storageType,omitempty"`
+	DNSRegistrations    []string               `json:"dnsRegistrations,omitempty"`
 }
 
 func RuntimeResourceFactory() resource.Resource {
@@ -144,11 +147,15 @@ func (r *runtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:    true,
 				Description: "Set to `true` when you plan to delete a protected runtime like a Besu signing node. You must apply the value before you can successfully `terraform destroy` the protected runtime.",
 			},
+			"dns_registrations": &schema.ListAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+			},
 		},
 	}
 }
 
-func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
+func (data *RuntimeResourceModel) toAPI(ctx context.Context, api *RuntimeAPIModel, diagnostics *diag.Diagnostics) {
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
@@ -182,9 +189,15 @@ func (data *RuntimeResourceModel) toAPI(api *RuntimeAPIModel) {
 	if !data.StorageType.IsNull() {
 		api.StorageType = data.StorageType.ValueString()
 	}
+	if !data.DNSRegistrations.IsNull() {
+		diag := data.DNSRegistrations.ElementsAs(ctx, &api.DNSRegistrations, false)
+		if diag.HasError() {
+			diagnostics.Append(diag...)
+		}
+	}
 }
 
-func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
+func (api *RuntimeAPIModel) toData(ctx context.Context, data *RuntimeResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	data.LogLevel = types.StringValue(api.LogLevel)
@@ -203,6 +216,13 @@ func (api *RuntimeAPIModel) toData(data *RuntimeResourceModel) {
 	}
 	if api.StorageType != "" && !data.StorageType.IsNull() {
 		data.StorageType = types.StringValue(api.StorageType)
+	}
+	if len(api.DNSRegistrations) > 0 {
+		var diag diag.Diagnostics
+		data.DNSRegistrations, diag = types.ListValueFrom(ctx, types.StringType, api.DNSRegistrations)
+		if diag.HasError() {
+			diagnostics.Append(diag...)
+		}
 	}
 }
 
@@ -225,13 +245,13 @@ func (r *runtimeResource) Create(ctx context.Context, req resource.CreateRequest
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api RuntimeAPIModel
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -249,12 +269,12 @@ func (r *runtimeResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	// Update from plan
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	if ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -273,7 +293,7 @@ func (r *runtimeResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 

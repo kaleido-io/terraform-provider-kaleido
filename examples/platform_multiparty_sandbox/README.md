@@ -31,5 +31,6 @@ Create an environment with:
 | environment_name | Environment name | string | `` | yes |
 | besu_node_count | Number of nodes to create | number | 1 | no |
 | members | Number of members in the multiparty network to create | list | `<list>` | yes |
+| runtime_size| Size to set for every runtime | string | `Small` | no |
 
 

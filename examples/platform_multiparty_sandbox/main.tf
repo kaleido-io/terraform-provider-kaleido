@@ -68,6 +68,7 @@ resource "kaleido_platform_runtime" "bnr" {
   config_json = jsonencode({})
   count = var.besu_node_count
   stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
+  size = var.runtime_size
   // uncomment `force_delete = true` and run terraform apply before running terraform destory to successfully delete the besu nodes
   # force_delete = true
 }
@@ -102,6 +103,7 @@ resource "kaleido_platform_runtime" "inr_0" {
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({ })
   stack_id = kaleido_platform_stack.chain_infra_ipfs_stack.id
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "ins_0" {
@@ -123,6 +125,7 @@ resource "kaleido_platform_runtime" "gwr_0" {
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "gws_0" {
@@ -153,6 +156,7 @@ resource "kaleido_platform_runtime" "kmr_0" {
   for_each = toset(var.members)
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "kms_0" {
@@ -203,6 +207,7 @@ resource "kaleido_platform_runtime" "tmr_0" {
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.web3_middleware_stack[each.key].id
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "tms_0" {
@@ -238,6 +243,7 @@ resource "kaleido_platform_runtime" "pdr_0" {
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.web3_middleware_stack[each.key].id
+  size = var.runtime_size
 }
 resource "tls_private_key" "pdr_ca_private_key" {
   count = var.pdm_manage_p2p_tls ? 1 : 0
@@ -352,6 +358,7 @@ resource "kaleido_platform_runtime" "cmr_0" {
   name = "contract_manager"
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "cms_0" {
@@ -368,6 +375,7 @@ resource "kaleido_platform_runtime" "bir_0"{
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.chain_infra_besu_stack.id
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "bis_0"{
@@ -418,6 +426,7 @@ resource "kaleido_platform_runtime" "ffr_0" {
   environment = kaleido_platform_environment.env_0.id
   config_json = jsonencode({})
   stack_id = kaleido_platform_stack.web3_middleware_stack[each.key].id
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "member_firefly" {
@@ -467,6 +476,7 @@ resource "kaleido_platform_runtime" "asset_managers" {
   config_json = jsonencode({})
   for_each = toset(var.members)
   stack_id = kaleido_platform_stack.digital_assets_stack[each.key].id
+  size = var.runtime_size
 }
 
 resource "kaleido_platform_service" "asset_managers" {

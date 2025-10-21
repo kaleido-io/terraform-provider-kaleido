@@ -28,6 +28,8 @@ description: |-
 - `description` (String)
 - `evm_version` (String)
 - `github` (Attributes) (see [below for nested schema](#nestedatt--github))
+- `ignore_destroy` (Boolean)
+- `libraries_json` (String)
 - `optimizer` (Attributes) (see [below for nested schema](#nestedatt--optimizer))
 - `precompiled` (Attributes) (see [below for nested schema](#nestedatt--precompiled))
 - `solc_version` (String)
@@ -38,6 +40,7 @@ description: |-
 - `abi` (String)
 - `bytecode` (String)
 - `commit_hash` (String)
+- `compilation_metadata_json` (String)
 - `dev_docs` (String)
 - `id` (String) The ID of this resource.
 
