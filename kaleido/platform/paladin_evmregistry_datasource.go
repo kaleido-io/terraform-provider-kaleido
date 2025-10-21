@@ -40,22 +40,34 @@ func (m *NetworkAPIModel) toPaladinEVMRegistryData(_ context.Context, data *Pala
 
 	_, evmRegistryExist := m.StatusDetails["evmRegistry"]
 	if !evmRegistryExist {
-		d.AddError("evm registry not found", "evmRegistry not found in network status details, please wait and try again")
+		d.AddWarning("evm registry not found", "evmRegistry not found in network status details, please wait and try again")
 		return
 	}
 	evmRegistry, ok := m.StatusDetails["evmRegistry"].(map[string]interface{})
 	if !ok {
-		d.AddError("invalid evm registry", "evmRegistry must be a JSON object")
+		d.AddWarning("invalid evm registry", "evmRegistry must be a JSON object")
+		return
+	}
+	if evmRegistry["address"] == nil {
+		d.AddWarning("address not found", "address not found in evm registry")
 		return
 	}
 	data.Address = types.StringValue(evmRegistry["address"].(string))
 
+	if evmRegistry["deployTransaction"] == nil {
+		d.AddWarning("deploy transaction not found", "deployTransaction not found in evm registry")
+		return
+	}
 	deployTransaction, ok := evmRegistry["deployTransaction"].(map[string]interface{})
 	if !ok {
-		d.AddError("invalid deploy transaction", "deployTransaction must be a JSON object")
+		d.AddWarning("invalid deploy transaction", "deployTransaction must be a JSON object")
 		return
 	}
 
+	if deployTransaction["blockNumber"] == nil {
+		d.AddWarning("block number not found", "block number not found in deploy transaction")
+		return
+	}
 	data.BlockNumber = types.Int64Value(int64(deployTransaction["blockNumber"].(float64)))
 }
 
