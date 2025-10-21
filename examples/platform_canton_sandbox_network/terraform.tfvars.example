@@ -1,0 +1,7 @@
+kaleido_platform_baseurl = "account1.kaleido.dev"
+
+api_key_name = "key1"
+api_key_value = "****"
+
+environment_name = "canton"
+enable_synchronizer_network = false
