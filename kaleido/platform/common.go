@@ -382,6 +382,7 @@ func Resources() []func() resource.Resource {
 		StacksResourceFactory,
 		ConnectorResourceFactory,
 		ConnectorSetupResourceFactory,
+		ConnectorCustomAPIResourceFactory,
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		AccountResourceFactory,

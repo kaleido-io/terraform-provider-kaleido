@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -179,89 +178,16 @@ func (r *connectorSetupResource) verifyWorkflowEngine(ctx context.Context, envir
 	return diagnostics
 }
 
-func (r *connectorSetupResource) getServiceEndpoint(ctx context.Context, serviceID, environment string) (string, *diag.Diagnostics) {
-	diagnostics := &diag.Diagnostics{}
-
-	var api ServiceAPIModel
-	api.ID = serviceID
-	path := fmt.Sprintf("/api/v1/environments/%s/services/%s", environment, serviceID)
-	ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, diagnostics)
-	if !ok {
-		diagnostics.AddError("Failed to get service", fmt.Sprintf("Could not retrieve service %s", serviceID))
-		return "", diagnostics
-	}
-
-	// check if the service is ready
-	if api.Status != "ready" {
-		diagnostics.AddError("Service not ready", fmt.Sprintf("Service %s is not ready (status: %s). Please wait for the service to be ready before configuring it.", serviceID, api.Status))
-		return "", diagnostics
-	}
-
-	// get the rest endpoint URL
-	if restEndpoint, ok := api.Endpoints["rest"]; ok && len(restEndpoint.URLS) > 0 {
-		return restEndpoint.URLS[0], diagnostics
-	}
-
-	diagnostics.AddError("No REST endpoint", fmt.Sprintf("Service %s does not have a REST endpoint", serviceID))
-	return "", diagnostics
-}
-
-func (r *connectorSetupResource) connectorAPIRequest(ctx context.Context, baseURL, method, path string, body, result interface{}) error {
-	fullURL := baseURL + path
-
-	req := r.Platform.R().
-		SetContext(ctx).
-		SetDoNotParseResponse(true).
-		SetHeader("Content-Type", "application/json")
-
-	if body != nil {
-		bodyBytes, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("failed to marshal request body: %w", err)
-		}
-		req = req.SetBody(bodyBytes)
-		tflog.Debug(ctx, fmt.Sprintf("Connector API Request Body: %s", string(bodyBytes)))
-	}
-
-	res, err := req.Execute(method, fullURL)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-
-	statusCode := res.StatusCode()
-	tflog.Debug(ctx, fmt.Sprintf("Connector API Response: %d %s", statusCode, res.Status()))
-
-	if !res.IsSuccess() {
-		var rawBytes []byte
-		if res.RawResponse != nil && res.RawResponse.Body != nil {
-			rawBytes, _ = io.ReadAll(res.RawBody())
-			res.RawResponse.Body.Close()
-		}
-		return fmt.Errorf("request failed with status %d: %s", statusCode, string(rawBytes))
-	}
-
-	if result != nil {
-		var rawBytes []byte
-		if res.RawResponse != nil && res.RawResponse.Body != nil {
-			rawBytes, _ = io.ReadAll(res.RawBody())
-			res.RawResponse.Body.Close()
-		}
-		if len(rawBytes) > 0 {
-			if err := json.Unmarshal(rawBytes, result); err != nil {
-				return fmt.Errorf("failed to unmarshal response: %w", err)
-			}
-		}
-	}
-
-	return nil
+func (r *connectorSetupResource) apiPath(data *ConnectorSetupResourceModel, path string) string {
+	return fmt.Sprintf("/endpoint/%s/%s/rest%s", data.Environment.ValueString(), data.ServiceID.ValueString(), path)
 }
 
 // setup the connector by creating config types, config profiles, connector flows, stream factories, standard APIs, and standard streams
-func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL string, configProfiles map[string]string) error {
-
+func (r *connectorSetupResource) setupConnector(ctx context.Context, data *ConnectorSetupResourceModel, configProfiles map[string]string, diagnostics *diag.Diagnostics) {
 	var setupInfo SetupInfo
-	if err := r.connectorAPIRequest(ctx, baseURL, http.MethodGet, "/api/v1/metadata/setup-info", nil, &setupInfo); err != nil {
-		return fmt.Errorf("failed to get setup info: %w", err)
+	ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(data, "/api/v1/metadata/setup-info"), nil, &setupInfo, diagnostics)
+	if !ok {
+		return
 	}
 
 	// create the required config types, and the config profiles for each config type
@@ -269,8 +195,9 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL str
 	for _, ct := range setupInfo.RequiredConfigTypes {
 		ctName := ct.Name
 
-		if err := r.connectorAPIRequest(ctx, baseURL, http.MethodPut, fmt.Sprintf("/api/v1/metadata/config-types/%s", ctName), map[string]interface{}{}, nil); err != nil {
-			return fmt.Errorf("failed to establish config type %s: %w", ctName, err)
+		ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/config-types/%s", ctName)), map[string]interface{}{}, nil, diagnostics)
+		if !ok {
+			return
 		}
 
 		// create the config profile if provided
@@ -279,7 +206,8 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL str
 		if profileValue, ok := configProfiles[ctName]; ok {
 			var profileValueJSON json.RawMessage
 			if err := json.Unmarshal([]byte(profileValue), &profileValueJSON); err != nil {
-				return fmt.Errorf("failed to parse config profile value for %s: %w", ctName, err)
+				diagnostics.AddError("Failed to parse config profile", fmt.Sprintf("failed to parse config profile value for %s: %v", ctName, err))
+				return
 			}
 
 			var cp ConfigProfile
@@ -287,8 +215,9 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL str
 				ConfigType: ctName,
 				Value:      profileValueJSON,
 			}
-			if err := r.connectorAPIRequest(ctx, baseURL, http.MethodPut, fmt.Sprintf("/api/v1/config-profiles/%s", ctName), cpBody, &cp); err != nil {
-				return fmt.Errorf("failed to create config profile %s: %w", ctName, err)
+			ok, _ = r.apiRequest(ctx, http.MethodPut, r.apiPath(data, fmt.Sprintf("/api/v1/config-profiles/%s", ctName)), cpBody, &cp, diagnostics)
+			if !ok {
+				return
 			}
 
 			profileBindings[ctName] = map[string]interface{}{
@@ -303,15 +232,16 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL str
 		cfName := cf.Name
 
 		// delete the existing connector flow if it exists (idempotent)
-		_ = r.connectorAPIRequest(ctx, baseURL, http.MethodDelete, fmt.Sprintf("/api/v1/connector-flows/%s", cfName), nil, nil)
+		_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/connector-flows/%s", cfName)), nil, nil, diagnostics, Allow404())
 
 		var cfd ConnectorFlow
 		cfBody := ConnectorFlow{
 			Name:               cfName,
 			ConfigTypeBindings: profileBindings,
 		}
-		if err := r.connectorAPIRequest(ctx, baseURL, http.MethodPost, fmt.Sprintf("/api/v1/metadata/connector-flows/%s", cfName), cfBody, &cfd); err != nil {
-			return fmt.Errorf("failed to deploy connector flow %s: %w", cfName, err)
+		ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/connector-flows/%s", cfName)), cfBody, &cfd, diagnostics)
+		if !ok {
+			return
 		}
 
 		flowTypeBindings[cf.FlowType] = cfd.Name
@@ -320,8 +250,9 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL str
 	// create the connector stream factories
 	for _, sf := range setupInfo.ConnectorStreamFactories {
 		sfName := sf.Name
-		if err := r.connectorAPIRequest(ctx, baseURL, http.MethodPut, fmt.Sprintf("/api/v1/metadata/connector-stream-factories/%s", sfName), map[string]interface{}{}, nil); err != nil {
-			return fmt.Errorf("failed to deploy connector stream factory %s: %w", sfName, err)
+		ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/connector-stream-factories/%s", sfName)), map[string]interface{}{}, nil, diagnostics)
+		if !ok {
+			return
 		}
 	}
 
@@ -330,14 +261,15 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL str
 		saName := sa.Name
 
 		// Delete existing API if it exists (idempotent)
-		_ = r.connectorAPIRequest(ctx, baseURL, http.MethodDelete, fmt.Sprintf("/api/v1/apis/%s", saName), nil, nil)
+		_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/apis/%s", saName)), nil, nil, diagnostics, Allow404())
 
 		saBody := StandardAPI{
 			Name:             saName,
 			FlowTypeBindings: flowTypeBindings,
 		}
-		if err := r.connectorAPIRequest(ctx, baseURL, http.MethodPost, fmt.Sprintf("/api/v1/metadata/standard-apis/%s", saName), saBody, nil); err != nil {
-			return fmt.Errorf("failed to deploy standard API %s: %w", saName, err)
+		ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/standard-apis/%s", saName)), saBody, nil, diagnostics)
+		if !ok {
+			return
 		}
 	}
 
@@ -346,18 +278,17 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, baseURL str
 		ssName := ss.Name
 
 		// delete the existing standard stream if it exists (idempotent)
-		_ = r.connectorAPIRequest(ctx, baseURL, http.MethodDelete, fmt.Sprintf("/api/v1/streams/%s", ssName), nil, nil)
+		_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/streams/%s", ssName)), nil, nil, diagnostics, Allow404())
 
 		ssBody := StandardStream{
 			Name:               ssName,
 			ConfigTypeBindings: profileBindings,
 		}
-		if err := r.connectorAPIRequest(ctx, baseURL, http.MethodPost, fmt.Sprintf("/api/v1/metadata/standard-streams/%s", ssName), ssBody, nil); err != nil {
-			return fmt.Errorf("failed to deploy standard stream %s: %w", ssName, err)
+		ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/standard-streams/%s", ssName)), ssBody, nil, diagnostics)
+		if !ok {
+			return
 		}
 	}
-
-	return nil
 }
 
 func (r *connectorSetupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -371,9 +302,20 @@ func (r *connectorSetupResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	endpoint, diags := r.getServiceEndpoint(ctx, data.ServiceID.ValueString(), data.Environment.ValueString())
-	if diags.HasError() {
-		resp.Diagnostics.Append(*diags...)
+	// Verify service exists and is ready
+	var api ServiceAPIModel
+	api.ID = data.ServiceID.ValueString()
+	path := fmt.Sprintf("/api/v1/environments/%s/services/%s", data.Environment.ValueString(), data.ServiceID.ValueString())
+	ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+	if api.Status != "ready" {
+		resp.Diagnostics.AddError("Service not ready", fmt.Sprintf("Service %s is not ready (status: %s). Please wait for the service to be ready before configuring it.", data.ServiceID.ValueString(), api.Status))
+		return
+	}
+	if restEndpoint, ok := api.Endpoints["rest"]; !ok || len(restEndpoint.URLS) == 0 {
+		resp.Diagnostics.AddError("No REST endpoint", fmt.Sprintf("Service %s does not have a REST endpoint", data.ServiceID.ValueString()))
 		return
 	}
 
@@ -387,8 +329,8 @@ func (r *connectorSetupResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// setup the connector
-	if err := r.setupConnector(ctx, endpoint, configProfiles); err != nil {
-		resp.Diagnostics.AddError("Failed to setup connector", err.Error())
+	r.setupConnector(ctx, &data, configProfiles, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -402,9 +344,20 @@ func (r *connectorSetupResource) Read(ctx context.Context, req resource.ReadRequ
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	// verify the service still exists and is ready
-	_, diags := r.getServiceEndpoint(ctx, data.ServiceID.ValueString(), data.Environment.ValueString())
-	if diags.HasError() {
+	var api ServiceAPIModel
+	api.ID = data.ServiceID.ValueString()
+	path := fmt.Sprintf("/api/v1/environments/%s/services/%s", data.Environment.ValueString(), data.ServiceID.ValueString())
+	ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, &resp.Diagnostics)
+	if !ok {
 		// if the service doesn't exist or isn't ready, remove from state
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if api.Status != "ready" {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if restEndpoint, ok := api.Endpoints["rest"]; !ok || len(restEndpoint.URLS) == 0 {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -418,9 +371,19 @@ func (r *connectorSetupResource) Update(ctx context.Context, req resource.Update
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
-	endpoint, diags := r.getServiceEndpoint(ctx, data.ServiceID.ValueString(), data.Environment.ValueString())
-	if diags.HasError() {
-		resp.Diagnostics.Append(*diags...)
+	var api ServiceAPIModel
+	api.ID = data.ServiceID.ValueString()
+	path := fmt.Sprintf("/api/v1/environments/%s/services/%s", data.Environment.ValueString(), data.ServiceID.ValueString())
+	ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+	if api.Status != "ready" {
+		resp.Diagnostics.AddError("Service not ready", fmt.Sprintf("Service %s is not ready (status: %s). Please wait for the service to be ready before configuring it.", data.ServiceID.ValueString(), api.Status))
+		return
+	}
+	if restEndpoint, ok := api.Endpoints["rest"]; !ok || len(restEndpoint.URLS) == 0 {
+		resp.Diagnostics.AddError("No REST endpoint", fmt.Sprintf("Service %s does not have a REST endpoint", data.ServiceID.ValueString()))
 		return
 	}
 
@@ -433,8 +396,8 @@ func (r *connectorSetupResource) Update(ctx context.Context, req resource.Update
 	}
 
 	// re-setup the connector (idempotent operation)
-	if err := r.setupConnector(ctx, endpoint, configProfiles); err != nil {
-		resp.Diagnostics.AddError("Failed to update connector setup", err.Error())
+	r.setupConnector(ctx, &data, configProfiles, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
