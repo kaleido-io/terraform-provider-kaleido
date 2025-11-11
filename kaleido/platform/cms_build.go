@@ -38,23 +38,26 @@ import (
 )
 
 type CMSBuildResourceModel struct {
-	ID          types.String                     `tfsdk:"id"`
-	Environment types.String                     `tfsdk:"environment"`
-	Service     types.String                     `tfsdk:"service"`
-	Name        types.String                     `tfsdk:"name"`
-	Type        types.String                     `tfsdk:"type"`
-	Path        types.String                     `tfsdk:"path"`
-	Description types.String                     `tfsdk:"description"`
-	EVMVersion  types.String                     `tfsdk:"evm_version"`
-	SolcVersion types.String                     `tfsdk:"solc_version"`
-	Precompiled CMSBuildPrecompiledResourceModel `tfsdk:"precompiled"`
-	GitHub      CMSBuildGithubResourceModel      `tfsdk:"github"`
-	Optimizer   *CMSBuildOptimizerResourceModel  `tfsdk:"optimizer"`
-	SourceCode  CMSBuildSourceCodeResourceModel  `tfsdk:"source_code"`
-	ABI         types.String                     `tfsdk:"abi"`
-	Bytecode    types.String                     `tfsdk:"bytecode"`
-	DevDocs     types.String                     `tfsdk:"dev_docs"`
-	CommitHash  types.String                     `tfsdk:"commit_hash"`
+	ID                      types.String                     `tfsdk:"id"`
+	Environment             types.String                     `tfsdk:"environment"`
+	Service                 types.String                     `tfsdk:"service"`
+	Name                    types.String                     `tfsdk:"name"`
+	Type                    types.String                     `tfsdk:"type"`
+	Path                    types.String                     `tfsdk:"path"`
+	Description             types.String                     `tfsdk:"description"`
+	EVMVersion              types.String                     `tfsdk:"evm_version"`
+	SolcVersion             types.String                     `tfsdk:"solc_version"`
+	Precompiled             CMSBuildPrecompiledResourceModel `tfsdk:"precompiled"`
+	GitHub                  CMSBuildGithubResourceModel      `tfsdk:"github"`
+	Optimizer               *CMSBuildOptimizerResourceModel  `tfsdk:"optimizer"`
+	SourceCode              CMSBuildSourceCodeResourceModel  `tfsdk:"source_code"`
+	ABI                     types.String                     `tfsdk:"abi"`
+	Bytecode                types.String                     `tfsdk:"bytecode"`
+	DevDocs                 types.String                     `tfsdk:"dev_docs"`
+	LibrariesJSON           types.String                     `tfsdk:"libraries_json"`
+	CommitHash              types.String                     `tfsdk:"commit_hash"`
+	CompilationMetadataJSON types.String                     `tfsdk:"compilation_metadata_json"`
+	IgnoreDestroy           types.Bool                       `tfsdk:"ignore_destroy"`
 }
 
 type CMSBuildPrecompiledResourceModel struct {
@@ -81,22 +84,24 @@ type CMSBuildSourceCodeResourceModel struct {
 }
 
 type CMSBuildAPIModel struct {
-	ID           string                      `json:"id,omitempty"`
-	Created      *time.Time                  `json:"created,omitempty"`
-	Updated      *time.Time                  `json:"updated,omitempty"`
-	Name         string                      `json:"name"`
-	Path         string                      `json:"path"`
-	Description  string                      `json:"description,omitempty"`
-	EVMVersion   string                      `json:"evmVersion,omitempty"`
-	SolcVersion  string                      `json:"solcVersion,omitempty"`
-	GitHub       *CMSBuildGithubAPIModel     `json:"github,omitempty"`
-	Optimizer    *CMSBuildOptimizerAPIModel  `json:"optimizer,omitempty"`
-	SourceCode   *CMSBuildSourceCodeAPIModel `json:"sourceCode,omitempty"`
-	ABI          interface{}                 `json:"abi,omitempty"`
-	Bytecode     string                      `json:"bytecode,omitempty"`
-	DevDocs      interface{}                 `json:"devDocs,omitempty"`
-	CompileError string                      `json:"compileError,omitempty"`
-	Status       string                      `json:"status,omitempty"`
+	ID                  string                      `json:"id,omitempty"`
+	Created             *time.Time                  `json:"created,omitempty"`
+	Updated             *time.Time                  `json:"updated,omitempty"`
+	Name                string                      `json:"name"`
+	Path                string                      `json:"path"`
+	Description         string                      `json:"description,omitempty"`
+	EVMVersion          string                      `json:"evmVersion,omitempty"`
+	SolcVersion         string                      `json:"solcVersion,omitempty"`
+	GitHub              *CMSBuildGithubAPIModel     `json:"github,omitempty"`
+	Optimizer           *CMSBuildOptimizerAPIModel  `json:"optimizer,omitempty"`
+	SourceCode          *CMSBuildSourceCodeAPIModel `json:"sourceCode,omitempty"`
+	ABI                 interface{}                 `json:"abi,omitempty"`
+	Bytecode            string                      `json:"bytecode,omitempty"`
+	DevDocs             interface{}                 `json:"devDocs,omitempty"`
+	CompileError        string                      `json:"compileError,omitempty"`
+	Status              string                      `json:"status,omitempty"`
+	Libraries           map[string]interface{}      `json:"libraries,omitempty"`
+	CompilationMetadata map[string]interface{}      `json:"compilationMetadata,omitempty"` // json string of raw compiler metadata output
 }
 
 type CMSBuildGithubAPIModel struct {
@@ -262,6 +267,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					),
 				),
 			},
+			"libraries_json": &schema.StringAttribute{
+				Optional: true,
+			},
 			"abi": &schema.StringAttribute{
 				Computed: true,
 			},
@@ -272,6 +280,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Computed: true,
 			},
 			"commit_hash": &schema.StringAttribute{
+				Computed: true,
+			},
+			"compilation_metadata_json": &schema.StringAttribute{
 				Computed: true,
 			},
 			"optimizer": &schema.SingleNestedAttribute{
@@ -305,6 +316,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						},
 					),
 				),
+			},
+			"ignore_destroy": &schema.BoolAttribute{
+				Optional: true,
 			},
 		},
 	}
@@ -362,6 +376,10 @@ func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
 				FileContents: data.SourceCode.FileContents.ValueString(),
 			}
 		}
+
+		if data.LibrariesJSON.ValueString() != "" {
+			_ = json.Unmarshal(([]byte)(data.LibrariesJSON.ValueString()), &api.Libraries)
+		}
 	}
 }
 
@@ -398,6 +416,16 @@ func (api *CMSBuildAPIModel) toData(data *CMSBuildResourceModel) {
 		} else {
 			data.Optimizer.Runs = types.Int64Value(200)
 		}
+	}
+	if api.Libraries != nil {
+		librariesBytes, _ := json.Marshal(api.Libraries)
+		data.LibrariesJSON = types.StringValue(string(librariesBytes))
+	}
+	if api.CompilationMetadata != nil {
+		compilationMetadataBytes, _ := json.Marshal(api.CompilationMetadata)
+		data.CompilationMetadataJSON = types.StringValue(string(compilationMetadataBytes))
+	} else {
+		data.CompilationMetadataJSON = types.StringValue("{}")
 	}
 }
 
@@ -487,6 +515,10 @@ func (r *cms_buildResource) Read(ctx context.Context, req resource.ReadRequest, 
 func (r *cms_buildResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CMSBuildResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if !data.IgnoreDestroy.IsNull() && data.IgnoreDestroy.ValueBool() {
+		return
+	}
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 

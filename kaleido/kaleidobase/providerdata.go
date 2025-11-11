@@ -29,7 +29,7 @@ import (
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-const version = "v1.1.0"
+const version = "v1.2.0"
 
 type ProviderData struct {
 	BaaS     *kaleido.KaleidoClient
@@ -37,11 +37,12 @@ type ProviderData struct {
 }
 
 type ProviderModel struct {
-	API              types.String `tfsdk:"api"`
-	APIKey           types.String `tfsdk:"api_key"`
-	PlatformAPI      types.String `tfsdk:"platform_api"`
-	PlatformUsername types.String `tfsdk:"platform_username"`
-	PlatformPassword types.String `tfsdk:"platform_password"`
+	API                 types.String `tfsdk:"api"`
+	APIKey              types.String `tfsdk:"api_key"`
+	PlatformAPI         types.String `tfsdk:"platform_api"`
+	PlatformUsername    types.String `tfsdk:"platform_username"`
+	PlatformPassword    types.String `tfsdk:"platform_password"`
+	PlatformBearerToken types.String `tfsdk:"platform_bearer_token"`
 }
 
 func ConfigureProviderData(providerData any, diagnostics *diag.Diagnostics) *ProviderData {
@@ -86,12 +87,13 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 		platformAPI = os.Getenv("KALEIDO_PLATFORM_API")
 	}
 	platformUsername := conf.PlatformUsername.ValueString()
-	if platformUsername == "" {
-		platformUsername = os.Getenv("KALEIDO_USERNAME")
-	}
 	platformPassword := conf.PlatformPassword.ValueString()
-	if platformPassword == "" {
-		platformPassword = os.Getenv("KALEIDO_PASSWORD")
+	platformBearerToken := conf.PlatformBearerToken.ValueString()
+
+	if platformUsername == "" && platformPassword == "" && platformBearerToken == "" {
+		platformUsername = os.Getenv("KALEIDO_PLATFORM_USERNAME")
+		platformPassword = os.Getenv("KALEIDO_PLATFORM_PASSWORD")
+		platformBearerToken = os.Getenv("KALEIDO_PLATFORM_BEARER_TOKEN")
 	}
 
 	// mostly the default settings, barring less conns to avoid concurrency limits w/in the Platform
@@ -127,6 +129,8 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 		SetBaseURL(platformAPI)
 	if platformUsername != "" && platformPassword != "" {
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)
+	} else if platformBearerToken != "" {
+		platform = platform.SetHeader("Authorization", fmt.Sprintf("Bearer %s", platformBearerToken))
 	}
 	AddRestyLogging(logCtx, platform)
 
