@@ -232,7 +232,10 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, data *Conne
 		cfName := cf.Name
 
 		// delete the existing connector flow if it exists (idempotent)
-		_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/connector-flows/%s", cfName)), nil, nil, diagnostics, Allow404())
+		ok, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/connector-flows/%s", cfName)), nil, nil, diagnostics, Allow404())
+		if !ok {
+			return
+		}
 
 		var cfd ConnectorFlow
 		cfBody := ConnectorFlow{
@@ -261,13 +264,16 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, data *Conne
 		saName := sa.Name
 
 		// Delete existing API if it exists (idempotent)
-		_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/apis/%s", saName)), nil, nil, diagnostics, Allow404())
+		ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/apis/%s", saName)), nil, nil, diagnostics, Allow404())
+		if !ok {
+			return
+		}
 
 		saBody := StandardAPI{
 			Name:             saName,
 			FlowTypeBindings: flowTypeBindings,
 		}
-		ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/standard-apis/%s", saName)), saBody, nil, diagnostics)
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/standard-apis/%s", saName)), saBody, nil, diagnostics)
 		if !ok {
 			return
 		}
@@ -278,13 +284,16 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, data *Conne
 		ssName := ss.Name
 
 		// delete the existing standard stream if it exists (idempotent)
-		_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/streams/%s", ssName)), nil, nil, diagnostics, Allow404())
+		ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/streams/%s", ssName)), nil, nil, diagnostics, Allow404())
+		if !ok {
+			return
+		}
 
 		ssBody := StandardStream{
 			Name:               ssName,
 			ConfigTypeBindings: profileBindings,
 		}
-		ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/standard-streams/%s", ssName)), ssBody, nil, diagnostics)
+		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/standard-streams/%s", ssName)), ssBody, nil, diagnostics)
 		if !ok {
 			return
 		}

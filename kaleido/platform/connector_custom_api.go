@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -159,26 +158,6 @@ func (r *connectorCustomAPIResource) discoverFlowTypeBindings(ctx context.Contex
 	return flowTypeBindings
 }
 
-// isNotFound checks if a status code and diagnostics indicate a "not found" condition
-// Returns true if statusCode is 404, or if statusCode is 500 and the error message contains "not found"
-func (r *connectorCustomAPIResource) isNotFound(statusCode int, diagnostics *diag.Diagnostics) bool {
-	if statusCode == 404 {
-		return true
-	}
-	if statusCode == 500 {
-		if diagnostics.HasError() {
-			errs := diagnostics.Errors()
-			for _, err := range errs {
-				errorText := strings.ToLower(err.Summary() + " " + err.Detail())
-				if strings.Contains(errorText, "not found") {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 // deployCustomAPI handles the common logic for deploying/updating a custom API
 func (r *connectorCustomAPIResource) deployCustomAPI(ctx context.Context, data *ConnectorCustomAPIResourceModel, actionContext string, diagnostics *diag.Diagnostics) bool {
 	// verify service exists and is ready
@@ -255,14 +234,10 @@ func (r *connectorCustomAPIResource) deployCustomAPI(ctx context.Context, data *
 
 	// delete existing API if it exists (idempotent)
 	deleteDiags := &diag.Diagnostics{}
-	_, statusCode := r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/apis/%s", data.Name.ValueString())), nil, nil, deleteDiags, Allow404())
-	// Ignore "not found" errors (API doesn't exist yet, which is fine for idempotent delete)
-	if r.isNotFound(statusCode, deleteDiags) {
-		// API doesn't exist, which is fine - continue with deploy
-		// Clear any errors from deleteDiags since we're treating "not found" as success
-		*deleteDiags = diag.Diagnostics{}
+	ok, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(data, fmt.Sprintf("/api/v1/apis/%s", data.Name.ValueString())), nil, nil, deleteDiags, Allow404())
+	if !ok {
+		return false
 	}
-
 	// deploy the custom API
 	deployBody := CustomAPIDeploy{
 		CustomAPIDeployBase: CustomAPIDeployBase{
@@ -319,18 +294,15 @@ func (r *connectorCustomAPIResource) Read(ctx context.Context, req resource.Read
 	var customAPI interface{}
 	// Use a local diagnostics to capture the error message without adding it to the response
 	localDiags := &diag.Diagnostics{}
-	ok, statusCode := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data, fmt.Sprintf("/api/v1/apis/%s", data.Name.ValueString())), nil, &customAPI, localDiags, Allow404())
-	if r.isNotFound(statusCode, localDiags) {
+	ok, statusCode := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data, fmt.Sprintf("/api/v1/apis/%s", data.Name.ValueString())), nil, &customAPI, localDiags)
+
+	if statusCode == 404 {
 		// Custom API doesn't exist, remove from state
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if statusCode == 500 {
-		// 500 error but not "not found", don't remove from state
-		return
-	}
 	if !ok {
-		// Error occurred, but don't remove from state on error
+		// Error occurred, don't remove from state on error
 		return
 	}
 
@@ -372,8 +344,8 @@ func (r *connectorCustomAPIResource) Delete(ctx context.Context, req resource.De
 	// delete the custom API
 	// use a local diagnostics since we don't want to fail on delete errors
 	deleteDiags := &diag.Diagnostics{}
-	ok, statusCode := r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data, fmt.Sprintf("/api/v1/apis/%s", data.Name.ValueString())), nil, nil, deleteDiags, Allow404())
-	if r.isNotFound(statusCode, deleteDiags) {
+	ok, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data, fmt.Sprintf("/api/v1/apis/%s", data.Name.ValueString())), nil, nil, deleteDiags, Allow404())
+	if !ok {
 		return
 	}
 	if !ok {
