@@ -38,6 +38,8 @@ type WFEStreamResourceModel struct {
 	UniquenessPrefix        types.String `tfsdk:"uniqueness_prefix"`
 	ListenerHandler         types.String `tfsdk:"listener_handler"`
 	ListenerHandlerProvider types.String `tfsdk:"listener_handler_provider"`
+	TransactionTemplateJSON types.String `tfsdk:"transaction_template_json"` // valid when type=transaction_dispatch
+	PostFilterJSON          types.String `tfsdk:"post_filter_json"`
 	Type                    types.String `tfsdk:"type"`
 	Config                  types.String `tfsdk:"config"` // JSON string containing stream configuration
 	Created                 types.String `tfsdk:"created"`
@@ -52,6 +54,8 @@ type WFEStreamAPIModel struct {
 	ListenerHandler         string                 `json:"listenerHandler,omitempty"`
 	ListenerHandlerProvider string                 `json:"listenerHandlerProvider,omitempty"`
 	Type                    string                 `json:"type,omitempty"`
+	TransactionTemplate     map[string]interface{} `json:"transactionTemplate,omitempty"` // valid when type=transaction_dispatch
+	PostFilter              map[string]interface{} `json:"postFilter,omitempty"`
 	Config                  map[string]interface{} `json:"config,omitempty"`
 	Created                 *time.Time             `json:"created,omitempty"`
 	Updated                 *time.Time             `json:"updated,omitempty"`
@@ -94,7 +98,7 @@ func (r *wfe_streamResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"uniqueness_prefix": &schema.StringAttribute{
-				Required:      true,
+				Optional:      true,
 				Description:   "The uniqueness prefix for the stream",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
@@ -111,6 +115,16 @@ func (r *wfe_streamResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"type": &schema.StringAttribute{
 				Required:      true,
 				Description:   "The type of the stream",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"transaction_template_json": &schema.StringAttribute{
+				Optional:      true,
+				Description:   "The transaction template for the stream as JSON.",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"post_filter_json": &schema.StringAttribute{
+				Optional:      true,
+				Description:   "The post filter for the stream as JSON.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"description": &schema.StringAttribute{
@@ -150,6 +164,26 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 	api.ListenerHandler = data.ListenerHandler.ValueString()
 	api.ListenerHandlerProvider = data.ListenerHandlerProvider.ValueString()
 	api.Type = data.Type.ValueString()
+
+	if data.PostFilterJSON.ValueString() != "" {
+		// Parse the PostFilter JSON string
+		var postFilter map[string]interface{}
+		if err := json.Unmarshal([]byte(data.PostFilterJSON.ValueString()), &postFilter); err != nil {
+			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse post filter JSON: %v", err))
+			return
+		}
+		api.PostFilter = postFilter
+	}
+
+	if data.TransactionTemplateJSON.ValueString() != "" {
+		// Parse the TransactionTemplate JSON string
+		var transactionTemplate map[string]interface{}
+		if err := json.Unmarshal([]byte(data.TransactionTemplateJSON.ValueString()), &transactionTemplate); err != nil {
+			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream transaction template JSON: %v", err))
+			return
+		}
+		api.TransactionTemplate = transactionTemplate
+	}
 
 	// Parse the config JSON string
 	var config map[string]interface{}
@@ -194,6 +228,28 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 		data.Type = types.StringNull()
 	} else {
 		data.Type = types.StringValue(api.Type)
+	}
+
+	if api.TransactionTemplate != nil {
+		transactionTemplateBytes, err := json.Marshal(api.TransactionTemplate)
+		if err != nil {
+			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream transaction template: %v", err))
+			return
+		}
+		data.TransactionTemplateJSON = types.StringValue(string(transactionTemplateBytes))
+	} else {
+		data.TransactionTemplateJSON = types.StringNull()
+	}
+
+	if api.PostFilter != nil {
+		postFilterBytes, err := json.Marshal(api.PostFilter)
+		if err != nil {
+			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream post filter: %v", err))
+			return
+		}
+		data.PostFilterJSON = types.StringValue(string(postFilterBytes))
+	} else {
+		data.PostFilterJSON = types.StringNull()
 	}
 
 	// Handle config if present in API response
