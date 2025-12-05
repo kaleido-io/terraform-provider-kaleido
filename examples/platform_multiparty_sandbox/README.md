@@ -177,10 +177,6 @@ terraform apply
 # Step 3: Destroy all resources
 terraform destroy
 # WARNING: This may take 5-10 minutes or hang. If it hangs, use Ctrl+C and delete via UI instead.
-
-# Step 4: Verify deletion
-kubectl get pods -n default | grep -E "amr-0|bnr-0|kmr-0|pdr-0|inr-0"
-# Should return no results
 ```
 
 ## Troubleshooting
@@ -195,27 +191,17 @@ kubectl get pods -n default | grep -E "amr-0|bnr-0|kmr-0|pdr-0|inr-0"
 - ✓ Check username and password are correct
 - ✓ Confirm user account exists and is active
 
-### Certificate Errors
+### Certificate Errors (Local Software Users Only)
 
 **Error:** `x509: certificate is not trusted`
+
+> **Note:** This only applies to users running the Kaleido Platform locally using the Quick Start guide.
 
 **Solution:**
 ```bash
 export KALEIDO_PLATFORM_INSECURE=true
 terraform apply
 ```
-
-### Connection Refused
-
-**Error:** `connection refused` on localhost
-
-**Solutions:**
-- ✓ Check port-forward is running: `ps aux | grep port-forward`
-- ✓ Verify service port: `kubectl get svc kaleidoplatform-apigw -n default`
-- ✓ Restart port-forward if needed
-     ```
-     kubectl port-forward svc/kaleidoplatform-apigw 5000:5000 -n default
-     ```
 
 ## Need Help?
 

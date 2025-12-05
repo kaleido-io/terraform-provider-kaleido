@@ -2,8 +2,11 @@
 # ====================================
 # IMPORTANT: Use your Kaleido Platform user credentials (NOT Keycloak or K8s secrets)
 #
-# For local K8s with ingress: https://your-hostname.domain
-# For port-forward: https://localhost:5000
+# For Quick Start (local development):
+#   kaleido_platform_api      = "https://account1.kaleido.127.0.0.1.nip.io"
+#   kaleido_platform_username = "admin"
+#   kaleido_platform_password = "admin"
+#
 kaleido_platform_api      = "https://account1.kaleido.dev"
 kaleido_platform_username = "your-username-here"
 kaleido_platform_password = "your-password-here"
