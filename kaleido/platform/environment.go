@@ -27,15 +27,19 @@ import (
 )
 
 type EnvironmentResourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	ID             types.String `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Version        types.String `tfsdk:"version"`
+	UpdateStrategy types.String `tfsdk:"update_strategy"` //"manual" or "automatic"
 }
 
 type EnvironmentAPIModel struct {
-	ID      string     `json:"id,omitempty"`
-	Created *time.Time `json:"created,omitempty"`
-	Updated *time.Time `json:"updated,omitempty"`
-	Name    string     `json:"name"`
+	ID             string     `json:"id,omitempty"`
+	Created        *time.Time `json:"created,omitempty"`
+	Updated        *time.Time `json:"updated,omitempty"`
+	Name           string     `json:"name"`
+	Version        string     `json:"version"`
+	UpdateStrategy string     `json:"updateStrategy"`
 }
 
 func EnvironmentResourceFactory() resource.Resource {
@@ -62,16 +66,39 @@ func (r *environmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Required:    true,
 				Description: "Environment Name",
 			},
+			"version": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Environment Version",
+			},
+			"update_strategy": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Update Strategy",
+			},
 		},
 	}
 }
 
 func (data *EnvironmentResourceModel) toAPI(api *EnvironmentAPIModel) {
 	api.Name = data.Name.ValueString()
+
+	if data.Version.ValueString() != "" {
+		api.Version = data.Version.ValueString()
+	}
+
+	if data.UpdateStrategy.ValueString() != "" {
+		api.UpdateStrategy = data.UpdateStrategy.ValueString()
+	}
 }
 
 func (api *EnvironmentAPIModel) toData(data *EnvironmentResourceModel) {
 	data.ID = types.StringValue(api.ID)
+	if api.Version != "" {
+		data.Version = types.StringValue(api.Version)
+	}
+	if api.UpdateStrategy != "" {
+		data.UpdateStrategy = types.StringValue(api.UpdateStrategy)
+	}
+
 }
 
 func (r *environmentResource) apiPath(data *EnvironmentResourceModel) string {
