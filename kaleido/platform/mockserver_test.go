@@ -32,70 +32,74 @@ import (
 )
 
 type mockPlatform struct {
-	t                 *testing.T
-	lock              sync.Mutex
-	router            *mux.Router
-	server            *httptest.Server
-	environments      map[string]*EnvironmentAPIModel
-	runtimes          map[string]*RuntimeAPIModel
-	services          map[string]*ServiceAPIModel
-	networks          map[string]*NetworkAPIModel
-	stacks            map[string]*StacksAPIModel
-	connectors        map[string]*ConnectorAPIModel
-	networkinitdatas  map[string]*NetworkInitData
-	kmsWallets        map[string]*KMSWalletAPIModel
-	kmsKeys           map[string]*KMSKeyAPIModel
-	cmsBuilds         map[string]*CMSBuildAPIModel
-	cmsActions        map[string]CMSActionAPIBaseAccessor
-	amsTasks          map[string]*AMSTaskAPIModel
-	amsTaskVersions   map[string]map[string]interface{}
-	amsPolicies       map[string]*AMSPolicyAPIModel
-	amsPolicyVersions map[string]*AMSPolicyVersionAPIModel
-	amsDMUpserts      map[string]map[string]interface{}
-	amsFFListeners    map[string]*AMSFFListenerAPIModel
-	amsDMListeners    map[string]*AMSDMListenerAPIModel
-	amsVariableSets   map[string]*AMSVariableSetAPIModel
-	amsCollections    map[string]*AMSCollectionAPIModel
-	groups            map[string]*GroupAPIModel
-	ffsNode           *FireFlyStatusNodeAPIModel
-	ffsOrg            *FireFlyStatusOrgAPIModel
-	calls             []string
-	applications      map[string]*ApplicationAPIModel
-	apiKeys           map[string]*APIKeyAPIModel
-	serviceAccess     map[string]*ServiceAccessAPIModel
-	stackAccess       map[string]*StackAccessAPIModel
+	t                     *testing.T
+	lock                  sync.Mutex
+	router                *mux.Router
+	server                *httptest.Server
+	environments          map[string]*EnvironmentAPIModel
+	runtimes              map[string]*RuntimeAPIModel
+	services              map[string]*ServiceAPIModel
+	networks              map[string]*NetworkAPIModel
+	stacks                map[string]*StacksAPIModel
+	connectors            map[string]*ConnectorAPIModel
+	networkinitdatas      map[string]*NetworkInitData
+	kmsWallets            map[string]*KMSWalletAPIModel
+	kmsKeys               map[string]*KMSKeyAPIModel
+	cmsBuilds             map[string]*CMSBuildAPIModel
+	cmsActions            map[string]CMSActionAPIBaseAccessor
+	amsTasks              map[string]*AMSTaskAPIModel
+	amsTaskVersions       map[string]map[string]interface{}
+	amsPolicies           map[string]*AMSPolicyAPIModel
+	amsPolicyVersions     map[string]*AMSPolicyVersionAPIModel
+	amsDMUpserts          map[string]map[string]interface{}
+	amsFFListeners        map[string]*AMSFFListenerAPIModel
+	amsDMListeners        map[string]*AMSDMListenerAPIModel
+	amsVariableSets       map[string]*AMSVariableSetAPIModel
+	amsCollections        map[string]*AMSCollectionAPIModel
+	groups                map[string]*GroupAPIModel
+	ffsNode               *FireFlyStatusNodeAPIModel
+	ffsOrg                *FireFlyStatusOrgAPIModel
+	calls                 []string
+	applications          map[string]*ApplicationAPIModel
+	apiKeys               map[string]*APIKeyAPIModel
+	serviceAccess         map[string]*ServiceAccessAPIModel
+	serviceAccessPolicies map[string]*ServiceAccessPolicyAPIModel
+	accountAccessPolicies map[string]*AccountAccessPolicyAPIModel
+	stackAccess           map[string]*StackAccessAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:                 t,
-		environments:      make(map[string]*EnvironmentAPIModel),
-		runtimes:          make(map[string]*RuntimeAPIModel),
-		services:          make(map[string]*ServiceAPIModel),
-		networks:          make(map[string]*NetworkAPIModel),
-		stacks:            make(map[string]*StacksAPIModel),
-		connectors:        make(map[string]*ConnectorAPIModel),
-		networkinitdatas:  make(map[string]*NetworkInitData),
-		kmsWallets:        make(map[string]*KMSWalletAPIModel),
-		kmsKeys:           make(map[string]*KMSKeyAPIModel),
-		cmsBuilds:         make(map[string]*CMSBuildAPIModel),
-		cmsActions:        make(map[string]CMSActionAPIBaseAccessor),
-		amsTasks:          make(map[string]*AMSTaskAPIModel),
-		amsTaskVersions:   make(map[string]map[string]interface{}),
-		amsPolicies:       make(map[string]*AMSPolicyAPIModel),
-		amsPolicyVersions: make(map[string]*AMSPolicyVersionAPIModel),
-		amsDMUpserts:      make(map[string]map[string]interface{}),
-		amsFFListeners:    make(map[string]*AMSFFListenerAPIModel),
-		amsDMListeners:    make(map[string]*AMSDMListenerAPIModel),
-		amsVariableSets:   make(map[string]*AMSVariableSetAPIModel),
-		amsCollections:    make(map[string]*AMSCollectionAPIModel),
-		groups:            make(map[string]*GroupAPIModel),
-		applications:      make(map[string]*ApplicationAPIModel),
-		serviceAccess:     make(map[string]*ServiceAccessAPIModel),
-		stackAccess:       make(map[string]*StackAccessAPIModel),
-		apiKeys:           make(map[string]*APIKeyAPIModel),
-		router:            mux.NewRouter(),
-		calls:             []string{},
+		t:                     t,
+		environments:          make(map[string]*EnvironmentAPIModel),
+		runtimes:              make(map[string]*RuntimeAPIModel),
+		services:              make(map[string]*ServiceAPIModel),
+		networks:              make(map[string]*NetworkAPIModel),
+		stacks:                make(map[string]*StacksAPIModel),
+		connectors:            make(map[string]*ConnectorAPIModel),
+		networkinitdatas:      make(map[string]*NetworkInitData),
+		kmsWallets:            make(map[string]*KMSWalletAPIModel),
+		kmsKeys:               make(map[string]*KMSKeyAPIModel),
+		cmsBuilds:             make(map[string]*CMSBuildAPIModel),
+		cmsActions:            make(map[string]CMSActionAPIBaseAccessor),
+		amsTasks:              make(map[string]*AMSTaskAPIModel),
+		amsTaskVersions:       make(map[string]map[string]interface{}),
+		amsPolicies:           make(map[string]*AMSPolicyAPIModel),
+		amsPolicyVersions:     make(map[string]*AMSPolicyVersionAPIModel),
+		amsDMUpserts:          make(map[string]map[string]interface{}),
+		amsFFListeners:        make(map[string]*AMSFFListenerAPIModel),
+		amsDMListeners:        make(map[string]*AMSDMListenerAPIModel),
+		amsVariableSets:       make(map[string]*AMSVariableSetAPIModel),
+		amsCollections:        make(map[string]*AMSCollectionAPIModel),
+		groups:                make(map[string]*GroupAPIModel),
+		applications:          make(map[string]*ApplicationAPIModel),
+		serviceAccess:         make(map[string]*ServiceAccessAPIModel),
+		serviceAccessPolicies: make(map[string]*ServiceAccessPolicyAPIModel),
+		accountAccessPolicies: make(map[string]*AccountAccessPolicyAPIModel),
+		stackAccess:           make(map[string]*StackAccessAPIModel),
+		apiKeys:               make(map[string]*APIKeyAPIModel),
+		router:                mux.NewRouter(),
+		calls:                 []string{},
 	}
 
 	// See account_test.go
@@ -227,10 +231,20 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodGet, mp.getServiceAccessPermission)
 	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodDelete, mp.deleteServiceAccessPermission)
 
+	// See service_access_policy_test.go
+	mp.register("/api/v1/service-access/{service}/policies", http.MethodPost, mp.postServiceAccessPolicy)
+	mp.register("/api/v1/service-access/{service}/policies/{policy}", http.MethodGet, mp.getServiceAccessPolicy)
+	mp.register("/api/v1/service-access/{service}/policies/{policy}", http.MethodDelete, mp.deleteServiceAccessPolicy)
+
 	// See stack_access_test.go
 	mp.register("/api/v1/stack-access/{stack}/permissions", http.MethodPost, mp.postStackAccessPermission)
 	mp.register("/api/v1/stack-access/{stack}/permissions/{permission}", http.MethodGet, mp.getStackAccessPermission)
 	mp.register("/api/v1/stack-access/{stack}/permissions/{permission}", http.MethodDelete, mp.deleteStackAccessPermission)
+
+	// See account_access_policy_test.go
+	mp.register("/api/v1/account-access/policies", http.MethodPost, mp.postAccountAccessPolicy)
+	mp.register("/api/v1/account-access/policies/{policy}", http.MethodGet, mp.getAccountAccessPolicy)
+	mp.register("/api/v1/account-access/policies/{policy}", http.MethodDelete, mp.deleteAccountAccessPolicy)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
