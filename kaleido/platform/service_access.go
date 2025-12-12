@@ -110,19 +110,6 @@ func (api *ServiceAccessAPIModel) toData(data *ServiceAccessResourceModel) {
 		data.ApplicationID = types.StringValue(api.ApplicationID)
 	}
 
-	/*var permissions string
-	if api.Permissions != nil {
-		d, err := json.Marshal(api.Permissions)
-		if err == nil {
-			permissions = string(d)
-		}
-	} else {
-		permissions = `{}`
-	}
-
-	data.PermissionsJSON = types.StringValue(permissions)
-	*/
-
 	if api.Permissions != nil {
 		permissionsBytes, _ := json.Marshal(api.Permissions)
 		data.PermissionsJSON = types.StringValue(string(permissionsBytes))
