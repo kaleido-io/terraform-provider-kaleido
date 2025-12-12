@@ -15,49 +15,49 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/http"
-	"time"
 )
 
-type ServiceAccessResourceModel struct {
-	ID              types.String `tfsdk:"id"`
-	GroupID         types.String `tfsdk:"group_id"`
-	ServiceID       types.String `tfsdk:"service_id"`
-	ApplicationID   types.String `tfsdk:"application_id"`
-	PermissionsJSON types.String `tfsdk:"permissions_json"`
+type ServiceAccessPolicyResourceModel struct {
+	ID            types.String `tfsdk:"id"`
+	GroupID       types.String `tfsdk:"group_id"`
+	ServiceID     types.String `tfsdk:"service_id"`
+	ApplicationID types.String `tfsdk:"application_id"`
+	Policy        types.String `tfsdk:"policy"`
 }
 
-type ServiceAccessAPIModel struct {
-	ID            string                 `json:"id,omitempty"`
-	GroupID       string                 `json:"groupId,omitempty"`
-	Created       *time.Time             `json:"created,omitempty"`
-	Updated       *time.Time             `json:"updated,omitempty"`
-	ServiceID     string                 `json:"serviceId,omitempty"`
-	ApplicationID string                 `json:"applicationId,omitempty"`
-	Permissions   map[string]interface{} `json:"permissions,omitempty"`
+type ServiceAccessPolicyAPIModel struct {
+	ID            string     `json:"id,omitempty"`
+	GroupID       string     `json:"groupId,omitempty"`
+	Created       *time.Time `json:"created,omitempty"`
+	Updated       *time.Time `json:"updated,omitempty"`
+	ServiceID     string     `json:"serviceId,omitempty"`
+	ApplicationID string     `json:"applicationId,omitempty"`
+	Policy        string     `json:"policy,omitempty"`
 }
 
-func ServiceAccessResourceFactory() resource.Resource {
-	return &serviceAccessResource{}
+func ServiceAccessPolicyResourceFactory() resource.Resource {
+	return &serviceAccessPolicyResource{}
 }
 
-type serviceAccessResource struct {
+type serviceAccessPolicyResource struct {
 	commonResource
 }
 
-func (r *serviceAccessResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_service_access"
+func (r *serviceAccessPolicyResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_service_access_policy"
 }
 
-func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *serviceAccessPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Grant a User Group or Application access to a specific service.",
 		Attributes: map[string]schema.Attribute{
@@ -80,28 +80,27 @@ func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaReque
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Application ID. Specify either group_id or application_id",
 			},
-			"permissions_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Permissions. JSON describing fine grained service api access rules",
+			"policy": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Policy. rego policy document",
 			},
 		},
 	}
 }
 
-func (data *ServiceAccessResourceModel) toAPI(api *ServiceAccessAPIModel) {
+func (data *ServiceAccessPolicyResourceModel) toAPI(api *ServiceAccessPolicyAPIModel) {
 	if !data.GroupID.IsNull() {
 		api.GroupID = data.GroupID.ValueString()
 	}
 	if !data.ApplicationID.IsNull() {
 		api.ApplicationID = data.ApplicationID.ValueString()
 	}
-	if data.PermissionsJSON.ValueString() != "" {
-		_ = json.Unmarshal(([]byte)(data.PermissionsJSON.ValueString()), &api.Permissions)
-	}
 	api.ServiceID = data.ServiceID.ValueString()
+	api.Policy = data.Policy.ValueString()
 }
 
-func (api *ServiceAccessAPIModel) toData(data *ServiceAccessResourceModel) {
+func (api *ServiceAccessPolicyAPIModel) toData(data *ServiceAccessPolicyResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	if api.GroupID != "" {
 		data.GroupID = types.StringValue(api.GroupID)
@@ -109,31 +108,25 @@ func (api *ServiceAccessAPIModel) toData(data *ServiceAccessResourceModel) {
 	if api.ApplicationID != "" {
 		data.ApplicationID = types.StringValue(api.ApplicationID)
 	}
-
-	if api.Permissions != nil {
-		permissionsBytes, _ := json.Marshal(api.Permissions)
-		data.PermissionsJSON = types.StringValue(string(permissionsBytes))
-	}
-
 	data.ServiceID = types.StringValue(api.ServiceID)
+	data.Policy = types.StringValue(api.Policy)
 }
 
-func (r *serviceAccessResource) apiPath(data *ServiceAccessResourceModel) string {
-	path := fmt.Sprintf("/api/v1/service-access/%s/permissions", data.ServiceID.ValueString())
+func (r *serviceAccessPolicyResource) apiPath(data *ServiceAccessPolicyResourceModel) string {
+	path := fmt.Sprintf("/api/v1/service-access/%s/policies", data.ServiceID.ValueString())
 	if data.ID.ValueString() != "" {
 		path = path + "/" + data.ID.ValueString()
 	}
 	return path
 }
 
-func (r *serviceAccessResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *serviceAccessPolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	var data ServiceAccessResourceModel
+	var data ServiceAccessPolicyResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	var api ServiceAccessAPIModel
+	var api ServiceAccessPolicyAPIModel
 	data.toAPI(&api)
-
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
@@ -144,13 +137,13 @@ func (r *serviceAccessResource) Create(ctx context.Context, req resource.CreateR
 
 }
 
-func (r *serviceAccessResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data ServiceAccessResourceModel
+func (r *serviceAccessPolicyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ServiceAccessPolicyResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
 
 	// Read full current object
-	var api ServiceAccessAPIModel
+	var api ServiceAccessPolicyAPIModel
 	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
 		return
 	}
@@ -165,11 +158,11 @@ func (r *serviceAccessResource) Update(ctx context.Context, req resource.UpdateR
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *serviceAccessResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data ServiceAccessResourceModel
+func (r *serviceAccessPolicyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ServiceAccessPolicyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	var api ServiceAccessAPIModel
+	var api ServiceAccessPolicyAPIModel
 	api.ID = data.ID.ValueString()
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
@@ -184,8 +177,8 @@ func (r *serviceAccessResource) Read(ctx context.Context, req resource.ReadReque
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *serviceAccessResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data ServiceAccessResourceModel
+func (r *serviceAccessPolicyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ServiceAccessPolicyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())

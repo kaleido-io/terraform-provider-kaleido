@@ -362,6 +362,8 @@ func Resources() []func() resource.Resource {
 		RuntimeResourceFactory,
 		ServiceResourceFactory,
 		ServiceAccessResourceFactory,
+		ServiceAccessPolicyResourceFactory,
+		AccountAccessPolicyResourceFactory,
 		StackAccessResourceFactory,
 		NetworkResourceFactory,
 		KMSWalletResourceFactory,
