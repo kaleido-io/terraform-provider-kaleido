@@ -37,31 +37,6 @@ resource "kaleido_platform_service" "kms_0" {
   config_json = jsonencode({})
 }
 
-/* Replace with Azure Keyvault, drafted resource below
-
-resource "kaleido_platform_kms_wallet" "wallet_0" {
-  type = "azurekeyvault"
-  name = "azure-wallet-1"
-  environment = kaleido_platform_environment.env_0.id
-  service = kaleido_platform_service.kms_0.id
-  config_json = jsonencode({
-    "keyDiscoveryConfig":{
-      "secp256k1":[
-         "address_ethereum"
-      ]
-   },
-   "credentials":{
-      "clientId":"replace with value",
-      "clientSecret":"replace with value",
-      "tenantId":"replace with value",
-      "baseUrl":"replace with value",
-      "keyVaultName":"replace with value"
-   }
-  })
-}
-
-*/
-
 resource "kaleido_platform_kms_wallet" "wallet_0" {
   type = "hdwallet"
   name = "hdwallet1"
