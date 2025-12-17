@@ -101,7 +101,7 @@ resource "kaleido_platform_service" "tms_0" {
         required = 6
       }
       "connector":{
-          "url":"https://polygon-amoy.use2-c3.kaleido.cloud",
+          "url":"insert public chain rpc endpoint", 
           "auth":{
               "credSetRef":"rpc_auth"
           },
@@ -124,8 +124,8 @@ resource "kaleido_platform_service" "tms_0" {
    "rpc_auth" = {
      type = "basic_auth"
      basic_auth = {
-       username = "3d8d6829-fc1d-4bd2-aaac-ab91c5c7abfb"
-       password = "f538c577-7483-4698-8bb0-151a85ac3c65180bafae-3de5-4f87-ba51-ec9faf2766ae"
+       username = "insert public chain rpc auth cred"
+       password = "insert public chain rpc auth cred"
      }
    }
   }
