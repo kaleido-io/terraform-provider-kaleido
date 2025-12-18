@@ -76,7 +76,7 @@ resource "kaleido_platform_service" "tms_0" {
         required = 6
       }
       "connector":{
-          "url":"insert public chain rpc endpoint", 
+          "url":var.rpc_url, 
           "auth":{
               "credSetRef":"rpc_auth"
           },
@@ -99,8 +99,8 @@ resource "kaleido_platform_service" "tms_0" {
    "rpc_auth" = {
      type = "basic_auth"
      basic_auth = {
-       username = "insert public chain rpc auth cred"
-       password = "insert public chain rpc auth cred"
+       username = var.username
+       password = var.password
      }
    }
   }

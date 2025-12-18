@@ -14,7 +14,17 @@ variable "environment_name" {
   type = string
 }
 
-variable "besu_node_count" {
-  type = number
-  default = 1
+variable "rpc_url" {
+  type = string
+  description = "The RPC URL of the public node"
+}
+
+variable "username" {
+  type = string
+  description = "The username for connecting to the public node"
+}
+
+variable "password" {
+  type = string
+  description = "The password for connecting to the public node"
 }
