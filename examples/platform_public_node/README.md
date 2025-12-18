@@ -19,5 +19,9 @@ Create an environment with:
 | environment_name | Environment name | string | `` | yes |
 | rpc_url | RPC URl of the Public Node | string | `` | yes |
 | username | Username for Public Node access | string | `` | yes |
-| environment_name | Password for Public Node access | string | `` | yes |
+| password | Password for Public Node access | string | `` | yes |
 
+## Output
+| Name | Description | Type |
+|------|-------------|:----:|
+| key_address | Key address created by the module  | string |

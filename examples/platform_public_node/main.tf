@@ -127,54 +127,6 @@ resource "kaleido_platform_service" "ffs_0" {
   })
 }
 
-resource "kaleido_platform_runtime" "cmr_0" {
-  type = "ContractManager"
-  name = "smart_contract_manager"
-  environment = kaleido_platform_environment.env_0.id
-  config_json = jsonencode({})
+output "key_address" {
+  value = kaleido_platform_kms_key.key_0.address
 }
-
-resource "kaleido_platform_service" "cms_0" {
-  type = "ContractManager"
-  name = "smart_contract_manager"
-  environment = kaleido_platform_environment.env_0.id
-  runtime = kaleido_platform_runtime.cmr_0.id
-  config_json = jsonencode({})
-}
-
-
-resource "kaleido_platform_cms_build" "erc20" {
-  environment = kaleido_platform_environment.env_0.id
-  service = kaleido_platform_service.cms_0.id
-  type = "github"
-  name = "ERC20WithData"
-  path = "erc20_samples"
-	github = {
-		contract_url = "https://github.com/hyperledger/firefly-tokens-erc20-erc721/blob/main/samples/solidity/contracts/ERC20WithData.sol"
-		contract_name = "ERC20WithData"
-	}
-}
-
-/* This is where we could put the following resources to actually deploy a contract and generate an API for it, but currently it requires the manual step of getting gas for the key
-resource "kaleido_platform_cms_action_deploy" "demotoken_erc20" {
-  environment = kaleido_platform_environment.env_0.id
-  service = kaleido_platform_service.cms_0.id
-  build = kaleido_platform_cms_build.erc20.id
-  name = "deploy_erc20"
-  firefly_namespace = kaleido_platform_service.ffs_0.name
-  signing_key = kaleido_platform_kms_key.key_0.address
-  params_json = jsonencode([
-    "DemoToken",
-    "DTOK"
-  ])
-}
-
-resource "kaleido_platform_cms_action_createapi" "erc20" {
-  environment = kaleido_platform_environment.env_0.id
-  service = kaleido_platform_service.cms_0.id
-  build = kaleido_platform_cms_build.erc20.id
-  name = "erc20withdata"
-  firefly_namespace = kaleido_platform_service.ffs_0.name
-  api_name = "erc20withdata"
-}
-*/
