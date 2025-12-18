@@ -16,15 +16,15 @@ variable "environment_name" {
 
 variable "rpc_url" {
   type = string
-  description = "The RPC URL of the public node"
+  description = "The RPC endpoint for the public chain"
 }
 
 variable "username" {
   type = string
-  description = "The username for connecting to the public node"
+  description = "The username for connecting to the public chain"
 }
 
 variable "password" {
   type = string
-  description = "The password for connecting to the public node"
+  description = "The password for connecting to the public chain"
 }

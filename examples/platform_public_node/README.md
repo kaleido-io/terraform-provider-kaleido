@@ -1,11 +1,12 @@
 ## Summary
 
-Set up a Kaleido Environment that can connect to a Public Node RPC endpoint and submit transactions. 
+Set up a Kaleido Environment connecting to a Public Chain.
 
 Create an environment with:
 
 * Web3 Middleware Stack
     - Transaction Manager connected to an external RPC Endpoint with authentication
+    - Hyperledger FireFly Service
 * Contract Manager
 * Key Manager
 
@@ -17,11 +18,11 @@ Create an environment with:
 | kaleido_platform_username | API Key name | string | `` | yes |
 | kaleido_platform_password | API Key value | string | `` | yes |
 | environment_name | Environment name | string | `` | yes |
-| rpc_url | RPC URl of the Public Node | string | `` | yes |
-| username | Username for Public Node access | string | `` | yes |
-| password | Password for Public Node access | string | `` | yes |
+| rpc_url | RPC endpoint for the public chain | string | `` | yes |
+| username | Username for public chain access | string | `` | yes |
+| password | Password for public chain access | string | `` | yes |
 
 ## Output
 | Name | Description | Type |
 |------|-------------|:----:|
-| key_address | Key address created by the module  | string |
+| key_address | Key address  | string |
