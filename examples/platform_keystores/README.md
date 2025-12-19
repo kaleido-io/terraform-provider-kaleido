@@ -1,6 +1,6 @@
 ## Summary
 
-Examples of how to create different types of Keystores in a Key Manager service. Use these resources when you want to create a keystore other than Kaleido's HD Wallet.
+Examples of how to create different types of Keystores in a Key Manager service. 
 
 Create an environment with:
 
