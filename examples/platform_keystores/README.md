@@ -6,7 +6,7 @@ Create an environment with:
 
 * Key Manager Service
     Keystores: 
-        - Azure Key Vault KeyStore 
+        - Azure Key Vault Keystore
 
 ## Inputs
 
