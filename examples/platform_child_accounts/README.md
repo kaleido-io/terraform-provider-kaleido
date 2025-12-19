@@ -19,66 +19,9 @@ This configuration creates:
 
 ## Configuration
 
-### Required Variables
-
-The following variables must be provided:
-
-```hcl
-kaleido_platform_api      = "https://your-kaleido-platform.com"
-kaleido_platform_username = "your-username"
-kaleido_platform_password = "your-password"
-
-# OIDC Configuration
-oidc_client_id     = "your-oidc-client-id"
-oidc_client_secret = "your-oidc-client-secret"
-hostname           = "your-hostname.com"
-
-# Admin users for each environment
-dev_admin_email        = "dev-admin@example.com"
-dev_admin_sub          = "dev-admin-subject-identifier"
-staging_admin_email    = "staging-admin@example.com"
-staging_admin_sub      = "staging-admin-subject-identifier"
-production_admin_email = "prod-admin@example.com"
-production_admin_sub   = "prod-admin-subject-identifier"
-```
-
-### Optional Variables
-
-You can customize the configuration with these optional variables:
-
-```hcl
-# Identity Provider Configuration
-identity_provider_name = "my-company-oidc"
-oidc_config_url       = "https://auth.example.com/.well-known/openid-configuration"
-
-# Or configure individual endpoints if not using oidc_config_url
-issuer       = "https://auth.example.com"
-login_url    = "https://auth.example.com/oauth/authorize"
-token_url    = "https://auth.example.com/oauth/token"
-jwks_url     = "https://auth.example.com/.well-known/jwks.json"
-user_info_url = "https://auth.example.com/userinfo"
-logout_url   = "https://auth.example.com/logout"
-
-# Account Names
-dev_account_name        = "my-dev-environment"
-staging_account_name    = "my-staging-environment"
-production_account_name = "my-production-environment"
-
-# Hostname Mappings
-dev_hostnames = {
-  "dev.mycompany.com" = ["rest", "websocket"]
-}
-staging_hostnames = {
-  "staging.mycompany.com" = ["rest"]
-}
-production_hostnames = {
-  "prod.mycompany.com" = ["rest", "websocket"]
-}
-```
-
 ## Usage
 
-1. **Set up variables**: Create a `terraform.tfvars` file with your configuration:
+1. **Set up variables**: Create a `input.tfvars` file with your configuration:
 
 ```hcl
 kaleido_platform_api      = "https://your-kaleido-platform.com"
@@ -97,32 +40,6 @@ staging_admin_sub      = "staging-admin-subject-identifier"
 production_admin_email = "prod-admin@example.com"
 production_admin_sub   = "prod-admin-subject-identifier"
 ```
-
-2. **Initialize Terraform**:
-```bash
-terraform init
-```
-
-3. **Plan the deployment**:
-```bash
-terraform plan
-```
-
-4. **Apply the configuration**:
-```bash
-terraform apply
-```
-
-## Outputs
-
-After successful deployment, you'll receive:
-
-- **identity_provider**: Details of the shared OIDC identity provider
-- **dev_account**: Development account information
-- **staging_account**: Staging account information
-- **production_account**: Production account information
-- **all_accounts**: Combined information for all accounts
-- **setup_summary**: Summary of the entire setup
 
 ## OIDC Configuration Options
 
@@ -147,6 +64,33 @@ user_info_url = "https://auth.example.com/userinfo"
 logout_url   = "https://auth.example.com/logout"
 ```
 
+2. **Initialize OpenTofu**:
+```bash
+tofu init
+```
+
+3. **Plan the deployment**:
+```bash
+tofu plan -var-file=input.tfvars
+```
+
+4. **Apply the configuration**:
+```bash
+tofu apply -var-file=input.tfvars
+```
+
+## Outputs
+
+After successful deployment, you'll receive:
+
+- **identity_provider**: Details of the shared OIDC identity provider
+- **dev_account**: Development account information
+- **staging_account**: Staging account information
+- **production_account**: Production account information
+- **all_accounts**: Combined information for all accounts
+- **setup_summary**: Summary of the entire setup
+
+
 ## Troubleshooting
 
 ### Common Issues
@@ -159,22 +103,7 @@ logout_url   = "https://auth.example.com/logout"
 ### Validation
 
 After deployment, verify:
-- Identity provider appears in `account1` in the Kaleido platform console
+- Identity provider appears in the root account in the Kaleido platform console
 - All three accounts are created and properly configured
 - Each account references the shared identity provider
 - Admin users can authenticate to their respective environments
-
-## Clean Up
-
-To remove all resources:
-
-```bash
-terraform destroy
-```
-
-## Integration with Other Examples
-
-This example can be used as a foundation for:
-- Setting up users and groups within each account (see `platform_user_iam` example)
-- Deploying application infrastructure to each environment
-- Implementing cross-environment networking and access controls 
