@@ -5,56 +5,24 @@ This example demonstrates how to bootstrap a new Kaleido platform account with a
 ## Overview
 
 This configuration creates:
-- An OIDC identity provider (kaleido-id) for user authentication
-- A new bootstrapped account using the new OIDC Identity Provider
+- An OIDC identity provider for user authentication
+- A new bootstrapped account using the OIDC identity provider resource
 - A validation policy that supports reader, admin, and owner roles
-- A bootstrap OAuth application for Kubernetes service account authentication
+- A bootstrap OAuth application for Kubernetes service account authentication into the new account
 - A default "readers" group in the bootstrapped account
 - Just-in-time (JIT) user provisioning enabled
 
 ## Prerequisites
 
 Before running this example, ensure you have:
-1. Terraform installed (version 1.0 or later)
+1. OpenTofu installed (version 1.9 or later)
 2. Access to a root Kaleido platform account with permissions to create child accounts
 3. Credentials for a valid OIDC identity provider (e.g., Auth0, Keycloak, Microsoft Entra ID, etc.)
-4. Kubernetes cluster information (if using the bootstrap application feature)
-
-## Configuration
-
-### Required Variables
-
-The following variables must be provided:
-
-```hcl
-kaleido_platform_api          = "https://account1.kaleido.dev"
-kaleido_platform_bearer_token = "your-bearer-token"
-
-# OIDC Identity Provider Configuration
-idp_client_id     = "your-oidc-client-id"
-idp_client_secret = "your-oidc-client-secret"
-idp_oidc_config_url = "https://auth.example.com/.well-known/openid-configuration"
-
-# Initial Admin User
-first_user_email = "admin@example.com"
-```
-
-### Optional Variables
-
-You can customize the bootstrap application configuration:
-
-```hcl
-# Kubernetes Bootstrap Application Configuration
-bootstrap_application_issuer          = "https://kubernetes.default.svc.cluster.local"
-bootstrap_application_jwks_endpoint    = "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"
-bootstrap_application_ca_certificate   = ""  # Optional CA certificate
-bootstrap_application_k8s_namespace   = "default"
-bootstrap_application_k8s_sa_name      = "kaleidoplatform"
-```
+4. Kubernetes cluster OIDC information (if using the bootstrap application feature)
 
 ## Usage
 
-1. **Set up variables**: Create a `terraform.tfvars` file with your configuration:
+1. **Set up variables**: Create a `input.tfvars` file with your configuration:
 
 ```hcl
 kaleido_platform_api          = "https://account1.kaleido.dev"
@@ -80,12 +48,12 @@ tofu init
 
 3. **Plan the deployment**:
 ```bash
-tofu plan
+tofu plan -var-file=input.tfvars 
 ```
 
 4. **Apply the configuration**:
 ```bash
-tofu apply
+tofu apply -var-file=input.tfvars 
 ```
 
 ## Resources Created

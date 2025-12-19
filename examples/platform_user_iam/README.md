@@ -90,7 +90,7 @@ users = [
 ]
 ```
 
-2. **Initialize Terraform:**
+2. **Initialize OpenTofu:**
 
 ```bash
 tofu init
@@ -99,13 +99,13 @@ tofu init
 3. **Plan the deployment:**
 
 ```bash
-terraform plan -var-file=input.tfvars 
+tofu plan -var-file=input.tfvars 
 ```
 
 4. **Apply the configuration:**
 
 ```bash
-terraform apply -var-file=input.tfvars 
+tofu apply -var-file=input.tfvars 
 ```
 
 ## Resources Created
@@ -154,7 +154,7 @@ terraform apply -var-file=input.tfvars
 
 ## Outputs
 
-The configuration provides detailed outputs for monitoring and integration:
+The configuration provides detailed outputs for review of the resources:
 
 ### Group Details
 ```hcl
@@ -335,13 +335,3 @@ locals {
 2. **Principle of Least Privilege**: Grant minimum required access to users
 3. **Separation of Duties**: Use different groups for different responsibilities
 4. **Automated Compliance**: Use Terraform for consistent access management
-
-## Clean Up
-
-To remove all IAM resources:
-
-```bash
-tofu destroy
-```
-
-**Warning**: This will remove all users, groups, and memberships. Ensure you have proper backups and that no critical access will be lost.
