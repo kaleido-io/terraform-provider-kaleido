@@ -175,6 +175,7 @@ func (r *kms_walletResource) Create(ctx context.Context, req resource.CreateRequ
 
 	var data KMSWalletResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	originalConfig := data.ConfigJSON
 
 	var api KMSWalletAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
@@ -184,6 +185,10 @@ func (r *kms_walletResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	api.toData(ctx, &data, &resp.Diagnostics)
+	// Preserve original config_json if it was empty to avoid state drift when API returns values from key discovery configuration
+	if originalConfig.ValueString() == "{}" || originalConfig.ValueString() == "" {
+		data.ConfigJSON = originalConfig
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -192,6 +197,7 @@ func (r *kms_walletResource) Update(ctx context.Context, req resource.UpdateRequ
 	var data KMSWalletResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+	originalConfig := data.ConfigJSON
 
 	// Read full current object
 	var api KMSWalletAPIModel
@@ -212,6 +218,10 @@ func (r *kms_walletResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	api.toData(ctx, &data, &resp.Diagnostics)
+	// Preserve original config_json if it was empty to avoid drift when API returns transformed values
+	if originalConfig.ValueString() == "{}" || originalConfig.ValueString() == "" {
+		data.ConfigJSON = originalConfig
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -220,6 +230,7 @@ func (r *kms_walletResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	currentCreds := data.CredsJSON
+	currentConfig := data.ConfigJSON
 
 	var api KMSWalletAPIModel
 	api.ID = data.ID.ValueString()
@@ -237,6 +248,10 @@ func (r *kms_walletResource) Read(ctx context.Context, req resource.ReadRequest,
 	// Set the current creds value in the state so that any future updates can be checked for previous state
 	if currentCreds.ValueString() != "" {
 		data.CredsJSON = currentCreds
+	}
+	// Preserve original config_json if it was empty to avoid drift when API returns transformed values
+	if currentConfig.ValueString() == "{}" || currentConfig.ValueString() == "" {
+		data.ConfigJSON = currentConfig
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
