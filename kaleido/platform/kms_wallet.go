@@ -20,33 +20,35 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type KMSWalletResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Environment types.String `tfsdk:"environment"`
-	Service     types.String `tfsdk:"service"`
-	Type        types.String `tfsdk:"type"`
-	Name        types.String `tfsdk:"name"`
-	ConfigJSON  types.String `tfsdk:"config_json"`
-	CredsJSON   types.String `tfsdk:"creds_json"`
+	ID                 types.String `tfsdk:"id"`
+	Environment        types.String `tfsdk:"environment"`
+	Service            types.String `tfsdk:"service"`
+	Type               types.String `tfsdk:"type"`
+	Name               types.String `tfsdk:"name"`
+	ConfigJSON         types.String `tfsdk:"config_json"`
+	CredsJSON          types.String `tfsdk:"creds_json"`
+	KeyDiscoveryConfig types.Map    `tfsdk:"key_discovery_config"`
 }
 
 type KMSWalletAPIModel struct {
-	ID            string                 `json:"id,omitempty"`
-	Created       *time.Time             `json:"created,omitempty"`
-	Updated       *time.Time             `json:"updated,omitempty"`
-	Type          string                 `json:"type"`
-	Name          string                 `json:"name"`
-	Configuration map[string]interface{} `json:"configuration,omitempty"`
-	Credentials   map[string]interface{} `json:"credentials,omitempty"`
+	ID                 string                 `json:"id,omitempty"`
+	Created            *time.Time             `json:"created,omitempty"`
+	Updated            *time.Time             `json:"updated,omitempty"`
+	Type               string                 `json:"type"`
+	Name               string                 `json:"name"`
+	Configuration      map[string]interface{} `json:"configuration,omitempty"`
+	Credentials        map[string]interface{} `json:"credentials,omitempty"`
+	KeyDiscoveryConfig map[string][]string    `json:"keyDiscoveryConfig,omitempty"`
 }
 
 func KMSWalletResourceFactory() resource.Resource {
@@ -89,36 +91,48 @@ func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "Wallet Display Name",
 			},
 			"config_json": &schema.StringAttribute{
-				Default:     stringdefault.StaticString(`{}`),
 				Optional:    true,
 				Computed:    true,
 				Description: "Optional JSON object containing configuration applicable to the wallet type.",
 			},
 			"creds_json": &schema.StringAttribute{
-				Default:     stringdefault.StaticString(`{}`),
 				Optional:    true,
 				Computed:    true,
 				Description: "Optional JSON object containing credentials applicable to the wallet type.",
+			},
+			"key_discovery_config": &schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.ListType{ElemType: types.StringType},
+				Description: "Optionally provide key discovery configuration. Example: `{ \"secp256k1\": [\"address_ethereum\", \"address_ethereum_checksum\"] }`",
 			},
 		},
 	}
 }
 
-func (data *KMSWalletResourceModel) toAPI(api *KMSWalletAPIModel) {
+func (data *KMSWalletResourceModel) toAPI(ctx context.Context, api *KMSWalletAPIModel, diagnostics *diag.Diagnostics) {
 	// required fields
 	api.Type = data.Type.ValueString()
 	api.Name = data.Name.ValueString()
-	api.Configuration = map[string]interface{}{}
-	api.Credentials = map[string]interface{}{}
-	if !data.ConfigJSON.IsNull() {
-		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Configuration)
+	if !data.ConfigJSON.IsNull() && data.ConfigJSON.ValueString() != "" {
+		var config map[string]interface{}
+		if err := json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &config); err == nil && len(config) > 0 {
+			api.Configuration = config
+		}
 	}
-	if !data.CredsJSON.IsNull() {
-		_ = json.Unmarshal([]byte(data.CredsJSON.ValueString()), &api.Credentials)
+	if !data.CredsJSON.IsNull() && data.CredsJSON.ValueString() != "" {
+		var creds map[string]interface{}
+		if err := json.Unmarshal([]byte(data.CredsJSON.ValueString()), &creds); err == nil && len(creds) > 0 {
+			api.Credentials = creds
+		}
+	}
+	if !data.KeyDiscoveryConfig.IsNull() && !data.KeyDiscoveryConfig.IsUnknown() {
+		api.KeyDiscoveryConfig = make(map[string][]string)
+		d := data.KeyDiscoveryConfig.ElementsAs(ctx, &api.KeyDiscoveryConfig, false)
+		diagnostics.Append(d...)
 	}
 }
 
-func (api *KMSWalletAPIModel) toData(data *KMSWalletResourceModel) {
+func (api *KMSWalletAPIModel) toData(ctx context.Context, data *KMSWalletResourceModel, diagnostics *diag.Diagnostics) {
 	var config string
 	if api.Configuration != nil {
 		d, err := json.Marshal(api.Configuration)
@@ -141,6 +155,12 @@ func (api *KMSWalletAPIModel) toData(data *KMSWalletResourceModel) {
 	}
 	data.CredsJSON = types.StringValue(credentials)
 
+	if len(api.KeyDiscoveryConfig) > 0 {
+		keyDiscoveryConfig, d := types.MapValueFrom(ctx, types.ListType{ElemType: types.StringType}, api.KeyDiscoveryConfig)
+		diagnostics.Append(d...)
+		data.KeyDiscoveryConfig = keyDiscoveryConfig
+	}
+
 	data.ID = types.StringValue(api.ID)
 }
 
@@ -158,13 +178,13 @@ func (r *kms_walletResource) Create(ctx context.Context, req resource.CreateRequ
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	var api KMSWalletAPIModel
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -187,12 +207,12 @@ func (r *kms_walletResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	// Update from plan
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data), api, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -213,7 +233,7 @@ func (r *kms_walletResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
 
 	// Set the current creds value in the state so that any future updates can be checked for previous state
 	if currentCreds.ValueString() != "" {
