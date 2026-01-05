@@ -174,3 +174,161 @@ func (mp *mockPlatform) deleteKMSWallet(res http.ResponseWriter, req *http.Reque
 	delete(mp.kmsWallets, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"])
 	mp.respond(res, nil, 204)
 }
+
+var kms_walletKeyDiscoveryConfigStep1 = `
+resource "kaleido_platform_kms_wallet" "kms_wallet_keydiscovery" {
+    environment = "env1"
+	service = "service1"
+    type = "azurekeyvault"
+    name = "keystore1"
+    creds_json = jsonencode({
+        "baseURL": "https://vault.azure.net"
+        "clientId": "id1234"
+        "clientSecret": "secret1234"
+        "keyVaultName": "keyvault1"
+        "tenantId": "tenant1234"
+    })
+    key_discovery_config = {
+        secp256k1 = ["address_ethereum"]
+    }
+}
+`
+
+var kms_walletKeyDiscoveryConfigStep2 = `
+resource "kaleido_platform_kms_wallet" "kms_wallet_keydiscovery" {
+    environment = "env1"
+	service = "service1"
+    type = "azurekeyvault"
+    name = "keystore1"
+    creds_json = jsonencode({
+        "baseURL": "https://vault.azure.net"
+        "clientId": "id1234"
+        "clientSecret": "secret1234"
+        "keyVaultName": "keyvault1"
+        "tenantId": "tenant1234"
+    })
+    key_discovery_config = {
+        secp256k1 = ["address_ethereum", "address_ethereum_checksum"]
+    }
+}
+`
+
+func TestKMSWalletKeyDiscoveryConfig(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v1/wallets",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+		})
+		mp.server.Close()
+	}()
+
+	kms_walletResource := "kaleido_platform_kms_wallet.kms_wallet_keydiscovery"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + kms_walletKeyDiscoveryConfigStep1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(kms_walletResource, "id"),
+					resource.TestCheckResourceAttr(kms_walletResource, "name", `keystore1`),
+					resource.TestCheckResourceAttr(kms_walletResource, "type", `azurekeyvault`),
+					resource.TestCheckResourceAttr(kms_walletResource, "key_discovery_config.%", "1"),
+					resource.TestCheckResourceAttr(kms_walletResource, "key_discovery_config.secp256k1.#", "1"),
+					resource.TestCheckResourceAttr(kms_walletResource, "key_discovery_config.secp256k1.0", "address_ethereum"),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[kms_walletResource].Primary.Attributes["id"]
+						obj := mp.kmsWallets[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						assert.Equal(t, "keystore1", obj.Name)
+						assert.Equal(t, "azurekeyvault", obj.Type)
+						assert.NotNil(t, obj.KeyDiscoveryConfig)
+						assert.Equal(t, 1, len(obj.KeyDiscoveryConfig))
+						assert.Equal(t, []string{"address_ethereum"}, obj.KeyDiscoveryConfig["secp256k1"])
+						testJSONEqual(t, obj, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "azurekeyvault",
+							"name": "keystore1",
+							"credentials": {
+								"baseURL": "https://vault.azure.net",
+								"clientId": "id1234",
+								"clientSecret": "secret1234",
+								"keyVaultName": "keyvault1",
+								"tenantId": "tenant1234"
+							},
+							"keyDiscoveryConfig": {
+								"secp256k1": ["address_ethereum"]
+							}
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							obj.Created.UTC().Format(time.RFC3339Nano),
+							obj.Updated.UTC().Format(time.RFC3339Nano),
+						))
+						return nil
+					},
+				),
+			},
+			{
+				Config: providerConfig + kms_walletKeyDiscoveryConfigStep2,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(kms_walletResource, "id"),
+					resource.TestCheckResourceAttr(kms_walletResource, "name", `keystore1`),
+					resource.TestCheckResourceAttr(kms_walletResource, "type", `azurekeyvault`),
+					resource.TestCheckResourceAttr(kms_walletResource, "key_discovery_config.%", "1"),
+					resource.TestCheckResourceAttr(kms_walletResource, "key_discovery_config.secp256k1.#", "2"),
+					resource.TestCheckResourceAttr(kms_walletResource, "key_discovery_config.secp256k1.0", "address_ethereum"),
+					resource.TestCheckResourceAttr(kms_walletResource, "key_discovery_config.secp256k1.1", "address_ethereum_checksum"),
+					func(s *terraform.State) error {
+						// Compare the final result on the mock-server side
+						id := s.RootModule().Resources[kms_walletResource].Primary.Attributes["id"]
+						obj := mp.kmsWallets[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						assert.Equal(t, "keystore1", obj.Name)
+						assert.Equal(t, "azurekeyvault", obj.Type)
+						assert.NotNil(t, obj.KeyDiscoveryConfig)
+						assert.Equal(t, 1, len(obj.KeyDiscoveryConfig))
+						assert.Equal(t, []string{"address_ethereum", "address_ethereum_checksum"}, obj.KeyDiscoveryConfig["secp256k1"])
+						testJSONEqual(t, obj, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "azurekeyvault",
+							"name": "keystore1",
+							"credentials": {
+								"baseURL": "https://vault.azure.net",
+								"clientId": "id1234",
+								"clientSecret": "secret1234",
+								"keyVaultName": "keyvault1",
+								"tenantId": "tenant1234"
+							},
+							"keyDiscoveryConfig": {
+								"secp256k1": ["address_ethereum", "address_ethereum_checksum"]
+							}
+						}
+						`,
+							// generated fields that vary per test run
+							id,
+							obj.Created.UTC().Format(time.RFC3339Nano),
+							obj.Updated.UTC().Format(time.RFC3339Nano),
+						))
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
