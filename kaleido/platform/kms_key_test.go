@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2024,2026
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,6 +34,10 @@ resource "kaleido_platform_kms_key" "kms_key1" {
 	service = "service1"
 	wallet = "wallet1_id"
     name = "kms_key1"
+	attributes = {
+		"attribute1" = "value1"
+	}
+	public_identifier_types = ["address_ethereum"]
 }
 `
 
@@ -44,6 +48,11 @@ resource "kaleido_platform_kms_key" "kms_key1" {
 	wallet = "wallet1_id"
     name = "kms_key1"
 	path = "some/path"
+	attributes = {
+		"attribute1" = "value1"
+		"attribute2" = "value2"
+	}
+	public_identifier_types = ["address_ethereum"]
 }
 `
 
@@ -85,6 +94,8 @@ func TestKMSKey1(t *testing.T) {
 					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1`),
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "address"),
+					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute1", `value1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "public_identifier_types.0", `address_ethereum`),
 				),
 			},
 			{
@@ -95,6 +106,9 @@ func TestKMSKey1(t *testing.T) {
 					resource.TestCheckResourceAttr(kms_key1Resource, "path", `some/path`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1`),
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "address"),
+					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute1", `value1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute2", `value2`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "public_identifier_types.0", `address_ethereum`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[kms_key1Resource].Primary.Attributes["id"]
@@ -107,7 +121,12 @@ func TestKMSKey1(t *testing.T) {
 							"name": "kms_key1",
 							"path": "some/path",
 							"address": "%[4]s",
-							"uri": "uri/for/kms_key1"
+							"uri": "uri/for/kms_key1",
+							"attributes": {
+								"attribute1": "value1",
+								"attribute2": "value2"
+							},
+							"publicIdentifierTypes": ["address_ethereum"]
 						}
 						`,
 							// generated fields that vary per test run
@@ -142,6 +161,7 @@ func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 	obj.Updated = &now
 	obj.Address = nanoid.New()
 	obj.URI = "uri/for/" + obj.Name
+	obj.PublicIdentifierTypes = nil
 	mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+obj.ID] = &obj
 	mp.respond(res, &obj, 201)
 }
