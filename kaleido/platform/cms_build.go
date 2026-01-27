@@ -315,6 +315,36 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	}
 }
 
+// CMSBuildResourceModelV0 is the version 0 schema model (auth_token was Sensitive, not WriteOnly)
+type CMSBuildResourceModelV0 struct {
+	ID                      types.String                      `tfsdk:"id"`
+	Environment             types.String                      `tfsdk:"environment"`
+	Service                 types.String                      `tfsdk:"service"`
+	Type                    types.String                      `tfsdk:"type"`
+	Path                    types.String                      `tfsdk:"path"`
+	Name                    types.String                      `tfsdk:"name"`
+	Description             types.String                      `tfsdk:"description"`
+	EVMVersion              types.String                      `tfsdk:"evm_version"`
+	SolcVersion             types.String                      `tfsdk:"solc_version"`
+	Precompiled             CMSBuildPrecompiledResourceModel  `tfsdk:"precompiled"`
+	GitHub                  *CMSBuildGithubResourceModelV0    `tfsdk:"github"`
+	Optimizer               *CMSBuildOptimizerResourceModel   `tfsdk:"optimizer"`
+	SourceCode              CMSBuildSourceCodeResourceModel   `tfsdk:"source_code"`
+	ABI                     types.String                      `tfsdk:"abi"`
+	Bytecode                types.String                      `tfsdk:"bytecode"`
+	DevDocs                 types.String                      `tfsdk:"dev_docs"`
+	LibrariesJSON           types.String                      `tfsdk:"libraries_json"`
+	CommitHash              types.String                      `tfsdk:"commit_hash"`
+	CompilationMetadataJSON types.String                      `tfsdk:"compilation_metadata_json"`
+	IgnoreDestroy           types.Bool                        `tfsdk:"ignore_destroy"`
+}
+
+type CMSBuildGithubResourceModelV0 struct {
+	ContractURL  types.String `tfsdk:"contract_url"`
+	ContractName types.String `tfsdk:"contract_name"`
+	AuthToken    types.String `tfsdk:"auth_token"` // Was Sensitive in V0
+}
+
 // UpgradeState handles migration from schema version 0 (where auth_token was Sensitive)
 // to version 1 (where auth_token is WriteOnly and must be null in state)
 func (r *cms_buildResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
@@ -377,35 +407,47 @@ func (r *cms_buildResource) UpgradeState(_ context.Context) map[int64]resource.S
 				},
 			},
 			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
-				// Read raw state as a map
-				var rawState map[string]interface{}
-				resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Empty(), &rawState)...)
+				// Read old state into V0 model
+				var oldData CMSBuildResourceModelV0
+				resp.Diagnostics.Append(req.State.Get(ctx, &oldData)...)
 				if resp.Diagnostics.HasError() {
 					return
 				}
 
-				// Remove auth_token from github block if present
-				if github, ok := rawState["github"].(map[string]interface{}); ok {
-					delete(github, "auth_token")
-				}
-
-				// Set the upgraded state using the new schema
-				var data CMSBuildResourceModel
-				resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-				if resp.Diagnostics.HasError() {
-					return
-				}
-
-				// Clear the auth_token (now WriteOnly, must be null)
-				if data.GitHub != nil {
-					data.GitHub = &CMSBuildGithubResourceModel{
-						ContractURL:  data.GitHub.ContractURL,
-						ContractName: data.GitHub.ContractName,
-						AuthToken:    types.StringNull(),
+				// Convert to new model, clearing auth_token (now WriteOnly)
+				var newGitHub *CMSBuildGithubResourceModel
+				if oldData.GitHub != nil {
+					newGitHub = &CMSBuildGithubResourceModel{
+						ContractURL:  oldData.GitHub.ContractURL,
+						ContractName: oldData.GitHub.ContractName,
+						AuthToken:    types.StringNull(), // Clear - now WriteOnly
 					}
 				}
 
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+				newData := CMSBuildResourceModel{
+					ID:                      oldData.ID,
+					Environment:             oldData.Environment,
+					Service:                 oldData.Service,
+					Type:                    oldData.Type,
+					Path:                    oldData.Path,
+					Name:                    oldData.Name,
+					Description:             oldData.Description,
+					EVMVersion:              oldData.EVMVersion,
+					SolcVersion:             oldData.SolcVersion,
+					Precompiled:             oldData.Precompiled,
+					GitHub:                  newGitHub,
+					Optimizer:               oldData.Optimizer,
+					SourceCode:              oldData.SourceCode,
+					ABI:                     oldData.ABI,
+					Bytecode:                oldData.Bytecode,
+					DevDocs:                 oldData.DevDocs,
+					LibrariesJSON:           oldData.LibrariesJSON,
+					CommitHash:              oldData.CommitHash,
+					CompilationMetadataJSON: oldData.CompilationMetadataJSON,
+					IgnoreDestroy:           oldData.IgnoreDestroy,
+				}
+
+				resp.Diagnostics.Append(resp.State.Set(ctx, &newData)...)
 			},
 		},
 	}
