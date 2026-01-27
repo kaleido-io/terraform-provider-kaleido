@@ -592,6 +592,13 @@ func (r *cms_buildResource) Create(ctx context.Context, req resource.CreateReque
 	var data CMSBuildResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
+	// WriteOnly attributes are null in the plan - must read from config
+	var authToken types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("github").AtName("auth_token"), &authToken)...)
+	if data.GitHub != nil && !authToken.IsNull() {
+		data.GitHub.AuthToken = authToken
+	}
+
 	var api CMSBuildAPIModel
 	data.toAPI(&api, false)
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
@@ -619,6 +626,13 @@ func (r *cms_buildResource) Update(ctx context.Context, req resource.UpdateReque
 	var data CMSBuildResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+
+	// WriteOnly attributes are null in the plan - must read from config
+	var authToken types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("github").AtName("auth_token"), &authToken)...)
+	if data.GitHub != nil && !authToken.IsNull() {
+		data.GitHub.AuthToken = authToken
+	}
 
 	// Update from plan
 	var api CMSBuildAPIModel
