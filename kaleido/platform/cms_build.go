@@ -136,6 +136,8 @@ func (r *cms_buildResource) Metadata(_ context.Context, _ resource.MetadataReque
 
 func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		// Version 1: Changed auth_token from Sensitive to WriteOnly
+		Version: 1,
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -313,6 +315,102 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	}
 }
 
+// UpgradeState handles migration from schema version 0 (where auth_token was Sensitive)
+// to version 1 (where auth_token is WriteOnly and must be null in state)
+func (r *cms_buildResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		// Version 0 -> 1: Remove auth_token from state (now WriteOnly)
+		0: {
+			PriorSchema: &schema.Schema{
+				Attributes: map[string]schema.Attribute{
+					"id":          schema.StringAttribute{Computed: true},
+					"environment": schema.StringAttribute{Required: true},
+					"service":     schema.StringAttribute{Required: true},
+					"type":        schema.StringAttribute{Required: true},
+					"path":        schema.StringAttribute{Required: true},
+					"name":        schema.StringAttribute{Required: true},
+					"description": schema.StringAttribute{Optional: true},
+					"evm_version": schema.StringAttribute{Optional: true},
+					"solc_version": schema.StringAttribute{Optional: true},
+					"github": schema.SingleNestedAttribute{
+						Optional: true,
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"contract_url":  schema.StringAttribute{Required: true},
+							"contract_name": schema.StringAttribute{Optional: true},
+							"auth_token":    schema.StringAttribute{Optional: true, Sensitive: true},
+						},
+					},
+					"source_code": schema.SingleNestedAttribute{
+						Optional: true,
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"contract_name": schema.StringAttribute{Required: true},
+							"file_contents": schema.StringAttribute{Optional: true},
+						},
+					},
+					"precompiled": schema.SingleNestedAttribute{
+						Optional: true,
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"abi":      schema.StringAttribute{Required: true},
+							"bytecode": schema.StringAttribute{Required: true},
+							"dev_docs": schema.StringAttribute{Optional: true},
+						},
+					},
+					"optimizer": schema.SingleNestedAttribute{
+						Optional: true,
+						Computed: true,
+						Attributes: map[string]schema.Attribute{
+							"enabled": schema.BoolAttribute{Optional: true},
+							"runs":    schema.Int64Attribute{Optional: true},
+							"via_ir":  schema.BoolAttribute{Optional: true},
+						},
+					},
+					"abi":                       schema.StringAttribute{Computed: true},
+					"bytecode":                  schema.StringAttribute{Computed: true},
+					"dev_docs":                  schema.StringAttribute{Computed: true},
+					"libraries_json":            schema.StringAttribute{Optional: true},
+					"commit_hash":               schema.StringAttribute{Computed: true},
+					"compilation_metadata_json": schema.StringAttribute{Computed: true},
+					"ignore_destroy":            schema.BoolAttribute{Optional: true},
+				},
+			},
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				// Read raw state as a map
+				var rawState map[string]interface{}
+				resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Empty(), &rawState)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+
+				// Remove auth_token from github block if present
+				if github, ok := rawState["github"].(map[string]interface{}); ok {
+					delete(github, "auth_token")
+				}
+
+				// Set the upgraded state using the new schema
+				var data CMSBuildResourceModel
+				resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+
+				// Clear the auth_token (now WriteOnly, must be null)
+				if data.GitHub != nil {
+					data.GitHub = &CMSBuildGithubResourceModel{
+						ContractURL:  data.GitHub.ContractURL,
+						ContractName: data.GitHub.ContractName,
+						AuthToken:    types.StringNull(),
+					}
+				}
+
+				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+			},
+		},
+	}
+}
+
 func (data *CMSBuildResourceModel) toAPI(api *CMSBuildAPIModel, isUpdate bool) {
 	api.Name = data.Name.ValueString()
 	api.Path = data.Path.ValueString()
@@ -462,9 +560,13 @@ func (r *cms_buildResource) Create(ctx context.Context, req resource.CreateReque
 	api.toData(&data) // need the ID copied over
 	r.waitForBuildStatus(ctx, &data, &api, &resp.Diagnostics)
 	api.toData(&data) // capture the build info
-	// Clear WriteOnly fields before saving to state - they must always be nil in state
+	// Rebuild GitHub struct to ensure WriteOnly auth_token is properly null in state
 	if data.GitHub != nil {
-		data.GitHub.AuthToken = types.StringNull()
+		data.GitHub = &CMSBuildGithubResourceModel{
+			ContractURL:  data.GitHub.ContractURL,
+			ContractName: data.GitHub.ContractName,
+			AuthToken:    types.StringNull(),
+		}
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
@@ -484,9 +586,14 @@ func (r *cms_buildResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	api.toData(&data)
-	// Clear WriteOnly fields before saving to state - they must always be nil in state
+	// Rebuild GitHub struct to ensure WriteOnly auth_token is properly null in state
+	// This handles state upgrade from old provider where auth_token was stored
 	if data.GitHub != nil {
-		data.GitHub.AuthToken = types.StringNull()
+		data.GitHub = &CMSBuildGithubResourceModel{
+			ContractURL:  data.GitHub.ContractURL,
+			ContractName: data.GitHub.ContractName,
+			AuthToken:    types.StringNull(),
+		}
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -506,9 +613,14 @@ func (r *cms_buildResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 	api.toData(&data)
-	// Clear WriteOnly fields before saving to state - they must always be nil in state
+	// Rebuild GitHub struct to ensure WriteOnly auth_token is properly null in state
+	// This handles state upgrade from old provider where auth_token was stored
 	if data.GitHub != nil {
-		data.GitHub.AuthToken = types.StringNull()
+		data.GitHub = &CMSBuildGithubResourceModel{
+			ContractURL:  data.GitHub.ContractURL,
+			ContractName: data.GitHub.ContractName,
+			AuthToken:    types.StringNull(),
+		}
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
