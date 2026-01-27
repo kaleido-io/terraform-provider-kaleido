@@ -422,15 +422,15 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	var api ServiceAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
-	
+
 	// Use temporary diagnostics for the create request to handle 409 gracefully
 	var createDiags diag.Diagnostics
 	ok, status := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &createDiags)
-	
+
 	// Handle 409 Conflict - service already exists, read it and wait for ready
 	if !ok && status == 409 {
 		tflog.Debug(ctx, fmt.Sprintf("409 Conflict detected for service '%s' of type '%s', attempting to find existing service", api.Name, api.Type))
-		
+
 		// Service already exists, try to find it by name, type, and stack_id
 		listPath := fmt.Sprintf("/api/v1/environments/%s/services", data.Environment.ValueString())
 		type servicesListResponse struct {
@@ -439,9 +439,9 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		var servicesResponse servicesListResponse
 		var listDiags diag.Diagnostics
 		listOk, listStatus := r.apiRequest(ctx, http.MethodGet, listPath, nil, &servicesResponse, &listDiags)
-		
+
 		tflog.Debug(ctx, fmt.Sprintf("List API call result: ok=%v, status=%d, items count=%d", listOk, listStatus, len(servicesResponse.Items)))
-		
+
 		var servicesToSearch []ServiceAPIModel
 		if listOk && len(servicesResponse.Items) > 0 {
 			servicesToSearch = servicesResponse.Items
@@ -455,17 +455,17 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 				tflog.Debug(ctx, fmt.Sprintf("Using direct array format, found %d services", len(servicesToSearch)))
 			}
 		}
-		
+
 		// Log all services found for debugging
 		if len(servicesToSearch) > 0 {
-			tflog.Debug(ctx, fmt.Sprintf("Searching for service: name='%s', type='%s', stackID='%s', runtimeID='%s'", 
+			tflog.Debug(ctx, fmt.Sprintf("Searching for service: name='%s', type='%s', stackID='%s', runtimeID='%s'",
 				api.Name, api.Type, api.StackID, api.Runtime.ID))
 			for i, svc := range servicesToSearch {
-				tflog.Debug(ctx, fmt.Sprintf("Service[%d]: name='%s', type='%s', stackID='%s', runtimeID='%s', id='%s'", 
+				tflog.Debug(ctx, fmt.Sprintf("Service[%d]: name='%s', type='%s', stackID='%s', runtimeID='%s', id='%s'",
 					i, svc.Name, svc.Type, svc.StackID, svc.Runtime.ID, svc.ID))
 			}
 		}
-		
+
 		// Try to find the service with strict matching first
 		if len(servicesToSearch) > 0 {
 			for _, svc := range servicesToSearch {
@@ -474,10 +474,10 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 				typeMatch := svc.Type == api.Type || svc.Type == api.Type+"Service" || api.Type == svc.Type+"Service" || strings.TrimSuffix(svc.Type, "Service") == strings.TrimSuffix(api.Type, "Service")
 				stackMatch := api.StackID == "" || svc.StackID == api.StackID
 				runtimeMatch := api.Runtime.ID == "" || svc.Runtime.ID == api.Runtime.ID
-				
-				tflog.Debug(ctx, fmt.Sprintf("Matching service '%s': nameMatch=%v, typeMatch=%v (api.Type='%s' vs svc.Type='%s'), stackMatch=%v, runtimeMatch=%v", 
+
+				tflog.Debug(ctx, fmt.Sprintf("Matching service '%s': nameMatch=%v, typeMatch=%v (api.Type='%s' vs svc.Type='%s'), stackMatch=%v, runtimeMatch=%v",
 					svc.Name, nameMatch, typeMatch, api.Type, svc.Type, stackMatch, runtimeMatch))
-				
+
 				if nameMatch && typeMatch && stackMatch && runtimeMatch {
 					tflog.Debug(ctx, fmt.Sprintf("Found matching service with strict criteria: id='%s'", svc.ID))
 					api = svc
@@ -486,7 +486,7 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 				}
 			}
 		}
-		
+
 		// If still not found with strict matching, try just name and type (with Service suffix handling)
 		if !ok && len(servicesToSearch) > 0 {
 			tflog.Debug(ctx, "Strict match failed, trying lenient match (name and type only)")
@@ -501,7 +501,7 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 				}
 			}
 		}
-		
+
 		if !ok {
 			// Couldn't find the existing service
 			// Add list errors if any, then add our error
@@ -520,7 +520,7 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		resp.Diagnostics.Append(createDiags...)
 		return
 	}
-	
+
 	if !ok {
 		return
 	}

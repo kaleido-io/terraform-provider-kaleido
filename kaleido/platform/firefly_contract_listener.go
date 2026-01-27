@@ -120,16 +120,15 @@ func (api *FireFlyContractListenerAPIModel) toData(data *FireFlyContractListener
 func (r *firefly_contract_listenerResource) apiPath(data *FireFlyContractListenerResourceModel, idOrName string) string {
 	// FireFly API through Kaleido endpoint proxy uses /rest/api/v1/contracts/listeners (no namespace in path)
 	if idOrName != "" {
-		return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/contracts/listeners/%s", 
-			data.Environment.ValueString(), 
-			data.Service.ValueString(), 
+		return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/contracts/listeners/%s",
+			data.Environment.ValueString(),
+			data.Service.ValueString(),
 			idOrName)
 	}
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/contracts/listeners", 
-		data.Environment.ValueString(), 
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/contracts/listeners",
+		data.Environment.ValueString(),
 		data.Service.ValueString())
 }
-
 
 func (r *firefly_contract_listenerResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data FireFlyContractListenerResourceModel
@@ -155,7 +154,7 @@ func (r *firefly_contract_listenerResource) Update(ctx context.Context, req reso
 	var data FireFlyContractListenerResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
-	
+
 	// Since listeners are immutable, we can't update them
 	// Terraform should handle this via replacement, but if we get here,
 	// we'll just return the current state

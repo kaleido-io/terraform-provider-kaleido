@@ -38,21 +38,21 @@ type FireFlySubscriptionResourceModel struct {
 }
 
 type FireFlySubscriptionAPIModel struct {
-	ID          string      `json:"id,omitempty"`
-	Name        string      `json:"name,omitempty"`
-	Created     string      `json:"created,omitempty"`
-	Updated     string      `json:"updated,omitempty"`
-	Transport   string      `json:"transport,omitempty"`
-	Filter      interface{} `json:"filter,omitempty"`
-	Options     interface{} `json:"options,omitempty"`
-	Webhook     interface{} `json:"webhook,omitempty"`
-	Ephemeral   bool        `json:"ephemeral,omitempty"`
+	ID        string      `json:"id,omitempty"`
+	Name      string      `json:"name,omitempty"`
+	Created   string      `json:"created,omitempty"`
+	Updated   string      `json:"updated,omitempty"`
+	Transport string      `json:"transport,omitempty"`
+	Filter    interface{} `json:"filter,omitempty"`
+	Options   interface{} `json:"options,omitempty"`
+	Webhook   interface{} `json:"webhook,omitempty"`
+	Ephemeral bool        `json:"ephemeral,omitempty"`
 }
 
 // WebhookConfig represents the webhook configuration structure including TLSConfig
 // This is used for documentation and type safety, but config_json allows full flexibility
 type WebhookConfig struct {
-	URL      string    `json:"url,omitempty"`
+	URL       string     `json:"url,omitempty"`
 	TLSConfig *TLSConfig `json:"tlsConfig,omitempty"`
 }
 
@@ -116,7 +116,7 @@ func (r *firefly_subscriptionResource) Schema(_ context.Context, _ resource.Sche
 func (data *FireFlySubscriptionResourceModel) toAPI(api *FireFlySubscriptionAPIModel, diagnostics *diag.Diagnostics) bool {
 	// Set the name (from the resource, not from config JSON)
 	api.Name = data.Name.ValueString()
-	
+
 	// Unmarshal the config JSON directly into the API model
 	// This preserves the structure of nested objects like webhook
 	err := json.Unmarshal([]byte(data.ConfigJSON.ValueString()), api)
@@ -124,10 +124,10 @@ func (data *FireFlySubscriptionResourceModel) toAPI(api *FireFlySubscriptionAPIM
 		diagnostics.AddError("failed to parse config JSON", err.Error())
 		return false
 	}
-	
+
 	// Ensure name is set (in case config JSON also had a name field)
 	api.Name = data.Name.ValueString()
-	
+
 	return true
 }
 
@@ -138,16 +138,15 @@ func (api *FireFlySubscriptionAPIModel) toData(data *FireFlySubscriptionResource
 func (r *firefly_subscriptionResource) apiPath(data *FireFlySubscriptionResourceModel, idOrName string) string {
 	// FireFly API through Kaleido endpoint proxy uses /rest/api/v1/subscriptions (no namespace in path)
 	if idOrName != "" {
-		return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/subscriptions/%s", 
-			data.Environment.ValueString(), 
-			data.Service.ValueString(), 
+		return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/subscriptions/%s",
+			data.Environment.ValueString(),
+			data.Service.ValueString(),
 			idOrName)
 	}
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/subscriptions", 
-		data.Environment.ValueString(), 
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/subscriptions",
+		data.Environment.ValueString(),
 		data.Service.ValueString())
 }
-
 
 func (r *firefly_subscriptionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data FireFlySubscriptionResourceModel
@@ -173,7 +172,7 @@ func (r *firefly_subscriptionResource) Update(ctx context.Context, req resource.
 	var data FireFlySubscriptionResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
-	
+
 	// Since subscriptions are immutable, we can't update them
 	// Terraform should handle this via replacement, but if we get here,
 	// we'll just return the current state
