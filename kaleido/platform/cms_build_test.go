@@ -24,6 +24,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -72,17 +73,19 @@ func TestCMSBuild1(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	defer func() {
-		mp.checkClearCalls([]string{
-			"POST /endpoint/{env}/{service}/rest/api/v1/builds",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"PATCH /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-		})
+		if !t.Skipped() {
+			mp.checkClearCalls([]string{
+				"POST /endpoint/{env}/{service}/rest/api/v1/builds",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"PATCH /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"DELETE /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			})
+		}
 		mp.server.Close()
 	}()
 
@@ -90,6 +93,9 @@ func TestCMSBuild1(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0),
+		},
 		Steps: []resource.TestStep{
 			{
 				Config: providerConfig + cms_buildStep1,
@@ -170,14 +176,16 @@ func TestCMSBuildPreCompiled(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	defer func() {
-		mp.checkClearCalls([]string{
-			"POST /endpoint/{env}/{service}/rest/api/v1/builds",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
-		})
+		if !t.Skipped() {
+			mp.checkClearCalls([]string{
+				"POST /endpoint/{env}/{service}/rest/api/v1/builds",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"DELETE /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+				"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			})
+		}
 		mp.server.Close()
 	}()
 
@@ -185,6 +193,9 @@ func TestCMSBuildPreCompiled(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0),
+		},
 		Steps: []resource.TestStep{
 			{
 				Config: providerConfig + cms_buildPrecompiled,
