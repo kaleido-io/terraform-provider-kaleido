@@ -48,7 +48,7 @@ type CMSBuildResourceModel struct {
 	EVMVersion              types.String                     `tfsdk:"evm_version"`
 	SolcVersion             types.String                     `tfsdk:"solc_version"`
 	Precompiled             CMSBuildPrecompiledResourceModel `tfsdk:"precompiled"`
-	GitHub                  CMSBuildGithubResourceModel      `tfsdk:"github"`
+	GitHub                  *CMSBuildGithubResourceModel     `tfsdk:"github"`
 	Optimizer               *CMSBuildOptimizerResourceModel  `tfsdk:"optimizer"`
 	SourceCode              CMSBuildSourceCodeResourceModel  `tfsdk:"source_code"`
 	ABI                     types.String                     `tfsdk:"abi"`
@@ -179,7 +179,10 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"github": &schema.SingleNestedAttribute{
 				Optional: true,
-				Computed: true,
+				// NOTE: Removed Computed: true and Default to allow auth_token to be WriteOnly.
+				// WriteOnly attributes cannot exist inside Computed nested blocks.
+				// This is safe for state migration - existing empty github blocks will be
+				// ignored on upgrade since they're not in config for non-github type builds.
 				Attributes: map[string]schema.Attribute{
 					"contract_url": &schema.StringAttribute{
 						Required:      true,
@@ -191,23 +194,9 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					},
 					"auth_token": &schema.StringAttribute{
 						Optional:  true,
-						Sensitive: true,
+						WriteOnly: true,
 					},
 				},
-				Default: objectdefault.StaticValue(
-					types.ObjectValueMust(
-						map[string]attr.Type{
-							"contract_url":  types.StringType,
-							"contract_name": types.StringType,
-							"auth_token":    types.StringType,
-						},
-						map[string]attr.Value{
-							"contract_url":  types.StringValue(""),
-							"contract_name": types.StringValue(""),
-							"auth_token":    types.StringValue(""),
-						},
-					),
-				),
 			},
 			"source_code": &schema.SingleNestedAttribute{
 				Optional: true,

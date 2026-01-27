@@ -129,7 +129,6 @@ func TestCMSBuild1(t *testing.T) {
 							"github": {
 								"contractUrl": "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol",
 								"contractName": "Firefly",
-								"oauthToken": "token12345",
 								"commitHash": "%[4]s"
 							},
 							"abi": "[{\"some\":\"abi\"}]",
@@ -144,6 +143,115 @@ func TestCMSBuild1(t *testing.T) {
 							obj.Updated.UTC().Format(time.RFC3339Nano),
 							obj.GitHub.CommitHash,
 						))
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
+// TestCMSBuildAuthTokenChange verifies that changing only the github auth_token
+// does NOT trigger an update or replace. This is the key test for the WriteOnly fix.
+// The auth_token is write-only, meaning it's only used during Create and is never
+// stored in state, so changing it shouldn't cause any diff.
+var cms_buildAuthTokenStep1 = `
+resource "kaleido_platform_cms_build" "cms_build_auth_token" {
+    environment = "env1"
+	service = "service1"
+    type = "github"
+    name = "build_auth_token"
+    path = "some/path"
+	github = {
+		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
+		contract_name = "Firefly"
+		auth_token = "initial_token_123"
+	}
+	optimizer = {
+	    enabled = true
+		runs = 200
+		via_ir = false
+	}
+}
+`
+
+var cms_buildAuthTokenStep2 = `
+resource "kaleido_platform_cms_build" "cms_build_auth_token" {
+    environment = "env1"
+	service = "service1"
+    type = "github"
+    name = "build_auth_token"
+    path = "some/path"
+	github = {
+		contract_url = "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol"
+		contract_name = "Firefly"
+		auth_token = "updated_token_456"
+	}
+	optimizer = {
+	    enabled = true
+		runs = 200
+		via_ir = false
+	}
+}
+`
+
+func TestCMSBuildAuthTokenChange(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		// CRITICAL: Note there is NO PATCH call between the two steps.
+		// This proves that changing auth_token alone does not trigger an update.
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v1/builds", // Step 1: Create
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}", // Step 2: Read only, NO PATCH!
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/builds/{build}",
+		})
+		mp.server.Close()
+	}()
+
+	cms_buildAuthTokenResource := "kaleido_platform_cms_build.cms_build_auth_token"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + cms_buildAuthTokenStep1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "id"),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "name", `build_auth_token`),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "type", `github`),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "abi"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "bytecode"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "dev_docs"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "commit_hash"),
+				),
+			},
+			{
+				// Step 2: Only change auth_token - should result in NO PATCH call
+				Config: providerConfig + cms_buildAuthTokenStep2,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "id"),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "name", `build_auth_token`),
+					resource.TestCheckResourceAttr(cms_buildAuthTokenResource, "type", `github`),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "abi"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "bytecode"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "dev_docs"),
+					resource.TestCheckResourceAttrSet(cms_buildAuthTokenResource, "commit_hash"),
+					func(s *terraform.State) error {
+						// Verify the resource still exists and wasn't replaced
+						id := s.RootModule().Resources[cms_buildAuthTokenResource].Primary.Attributes["id"]
+						obj := mp.cmsBuilds[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						// The auth_token is WriteOnly - it's used for GitHub auth during Create
+						// but NOT stored in the build record or Terraform state.
+						// The key assertion here is that NO PATCH was made (checked in defer above),
+						// proving that changing auth_token alone doesn't trigger an update.
+						assert.Equal(t, "build_auth_token", obj.Name)
+						assert.Equal(t, "some/path", obj.Path)
 						return nil
 					},
 				),

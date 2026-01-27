@@ -267,7 +267,7 @@ func (mp *mockPlatform) register(pathMatch, method string, handler http.HandlerF
 				res.Header().Set("Content-Length", strconv.Itoa(len(resString)))
 				res.WriteHeader(500)
 				res.Write([]byte(resString))
-				mp.t.Logf(resString + ": " + string(debug.Stack()))
+				mp.t.Logf("%s: %s", resString, string(debug.Stack()))
 			}
 		}()
 		sniffed, err := io.ReadAll(req.Body)
