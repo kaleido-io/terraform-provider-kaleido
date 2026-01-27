@@ -129,6 +129,7 @@ func TestCMSBuild1(t *testing.T) {
 							"github": {
 								"contractUrl": "https://github.com/hyperledger/firefly/blob/main/smart_contracts/ethereum/solidity_firefly/contracts/Firefly.sol",
 								"contractName": "Firefly",
+								"oauthToken": "token12345",
 								"commitHash": "%[4]s"
 							},
 							"abi": "[{\"some\":\"abi\"}]",
