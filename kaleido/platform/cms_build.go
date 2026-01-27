@@ -462,6 +462,10 @@ func (r *cms_buildResource) Create(ctx context.Context, req resource.CreateReque
 	api.toData(&data) // need the ID copied over
 	r.waitForBuildStatus(ctx, &data, &api, &resp.Diagnostics)
 	api.toData(&data) // capture the build info
+	// Clear WriteOnly fields before saving to state - they must always be nil in state
+	if data.GitHub != nil {
+		data.GitHub.AuthToken = types.StringNull()
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -480,6 +484,10 @@ func (r *cms_buildResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	api.toData(&data)
+	// Clear WriteOnly fields before saving to state - they must always be nil in state
+	if data.GitHub != nil {
+		data.GitHub.AuthToken = types.StringNull()
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -498,6 +506,10 @@ func (r *cms_buildResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 	api.toData(&data)
+	// Clear WriteOnly fields before saving to state - they must always be nil in state
+	if data.GitHub != nil {
+		data.GitHub.AuthToken = types.StringNull()
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
