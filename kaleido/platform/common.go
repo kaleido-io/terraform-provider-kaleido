@@ -381,6 +381,8 @@ func Resources() []func() resource.Resource {
 		AMSVariableSetResourceFactory,
 		AMSCollectionResourceFactory,
 		FireFlyRegistrationResourceFactory,
+		FireFlySubscriptionResourceFactory,
+		FireFlyContractListenerResourceFactory,
 		StacksResourceFactory,
 		ConnectorResourceFactory,
 		ApplicationResourceFactory,
