@@ -17,14 +17,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/http"
-	"time"
 )
 
 type ServiceAccessResourceModel struct {
@@ -82,6 +84,8 @@ func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 			"permissions_json": &schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("{}"),
 				Description: "Permissions. JSON describing fine grained service api access rules",
 			},
 		},
@@ -110,9 +114,12 @@ func (api *ServiceAccessAPIModel) toData(data *ServiceAccessResourceModel) {
 		data.ApplicationID = types.StringValue(api.ApplicationID)
 	}
 
-	if api.Permissions != nil {
+	if len(api.Permissions) > 0 {
 		permissionsBytes, _ := json.Marshal(api.Permissions)
 		data.PermissionsJSON = types.StringValue(string(permissionsBytes))
+	} else {
+		// Normalize empty/nil to "{}" to match schema default and avoid plan/state drift
+		data.PermissionsJSON = types.StringValue("{}")
 	}
 
 	data.ServiceID = types.StringValue(api.ServiceID)
