@@ -317,26 +317,26 @@ func (r *cms_buildResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 
 // CMSBuildResourceModelV0 is the version 0 schema model (auth_token was Sensitive, not WriteOnly)
 type CMSBuildResourceModelV0 struct {
-	ID                      types.String                      `tfsdk:"id"`
-	Environment             types.String                      `tfsdk:"environment"`
-	Service                 types.String                      `tfsdk:"service"`
-	Type                    types.String                      `tfsdk:"type"`
-	Path                    types.String                      `tfsdk:"path"`
-	Name                    types.String                      `tfsdk:"name"`
-	Description             types.String                      `tfsdk:"description"`
-	EVMVersion              types.String                      `tfsdk:"evm_version"`
-	SolcVersion             types.String                      `tfsdk:"solc_version"`
-	Precompiled             CMSBuildPrecompiledResourceModel  `tfsdk:"precompiled"`
-	GitHub                  *CMSBuildGithubResourceModelV0    `tfsdk:"github"`
-	Optimizer               *CMSBuildOptimizerResourceModel   `tfsdk:"optimizer"`
-	SourceCode              CMSBuildSourceCodeResourceModel   `tfsdk:"source_code"`
-	ABI                     types.String                      `tfsdk:"abi"`
-	Bytecode                types.String                      `tfsdk:"bytecode"`
-	DevDocs                 types.String                      `tfsdk:"dev_docs"`
-	LibrariesJSON           types.String                      `tfsdk:"libraries_json"`
-	CommitHash              types.String                      `tfsdk:"commit_hash"`
-	CompilationMetadataJSON types.String                      `tfsdk:"compilation_metadata_json"`
-	IgnoreDestroy           types.Bool                        `tfsdk:"ignore_destroy"`
+	ID                      types.String                     `tfsdk:"id"`
+	Environment             types.String                     `tfsdk:"environment"`
+	Service                 types.String                     `tfsdk:"service"`
+	Type                    types.String                     `tfsdk:"type"`
+	Path                    types.String                     `tfsdk:"path"`
+	Name                    types.String                     `tfsdk:"name"`
+	Description             types.String                     `tfsdk:"description"`
+	EVMVersion              types.String                     `tfsdk:"evm_version"`
+	SolcVersion             types.String                     `tfsdk:"solc_version"`
+	Precompiled             CMSBuildPrecompiledResourceModel `tfsdk:"precompiled"`
+	GitHub                  *CMSBuildGithubResourceModelV0   `tfsdk:"github"`
+	Optimizer               *CMSBuildOptimizerResourceModel  `tfsdk:"optimizer"`
+	SourceCode              CMSBuildSourceCodeResourceModel  `tfsdk:"source_code"`
+	ABI                     types.String                     `tfsdk:"abi"`
+	Bytecode                types.String                     `tfsdk:"bytecode"`
+	DevDocs                 types.String                     `tfsdk:"dev_docs"`
+	LibrariesJSON           types.String                     `tfsdk:"libraries_json"`
+	CommitHash              types.String                     `tfsdk:"commit_hash"`
+	CompilationMetadataJSON types.String                     `tfsdk:"compilation_metadata_json"`
+	IgnoreDestroy           types.Bool                       `tfsdk:"ignore_destroy"`
 }
 
 type CMSBuildGithubResourceModelV0 struct {
@@ -353,14 +353,14 @@ func (r *cms_buildResource) UpgradeState(_ context.Context) map[int64]resource.S
 		0: {
 			PriorSchema: &schema.Schema{
 				Attributes: map[string]schema.Attribute{
-					"id":          schema.StringAttribute{Computed: true},
-					"environment": schema.StringAttribute{Required: true},
-					"service":     schema.StringAttribute{Required: true},
-					"type":        schema.StringAttribute{Required: true},
-					"path":        schema.StringAttribute{Required: true},
-					"name":        schema.StringAttribute{Required: true},
-					"description": schema.StringAttribute{Optional: true},
-					"evm_version": schema.StringAttribute{Optional: true},
+					"id":           schema.StringAttribute{Computed: true},
+					"environment":  schema.StringAttribute{Required: true},
+					"service":      schema.StringAttribute{Required: true},
+					"type":         schema.StringAttribute{Required: true},
+					"path":         schema.StringAttribute{Required: true},
+					"name":         schema.StringAttribute{Required: true},
+					"description":  schema.StringAttribute{Optional: true},
+					"evm_version":  schema.StringAttribute{Optional: true},
 					"solc_version": schema.StringAttribute{Optional: true},
 					"github": schema.SingleNestedAttribute{
 						Optional: true,
