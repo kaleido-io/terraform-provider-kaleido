@@ -36,6 +36,7 @@ type ServiceResourceModel struct {
 	Runtime             types.String `tfsdk:"runtime"`
 	Type                types.String `tfsdk:"type"`
 	Name                types.String `tfsdk:"name"`
+	DatabaseName        types.String `tfsdk:"database_name"`
 	StackID             types.String `tfsdk:"stack_id"`
 	EnvironmentMemberID types.String `tfsdk:"environment_member_id"`
 	ConfigJSON          types.String `tfsdk:"config_json"`
@@ -54,6 +55,7 @@ type ServiceAPIModel struct {
 	Updated             *time.Time                    `json:"updated,omitempty"`
 	Type                string                        `json:"type"`
 	Name                string                        `json:"name"`
+	DatabaseName        string                        `json:"databaseName,omitempty"`
 	StackID             string                        `json:"stackId,omitempty"`
 	Runtime             ServiceAPIRuntimeRef          `json:"runtime,omitempty"`
 	Account             string                        `json:"account,omitempty"`
@@ -131,6 +133,11 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"name": &schema.StringAttribute{
 				Required:    true,
 				Description: "Service Display Name",
+			},
+			"database_name": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Database name for the service. Only required when database management is disabled",
 			},
 			"stack_id": &schema.StringAttribute{
 				Optional:      true,
@@ -248,6 +255,9 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 	api.Name = data.Name.ValueString()
 	api.StackID = data.StackID.ValueString()
 	api.Runtime.ID = data.Runtime.ValueString()
+	if !data.DatabaseName.IsNull() && !data.DatabaseName.IsUnknown() {
+		api.DatabaseName = data.DatabaseName.ValueString()
+	}
 	api.Config = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {
 		_ = json.Unmarshal([]byte(data.ConfigJSON.ValueString()), &api.Config)
@@ -361,6 +371,9 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+	if api.DatabaseName != "" {
+		data.DatabaseName = types.StringValue(api.DatabaseName)
+	}
 	endpoints := map[string]attr.Value{}
 	endpointAttrTypes := map[string]attr.Type{
 		"type": types.StringType,

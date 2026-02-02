@@ -26,6 +26,7 @@ Each capability of the Kaleido platform is made available as a service.
 ### Optional
 
 - `cred_sets` (Attributes Map) Credentials such as usernames and passwords, or API Keys, required to integrate with external systems are also stored and encrypted separately to the main configuration of the service. (see [below for nested schema](#nestedatt--cred_sets))
+- `database_name` (String) Database name for the service. Only required when database management is disabled
 - `file_sets` (Attributes Map) Some services require binary files as part of their configuration, such as x509 certificates, or large JSON/YAML configuration files to be passed directly down to the service for verification. The files are individually encrypted. (see [below for nested schema](#nestedatt--file_sets))
 - `force_delete` (Boolean) Set to `true` when you plan to delete a protected service like a Besu validator node. You must apply the value before you can successfully `terraform destroy` the protected service.
 - `hostnames` (Map of List of String)
