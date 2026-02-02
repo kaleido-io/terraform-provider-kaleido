@@ -82,7 +82,7 @@ func (r *firefly_contract_listenerResource) Schema(_ context.Context, _ resource
 			"namespace": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "FireFly namespace name",
+				Description:   "FireFly namespace name, this should match name of the firefly service.",
 			},
 			"name": &schema.StringAttribute{
 				Optional:      true,

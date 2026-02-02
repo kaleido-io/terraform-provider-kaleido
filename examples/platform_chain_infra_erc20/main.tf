@@ -362,7 +362,7 @@ resource "kaleido_platform_firefly_contract_listener" "erc20_transfer" {
     }
     topic = "erc20-transfer"  // Topic must be at top level, not in options
     options = {
-      firstEvent = "oldest"
+      firstEvent = var.first_event
     }
   })
   depends_on = [

@@ -6,3 +6,4 @@ kaleido_platform_username = "your-api-key-name"
 kaleido_platform_password = "your-api-key-value"
 environment_name = "my-test-environment"
 besu_node_count = 1
+# first_event = "newest"   # default: "newest", can be set to "newest", "oldest", or a block number e.g. "12345"

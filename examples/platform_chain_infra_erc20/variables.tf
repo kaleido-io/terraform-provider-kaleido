@@ -18,3 +18,9 @@ variable "besu_node_count" {
   type = number
   default = 1
 }
+
+variable "first_event" {
+  type        = string
+  default     = "newest"
+  description = "Firefly subscription firstEvent: 'newest' (default), 'oldest', or a block number to start from."
+}

@@ -56,6 +56,8 @@ The example deploys:
 
 ## Usage
 
+Instructions are given for the OpenTofu terraform fork.
+
 1. **Set up your Terraform variables:**
    ```bash
    cp terraform.tfvars.example terraform.tfvars
@@ -64,19 +66,19 @@ The example deploys:
 
    Or provide variables via command line:
    ```bash
-   terraform plan -var="kaleido_platform_api=https://..." -var="kaleido_platform_username=..." -var="kaleido_platform_password=..." -var="environment_name=..."
+   tofu plan -var="kaleido_platform_api=https://..." -var="kaleido_platform_username=..." -var="kaleido_platform_password=..." -var="environment_name=..."
    ```
 
    Or disable interactive prompts:
    ```bash
-   terraform plan -input=false  # Will fail if variables are not provided
+   tofu plan -input=false  # Will fail if variables are not provided
    ```
 
-2. Run `terraform init` to initialize the provider (skip if using dev_overrides)
-3. Run `terraform plan` to review the changes
-4. Run `terraform apply` to create the infrastructure
+2. Run `tofu init` to initialize the provider (skip if using dev_overrides)
+3. Run `tofu plan` to review the changes
+4. Run `tofu apply` to create the infrastructure
 5. Start the webhook echo server(
-6. Run `terraform apply` to create the infrastructure
+6. Run `tofu apply` to create the infrastructure
 7. The FireFly subscription will automatically forward blockchain events to your webhook
 
 
