@@ -19,7 +19,7 @@ A FireFly contract listener that listens for specific blockchain events from sma
 
 - `config_json` (String) JSON configuration for the listener (location, event, topic, options, etc.). Note: FireFly contract listeners are immutable - changes require replacement.
 - `environment` (String) Environment ID
-- `namespace` (String) FireFly namespace name
+- `namespace` (String) FireFly namespace name, this should match name of the firefly service.
 - `service` (String) FireFly Service ID
 
 ### Optional
