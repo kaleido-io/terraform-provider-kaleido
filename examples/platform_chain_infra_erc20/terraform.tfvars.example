@@ -1,0 +1,9 @@
+# Copy this file to terraform.tfvars and fill in your values
+# terraform.tfvars is in .gitignore and won't be committed
+
+kaleido_platform_api = "https://your-kaleido-api-url.com/api/v1"
+kaleido_platform_username = "your-api-key-name"
+kaleido_platform_password = "your-api-key-value"
+environment_name = "my-test-environment"
+besu_node_count = 1
+# first_event = "newest"   # default: "newest", can be set to "newest", "oldest", or a block number e.g. "12345"

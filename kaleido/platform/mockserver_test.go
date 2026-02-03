@@ -32,74 +32,78 @@ import (
 )
 
 type mockPlatform struct {
-	t                     *testing.T
-	lock                  sync.Mutex
-	router                *mux.Router
-	server                *httptest.Server
-	environments          map[string]*EnvironmentAPIModel
-	runtimes              map[string]*RuntimeAPIModel
-	services              map[string]*ServiceAPIModel
-	networks              map[string]*NetworkAPIModel
-	stacks                map[string]*StacksAPIModel
-	connectors            map[string]*ConnectorAPIModel
-	networkinitdatas      map[string]*NetworkInitData
-	kmsWallets            map[string]*KMSWalletAPIModel
-	kmsKeys               map[string]*KMSKeyAPIModel
-	cmsBuilds             map[string]*CMSBuildAPIModel
-	cmsActions            map[string]CMSActionAPIBaseAccessor
-	amsTasks              map[string]*AMSTaskAPIModel
-	amsTaskVersions       map[string]map[string]interface{}
-	amsPolicies           map[string]*AMSPolicyAPIModel
-	amsPolicyVersions     map[string]*AMSPolicyVersionAPIModel
-	amsDMUpserts          map[string]map[string]interface{}
-	amsFFListeners        map[string]*AMSFFListenerAPIModel
-	amsDMListeners        map[string]*AMSDMListenerAPIModel
-	amsVariableSets       map[string]*AMSVariableSetAPIModel
-	amsCollections        map[string]*AMSCollectionAPIModel
-	groups                map[string]*GroupAPIModel
-	ffsNode               *FireFlyStatusNodeAPIModel
-	ffsOrg                *FireFlyStatusOrgAPIModel
-	calls                 []string
-	applications          map[string]*ApplicationAPIModel
-	apiKeys               map[string]*APIKeyAPIModel
-	serviceAccess         map[string]*ServiceAccessAPIModel
-	serviceAccessPolicies map[string]*ServiceAccessPolicyAPIModel
-	accountAccessPolicies map[string]*AccountAccessPolicyAPIModel
-	stackAccess           map[string]*StackAccessAPIModel
+	t                        *testing.T
+	lock                     sync.Mutex
+	router                   *mux.Router
+	server                   *httptest.Server
+	environments             map[string]*EnvironmentAPIModel
+	runtimes                 map[string]*RuntimeAPIModel
+	services                 map[string]*ServiceAPIModel
+	networks                 map[string]*NetworkAPIModel
+	stacks                   map[string]*StacksAPIModel
+	connectors               map[string]*ConnectorAPIModel
+	networkinitdatas         map[string]*NetworkInitData
+	kmsWallets               map[string]*KMSWalletAPIModel
+	kmsKeys                  map[string]*KMSKeyAPIModel
+	cmsBuilds                map[string]*CMSBuildAPIModel
+	cmsActions               map[string]CMSActionAPIBaseAccessor
+	amsTasks                 map[string]*AMSTaskAPIModel
+	amsTaskVersions          map[string]map[string]interface{}
+	amsPolicies              map[string]*AMSPolicyAPIModel
+	amsPolicyVersions        map[string]*AMSPolicyVersionAPIModel
+	amsDMUpserts             map[string]map[string]interface{}
+	amsFFListeners           map[string]*AMSFFListenerAPIModel
+	amsDMListeners           map[string]*AMSDMListenerAPIModel
+	amsVariableSets          map[string]*AMSVariableSetAPIModel
+	amsCollections           map[string]*AMSCollectionAPIModel
+	groups                   map[string]*GroupAPIModel
+	ffsNode                  *FireFlyStatusNodeAPIModel
+	ffsOrg                   *FireFlyStatusOrgAPIModel
+	calls                    []string
+	applications             map[string]*ApplicationAPIModel
+	apiKeys                  map[string]*APIKeyAPIModel
+	serviceAccess            map[string]*ServiceAccessAPIModel
+	serviceAccessPolicies    map[string]*ServiceAccessPolicyAPIModel
+	accountAccessPolicies    map[string]*AccountAccessPolicyAPIModel
+	stackAccess              map[string]*StackAccessAPIModel
+	fireflyContractListeners map[string]*FireFlyContractListenerAPIModel
+	fireflySubscriptions     map[string]*FireFlySubscriptionAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:                     t,
-		environments:          make(map[string]*EnvironmentAPIModel),
-		runtimes:              make(map[string]*RuntimeAPIModel),
-		services:              make(map[string]*ServiceAPIModel),
-		networks:              make(map[string]*NetworkAPIModel),
-		stacks:                make(map[string]*StacksAPIModel),
-		connectors:            make(map[string]*ConnectorAPIModel),
-		networkinitdatas:      make(map[string]*NetworkInitData),
-		kmsWallets:            make(map[string]*KMSWalletAPIModel),
-		kmsKeys:               make(map[string]*KMSKeyAPIModel),
-		cmsBuilds:             make(map[string]*CMSBuildAPIModel),
-		cmsActions:            make(map[string]CMSActionAPIBaseAccessor),
-		amsTasks:              make(map[string]*AMSTaskAPIModel),
-		amsTaskVersions:       make(map[string]map[string]interface{}),
-		amsPolicies:           make(map[string]*AMSPolicyAPIModel),
-		amsPolicyVersions:     make(map[string]*AMSPolicyVersionAPIModel),
-		amsDMUpserts:          make(map[string]map[string]interface{}),
-		amsFFListeners:        make(map[string]*AMSFFListenerAPIModel),
-		amsDMListeners:        make(map[string]*AMSDMListenerAPIModel),
-		amsVariableSets:       make(map[string]*AMSVariableSetAPIModel),
-		amsCollections:        make(map[string]*AMSCollectionAPIModel),
-		groups:                make(map[string]*GroupAPIModel),
-		applications:          make(map[string]*ApplicationAPIModel),
-		serviceAccess:         make(map[string]*ServiceAccessAPIModel),
-		serviceAccessPolicies: make(map[string]*ServiceAccessPolicyAPIModel),
-		accountAccessPolicies: make(map[string]*AccountAccessPolicyAPIModel),
-		stackAccess:           make(map[string]*StackAccessAPIModel),
-		apiKeys:               make(map[string]*APIKeyAPIModel),
-		router:                mux.NewRouter(),
-		calls:                 []string{},
+		t:                        t,
+		environments:             make(map[string]*EnvironmentAPIModel),
+		runtimes:                 make(map[string]*RuntimeAPIModel),
+		services:                 make(map[string]*ServiceAPIModel),
+		networks:                 make(map[string]*NetworkAPIModel),
+		stacks:                   make(map[string]*StacksAPIModel),
+		connectors:               make(map[string]*ConnectorAPIModel),
+		networkinitdatas:         make(map[string]*NetworkInitData),
+		kmsWallets:               make(map[string]*KMSWalletAPIModel),
+		kmsKeys:                  make(map[string]*KMSKeyAPIModel),
+		cmsBuilds:                make(map[string]*CMSBuildAPIModel),
+		cmsActions:               make(map[string]CMSActionAPIBaseAccessor),
+		amsTasks:                 make(map[string]*AMSTaskAPIModel),
+		amsTaskVersions:          make(map[string]map[string]interface{}),
+		amsPolicies:              make(map[string]*AMSPolicyAPIModel),
+		amsPolicyVersions:        make(map[string]*AMSPolicyVersionAPIModel),
+		amsDMUpserts:             make(map[string]map[string]interface{}),
+		amsFFListeners:           make(map[string]*AMSFFListenerAPIModel),
+		amsDMListeners:           make(map[string]*AMSDMListenerAPIModel),
+		amsVariableSets:          make(map[string]*AMSVariableSetAPIModel),
+		amsCollections:           make(map[string]*AMSCollectionAPIModel),
+		groups:                   make(map[string]*GroupAPIModel),
+		applications:             make(map[string]*ApplicationAPIModel),
+		serviceAccess:            make(map[string]*ServiceAccessAPIModel),
+		serviceAccessPolicies:    make(map[string]*ServiceAccessPolicyAPIModel),
+		accountAccessPolicies:    make(map[string]*AccountAccessPolicyAPIModel),
+		stackAccess:              make(map[string]*StackAccessAPIModel),
+		apiKeys:                  make(map[string]*APIKeyAPIModel),
+		fireflyContractListeners: make(map[string]*FireFlyContractListenerAPIModel),
+		fireflySubscriptions:     make(map[string]*FireFlySubscriptionAPIModel),
+		router:                   mux.NewRouter(),
+		calls:                    []string{},
 	}
 
 	// See account_test.go
@@ -203,6 +207,16 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/nodes/self", http.MethodPost, mp.postFireFlyRegistrationNode)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/organizations/self", http.MethodPost, mp.postFireFlyRegistrationOrg)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/status", http.MethodGet, mp.getFireFlyStatus)
+
+	// See firefly_contract_listener_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/contracts/listeners", http.MethodPost, mp.postFireFlyContractListener)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/contracts/listeners/{id}", http.MethodGet, mp.getFireFlyContractListener)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/contracts/listeners/{id}", http.MethodDelete, mp.deleteFireFlyContractListener)
+
+	// See firefly_subscription_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/subscriptions", http.MethodPost, mp.postFireFlySubscription)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/subscriptions/{id}", http.MethodGet, mp.getFireFlySubscription)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/subscriptions/{id}", http.MethodDelete, mp.deleteFireFlySubscription)
 
 	// See group_test.go
 	mp.register("/api/v1/groups", http.MethodPost, mp.postGroup)
