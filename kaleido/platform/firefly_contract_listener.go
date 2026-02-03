@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2026
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -157,8 +157,8 @@ func (r *firefly_contract_listenerResource) Update(ctx context.Context, req reso
 
 	// Since listeners are immutable, we can't update them
 	// Terraform should handle this via replacement, but if we get here,
-	// we'll just return the current state
-	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	// we'll just return an error and let Terraform handle replacement
+	resp.Diagnostics.AddError("failed to update firefly contract listener", "firefly contract listeners are immutable - changes require replacement")
 }
 
 func (r *firefly_contract_listenerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
