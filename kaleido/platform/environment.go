@@ -68,10 +68,12 @@ func (r *environmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"version": &schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Environment Version",
 			},
 			"update_strategy": &schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Update Strategy",
 			},
 		},
