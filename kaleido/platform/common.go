@@ -381,6 +381,8 @@ func Resources() []func() resource.Resource {
 		FireFlyRegistrationResourceFactory,
 		StacksResourceFactory,
 		ConnectorResourceFactory,
+		ConnectorSetupResourceFactory,
+		ConnectorCustomAPIResourceFactory,
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		AccountResourceFactory,
