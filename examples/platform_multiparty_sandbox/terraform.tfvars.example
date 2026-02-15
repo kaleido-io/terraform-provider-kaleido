@@ -1,0 +1,32 @@
+# Kaleido Platform API Configuration
+# ====================================
+# IMPORTANT: Use your Kaleido Platform user credentials (NOT Keycloak or K8s secrets)
+#
+# For Quick Start (local development):
+#   kaleido_platform_api      = "https://account1.kaleido.127.0.0.1.nip.io"
+#   kaleido_platform_username = "admin"
+#   kaleido_platform_password = "admin"
+#
+kaleido_platform_api      = "https://account1.kaleido.dev"
+kaleido_platform_username = "your-username-here"
+kaleido_platform_password = "your-password-here"
+
+# Environment Configuration
+# =========================
+environment_name = "my-multiparty-env"
+
+# Members in the multiparty network
+# Each member will get their own FireFly node, Key Manager, Transaction Manager, etc.
+members = ["org1", "org2", "org3"]
+
+# Optional: Number of Besu blockchain nodes (default: 1)
+besu_node_count = 1
+
+# Optional: Runtime size for all services (default: "Small")
+# Options: "Small", "Medium", "Large"
+runtime_size = "Small"
+
+# Optional: PDM P2P TLS configuration (default: false)
+# Set to true if you want to manage P2P TLS certificates for Private Data Manager
+pdm_manage_p2p_tls = false
+
