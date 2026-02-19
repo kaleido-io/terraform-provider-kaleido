@@ -30,35 +30,35 @@ import (
 )
 
 type WFEStreamResourceModel struct {
-	ID                      types.String `tfsdk:"id"`
-	Name                    types.String `tfsdk:"name"`
-	Description             types.String `tfsdk:"description"`
-	Environment             types.String `tfsdk:"environment"`
-	Service                 types.String `tfsdk:"service"`
-	UniquenessPrefix        types.String `tfsdk:"uniqueness_prefix"`
-	ListenerHandler         types.String `tfsdk:"listener_handler"`
-	ListenerHandlerProvider types.String `tfsdk:"listener_handler_provider"`
-	TransactionTemplateJSON types.String `tfsdk:"transaction_template_json"` // valid when type=transaction_dispatch
-	PostFilterJSON          types.String `tfsdk:"post_filter_json"`
-	Type                    types.String `tfsdk:"type"`
-	Config                  types.String `tfsdk:"config"` // JSON string containing stream configuration
-	Created                 types.String `tfsdk:"created"`
-	Updated                 types.String `tfsdk:"updated"`
+	ID                 types.String `tfsdk:"id"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	Environment        types.String `tfsdk:"environment"`
+	Service            types.String `tfsdk:"service"`
+	UniquenessPrefix   types.String `tfsdk:"uniqueness_prefix"`
+	PostFilterJSON     types.String `tfsdk:"post_filter_json"`
+	EventSourceType    types.String `tfsdk:"event_source_type"`
+	EventSourceJSON    types.String `tfsdk:"event_source_json"`
+	EventProcessorType types.String `tfsdk:"event_processor_type"`
+	EventProcessorJSON types.String `tfsdk:"event_processor_json"`
+	Started            types.Bool   `tfsdk:"started"`
+	Created            types.String `tfsdk:"created"`
+	Updated            types.String `tfsdk:"updated"`
 }
 
 type WFEStreamAPIModel struct {
-	ID                      string                 `json:"id,omitempty"`
-	Name                    string                 `json:"name,omitempty"`
-	Description             string                 `json:"description,omitempty"`
-	UniquenessPrefix        string                 `json:"uniquenessPrefix,omitempty"`
-	ListenerHandler         string                 `json:"listenerHandler,omitempty"`
-	ListenerHandlerProvider string                 `json:"listenerHandlerProvider,omitempty"`
-	Type                    string                 `json:"type,omitempty"`
-	TransactionTemplate     map[string]interface{} `json:"transactionTemplate,omitempty"` // valid when type=transaction_dispatch
-	PostFilter              map[string]interface{} `json:"postFilter,omitempty"`
-	Config                  map[string]interface{} `json:"config,omitempty"`
-	Created                 *time.Time             `json:"created,omitempty"`
-	Updated                 *time.Time             `json:"updated,omitempty"`
+	ID                 string                 `json:"id,omitempty"`
+	Name               string                 `json:"name,omitempty"`
+	Description        string                 `json:"description,omitempty"`
+	UniquenessPrefix   string                 `json:"uniquenessPrefix,omitempty"`
+	PostFilter         map[string]interface{} `json:"postFilter,omitempty"`
+	EventSourceType    string                 `json:"eventSourceType,omitempty"`
+	EventSource        map[string]interface{} `json:"eventSource,omitempty"`
+	EventProcessorType string                 `json:"eventProcessorType,omitempty"`
+	EventProcessor     map[string]interface{} `json:"eventProcessor,omitempty"`
+	Started            *bool                  `json:"started,omitempty"`
+	Created            *time.Time             `json:"created,omitempty"`
+	Updated            *time.Time             `json:"updated,omitempty"`
 }
 
 func WFEStreamResourceFactory() resource.Resource {
@@ -98,42 +98,38 @@ func (r *wfe_streamResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"uniqueness_prefix": &schema.StringAttribute{
-				Optional:      true,
-				Description:   "The uniqueness prefix for the stream",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"listener_handler": &schema.StringAttribute{
-				Required:      true,
-				Description:   "The listener handler for the stream",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"listener_handler_provider": &schema.StringAttribute{
-				Required:      true,
-				Description:   "The listener handler provider for the stream",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"type": &schema.StringAttribute{
-				Required:      true,
-				Description:   "The type of the stream",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"transaction_template_json": &schema.StringAttribute{
-				Optional:      true,
-				Description:   "The transaction template for the stream as JSON.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Optional:    true,
+				Description: "The uniqueness prefix for the stream",
 			},
 			"post_filter_json": &schema.StringAttribute{
-				Optional:      true,
-				Description:   "The post filter for the stream as JSON.",
+				Optional:    true,
+				Description: "The post filter for the stream as JSON.",
+			},
+			"event_source_type": &schema.StringAttribute{
+				Required:      true,
+				Description:   "The event source type for the stream (for example: handler, transaction).",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"event_source_json": &schema.StringAttribute{
+				Required:    true,
+				Description: "The event source configuration as JSON.",
+			},
+			"event_processor_type": &schema.StringAttribute{
+				Required:      true,
+				Description:   "The event processor type for the stream (for example: handler, correlation, transaction_dispatch).",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"event_processor_json": &schema.StringAttribute{
+				Required:    true,
+				Description: "The event processor configuration as JSON.",
 			},
 			"description": &schema.StringAttribute{
 				Optional:    true,
 				Description: "A description of the stream",
 			},
-			"config": &schema.StringAttribute{
-				Required:    true,
-				Description: "The stream configuration as JSON",
+			"started": &schema.BoolAttribute{
+				Optional:    true,
+				Description: "Whether the stream should be started.",
 			},
 			"created": &schema.StringAttribute{
 				Computed:    true,
@@ -161,12 +157,14 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
 	api.UniquenessPrefix = data.UniquenessPrefix.ValueString()
-	api.ListenerHandler = data.ListenerHandler.ValueString()
-	api.ListenerHandlerProvider = data.ListenerHandlerProvider.ValueString()
-	api.Type = data.Type.ValueString()
+	api.EventSourceType = data.EventSourceType.ValueString()
+	api.EventProcessorType = data.EventProcessorType.ValueString()
+	if !data.Started.IsNull() {
+		started := data.Started.ValueBool()
+		api.Started = &started
+	}
 
 	if data.PostFilterJSON.ValueString() != "" {
-		// Parse the PostFilter JSON string
 		var postFilter map[string]interface{}
 		if err := json.Unmarshal([]byte(data.PostFilterJSON.ValueString()), &postFilter); err != nil {
 			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse post filter JSON: %v", err))
@@ -175,23 +173,19 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 		api.PostFilter = postFilter
 	}
 
-	if data.TransactionTemplateJSON.ValueString() != "" {
-		// Parse the TransactionTemplate JSON string
-		var transactionTemplate map[string]interface{}
-		if err := json.Unmarshal([]byte(data.TransactionTemplateJSON.ValueString()), &transactionTemplate); err != nil {
-			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream transaction template JSON: %v", err))
-			return
-		}
-		api.TransactionTemplate = transactionTemplate
-	}
-
-	// Parse the config JSON string
-	var config map[string]interface{}
-	if err := json.Unmarshal([]byte(data.Config.ValueString()), &config); err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream config JSON: %v", err))
+	var eventSource map[string]interface{}
+	if err := json.Unmarshal([]byte(data.EventSourceJSON.ValueString()), &eventSource); err != nil {
+		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream event source JSON: %v", err))
 		return
 	}
-	api.Config = config
+	api.EventSource = eventSource
+
+	var eventProcessor map[string]interface{}
+	if err := json.Unmarshal([]byte(data.EventProcessorJSON.ValueString()), &eventProcessor); err != nil {
+		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream event processor JSON: %v", err))
+		return
+	}
+	api.EventProcessor = eventProcessor
 }
 
 func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResourceModel, diagnostics *diag.Diagnostics) {
@@ -212,35 +206,6 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 		data.UniquenessPrefix = types.StringValue(api.UniquenessPrefix)
 	}
 
-	if api.ListenerHandler == "" {
-		data.ListenerHandler = types.StringNull()
-	} else {
-		data.ListenerHandler = types.StringValue(api.ListenerHandler)
-	}
-
-	if api.ListenerHandlerProvider == "" {
-		data.ListenerHandlerProvider = types.StringNull()
-	} else {
-		data.ListenerHandlerProvider = types.StringValue(api.ListenerHandlerProvider)
-	}
-
-	if api.Type == "" {
-		data.Type = types.StringNull()
-	} else {
-		data.Type = types.StringValue(api.Type)
-	}
-
-	if api.TransactionTemplate != nil {
-		transactionTemplateBytes, err := json.Marshal(api.TransactionTemplate)
-		if err != nil {
-			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream transaction template: %v", err))
-			return
-		}
-		data.TransactionTemplateJSON = types.StringValue(string(transactionTemplateBytes))
-	} else {
-		data.TransactionTemplateJSON = types.StringNull()
-	}
-
 	if api.PostFilter != nil {
 		postFilterBytes, err := json.Marshal(api.PostFilter)
 		if err != nil {
@@ -252,14 +217,44 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 		data.PostFilterJSON = types.StringNull()
 	}
 
-	// Handle config if present in API response
-	if api.Config != nil {
-		configBytes, err := json.Marshal(api.Config)
+	if api.EventSourceType == "" {
+		data.EventSourceType = types.StringNull()
+	} else {
+		data.EventSourceType = types.StringValue(api.EventSourceType)
+	}
+
+	if api.EventSource != nil {
+		eventSourceBytes, err := json.Marshal(api.EventSource)
 		if err != nil {
-			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream config: %v", err))
+			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event source: %v", err))
 			return
 		}
-		data.Config = types.StringValue(string(configBytes))
+		data.EventSourceJSON = types.StringValue(string(eventSourceBytes))
+	} else {
+		data.EventSourceJSON = types.StringNull()
+	}
+
+	if api.EventProcessorType == "" {
+		data.EventProcessorType = types.StringNull()
+	} else {
+		data.EventProcessorType = types.StringValue(api.EventProcessorType)
+	}
+
+	if api.EventProcessor != nil {
+		eventProcessorBytes, err := json.Marshal(api.EventProcessor)
+		if err != nil {
+			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event processor: %v", err))
+			return
+		}
+		data.EventProcessorJSON = types.StringValue(string(eventProcessorBytes))
+	} else {
+		data.EventProcessorJSON = types.StringNull()
+	}
+
+	if api.Started == nil {
+		data.Started = types.BoolNull()
+	} else {
+		data.Started = types.BoolValue(*api.Started)
 	}
 
 	if api.Created == nil {

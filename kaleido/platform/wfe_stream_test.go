@@ -29,16 +29,22 @@ resource "kaleido_platform_wfe_stream" "test_stream" {
   service = "test-service"
   name = "test-stream"
   uniqueness_prefix = "evmtx."
-  listener_handler = "evmTxnFinalizations"
-  listener_handler_provider = "s-12345abcde"
   description = "Test stream for workflow engine"
-  type = "correlation_stream"
-  config = jsonencode({
-      "fromBlock" = "latest"
+  event_source_type = "transaction"
+  event_source_json = jsonencode({
+      "filter" = {
+        "topic" = "tx.submitted"
+      }
       "batchSize" = 50
       "batchTimeout" = "500ms"
       "pollTimeout" = "2s"
   })
+  event_processor_type = "handler"
+  event_processor_json = jsonencode({
+      "handler" = "k6-test-processor"
+      "provider" = "k6-test"
+  })
+  started = true
 }
 `
 
@@ -48,16 +54,22 @@ resource "kaleido_platform_wfe_stream" "test_stream" {
   service = "test-service"
   name = "test-stream"
   uniqueness_prefix = "evmtx."
-  listener_handler = "evmTxnFinalizations"
-  listener_handler_provider = "s-12345abcde"
   description = "Test stream for workflow engine - updated"
-  type = "correlation_stream"
-  config = jsonencode({
-      "fromBlock" = "latest"
+  event_source_type = "transaction"
+  event_source_json = jsonencode({
+      "filter" = {
+        "topic" = "tx.finalized"
+      }
       "batchSize" = 150
       "batchTimeout" = "500ms"
       "pollTimeout" = "2s"
   })
+  event_processor_type = "handler"
+  event_processor_json = jsonencode({
+      "handler" = "k6-test-processor"
+      "provider" = "k6-test"
+  })
+  started = false
 }
 `
 
@@ -86,9 +98,9 @@ func TestWFEStream1(t *testing.T) {
 					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "uniqueness_prefix", "evmtx."),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "listener_handler", "evmTxnFinalizations"),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "listener_handler_provider", "s-12345abcde"),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "type", "correlation_stream"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "transaction"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "true"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine"),
 					resource.TestCheckResourceAttrSet(wfe_stream_resource, "id"),
 					resource.TestCheckResourceAttrSet(wfe_stream_resource, "created"),
@@ -125,9 +137,9 @@ func TestWFEStream2(t *testing.T) {
 					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "uniqueness_prefix", "evmtx."),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "listener_handler", "evmTxnFinalizations"),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "listener_handler_provider", "s-12345abcde"),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "type", "correlation_stream"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "transaction"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "true"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine"),
 					resource.TestCheckResourceAttrSet(wfe_stream_resource, "id"),
 					resource.TestCheckResourceAttrSet(wfe_stream_resource, "created"),
@@ -140,6 +152,9 @@ func TestWFEStream2(t *testing.T) {
 					resource.TestCheckResourceAttr(wfe_stream_resource, "environment", "test-env"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "transaction"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "false"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine - updated"),
 					resource.TestCheckResourceAttrSet(wfe_stream_resource, "id"),
 					resource.TestCheckResourceAttrSet(wfe_stream_resource, "created"),
@@ -165,9 +180,11 @@ func (mp *mockPlatform) putWFEStream(res http.ResponseWriter, req *http.Request)
 		newStream.ID = stream.ID
 		newStream.Name = stream.Name
 		newStream.UniquenessPrefix = stream.UniquenessPrefix
-		newStream.ListenerHandler = stream.ListenerHandler
-		newStream.ListenerHandlerProvider = stream.ListenerHandlerProvider
-		newStream.Type = stream.Type
+		newStream.EventSourceType = stream.EventSourceType
+		newStream.EventSource = stream.EventSource
+		newStream.EventProcessorType = stream.EventProcessorType
+		newStream.EventProcessor = stream.EventProcessor
+		newStream.Started = stream.Started
 	}
 	newStream.Updated = &now
 	// Store by both ID and name for lookup
@@ -217,17 +234,20 @@ func (mp *mockPlatform) patchWFEStream(res http.ResponseWriter, req *http.Reques
 	if streamUpdates.UniquenessPrefix != "" {
 		stream.UniquenessPrefix = streamUpdates.UniquenessPrefix
 	}
-	if streamUpdates.ListenerHandler != "" {
-		stream.ListenerHandler = streamUpdates.ListenerHandler
+	if streamUpdates.EventSourceType != "" {
+		stream.EventSourceType = streamUpdates.EventSourceType
 	}
-	if streamUpdates.ListenerHandlerProvider != "" {
-		stream.ListenerHandlerProvider = streamUpdates.ListenerHandlerProvider
+	if streamUpdates.EventSource != nil {
+		stream.EventSource = streamUpdates.EventSource
 	}
-	if streamUpdates.Type != "" {
-		stream.Type = streamUpdates.Type
+	if streamUpdates.EventProcessorType != "" {
+		stream.EventProcessorType = streamUpdates.EventProcessorType
 	}
-	if streamUpdates.Config != nil {
-		stream.Config = streamUpdates.Config
+	if streamUpdates.EventProcessor != nil {
+		stream.EventProcessor = streamUpdates.EventProcessor
+	}
+	if streamUpdates.Started != nil {
+		stream.Started = streamUpdates.Started
 	}
 	now := time.Now().UTC()
 	stream.Updated = &now
