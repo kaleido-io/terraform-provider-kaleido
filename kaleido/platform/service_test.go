@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -241,8 +242,112 @@ func TestService1(t *testing.T) {
 	})
 }
 
+func TestServiceTypesMatch(t *testing.T) {
+	tests := []struct {
+		apiType  string
+		planType string
+		want     bool
+	}{
+		{"BesuNode", "BesuNode", true},
+		{"BesuNodeService", "BesuNode", true},
+		{"BesuNode", "BesuNodeService", true},
+		{"besu", "besu", true},
+		{"OtherService", "Other", true},
+		{"Other", "OtherService", true},
+		{"BesuNodeService", "BesuNodeService", true},
+		{"BesuNode", "Other", false},
+		{"BesuNodeService", "OtherNode", false},
+		{"Something", "SomethingElse", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.apiType+"/"+tt.planType, func(t *testing.T) {
+			got := serviceTypesMatch(tt.apiType, tt.planType)
+			assert.Equal(t, tt.want, got, "serviceTypesMatch(%q, %q)", tt.apiType, tt.planType)
+		})
+	}
+}
+
+// TestServiceCreateConflictAdoption tests that when POST returns 409, the provider GETs by name,
+// verifies type (with Service suffix normalization) and stack_id, and adopts the existing service.
+func TestServiceCreateConflictAdoption(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /api/v1/environments/{env}/services",
+			"GET /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
+			"DELETE /api/v1/environments/{env}/services/{service}",
+			"GET /api/v1/environments/{env}/services/{service}",
+		})
+		mp.server.Close()
+	}()
+
+	// Pre-seed: existing service with API-style type "BesuNodeService"; plan will use "BesuNode"
+	existingID := "pre-seeded-id-409"
+	now := time.Now().UTC()
+	mp.services["env1/"+existingID] = &ServiceAPIModel{
+		ID:                  existingID,
+		Type:                "BesuNodeService",
+		Name:                "besu-node30",
+		StackID:             "st:14dsbcszcw",
+		Created:             &now,
+		Updated:             &now,
+		Status:               "ready",
+		EnvironmentMemberID:  "mem1",
+		Runtime:              ServiceAPIRuntimeRef{ID: "runtime1"},
+		Config:               map[string]interface{}{},
+		Endpoints: map[string]ServiceAPIEndpoint{
+			"api": {Type: "http", URLS: []string{"https://example.com/api/v1/environments/env1/services/" + existingID}},
+		},
+		StatusDetails: ServiceStatusDetails{
+			Connectivity: &Connectivity{Identity: "test"},
+		},
+	}
+
+	config := `
+resource "kaleido_platform_service" "bns_non_validators" {
+    environment = "env1"
+    runtime     = "runtime1"
+    type        = "BesuNode"
+    name        = "besu-node30"
+    stack_id    = "st:14dsbcszcw"
+    config_json = jsonencode({})
+}
+`
+	resourceName := "kaleido_platform_service.bns_non_validators"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "id", existingID),
+					resource.TestCheckResourceAttr(resourceName, "name", "besu-node30"),
+					resource.TestCheckResourceAttr(resourceName, "type", "BesuNode"),
+					resource.TestCheckResourceAttr(resourceName, "stack_id", "st:14dsbcszcw"),
+				),
+			},
+		},
+	})
+}
+
 func (mp *mockPlatform) getService(res http.ResponseWriter, req *http.Request) {
-	svc := mp.services[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]]
+	env := mux.Vars(req)["env"]
+	serviceKey := mux.Vars(req)["service"]
+	svc := mp.services[env+"/"+serviceKey]
+	if svc == nil {
+		// Resolve by name (for 409 adoption: GET by name)
+		for key, s := range mp.services {
+			if strings.HasPrefix(key, env+"/") && s.Name == serviceKey {
+				svc = s
+				break
+			}
+		}
+	}
 	if svc == nil {
 		mp.respond(res, nil, 404)
 	} else {
@@ -268,6 +373,14 @@ func (mp *mockPlatform) getService(res http.ResponseWriter, req *http.Request) {
 func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) {
 	var svc ServiceAPIModel
 	mp.getBody(req, &svc)
+	env := mux.Vars(req)["env"]
+	// Return 409 when a service with same name and stack_id already exists (for adoption tests)
+	for key, existing := range mp.services {
+		if strings.HasPrefix(key, env+"/") && existing.Name == svc.Name && existing.StackID == svc.StackID {
+			mp.respond(res, nil, 409)
+			return
+		}
+	}
 	svc.ID = nanoid.New()
 	now := time.Now().UTC()
 	svc.Created = &now
@@ -277,10 +390,10 @@ func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) 
 	svc.Endpoints = map[string]ServiceAPIEndpoint{
 		"api": {
 			Type: "http",
-			URLS: []string{fmt.Sprintf("https://example.com/api/v1/environments/%s/services/%s", mux.Vars(req)["env"], svc.ID)},
+			URLS: []string{fmt.Sprintf("https://example.com/api/v1/environments/%s/services/%s", env, svc.ID)},
 		},
 	}
-	mp.services[mux.Vars(req)["env"]+"/"+svc.ID] = &svc
+	mp.services[env+"/"+svc.ID] = &svc
 	mp.respond(res, &svc, 201)
 }
 

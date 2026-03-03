@@ -426,6 +426,41 @@ func (r *serviceResource) apiPath(data *ServiceResourceModel) string {
 	return path
 }
 
+// findExistingServiceByPlan GETs the service by name and returns its ID if type and stack_id match
+// (for 409 "service already exists" adoption).
+func (r *serviceResource) findExistingServiceByPlan(ctx context.Context, data *ServiceResourceModel, diagnostics *diag.Diagnostics) (id string, found bool) {
+	getPath := fmt.Sprintf("/api/v1/environments/%s/services/%s", data.Environment.ValueString(), data.Name.ValueString())
+	var api ServiceAPIModel
+	ok, statusCode := r.apiRequest(ctx, http.MethodGet, getPath, nil, &api, diagnostics, Allow404())
+	if !ok {
+		return "", false
+	}
+	if statusCode == 404 {
+		diagnostics.AddError("service already exists", fmt.Sprintf("API returned 409 but no existing service found with name=%q", data.Name.ValueString()))
+		return "", false
+	}
+	wantType := data.Type.ValueString()
+	wantStackID := data.StackID.ValueString()
+	if !serviceTypesMatch(api.Type, wantType) || api.StackID != wantStackID {
+		diagnostics.AddError("service already exists", fmt.Sprintf("API returned 409 but existing service name=%q has type=%q stack_id=%q (plan has type=%q stack_id=%q)", data.Name.ValueString(), api.Type, api.StackID, wantType, wantStackID))
+		return "", false
+	}
+	return api.ID, true
+}
+
+// serviceTypesMatch returns true if the API type and plan type refer to the same service kind.
+// The API may return a longer type name (e.g. "BesuNodeService") while the plan uses a short name (e.g. "BesuNode").
+func serviceTypesMatch(apiType, planType string) bool {
+	if apiType == planType {
+		return true
+	}
+	// API often appends "Service" to the type name
+	if apiType == planType+"Service" || planType == apiType+"Service" {
+		return true
+	}
+	return false
+}
+
 func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
 	var data ServiceResourceModel
@@ -433,8 +468,33 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	var api ServiceAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
-	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	ok, statusCode := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics, Allow409())
 	if !ok {
+		return
+	}
+
+	// Service already exists (409): adopt existing service into state by name+stack_id
+	if statusCode == 409 {
+		existingID, found := r.findExistingServiceByPlan(ctx, &data, &resp.Diagnostics)
+		if !found {
+			return
+		}
+		data.ID = types.StringValue(existingID)
+		api.ID = existingID
+		ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
+		if !ok {
+			return
+		}
+		api.toData(&data, &resp.Diagnostics)
+		if data.WaitForReady.IsNull() || data.WaitForReady.ValueBool() {
+			r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+			api.ID = data.ID.ValueString()
+			ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
+			if ok {
+				api.toData(&data, &resp.Diagnostics)
+			}
+		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 		return
 	}
 
