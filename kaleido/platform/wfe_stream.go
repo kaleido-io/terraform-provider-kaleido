@@ -47,18 +47,16 @@ type WFEStreamResourceModel struct {
 }
 
 type WFEStreamAPIModel struct {
-	ID                 string                 `json:"id,omitempty"`
-	Name               string                 `json:"name,omitempty"`
-	Description        string                 `json:"description,omitempty"`
-	UniquenessPrefix   string                 `json:"uniquenessPrefix,omitempty"`
-	PostFilter         map[string]interface{} `json:"postFilter,omitempty"`
-	EventSourceType    string                 `json:"eventSourceType,omitempty"`
-	EventSource        map[string]interface{} `json:"eventSource,omitempty"`
-	EventProcessorType string                 `json:"eventProcessorType,omitempty"`
-	EventProcessor     map[string]interface{} `json:"eventProcessor,omitempty"`
-	Started            *bool                  `json:"started,omitempty"`
-	Created            *time.Time             `json:"created,omitempty"`
-	Updated            *time.Time             `json:"updated,omitempty"`
+	ID               string                 `json:"id,omitempty"`
+	Name             string                 `json:"name,omitempty"`
+	Description      string                 `json:"description,omitempty"`
+	UniquenessPrefix string                 `json:"uniquenessPrefix,omitempty"`
+	PostFilter       map[string]interface{} `json:"postFilter,omitempty"`
+	EventSource      map[string]interface{} `json:"eventSource,omitempty"`
+	EventProcessor   map[string]interface{} `json:"eventProcessor,omitempty"`
+	Started          *bool                  `json:"started,omitempty"`
+	Created          *time.Time             `json:"created,omitempty"`
+	Updated          *time.Time             `json:"updated,omitempty"`
 }
 
 func WFEStreamResourceFactory() resource.Resource {
@@ -157,8 +155,6 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
 	api.UniquenessPrefix = data.UniquenessPrefix.ValueString()
-	api.EventSourceType = data.EventSourceType.ValueString()
-	api.EventProcessorType = data.EventProcessorType.ValueString()
 	if !data.Started.IsNull() {
 		started := data.Started.ValueBool()
 		api.Started = &started
@@ -173,19 +169,29 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 		api.PostFilter = postFilter
 	}
 
-	var eventSource map[string]interface{}
-	if err := json.Unmarshal([]byte(data.EventSourceJSON.ValueString()), &eventSource); err != nil {
+	// EventSource: nest type and content under a type-specific key
+	eventSourceType := data.EventSourceType.ValueString()
+	var eventSourceContent map[string]interface{}
+	if err := json.Unmarshal([]byte(data.EventSourceJSON.ValueString()), &eventSourceContent); err != nil {
 		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream event source JSON: %v", err))
 		return
 	}
-	api.EventSource = eventSource
+	api.EventSource = map[string]interface{}{
+		"type":          eventSourceType,
+		eventSourceType: eventSourceContent,
+	}
 
-	var eventProcessor map[string]interface{}
-	if err := json.Unmarshal([]byte(data.EventProcessorJSON.ValueString()), &eventProcessor); err != nil {
+	// EventProcessor: nest type and content under a type-specific key
+	eventProcessorType := data.EventProcessorType.ValueString()
+	var eventProcessorContent map[string]interface{}
+	if err := json.Unmarshal([]byte(data.EventProcessorJSON.ValueString()), &eventProcessorContent); err != nil {
 		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream event processor JSON: %v", err))
 		return
 	}
-	api.EventProcessor = eventProcessor
+	api.EventProcessor = map[string]interface{}{
+		"type":              eventProcessorType,
+		eventProcessorType: eventProcessorContent,
+	}
 }
 
 func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResourceModel, diagnostics *diag.Diagnostics) {
@@ -217,37 +223,49 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 		data.PostFilterJSON = types.StringNull()
 	}
 
-	if api.EventSourceType == "" {
-		data.EventSourceType = types.StringNull()
-	} else {
-		data.EventSourceType = types.StringValue(api.EventSourceType)
-	}
-
+	// EventSource: extract type and type-specific content from nested structure
 	if api.EventSource != nil {
-		eventSourceBytes, err := json.Marshal(api.EventSource)
-		if err != nil {
-			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event source: %v", err))
-			return
+		if t, ok := api.EventSource["type"].(string); ok && t != "" {
+			data.EventSourceType = types.StringValue(t)
+			if content, ok := api.EventSource[t]; ok {
+				contentBytes, err := json.Marshal(content)
+				if err != nil {
+					diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event source: %v", err))
+					return
+				}
+				data.EventSourceJSON = types.StringValue(string(contentBytes))
+			} else {
+				data.EventSourceJSON = types.StringNull()
+			}
+		} else {
+			data.EventSourceType = types.StringNull()
+			data.EventSourceJSON = types.StringNull()
 		}
-		data.EventSourceJSON = types.StringValue(string(eventSourceBytes))
 	} else {
+		data.EventSourceType = types.StringNull()
 		data.EventSourceJSON = types.StringNull()
 	}
 
-	if api.EventProcessorType == "" {
-		data.EventProcessorType = types.StringNull()
-	} else {
-		data.EventProcessorType = types.StringValue(api.EventProcessorType)
-	}
-
+	// EventProcessor: extract type and type-specific content from nested structure
 	if api.EventProcessor != nil {
-		eventProcessorBytes, err := json.Marshal(api.EventProcessor)
-		if err != nil {
-			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event processor: %v", err))
-			return
+		if t, ok := api.EventProcessor["type"].(string); ok && t != "" {
+			data.EventProcessorType = types.StringValue(t)
+			if content, ok := api.EventProcessor[t]; ok {
+				contentBytes, err := json.Marshal(content)
+				if err != nil {
+					diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event processor: %v", err))
+					return
+				}
+				data.EventProcessorJSON = types.StringValue(string(contentBytes))
+			} else {
+				data.EventProcessorJSON = types.StringNull()
+			}
+		} else {
+			data.EventProcessorType = types.StringNull()
+			data.EventProcessorJSON = types.StringNull()
 		}
-		data.EventProcessorJSON = types.StringValue(string(eventProcessorBytes))
 	} else {
+		data.EventProcessorType = types.StringNull()
 		data.EventProcessorJSON = types.StringNull()
 	}
 

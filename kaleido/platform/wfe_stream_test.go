@@ -37,11 +37,11 @@ resource "kaleido_platform_wfe_stream" "test_stream" {
       }
       "batchSize" = 50
       "batchTimeout" = "500ms"
-      "pollTimeout" = "2s"
+      "pollThrottle" = "2s"
   })
   event_processor_type = "handler"
   event_processor_json = jsonencode({
-      "handler" = "k6-test-processor"
+      "name" = "k6-test-processor"
       "provider" = "k6-test"
   })
   started = true
@@ -62,11 +62,11 @@ resource "kaleido_platform_wfe_stream" "test_stream" {
       }
       "batchSize" = 150
       "batchTimeout" = "500ms"
-      "pollTimeout" = "2s"
+      "pollThrottle" = "2s"
   })
   event_processor_type = "handler"
   event_processor_json = jsonencode({
-      "handler" = "k6-test-processor"
+      "name" = "k6-test-processor"
       "provider" = "k6-test"
   })
   started = false
@@ -180,9 +180,7 @@ func (mp *mockPlatform) putWFEStream(res http.ResponseWriter, req *http.Request)
 		newStream.ID = stream.ID
 		newStream.Name = stream.Name
 		newStream.UniquenessPrefix = stream.UniquenessPrefix
-		newStream.EventSourceType = stream.EventSourceType
 		newStream.EventSource = stream.EventSource
-		newStream.EventProcessorType = stream.EventProcessorType
 		newStream.EventProcessor = stream.EventProcessor
 		newStream.Started = stream.Started
 	}
@@ -234,14 +232,8 @@ func (mp *mockPlatform) patchWFEStream(res http.ResponseWriter, req *http.Reques
 	if streamUpdates.UniquenessPrefix != "" {
 		stream.UniquenessPrefix = streamUpdates.UniquenessPrefix
 	}
-	if streamUpdates.EventSourceType != "" {
-		stream.EventSourceType = streamUpdates.EventSourceType
-	}
 	if streamUpdates.EventSource != nil {
 		stream.EventSource = streamUpdates.EventSource
-	}
-	if streamUpdates.EventProcessorType != "" {
-		stream.EventProcessorType = streamUpdates.EventProcessorType
 	}
 	if streamUpdates.EventProcessor != nil {
 		stream.EventProcessor = streamUpdates.EventProcessor
