@@ -242,50 +242,81 @@ func TestService1(t *testing.T) {
 	})
 }
 
-func TestServiceTypesMatch(t *testing.T) {
-	tests := []struct {
-		apiType  string
-		planType string
-		want     bool
-	}{
-		{"BesuNode", "BesuNode", true},
-		{"BesuNodeService", "BesuNode", true},
-		{"BesuNode", "BesuNodeService", true},
-		{"besu", "besu", true},
-		{"OtherService", "Other", true},
-		{"Other", "OtherService", true},
-		{"BesuNodeService", "BesuNodeService", true},
-		{"BesuNode", "Other", false},
-		{"BesuNodeService", "OtherNode", false},
-		{"Something", "SomethingElse", false},
+// TestServiceImportIDFormat tests ID-based import with environment_id/stack_id/service_id.
+func TestServiceImportIDFormat(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.server.Close()
+	}()
+
+	// Pre-seed service so Read after import can fetch it
+	existingID := "imported-svc-id"
+	now := time.Now().UTC()
+	mp.services["env1/"+existingID] = &ServiceAPIModel{
+		ID:                  existingID,
+		Type:                "BesuNodeService",
+		Name:                "besu-node30",
+		StackID:             "st:14dsbcszcw",
+		Created:             &now,
+		Updated:             &now,
+		Status:              "ready",
+		EnvironmentMemberID: "mem1",
+		Runtime:             ServiceAPIRuntimeRef{ID: "runtime1"},
+		Config:              map[string]interface{}{"key": "value"},
+		Endpoints: map[string]ServiceAPIEndpoint{
+			"api": {Type: "http", URLS: []string{"https://example.com/api/v1/environments/env1/services/" + existingID}},
+		},
+		StatusDetails: ServiceStatusDetails{
+			Connectivity: &Connectivity{Identity: "test"},
+		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.apiType+"/"+tt.planType, func(t *testing.T) {
-			got := serviceTypesMatch(tt.apiType, tt.planType)
-			assert.Equal(t, tt.want, got, "serviceTypesMatch(%q, %q)", tt.apiType, tt.planType)
-		})
-	}
+
+	config := `
+resource "kaleido_platform_service" "imported" {
+    environment = "env1"
+    runtime     = "runtime1"
+    type        = "BesuNodeService"
+    name        = "besu-node30"
+    stack_id    = "st:14dsbcszcw"
+    config_json = jsonencode({})
+}
+`
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:            providerConfig + config,
+				ResourceName:      "kaleido_platform_service.imported",
+				ImportState:       true,
+				ImportStateId:     "env1/st:14dsbcszcw/" + existingID,
+				ImportStateVerify: false,
+				ImportStateCheck: func(s []*terraform.InstanceState) error {
+					assert.Len(t, s, 1)
+					assert.Equal(t, existingID, s[0].Attributes["id"])
+					assert.Equal(t, "env1", s[0].Attributes["environment"])
+					assert.Equal(t, "st:14dsbcszcw", s[0].Attributes["stack_id"])
+					assert.Equal(t, "BesuNodeService", s[0].Attributes["type"])
+					assert.Equal(t, "besu-node30", s[0].Attributes["name"])
+					return nil
+				},
+			},
+		},
+	})
 }
 
-// TestServiceCreateConflictAdoption tests that when POST returns 409, the provider GETs by name,
-// verifies type (with Service suffix normalization) and stack_id, and adopts the existing service.
-func TestServiceCreateConflictAdoption(t *testing.T) {
+// TestServiceCreateConflictFails tests that when POST returns 409 (service already exists),
+// the provider returns an error and suggests terraform import with ID-based format.
+func TestServiceCreateConflictFails(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
 			"POST /api/v1/environments/{env}/services",
-			"GET /api/v1/environments/{env}/services/{service}",
-			"GET /api/v1/environments/{env}/services/{service}",
-			"GET /api/v1/environments/{env}/services/{service}",
-			"GET /api/v1/environments/{env}/services/{service}",
-			"GET /api/v1/environments/{env}/services/{service}",
-			"DELETE /api/v1/environments/{env}/services/{service}",
-			"GET /api/v1/environments/{env}/services/{service}",
 		})
 		mp.server.Close()
 	}()
 
-	// Pre-seed: existing service with API-style type "BesuNodeService"; plan will use "BesuNode"
+	// Pre-seed: existing service so POST will return 409
 	existingID := "pre-seeded-id-409"
 	now := time.Now().UTC()
 	mp.services["env1/"+existingID] = &ServiceAPIModel{
@@ -317,19 +348,13 @@ resource "kaleido_platform_service" "bns_non_validators" {
     config_json = jsonencode({})
 }
 `
-	resourceName := "kaleido_platform_service.bns_non_validators"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + config,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "id", existingID),
-					resource.TestCheckResourceAttr(resourceName, "name", "besu-node30"),
-					resource.TestCheckResourceAttr(resourceName, "type", "BesuNode"),
-					resource.TestCheckResourceAttr(resourceName, "stack_id", "st:14dsbcszcw"),
-				),
+				Config:      providerConfig + config,
+				ExpectError: regexp.MustCompile(`(?s)service already exists.*terraform import.*environment_id/stack_id/service_id`),
 			},
 		},
 	})

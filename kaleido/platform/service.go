@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -370,9 +371,23 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 
 func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
+	data.Type = types.StringValue(api.Type)
+	data.Name = types.StringValue(api.Name)
+	data.StackID = types.StringValue(api.StackID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+	if api.Runtime.ID != "" {
+		data.Runtime = types.StringValue(api.Runtime.ID)
+	}
 	if api.DatabaseName != "" {
 		data.DatabaseName = types.StringValue(api.DatabaseName)
+	}
+	if api.Config != nil {
+		configBytes, err := json.Marshal(api.Config)
+		if err != nil {
+			diagnostics.AddError("failed to marshal config", err.Error())
+		} else {
+			data.ConfigJSON = types.StringValue(string(configBytes))
+		}
 	}
 	endpoints := map[string]attr.Value{}
 	endpointAttrTypes := map[string]attr.Type{
@@ -426,41 +441,6 @@ func (r *serviceResource) apiPath(data *ServiceResourceModel) string {
 	return path
 }
 
-// findExistingServiceByPlan GETs the service by name and returns its ID if type and stack_id match
-// (for 409 "service already exists" adoption).
-func (r *serviceResource) findExistingServiceByPlan(ctx context.Context, data *ServiceResourceModel, diagnostics *diag.Diagnostics) (id string, found bool) {
-	getPath := fmt.Sprintf("/api/v1/environments/%s/services/%s", data.Environment.ValueString(), data.Name.ValueString())
-	var api ServiceAPIModel
-	ok, statusCode := r.apiRequest(ctx, http.MethodGet, getPath, nil, &api, diagnostics, Allow404())
-	if !ok {
-		return "", false
-	}
-	if statusCode == 404 {
-		diagnostics.AddError("service already exists", fmt.Sprintf("API returned 409 but no existing service found with name=%q", data.Name.ValueString()))
-		return "", false
-	}
-	wantType := data.Type.ValueString()
-	wantStackID := data.StackID.ValueString()
-	if !serviceTypesMatch(api.Type, wantType) || api.StackID != wantStackID {
-		diagnostics.AddError("service already exists", fmt.Sprintf("API returned 409 but existing service name=%q has type=%q stack_id=%q (plan has type=%q stack_id=%q)", data.Name.ValueString(), api.Type, api.StackID, wantType, wantStackID))
-		return "", false
-	}
-	return api.ID, true
-}
-
-// serviceTypesMatch returns true if the API type and plan type refer to the same service kind.
-// The API may return a longer type name (e.g. "BesuNodeService") while the plan uses a short name (e.g. "BesuNode").
-func serviceTypesMatch(apiType, planType string) bool {
-	if apiType == planType {
-		return true
-	}
-	// API often appends "Service" to the type name
-	if apiType == planType+"Service" || planType == apiType+"Service" {
-		return true
-	}
-	return false
-}
-
 func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
 	var data ServiceResourceModel
@@ -472,29 +452,11 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 	if !ok {
 		return
 	}
-
-	// Service already exists (409): adopt existing service into state by name+stack_id
 	if statusCode == 409 {
-		existingID, found := r.findExistingServiceByPlan(ctx, &data, &resp.Diagnostics)
-		if !found {
-			return
-		}
-		data.ID = types.StringValue(existingID)
-		api.ID = existingID
-		ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
-		if !ok {
-			return
-		}
-		api.toData(&data, &resp.Diagnostics)
-		if data.WaitForReady.IsNull() || data.WaitForReady.ValueBool() {
-			r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-			api.ID = data.ID.ValueString()
-			ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics)
-			if ok {
-				api.toData(&data, &resp.Diagnostics)
-			}
-		}
-		resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+		resp.Diagnostics.AddError(
+			"service already exists",
+			"a service with the same name already exists in this environment. Use `terraform import` with ID format: environment_id/stack_id/service_id (all IDs, not names)",
+		)
 		return
 	}
 
@@ -573,4 +535,26 @@ func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
+}
+
+// ImportState supports ID-based import. Use environment_id/stack_id/service_id (all IDs, not names).
+// Two-part format environment_id/service_id is also supported; stack_id will be filled from the API on first Read.
+func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 3)
+	switch len(parts) {
+	case 2:
+		// environment_id/service_id
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment"), parts[0])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+	case 3:
+		// environment_id/stack_id/service_id
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment"), parts[0])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("stack_id"), parts[1])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
+	default:
+		resp.Diagnostics.AddError(
+			"invalid import id",
+			"import id must be environment_id/service_id or environment_id/stack_id/service_id (all IDs, not names)",
+		)
+	}
 }
