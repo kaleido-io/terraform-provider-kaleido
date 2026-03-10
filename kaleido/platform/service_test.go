@@ -309,7 +309,7 @@ func (mp *mockPlatform) getService(res http.ResponseWriter, req *http.Request) {
 	serviceKey := mux.Vars(req)["service"]
 	svc := mp.services[env+"/"+serviceKey]
 	if svc == nil {
-		// Resolve by name (for 409 adoption: GET by name)
+		// Resolve by name for import
 		for key, s := range mp.services {
 			if strings.HasPrefix(key, env+"/") && s.Name == serviceKey {
 				svc = s
@@ -343,13 +343,6 @@ func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) 
 	var svc ServiceAPIModel
 	mp.getBody(req, &svc)
 	env := mux.Vars(req)["env"]
-	// Return 409 when a service with same name and stack_id already exists (for adoption tests)
-	for key, existing := range mp.services {
-		if strings.HasPrefix(key, env+"/") && existing.Name == svc.Name && existing.StackID == svc.StackID {
-			mp.respond(res, nil, 409)
-			return
-		}
-	}
 	svc.ID = nanoid.New()
 	now := time.Now().UTC()
 	svc.Created = &now
