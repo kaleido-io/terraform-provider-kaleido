@@ -34,7 +34,6 @@ import (
 
 type APIRequestOption struct {
 	allow404         bool
-	allow409         bool
 	captureLastError bool
 	yamlBody         bool
 	CancelInfo       string
@@ -59,13 +58,6 @@ func (r *commonDataSource) Configure(_ context.Context, req datasource.Configure
 func Allow404() *APIRequestOption {
 	return &APIRequestOption{
 		allow404: true,
-	}
-}
-
-// Allow409 treats HTTP 409 Conflict as non-fatal (e.g. "service already exists"); caller can adopt existing resource.
-func Allow409() *APIRequestOption {
-	return &APIRequestOption{
-		allow409: true,
 	}
 }
 
@@ -188,15 +180,7 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 				}
 			}
 		}
-		isOk409 := false
-		if statusCode == 409 {
-			for _, o := range options {
-				if o.allow409 {
-					isOk409 = true
-				}
-			}
-		}
-		if !isOk404 && !isOk409 {
+		if !isOk404 {
 			ok = false
 			errorInfo := fmt.Sprintf("%s %s returned status code %d: %s", method, path, statusCode, rawBytes)
 			diagnostics.AddError(

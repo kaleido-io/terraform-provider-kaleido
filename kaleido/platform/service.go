@@ -448,15 +448,8 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	var api ServiceAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
-	ok, statusCode := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics, Allow409())
+	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
-		return
-	}
-	if statusCode == 409 {
-		resp.Diagnostics.AddError(
-			"service already exists",
-			"a service with the same name already exists in this environment. Use `terraform import` with ID format: environment_id/stack_id/service_id (all IDs, not names)",
-		)
 		return
 	}
 
