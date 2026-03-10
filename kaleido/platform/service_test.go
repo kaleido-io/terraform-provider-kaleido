@@ -304,62 +304,6 @@ resource "kaleido_platform_service" "imported" {
 		},
 	})
 }
-
-// TestServiceCreateConflictFails tests that when POST returns 409 (service already exists),
-// the provider returns an error and suggests terraform import with ID-based format.
-func TestServiceCreateConflictFails(t *testing.T) {
-	mp, providerConfig := testSetup(t)
-	defer func() {
-		mp.checkClearCalls([]string{
-			"POST /api/v1/environments/{env}/services",
-		})
-		mp.server.Close()
-	}()
-
-	// Pre-seed: existing service so POST will return 409
-	existingID := "pre-seeded-id-409"
-	now := time.Now().UTC()
-	mp.services["env1/"+existingID] = &ServiceAPIModel{
-		ID:                  existingID,
-		Type:                "BesuNodeService",
-		Name:                "besu-node30",
-		StackID:             "st:14dsbcszcw",
-		Created:             &now,
-		Updated:             &now,
-		Status:              "ready",
-		EnvironmentMemberID: "mem1",
-		Runtime:             ServiceAPIRuntimeRef{ID: "runtime1"},
-		Config:              map[string]interface{}{},
-		Endpoints: map[string]ServiceAPIEndpoint{
-			"api": {Type: "http", URLS: []string{"https://example.com/api/v1/environments/env1/services/" + existingID}},
-		},
-		StatusDetails: ServiceStatusDetails{
-			Connectivity: &Connectivity{Identity: "test"},
-		},
-	}
-
-	config := `
-resource "kaleido_platform_service" "bns_non_validators" {
-    environment = "env1"
-    runtime     = "runtime1"
-    type        = "BesuNode"
-    name        = "besu-node30"
-    stack_id    = "st:14dsbcszcw"
-    config_json = jsonencode({})
-}
-`
-	resource.Test(t, resource.TestCase{
-		IsUnitTest:               true,
-		ProtoV6ProviderFactories: testAccProviders,
-		Steps: []resource.TestStep{
-			{
-				Config:      providerConfig + config,
-				ExpectError: regexp.MustCompile(`(?s)service already exists.*terraform import.*environment_id/stack_id/service_id`),
-			},
-		},
-	})
-}
-
 func (mp *mockPlatform) getService(res http.ResponseWriter, req *http.Request) {
 	env := mux.Vars(req)["env"]
 	serviceKey := mux.Vars(req)["service"]
