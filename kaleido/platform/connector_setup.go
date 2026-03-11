@@ -54,7 +54,8 @@ type ConnectorFlowInfo struct {
 }
 
 type StreamFactoryInfo struct {
-	Name string `json:"name"`
+	Name       string `json:"name"`
+	ConfigType string `json:"configType"`
 }
 
 type StandardAPIInfo struct {
@@ -62,7 +63,8 @@ type StandardAPIInfo struct {
 }
 
 type StandardStreamInfo struct {
-	Name string `json:"name"`
+	Name          string `json:"name"`
+	StreamFactory string `json:"streamFactory"`
 }
 
 type ConfigProfile struct {
@@ -82,8 +84,8 @@ type StandardAPI struct {
 }
 
 type StandardStream struct {
-	Name               string                 `json:"name"`
-	ConfigTypeBindings map[string]interface{} `json:"configTypeBindings"`
+	Name                  string `json:"name"`
+	ConfigProfileNameOrId string `json:"configProfileNameOrId,omitempty"`
 }
 
 func ConnectorSetupResourceFactory() resource.Resource {
@@ -279,6 +281,14 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, data *Conne
 		}
 	}
 
+	// build a mapping from stream factory name to its config type
+	factoryConfigTypes := make(map[string]string)
+	for _, sf := range setupInfo.ConnectorStreamFactories {
+		if sf.ConfigType != "" {
+			factoryConfigTypes[sf.Name] = sf.ConfigType
+		}
+	}
+
 	// deploy the standard streams
 	for _, ss := range setupInfo.StandardStreams {
 		ssName := ss.Name
@@ -290,8 +300,15 @@ func (r *connectorSetupResource) setupConnector(ctx context.Context, data *Conne
 		}
 
 		ssBody := StandardStream{
-			Name:               ssName,
-			ConfigTypeBindings: profileBindings,
+			Name: ssName,
+		}
+		// resolve the config profile for this standard stream via its factory's config type
+		if ss.StreamFactory != "" {
+			if configType, ok := factoryConfigTypes[ss.StreamFactory]; ok {
+				if _, hasProfile := configProfiles[configType]; hasProfile {
+					ssBody.ConfigProfileNameOrId = configType
+				}
+			}
 		}
 		ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(data, fmt.Sprintf("/api/v1/metadata/standard-streams/%s", ssName)), ssBody, nil, diagnostics)
 		if !ok {

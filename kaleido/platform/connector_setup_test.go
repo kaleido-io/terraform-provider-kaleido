@@ -101,13 +101,13 @@ func TestConnectorSetup(t *testing.T) {
 					{Name: "flow1", FlowType: "deploy"},
 				},
 				ConnectorStreamFactories: []StreamFactoryInfo{
-					{Name: "factory1"},
+					{Name: "factory1", ConfigType: "evm.confirmations"},
 				},
 				StandardAPIs: []StandardAPIInfo{
 					{Name: "deploySmartContract"},
 				},
 				StandardStreams: []StandardStreamInfo{
-					{Name: "stream1"},
+					{Name: "stream1", StreamFactory: "factory1"},
 				},
 			}
 			json.NewEncoder(res).Encode(setupInfo)
