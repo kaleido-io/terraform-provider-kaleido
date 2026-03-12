@@ -55,8 +55,8 @@ The policy input for `kaleido_platform_account_access_policy` includes `input.en
 
 1. **Set up variables:**
    ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your actual values
+   cp input.tfvars.example input.tfvars
+   # Edit input.tfvars with your actual values
    ```
 
 2. **Initialize and apply:**
