@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -241,8 +242,81 @@ func TestService1(t *testing.T) {
 	})
 }
 
+// TestServiceImportIDFormat tests ID-based import with environment_id/stack_id/service_id.
+func TestServiceImportIDFormat(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.server.Close()
+	}()
+
+	// Pre-seed service so Read after import can fetch it
+	existingID := "imported-svc-id"
+	now := time.Now().UTC()
+	mp.services["env1/"+existingID] = &ServiceAPIModel{
+		ID:                  existingID,
+		Type:                "BesuNodeService",
+		Name:                "besu-node30",
+		StackID:             "st:14dsbcszcw",
+		Created:             &now,
+		Updated:             &now,
+		Status:              "ready",
+		EnvironmentMemberID: "mem1",
+		Runtime:             ServiceAPIRuntimeRef{ID: "runtime1"},
+		Config:              map[string]interface{}{"key": "value"},
+		Endpoints: map[string]ServiceAPIEndpoint{
+			"api": {Type: "http", URLS: []string{"https://example.com/api/v1/environments/env1/services/" + existingID}},
+		},
+		StatusDetails: ServiceStatusDetails{
+			Connectivity: &Connectivity{Identity: "test"},
+		},
+	}
+
+	config := `
+resource "kaleido_platform_service" "imported" {
+    environment = "env1"
+    runtime     = "runtime1"
+    type        = "BesuNodeService"
+    name        = "besu-node30"
+    stack_id    = "st:14dsbcszcw"
+    config_json = jsonencode({})
+}
+`
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:            providerConfig + config,
+				ResourceName:      "kaleido_platform_service.imported",
+				ImportState:       true,
+				ImportStateId:     "env1/st:14dsbcszcw/" + existingID,
+				ImportStateVerify: false,
+				ImportStateCheck: func(s []*terraform.InstanceState) error {
+					assert.Len(t, s, 1)
+					assert.Equal(t, existingID, s[0].Attributes["id"])
+					assert.Equal(t, "env1", s[0].Attributes["environment"])
+					assert.Equal(t, "st:14dsbcszcw", s[0].Attributes["stack_id"])
+					assert.Equal(t, "BesuNodeService", s[0].Attributes["type"])
+					assert.Equal(t, "besu-node30", s[0].Attributes["name"])
+					return nil
+				},
+			},
+		},
+	})
+}
 func (mp *mockPlatform) getService(res http.ResponseWriter, req *http.Request) {
-	svc := mp.services[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]]
+	env := mux.Vars(req)["env"]
+	serviceKey := mux.Vars(req)["service"]
+	svc := mp.services[env+"/"+serviceKey]
+	if svc == nil {
+		// Resolve by name for import
+		for key, s := range mp.services {
+			if strings.HasPrefix(key, env+"/") && s.Name == serviceKey {
+				svc = s
+				break
+			}
+		}
+	}
 	if svc == nil {
 		mp.respond(res, nil, 404)
 	} else {
@@ -268,6 +342,7 @@ func (mp *mockPlatform) getService(res http.ResponseWriter, req *http.Request) {
 func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) {
 	var svc ServiceAPIModel
 	mp.getBody(req, &svc)
+	env := mux.Vars(req)["env"]
 	svc.ID = nanoid.New()
 	now := time.Now().UTC()
 	svc.Created = &now
@@ -277,10 +352,10 @@ func (mp *mockPlatform) postService(res http.ResponseWriter, req *http.Request) 
 	svc.Endpoints = map[string]ServiceAPIEndpoint{
 		"api": {
 			Type: "http",
-			URLS: []string{fmt.Sprintf("https://example.com/api/v1/environments/%s/services/%s", mux.Vars(req)["env"], svc.ID)},
+			URLS: []string{fmt.Sprintf("https://example.com/api/v1/environments/%s/services/%s", env, svc.ID)},
 		},
 	}
-	mp.services[mux.Vars(req)["env"]+"/"+svc.ID] = &svc
+	mp.services[env+"/"+svc.ID] = &svc
 	mp.respond(res, &svc, 201)
 }
 
