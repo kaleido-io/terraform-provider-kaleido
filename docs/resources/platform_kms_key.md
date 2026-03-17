@@ -24,7 +24,9 @@ A reference to a signing key (also known as a key mapping) that is directly/indi
 
 ### Optional
 
+- `attributes` (Map of String) Optional attributes of the key for key creation.
 - `path` (String) A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing.
+- `public_identifier_types` (List of String) Optional public identifier types to create for the key.
 
 ### Read-Only
 

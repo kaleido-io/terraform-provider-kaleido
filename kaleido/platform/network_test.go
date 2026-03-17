@@ -111,8 +111,7 @@ func TestNetwork1(t *testing.T) {
 								"setting2": "value2"
 							},
 							"environmentMemberId": "%[4]s",
-							"status": "ready",
-							"statusDetails": {}
+							"status": "ready"
 						}
 						`,
 							// generated fields that vary per test run

@@ -23,6 +23,7 @@ Grant a User Group or Application access to a specific service.
 
 - `application_id` (String) Application ID. Specify either group_id or application_id
 - `group_id` (String) User Group ID. Specify either group_id or application_id
+- `permissions_json` (String) Permissions. JSON describing fine grained service api access rules
 
 ### Read-Only
 

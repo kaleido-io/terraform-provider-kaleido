@@ -39,6 +39,24 @@ var serviceAccessStep2 = `
 resource "kaleido_platform_service_access" "serviceAccess1" {
 	group_id = "g:1234"
 	service_id = "s:1234"
+	permissions_json = jsonencode({
+		"api": { 
+			"http": [
+				{
+					"resource": {
+						"matches": "/api/v1/apis/**"
+					},
+					"actions": ["POST", "GET"]
+				},
+				{
+					"resource": {
+						"matches": "/api/v1/apis"
+					},
+					"action": "GET"
+				}
+			]
+		}
+	})
 }
 `
 
@@ -69,12 +87,15 @@ func TestServiceAccess1(t *testing.T) {
 				Config: providerConfig + serviceAccessStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(serviceAccess1Resource, "id"),
+					resource.TestCheckResourceAttrSet(serviceAccess1Resource, "application_id"),
 				),
 			},
 			{
 				Config: providerConfig + serviceAccessStep2,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(serviceAccess1Resource, "id"),
+					resource.TestCheckResourceAttrSet(serviceAccess1Resource, "group_id"),
+					resource.TestCheckResourceAttrSet(serviceAccess1Resource, "permissions_json"),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[serviceAccess1Resource].Primary.Attributes["id"]
@@ -84,7 +105,25 @@ func TestServiceAccess1(t *testing.T) {
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"serviceId": "s:1234",
-							"groupId" : "g:1234"
+							"groupId": "g:1234",
+							"permissions": {
+								"api": { 
+									"http": [
+										{
+											"resource": {
+												"matches": "/api/v1/apis/**"
+											},
+											"actions": ["POST", "GET"]
+										},
+										{
+											"resource": {
+												"matches": "/api/v1/apis"
+											},
+											"action": "GET"
+										}
+									]
+								}
+							}
 						}
 						`,
 							// generated fields that vary per test run

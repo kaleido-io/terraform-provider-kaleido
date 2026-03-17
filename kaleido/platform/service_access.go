@@ -15,6 +15,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -23,24 +24,27 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type ServiceAccessResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	GroupID       types.String `tfsdk:"group_id"`
-	ServiceID     types.String `tfsdk:"service_id"`
-	ApplicationID types.String `tfsdk:"application_id"`
+	ID              types.String `tfsdk:"id"`
+	GroupID         types.String `tfsdk:"group_id"`
+	ServiceID       types.String `tfsdk:"service_id"`
+	ApplicationID   types.String `tfsdk:"application_id"`
+	PermissionsJSON types.String `tfsdk:"permissions_json"`
 }
 
 type ServiceAccessAPIModel struct {
-	ID            string     `json:"id,omitempty"`
-	GroupID       string     `json:"groupId,omitempty"`
-	Created       *time.Time `json:"created,omitempty"`
-	Updated       *time.Time `json:"updated,omitempty"`
-	ServiceID     string     `json:"serviceId,omitempty"`
-	ApplicationID string     `json:"applicationId,omitempty"`
+	ID            string                 `json:"id,omitempty"`
+	GroupID       string                 `json:"groupId,omitempty"`
+	Created       *time.Time             `json:"created,omitempty"`
+	Updated       *time.Time             `json:"updated,omitempty"`
+	ServiceID     string                 `json:"serviceId,omitempty"`
+	ApplicationID string                 `json:"applicationId,omitempty"`
+	Permissions   map[string]interface{} `json:"permissions,omitempty"`
 }
 
 func ServiceAccessResourceFactory() resource.Resource {
@@ -78,6 +82,12 @@ func (r *serviceAccessResource) Schema(_ context.Context, _ resource.SchemaReque
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Application ID. Specify either group_id or application_id",
 			},
+			"permissions_json": &schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("{}"),
+				Description: "Permissions. JSON describing fine grained service api access rules",
+			},
 		},
 	}
 }
@@ -88,6 +98,9 @@ func (data *ServiceAccessResourceModel) toAPI(api *ServiceAccessAPIModel) {
 	}
 	if !data.ApplicationID.IsNull() {
 		api.ApplicationID = data.ApplicationID.ValueString()
+	}
+	if data.PermissionsJSON.ValueString() != "" {
+		_ = json.Unmarshal(([]byte)(data.PermissionsJSON.ValueString()), &api.Permissions)
 	}
 	api.ServiceID = data.ServiceID.ValueString()
 }
@@ -100,6 +113,15 @@ func (api *ServiceAccessAPIModel) toData(data *ServiceAccessResourceModel) {
 	if api.ApplicationID != "" {
 		data.ApplicationID = types.StringValue(api.ApplicationID)
 	}
+
+	if len(api.Permissions) > 0 {
+		permissionsBytes, _ := json.Marshal(api.Permissions)
+		data.PermissionsJSON = types.StringValue(string(permissionsBytes))
+	} else {
+		// Normalize empty/nil to "{}" to match schema default and avoid plan/state drift
+		data.PermissionsJSON = types.StringValue("{}")
+	}
+
 	data.ServiceID = types.StringValue(api.ServiceID)
 }
 
@@ -118,6 +140,7 @@ func (r *serviceAccessResource) Create(ctx context.Context, req resource.CreateR
 
 	var api ServiceAccessAPIModel
 	data.toAPI(&api)
+
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return

@@ -63,6 +63,8 @@ type mockPlatform struct {
 	applications                map[string]*ApplicationAPIModel
 	apiKeys                     map[string]*APIKeyAPIModel
 	serviceAccess               map[string]*ServiceAccessAPIModel
+	serviceAccessPolicies       map[string]*ServiceAccessPolicyAPIModel
+	accountAccessPolicies       map[string]*AccountAccessPolicyAPIModel
 	stackAccess                 map[string]*StackAccessAPIModel
 	wmsWallets                  map[string]*WMSWalletAPIModel
 	wmsAssets                   map[string]*WMSAssetAPIModel
@@ -76,6 +78,8 @@ type mockPlatform struct {
 	wfeWorkflows                map[string]*WFEWorkflowAPIModel
 	wfeWorkflowVersions         map[string]map[string]*WFEWorkflowVersionAPIModel
 	wfeStreams                  map[string]*WFEStreamAPIModel
+	fireflyContractListeners    map[string]*FireFlyContractListenerAPIModel
+	fireflySubscriptions        map[string]*FireFlySubscriptionAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -104,6 +108,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		groups:                      make(map[string]*GroupAPIModel),
 		applications:                make(map[string]*ApplicationAPIModel),
 		serviceAccess:               make(map[string]*ServiceAccessAPIModel),
+		serviceAccessPolicies:       make(map[string]*ServiceAccessPolicyAPIModel),
+		accountAccessPolicies:       make(map[string]*AccountAccessPolicyAPIModel),
 		stackAccess:                 make(map[string]*StackAccessAPIModel),
 		apiKeys:                     make(map[string]*APIKeyAPIModel),
 		wmsWallets:                  make(map[string]*WMSWalletAPIModel),
@@ -118,6 +124,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		wfeWorkflows:                make(map[string]*WFEWorkflowAPIModel),
 		wfeWorkflowVersions:         make(map[string]map[string]*WFEWorkflowVersionAPIModel),
 		wfeStreams:                  make(map[string]*WFEStreamAPIModel),
+		fireflyContractListeners:    make(map[string]*FireFlyContractListenerAPIModel),
+		fireflySubscriptions:        make(map[string]*FireFlySubscriptionAPIModel),
 		router:                      mux.NewRouter(),
 		calls:                       []string{},
 	}
@@ -268,6 +276,16 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}", http.MethodDelete, mp.deletePMSPolicyDeployment)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}/versions", http.MethodPost, mp.postPMSPolicyDeploymentVersion)
 
+	// See firefly_contract_listener_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/contracts/listeners", http.MethodPost, mp.postFireFlyContractListener)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/contracts/listeners/{id}", http.MethodGet, mp.getFireFlyContractListener)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/contracts/listeners/{id}", http.MethodDelete, mp.deleteFireFlyContractListener)
+
+	// See firefly_subscription_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/subscriptions", http.MethodPost, mp.postFireFlySubscription)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/subscriptions/{id}", http.MethodGet, mp.getFireFlySubscription)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/subscriptions/{id}", http.MethodDelete, mp.deleteFireFlySubscription)
+
 	// See group_test.go
 	mp.register("/api/v1/groups", http.MethodPost, mp.postGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodGet, mp.getGroup)
@@ -295,6 +313,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodGet, mp.getServiceAccessPermission)
 	mp.register("/api/v1/service-access/{service}/permissions/{permission}", http.MethodDelete, mp.deleteServiceAccessPermission)
 
+	// See service_access_policy_test.go
+	mp.register("/api/v1/service-access/{service}/policies", http.MethodPost, mp.postServiceAccessPolicy)
+	mp.register("/api/v1/service-access/{service}/policies/{policy}", http.MethodGet, mp.getServiceAccessPolicy)
+	mp.register("/api/v1/service-access/{service}/policies/{policy}", http.MethodDelete, mp.deleteServiceAccessPolicy)
+
 	// See stack_access_test.go
 	mp.register("/api/v1/stack-access/{stack}/permissions", http.MethodPost, mp.postStackAccessPermission)
 	mp.register("/api/v1/stack-access/{stack}/permissions/{permission}", http.MethodGet, mp.getStackAccessPermission)
@@ -313,6 +336,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "GET", mp.getWFEStream)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "PATCH", mp.patchWFEStream)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "DELETE", mp.deleteWFEStream)
+
+	// See account_access_policy_test.go
+	mp.register("/api/v1/account-access/policies", http.MethodPost, mp.postAccountAccessPolicy)
+	mp.register("/api/v1/account-access/policies/{policy}", http.MethodGet, mp.getAccountAccessPolicy)
+	mp.register("/api/v1/account-access/policies/{policy}", http.MethodDelete, mp.deleteAccountAccessPolicy)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
@@ -335,7 +363,7 @@ func (mp *mockPlatform) register(pathMatch, method string, handler http.HandlerF
 				res.Header().Set("Content-Length", strconv.Itoa(len(resString)))
 				res.WriteHeader(500)
 				res.Write([]byte(resString))
-				mp.t.Logf(resString + ": " + string(debug.Stack()))
+				mp.t.Logf("%s: %s", resString, string(debug.Stack()))
 			}
 		}()
 		sniffed, err := io.ReadAll(req.Body)

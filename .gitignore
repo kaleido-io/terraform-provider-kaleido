@@ -27,3 +27,8 @@ coverage.txt
 # Folder for defining Terraform scripts to manually test the provider
 test/
 sbom.spdx.json
+
+# Terraform plan files
+*.tfplan
+terraform.plan
+*.plan

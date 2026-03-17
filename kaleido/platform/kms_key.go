@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024
+// Copyright © Kaleido, Inc. 2024-2026
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,24 +29,28 @@ import (
 )
 
 type KMSKeyResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Environment types.String `tfsdk:"environment"`
-	Service     types.String `tfsdk:"service"`
-	Wallet      types.String `tfsdk:"wallet"`
-	Name        types.String `tfsdk:"name"`
-	Path        types.String `tfsdk:"path"`
-	URI         types.String `tfsdk:"uri"`
-	Address     types.String `tfsdk:"address"`
+	ID                    types.String `tfsdk:"id"`
+	Environment           types.String `tfsdk:"environment"`
+	Service               types.String `tfsdk:"service"`
+	Wallet                types.String `tfsdk:"wallet"`
+	Name                  types.String `tfsdk:"name"`
+	Path                  types.String `tfsdk:"path"`
+	URI                   types.String `tfsdk:"uri"`
+	Address               types.String `tfsdk:"address"`
+	Attributes            types.Map    `tfsdk:"attributes"`
+	PublicIdentifierTypes types.List   `tfsdk:"public_identifier_types"`
 }
 
 type KMSKeyAPIModel struct {
-	ID      string     `json:"id,omitempty"`
-	Created *time.Time `json:"created,omitempty"`
-	Updated *time.Time `json:"updated,omitempty"`
-	Name    string     `json:"name"`
-	Path    string     `json:"path,omitempty"`
-	URI     string     `json:"uri,omitempty"`
-	Address string     `json:"address,omitempty"`
+	ID                    string            `json:"id,omitempty"`
+	Created               *time.Time        `json:"created,omitempty"`
+	Updated               *time.Time        `json:"updated,omitempty"`
+	Name                  string            `json:"name"`
+	Path                  string            `json:"path,omitempty"`
+	URI                   string            `json:"uri,omitempty"`
+	Address               string            `json:"address,omitempty"`
+	Attributes            map[string]string `json:"attributes,omitempty"`
+	PublicIdentifierTypes []string          `json:"publicIdentifierTypes,omitempty"`
 }
 
 func KMSKeyResourceFactory() resource.Resource {
@@ -99,20 +103,60 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"address": &schema.StringAttribute{
 				Computed: true,
 			},
+			"attributes": &schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Optional attributes of the key for key creation.",
+			},
+			"public_identifier_types": &schema.ListAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Optional public identifier types to create for the key.",
+			},
 		},
 	}
 }
 
-func (data *KMSKeyResourceModel) toAPI(api *KMSKeyAPIModel) {
+func (data *KMSKeyResourceModel) toAPI(ctx context.Context, api *KMSKeyAPIModel, diagnostics *diag.Diagnostics) {
 	api.Name = data.Name.ValueString()
 	api.Path = data.Path.ValueString()
+
+	if !data.Attributes.IsNull() {
+		attrs := map[string]string{}
+		d := data.Attributes.ElementsAs(ctx, &attrs, false)
+		diagnostics.Append(d...)
+		api.Attributes = attrs
+	}
+
+	if !data.PublicIdentifierTypes.IsNull() {
+		var piTypes []string
+		d := data.PublicIdentifierTypes.ElementsAs(ctx, &piTypes, false)
+		diagnostics.Append(d...)
+		api.PublicIdentifierTypes = piTypes
+	}
 }
 
-func (api *KMSKeyAPIModel) toData(data *KMSKeyResourceModel) {
+func (api *KMSKeyAPIModel) toData(ctx context.Context, data *KMSKeyResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.Path = types.StringValue(api.Path)
 	data.URI = types.StringValue(api.URI)
 	data.Address = types.StringValue(api.Address)
+
+	if api.Attributes != nil {
+		tfMap, d := types.MapValueFrom(ctx, types.StringType, api.Attributes)
+		diagnostics.Append(d...)
+		data.Attributes = tfMap
+	} else {
+		data.Attributes = types.MapNull(types.StringType)
+	}
+
+	if api.PublicIdentifierTypes != nil {
+		tfList, d := types.ListValueFrom(ctx, types.StringType, api.PublicIdentifierTypes)
+		diagnostics.Append(d...)
+		data.PublicIdentifierTypes = tfList
+	} else {
+		data.PublicIdentifierTypes = types.ListNull(types.StringType)
+	}
 }
 
 func (r *kms_keyResource) apiPath(ctx context.Context, data *KMSKeyResourceModel, diagnostics *diag.Diagnostics) (string, bool) {
@@ -136,8 +180,11 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 	var data KMSKeyResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
+	// Preserve planned publicIdentifierTypes, as API does not return them on GET
+	plannedPublicIdentifierTypes := data.PublicIdentifierTypes
+
 	var api KMSKeyAPIModel
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	apiPath, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
 	if ok {
 		ok, _ = r.apiRequest(ctx, http.MethodPut /* note different to wallets */, apiPath, api, &api, &resp.Diagnostics)
@@ -146,7 +193,11 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
+	// Restore planned value into state
+	if !plannedPublicIdentifierTypes.IsNull() && !plannedPublicIdentifierTypes.IsUnknown() {
+		data.PublicIdentifierTypes = plannedPublicIdentifierTypes
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -156,6 +207,9 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 	var data KMSKeyResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+
+	// Preserve planned publicIdentifierTypes, as API does not return them on GET
+	plannedPublicIdentifierTypes := data.PublicIdentifierTypes
 
 	// Read full current object
 	var api KMSKeyAPIModel
@@ -168,18 +222,25 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	// Update from plan
-	data.toAPI(&api)
+	data.toAPI(ctx, &api, &resp.Diagnostics)
 	if ok, _ = r.apiRequest(ctx, http.MethodPatch /* note there is no put-by-ID */, apiPath, api, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
+	// Restore planned value into state
+	if !plannedPublicIdentifierTypes.IsNull() && !plannedPublicIdentifierTypes.IsUnknown() {
+		data.PublicIdentifierTypes = plannedPublicIdentifierTypes
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
 func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data KMSKeyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	// Preserve current state's publicIdentifierTypes, as API does not return them on GET
+	currentPublicIdentifierTypes := data.PublicIdentifierTypes
 
 	var api KMSKeyAPIModel
 	api.ID = data.ID.ValueString()
@@ -196,7 +257,11 @@ func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data, &resp.Diagnostics)
+	// Restore current state's value into state
+	if !currentPublicIdentifierTypes.IsNull() && !currentPublicIdentifierTypes.IsUnknown() {
+		data.PublicIdentifierTypes = currentPublicIdentifierTypes
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
