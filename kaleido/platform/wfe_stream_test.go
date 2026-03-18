@@ -28,16 +28,18 @@ resource "kaleido_platform_wfe_stream" "test_stream" {
   environment = "test-env"
   service = "test-service"
   name = "test-stream"
-  uniqueness_prefix = "evmtx."
   description = "Test stream for workflow engine"
-  event_source_type = "transaction"
+  transform = {
+    uniqueness_prefix = "evmtx."
+  }
+  event_source_type = "handler"
   event_source_json = jsonencode({
-      "filter" = {
-        "topic" = "tx.submitted"
+      "name" = "evmTransactions"
+      "provider" = "evm-provider"
+      "config" = {
+        "fromBlock" = "latest"
+        "batchSize" = 50
       }
-      "batchSize" = 50
-      "batchTimeout" = "500ms"
-      "pollThrottle" = "2s"
   })
   event_processor_type = "handler"
   event_processor_json = jsonencode({
@@ -53,16 +55,20 @@ resource "kaleido_platform_wfe_stream" "test_stream" {
   environment = "test-env"
   service = "test-service"
   name = "test-stream"
-  uniqueness_prefix = "evmtx."
   description = "Test stream for workflow engine - updated"
-  event_source_type = "transaction"
+  transform = {
+    uniqueness_prefix = "evmtx."
+    filter_jsonata = "$event.status = 'confirmed'"
+    mapping_jsonata = "{ \"txHash\": $event.transactionHash }"
+  }
+  event_source_type = "handler"
   event_source_json = jsonencode({
-      "filter" = {
-        "topic" = "tx.finalized"
+      "name" = "evmTransactions"
+      "provider" = "evm-provider"
+      "config" = {
+        "fromBlock" = "latest"
+        "batchSize" = 150
       }
-      "batchSize" = 150
-      "batchTimeout" = "500ms"
-      "pollThrottle" = "2s"
   })
   event_processor_type = "handler"
   event_processor_json = jsonencode({
@@ -97,8 +103,8 @@ func TestWFEStream1(t *testing.T) {
 					resource.TestCheckResourceAttr(wfe_stream_resource, "environment", "test-env"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "uniqueness_prefix", "evmtx."),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "transaction"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.uniqueness_prefix", "evmtx."),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "handler"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "true"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine"),
@@ -136,8 +142,8 @@ func TestWFEStream2(t *testing.T) {
 					resource.TestCheckResourceAttr(wfe_stream_resource, "environment", "test-env"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "uniqueness_prefix", "evmtx."),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "transaction"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.uniqueness_prefix", "evmtx."),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "handler"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "true"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine"),
@@ -152,7 +158,10 @@ func TestWFEStream2(t *testing.T) {
 					resource.TestCheckResourceAttr(wfe_stream_resource, "environment", "test-env"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
-					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "transaction"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.uniqueness_prefix", "evmtx."),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.filter_jsonata", "$event.status = 'confirmed'"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.mapping_jsonata", "{ \"txHash\": $event.transactionHash }"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "handler"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "false"),
 					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine - updated"),
@@ -178,14 +187,9 @@ func (mp *mockPlatform) putWFEStream(res http.ResponseWriter, req *http.Request)
 		newStream.Created = &now
 	} else {
 		newStream.ID = stream.ID
-		newStream.Name = stream.Name
-		newStream.Transform = stream.Transform
-		newStream.EventSource = stream.EventSource
-		newStream.EventProcessor = stream.EventProcessor
-		newStream.Started = stream.Started
+		newStream.Created = stream.Created
 	}
 	newStream.Updated = &now
-	// Store by both ID and name for lookup
 	mp.wfeStreams[newStream.Name] = newStream
 	mp.wfeStreams[newStream.ID] = newStream
 	mp.respond(res, newStream, http.StatusOK)
@@ -196,7 +200,6 @@ func (mp *mockPlatform) getWFEStream(res http.ResponseWriter, req *http.Request)
 	streamNameOrID := vars["stream"]
 	stream, exists := mp.wfeStreams[streamNameOrID]
 	if !exists {
-		// Try to find by name
 		for _, s := range mp.wfeStreams {
 			if s.Name == streamNameOrID {
 				stream = s
@@ -230,7 +233,7 @@ func (mp *mockPlatform) patchWFEStream(res http.ResponseWriter, req *http.Reques
 	if streamUpdates.Description != "" {
 		stream.Description = streamUpdates.Description
 	}
-	if streamUpdates.Transform.Filter != nil || streamUpdates.Transform.Mapping != nil || streamUpdates.Transform.UniquenessPrefix != "" {
+	if streamUpdates.Transform != nil {
 		stream.Transform = streamUpdates.Transform
 	}
 	if streamUpdates.EventSource != nil {
@@ -241,7 +244,6 @@ func (mp *mockPlatform) patchWFEStream(res http.ResponseWriter, req *http.Reques
 	}
 	now := time.Now().UTC()
 	stream.Updated = &now
-	// Store by both ID and name for lookup
 	mp.wfeStreams[stream.Name] = stream
 	mp.wfeStreams[stream.ID] = stream
 	mp.respond(res, stream, http.StatusOK)

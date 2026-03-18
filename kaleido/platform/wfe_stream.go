@@ -29,29 +29,40 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// WFEStreamTransform mirrors engtypes.StreamTransform: filter, mapping, uniquenessPrefix.
-type WFEStreamTransform struct {
-	Filter           map[string]interface{} `json:"filter,omitempty"`
-	Mapping          map[string]interface{} `json:"mapping,omitempty"`
-	UniquenessPrefix string                 `json:"uniquenessPrefix,omitempty"`
+type WFEStreamTransformResourceModel struct {
+	UniquenessPrefix types.String `tfsdk:"uniqueness_prefix"`
+	FilterJSONata    types.String `tfsdk:"filter_jsonata"`
+	MappingJSONata   types.String `tfsdk:"mapping_jsonata"`
 }
 
 type WFEStreamResourceModel struct {
-	ID                   types.String `tfsdk:"id"`
-	Name                 types.String `tfsdk:"name"`
-	Description          types.String `tfsdk:"description"`
-	Environment          types.String `tfsdk:"environment"`
-	Service              types.String `tfsdk:"service"`
-	UniquenessPrefix     types.String `tfsdk:"uniqueness_prefix"`
-	TransformFilterJSON  types.String `tfsdk:"transform_filter_json"`
-	TransformMappingJSON types.String `tfsdk:"transform_mapping_json"`
-	EventSourceType      types.String `tfsdk:"event_source_type"`
-	EventSourceJSON      types.String `tfsdk:"event_source_json"`
-	EventProcessorType   types.String `tfsdk:"event_processor_type"`
-	EventProcessorJSON   types.String `tfsdk:"event_processor_json"`
-	Started              types.Bool   `tfsdk:"started"`
-	Created              types.String `tfsdk:"created"`
-	Updated              types.String `tfsdk:"updated"`
+	ID                 types.String                     `tfsdk:"id"`
+	Name               types.String                     `tfsdk:"name"`
+	Description        types.String                     `tfsdk:"description"`
+	Environment        types.String                     `tfsdk:"environment"`
+	Service            types.String                     `tfsdk:"service"`
+	Transform          *WFEStreamTransformResourceModel `tfsdk:"transform"`
+	EventSourceType    types.String                     `tfsdk:"event_source_type"`
+	EventSourceJSON    types.String                     `tfsdk:"event_source_json"`
+	EventProcessorType types.String                     `tfsdk:"event_processor_type"`
+	EventProcessorJSON types.String                     `tfsdk:"event_processor_json"`
+	Started            types.Bool                       `tfsdk:"started"`
+	Created            types.String                     `tfsdk:"created"`
+	Updated            types.String                     `tfsdk:"updated"`
+}
+
+type WFEStreamTransformFilterMappingAPI struct {
+	JSONata string `json:"jsonata,omitempty"`
+}
+
+type WFEStreamTransformMappingAPI struct {
+	JSONata string `json:"jsonata,omitempty"`
+}
+
+type WFEStreamTransformAPI struct {
+	UniquenessPrefix string                              `json:"uniquenessPrefix,omitempty"`
+	Filter           *WFEStreamTransformFilterMappingAPI `json:"filter,omitempty"`
+	Mapping          *WFEStreamTransformMappingAPI       `json:"mapping,omitempty"`
 }
 
 // WFEStreamAPIModel mirrors the Stream JSON from workflow-engine engtypes (StreamInput/Stream).
@@ -59,21 +70,12 @@ type WFEStreamAPIModel struct {
 	ID             string                 `json:"id,omitempty"`
 	Name           string                 `json:"name,omitempty"`
 	Description    string                 `json:"description,omitempty"`
-	Transform      WFEStreamTransform     `json:"transform,omitempty"`
+	Transform      *WFEStreamTransformAPI `json:"transform,omitempty"`
 	EventSource    map[string]interface{} `json:"eventSource,omitempty"`
 	EventProcessor map[string]interface{} `json:"eventProcessor,omitempty"`
 	Started        *bool                  `json:"started,omitempty"`
 	Created        *time.Time             `json:"created,omitempty"`
 	Updated        *time.Time             `json:"updated,omitempty"`
-}
-
-// WFEStreamUpdatableAPIModel mirrors StreamUpdatable: only fields allowed in PATCH (no eventProcessor, id, created, updated).
-type WFEStreamUpdatableAPIModel struct {
-	Name        string                 `json:"name,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	Transform   WFEStreamTransform     `json:"transform,omitempty"`
-	EventSource map[string]interface{} `json:"eventSource,omitempty"`
-	Started     *bool                  `json:"started,omitempty"`
 }
 
 func WFEStreamResourceFactory() resource.Resource {
@@ -112,17 +114,23 @@ func (r *wfe_streamResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description:   "The name of the stream",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"uniqueness_prefix": &schema.StringAttribute{
+			"transform": &schema.SingleNestedAttribute{
 				Optional:    true,
-				Description: "The uniqueness prefix for the stream (maps to transform.uniquenessPrefix in the API).",
-			},
-			"transform_filter_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Optional JSONata filter for the stream transform (maps to transform.filter in the API). Replaces the deprecated post_filter_json.",
-			},
-			"transform_mapping_json": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Optional JSONata mapping for the stream transform (maps to transform.mapping in the API).",
+				Description: "Transform configuration for the stream, including uniqueness prefix, filter, and mapping.",
+				Attributes: map[string]schema.Attribute{
+					"uniqueness_prefix": &schema.StringAttribute{
+						Optional:    true,
+						Description: "A string prefix to prepend to all 'topic' and 'idempotencyKey' values generated by this stream.",
+					},
+					"filter_jsonata": &schema.StringAttribute{
+						Optional:    true,
+						Description: "Optional JSONata condition to evaluate against events to filter them before processing (must return true/false).",
+					},
+					"mapping_jsonata": &schema.StringAttribute{
+						Optional:    true,
+						Description: "Optional JSONata mapping to transform events before processing.",
+					},
+				},
 			},
 			"event_source_type": &schema.StringAttribute{
 				Required:      true,
@@ -131,7 +139,7 @@ func (r *wfe_streamResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"event_source_json": &schema.StringAttribute{
 				Required:    true,
-				Description: "The event source configuration as JSON.",
+				Description: "The event source configuration as JSON (the type-specific content nested under the event source type key).",
 			},
 			"event_processor_type": &schema.StringAttribute{
 				Required:      true,
@@ -140,7 +148,7 @@ func (r *wfe_streamResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"event_processor_json": &schema.StringAttribute{
 				Required:    true,
-				Description: "The event processor configuration as JSON.",
+				Description: "The event processor configuration as JSON (the type-specific content nested under the event processor type key).",
 			},
 			"description": &schema.StringAttribute{
 				Optional:    true,
@@ -180,25 +188,32 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 		api.Started = &started
 	}
 
-	// Transform: filter, mapping, uniquenessPrefix (align with engtypes.StreamTransform)
-	if data.TransformFilterJSON.ValueString() != "" {
-		var filter map[string]interface{}
-		if err := json.Unmarshal([]byte(data.TransformFilterJSON.ValueString()), &filter); err != nil {
-			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse transform filter JSON: %v", err))
-			return
+	if data.Transform != nil {
+		transform := WFEStreamTransformAPI{}
+		hasContent := false
+
+		if !data.Transform.UniquenessPrefix.IsNull() && data.Transform.UniquenessPrefix.ValueString() != "" {
+			transform.UniquenessPrefix = data.Transform.UniquenessPrefix.ValueString()
+			hasContent = true
 		}
-		api.Transform.Filter = filter
-	}
-	if data.TransformMappingJSON.ValueString() != "" {
-		var mapping map[string]interface{}
-		if err := json.Unmarshal([]byte(data.TransformMappingJSON.ValueString()), &mapping); err != nil {
-			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse transform mapping JSON: %v", err))
-			return
+
+		if !data.Transform.FilterJSONata.IsNull() && data.Transform.FilterJSONata.ValueString() != "" {
+			transform.Filter = &WFEStreamTransformFilterMappingAPI{
+				JSONata: data.Transform.FilterJSONata.ValueString(),
+			}
+			hasContent = true
 		}
-		api.Transform.Mapping = mapping
-	}
-	if !data.UniquenessPrefix.IsNull() && data.UniquenessPrefix.ValueString() != "" {
-		api.Transform.UniquenessPrefix = data.UniquenessPrefix.ValueString()
+
+		if !data.Transform.MappingJSONata.IsNull() && data.Transform.MappingJSONata.ValueString() != "" {
+			transform.Mapping = &WFEStreamTransformMappingAPI{
+				JSONata: data.Transform.MappingJSONata.ValueString(),
+			}
+			hasContent = true
+		}
+
+		if hasContent {
+			api.Transform = &transform
+		}
 	}
 
 	// EventSource: nest type and content under a type-specific key
@@ -273,39 +288,38 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 
-	// Note: environment and service are not returned by the API, they remain as set in the resource
-
 	if api.Description == "" {
 		data.Description = types.StringNull()
 	} else {
 		data.Description = types.StringValue(api.Description)
 	}
 
-	// Transform: filter, mapping, uniquenessPrefix
-	if api.Transform.Filter != nil {
-		filterBytes, err := json.Marshal(api.Transform.Filter)
-		if err != nil {
-			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream transform filter: %v", err))
-			return
+	// Extract transform fields
+	if api.Transform != nil {
+		if data.Transform == nil {
+			data.Transform = &WFEStreamTransformResourceModel{}
 		}
-		data.TransformFilterJSON = types.StringValue(string(filterBytes))
-	} else {
-		data.TransformFilterJSON = types.StringNull()
-	}
-	if api.Transform.Mapping != nil {
-		mappingBytes, err := json.Marshal(api.Transform.Mapping)
-		if err != nil {
-			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream transform mapping: %v", err))
-			return
+
+		if api.Transform.UniquenessPrefix == "" {
+			data.Transform.UniquenessPrefix = types.StringNull()
+		} else {
+			data.Transform.UniquenessPrefix = types.StringValue(api.Transform.UniquenessPrefix)
 		}
-		data.TransformMappingJSON = types.StringValue(string(mappingBytes))
-	} else {
-		data.TransformMappingJSON = types.StringNull()
-	}
-	if api.Transform.UniquenessPrefix == "" {
-		data.UniquenessPrefix = types.StringNull()
-	} else {
-		data.UniquenessPrefix = types.StringValue(api.Transform.UniquenessPrefix)
+
+		if api.Transform.Filter != nil && api.Transform.Filter.JSONata != "" {
+			data.Transform.FilterJSONata = types.StringValue(api.Transform.Filter.JSONata)
+		} else {
+			data.Transform.FilterJSONata = types.StringNull()
+		}
+
+		if api.Transform.Mapping != nil && api.Transform.Mapping.JSONata != "" {
+			data.Transform.MappingJSONata = types.StringValue(api.Transform.Mapping.JSONata)
+		} else {
+			data.Transform.MappingJSONata = types.StringNull()
+		}
+	} else if data.Transform != nil {
+		// API returned no transform, but we had one — clear it
+		data.Transform = nil
 	}
 
 	// EventSource: extract type and type-specific content from nested structure
@@ -389,7 +403,6 @@ func (r *wfe_streamResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	// Create the stream
 	ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, api.Name), &api, &api, &resp.Diagnostics)
 	if !ok {
 		return
@@ -435,8 +448,7 @@ func (r *wfe_streamResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 	streamID := data.ID.ValueString()
 
-	var api WFEStreamAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, streamID), &patchBody, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, streamID), &api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
