@@ -44,6 +44,7 @@ type mockPlatform struct {
 	connectors                  map[string]*ConnectorAPIModel
 	networkinitdatas            map[string]*NetworkInitData
 	kmsWallets                  map[string]*KMSWalletAPIModel
+	arsNamespaces               map[string]*ARSNamespaceAPIModel
 	kmsKeys                     map[string]*KMSKeyAPIModel
 	cmsBuilds                   map[string]*CMSBuildAPIModel
 	cmsActions                  map[string]CMSActionAPIBaseAccessor
@@ -93,6 +94,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		connectors:                  make(map[string]*ConnectorAPIModel),
 		networkinitdatas:            make(map[string]*NetworkInitData),
 		kmsWallets:                  make(map[string]*KMSWalletAPIModel),
+		arsNamespaces:               make(map[string]*ARSNamespaceAPIModel),
 		kmsKeys:                     make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:                   make(map[string]*CMSBuildAPIModel),
 		cmsActions:                  make(map[string]CMSActionAPIBaseAccessor),
@@ -171,6 +173,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getKMSWallet)
 	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPatch, mp.patchKMSWallet)
 	//mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteKMSWallet)
+
+	// See artifact_registry_namespace.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces", http.MethodPost, mp.postARSNamespace)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodGet, mp.getARSNamespace)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodDelete, mp.deleteARSNamespace)
 
 	// See kms_key.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys", http.MethodPut, mp.putKMSKey)
