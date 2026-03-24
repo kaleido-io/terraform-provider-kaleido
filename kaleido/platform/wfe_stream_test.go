@@ -224,8 +224,9 @@ func (mp *mockPlatform) patchWFEStream(res http.ResponseWriter, req *http.Reques
 		mp.respond(res, nil, 404)
 		return
 	}
-	var streamUpdates WFEStreamAPIModel
+	var streamUpdates WFEStreamUpdatableAPIModel
 	mp.getBody(req, &streamUpdates)
+	// Apply only StreamUpdatable fields; do not overwrite eventProcessor (immutable)
 	if streamUpdates.Name != "" {
 		stream.Name = streamUpdates.Name
 	}
@@ -237,9 +238,6 @@ func (mp *mockPlatform) patchWFEStream(res http.ResponseWriter, req *http.Reques
 	}
 	if streamUpdates.EventSource != nil {
 		stream.EventSource = streamUpdates.EventSource
-	}
-	if streamUpdates.EventProcessor != nil {
-		stream.EventProcessor = streamUpdates.EventProcessor
 	}
 	if streamUpdates.Started != nil {
 		stream.Started = streamUpdates.Started

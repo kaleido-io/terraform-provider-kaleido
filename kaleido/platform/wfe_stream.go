@@ -65,6 +65,7 @@ type WFEStreamTransformAPI struct {
 	Mapping          *WFEStreamTransformMappingAPI       `json:"mapping,omitempty"`
 }
 
+// WFEStreamAPIModel mirrors the Stream JSON from workflow-engine engtypes (StreamInput/Stream).
 type WFEStreamAPIModel struct {
 	ID             string                 `json:"id,omitempty"`
 	Name           string                 `json:"name,omitempty"`
@@ -229,14 +230,57 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 
 	// EventProcessor: nest type and content under a type-specific key
 	eventProcessorType := data.EventProcessorType.ValueString()
+	eventProcessorTypeCamelCase := eventProcessorType
+	if eventProcessorType == "transaction_dispatch" {
+		eventProcessorTypeCamelCase = "transactionDispatch"
+	}
 	var eventProcessorContent map[string]interface{}
 	if err := json.Unmarshal([]byte(data.EventProcessorJSON.ValueString()), &eventProcessorContent); err != nil {
 		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream event processor JSON: %v", err))
 		return
 	}
 	api.EventProcessor = map[string]interface{}{
-		"type":              eventProcessorType,
-		eventProcessorType: eventProcessorContent,
+		"type":                      eventProcessorType,
+		eventProcessorTypeCamelCase: eventProcessorContent,
+	}
+}
+
+// toUpdatable builds the PATCH body (StreamUpdatable): name, description, started, transform, eventSource only.
+func (r *wfe_streamResource) toUpdatable(data *WFEStreamResourceModel, upd *WFEStreamUpdatableAPIModel, diagnostics *diag.Diagnostics) {
+	upd.Name = data.Name.ValueString()
+	upd.Description = data.Description.ValueString()
+	if !data.Started.IsNull() {
+		started := data.Started.ValueBool()
+		upd.Started = &started
+	}
+	if data.TransformFilterJSON.ValueString() != "" {
+		var filter map[string]interface{}
+		if err := json.Unmarshal([]byte(data.TransformFilterJSON.ValueString()), &filter); err != nil {
+			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse transform filter JSON: %v", err))
+			return
+		}
+		upd.Transform.Filter = filter
+	}
+	if data.TransformMappingJSON.ValueString() != "" {
+		var mapping map[string]interface{}
+		if err := json.Unmarshal([]byte(data.TransformMappingJSON.ValueString()), &mapping); err != nil {
+			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse transform mapping JSON: %v", err))
+			return
+		}
+		upd.Transform.Mapping = mapping
+	}
+	if !data.UniquenessPrefix.IsNull() && data.UniquenessPrefix.ValueString() != "" {
+		upd.Transform.UniquenessPrefix = data.UniquenessPrefix.ValueString()
+	}
+	eventSourceType := data.EventSourceType.ValueString()
+	var eventSourceContent map[string]interface{}
+	if err := json.Unmarshal([]byte(data.EventSourceJSON.ValueString()), &eventSourceContent); err != nil {
+		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream event source JSON: %v", err))
+		return
+	}
+	upd.EventSource = map[string]interface{}{
+		"type":          eventSourceType,
+		eventSourceType: eventSourceContent,
 	}
 }
 
@@ -305,7 +349,11 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 	if api.EventProcessor != nil {
 		if t, ok := api.EventProcessor["type"].(string); ok && t != "" {
 			data.EventProcessorType = types.StringValue(t)
-			if content, ok := api.EventProcessor[t]; ok {
+			eventProcessorTypeCamelCase := t
+			if t == "transaction_dispatch" {
+				eventProcessorTypeCamelCase = "transactionDispatch"
+			}
+			if content, ok := api.EventProcessor[eventProcessorTypeCamelCase]; ok {
 				contentBytes, err := json.Marshal(content)
 				if err != nil {
 					diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event processor: %v", err))
@@ -393,8 +441,8 @@ func (r *wfe_streamResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	var api WFEStreamAPIModel
-	r.toAPI(&data, &api, &resp.Diagnostics)
+	var patchBody WFEStreamUpdatableAPIModel
+	r.toUpdatable(&data, &patchBody, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
