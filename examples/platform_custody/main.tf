@@ -71,8 +71,8 @@ resource "kaleido_platform_cms_build" "erc20" {
   name = "ERC20"
   path = "Samples"
   precompiled = {
-    abi = ""
-    bytecode = ""
+    abi = file("${path.module}/erc20.abi.json")
+    bytecode = file("${path.module}/erc20.bytecode.hex")
   }
 }
 
@@ -239,7 +239,7 @@ resource "kaleido_platform_service" "evmconnector_service" {
     }
   })
 
-  database_name = var.databases != null ? var.databases.evmconnector_db : null
+  database_name = var.databases != null ? var.databases.ecs_db : null
 
   depends_on = [
     kaleido_platform_service.evmgw_service,
@@ -274,6 +274,8 @@ resource "kaleido_platform_service" "tokenization_service" {
     }
   })
   stack_id = kaleido_platform_stack.tokenization_stack.id
+
+  database_name = var.databases != null ? var.databases.ams_db : null
 }
 
 ## Digital assets: custody
@@ -310,6 +312,7 @@ resource "kaleido_platform_service" "custody_service" {
     }
   })
   stack_id   = kaleido_platform_stack.custody_stack.id
+  database_name = var.databases != null ? var.databases.wms_db : null
   depends_on = [kaleido_platform_service.workflow_engine_service]
 }
 
@@ -326,4 +329,6 @@ resource "kaleido_platform_service" "policy_manager_service" {
   environment = kaleido_platform_environment.env_0.id
   runtime     = kaleido_platform_runtime.policy_manager_runtime.id
   config_json = jsonencode({})
+
+  database_name = var.databases != null ? var.databases.pms_db : null
 }

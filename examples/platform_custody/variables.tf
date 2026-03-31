@@ -8,7 +8,10 @@ variable "databases" {
     cms_db           = string
     kms_db           = string
     bis_db           = string
-    evmconnector_db  = string
+    ecs_db           = string
+    ams_db           = string
+    wms_db           = string
+    pms_db           = string
   })
   default = null
 }
