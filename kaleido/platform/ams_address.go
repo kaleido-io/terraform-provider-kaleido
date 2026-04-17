@@ -276,9 +276,6 @@ func (r *ams_addressResource) apiPathResource(data *AMSAddressResourceModel) str
 func (r *ams_addressResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data AMSAddressResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
 	payload := data.toAPI(&resp.Diagnostics)
 
@@ -298,9 +295,6 @@ func (r *ams_addressResource) Create(ctx context.Context, req resource.CreateReq
 func (r *ams_addressResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data AMSAddressResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
 	// Read address via GET to resource endpoint
 	var apiResponse map[string]interface{}
@@ -323,9 +317,6 @@ func (r *ams_addressResource) Read(ctx context.Context, req resource.ReadRequest
 func (r *ams_addressResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data AMSAddressResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
 	payload := data.toAPI(&resp.Diagnostics)
 
@@ -345,10 +336,9 @@ func (r *ams_addressResource) Update(ctx context.Context, req resource.UpdateReq
 func (r *ams_addressResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data AMSAddressResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
 	// Delete address via DELETE to resource endpoint
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPathResource(&data), nil, nil, &resp.Diagnostics)
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPathResource(&data), nil, nil, &resp.Diagnostics, Allow404())
+
+	r.waitForRemoval(ctx, r.apiPathResource(&data), &resp.Diagnostics)
 }

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -370,9 +371,23 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 
 func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
+	data.Type = types.StringValue(api.Type)
+	data.Name = types.StringValue(api.Name)
+	data.StackID = types.StringValue(api.StackID)
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
+	if api.Runtime.ID != "" {
+		data.Runtime = types.StringValue(api.Runtime.ID)
+	}
 	if api.DatabaseName != "" {
 		data.DatabaseName = types.StringValue(api.DatabaseName)
+	}
+	if api.Config != nil {
+		configBytes, err := json.Marshal(api.Config)
+		if err != nil {
+			diagnostics.AddError("failed to marshal config", err.Error())
+		} else {
+			data.ConfigJSON = types.StringValue(string(configBytes))
+		}
 	}
 	endpoints := map[string]attr.Value{}
 	endpointAttrTypes := map[string]attr.Type{
@@ -513,4 +528,26 @@ func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
+}
+
+// ImportState supports ID-based import. Use environment_id/stack_id/service_id (all IDs, not names).
+// Two-part format environment_id/service_id is also supported; stack_id will be filled from the API on first Read.
+func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 3)
+	switch len(parts) {
+	case 2:
+		// environment_id/service_id
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment"), parts[0])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+	case 3:
+		// environment_id/stack_id/service_id
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment"), parts[0])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("stack_id"), parts[1])...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[2])...)
+	default:
+		resp.Diagnostics.AddError(
+			"invalid import id",
+			"import id must be environment_id/service_id or environment_id/stack_id/service_id (all IDs, not names)",
+		)
+	}
 }
