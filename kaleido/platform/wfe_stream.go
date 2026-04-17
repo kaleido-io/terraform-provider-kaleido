@@ -245,45 +245,6 @@ func (r *wfe_streamResource) toAPI(data *WFEStreamResourceModel, api *WFEStreamA
 	}
 }
 
-// toUpdatable builds the PATCH body (StreamUpdatable): name, description, started, transform, eventSource only.
-func (r *wfe_streamResource) toUpdatable(data *WFEStreamResourceModel, upd *WFEStreamUpdatableAPIModel, diagnostics *diag.Diagnostics) {
-	upd.Name = data.Name.ValueString()
-	upd.Description = data.Description.ValueString()
-	if !data.Started.IsNull() {
-		started := data.Started.ValueBool()
-		upd.Started = &started
-	}
-	if data.TransformFilterJSON.ValueString() != "" {
-		var filter map[string]interface{}
-		if err := json.Unmarshal([]byte(data.TransformFilterJSON.ValueString()), &filter); err != nil {
-			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse transform filter JSON: %v", err))
-			return
-		}
-		upd.Transform.Filter = filter
-	}
-	if data.TransformMappingJSON.ValueString() != "" {
-		var mapping map[string]interface{}
-		if err := json.Unmarshal([]byte(data.TransformMappingJSON.ValueString()), &mapping); err != nil {
-			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse transform mapping JSON: %v", err))
-			return
-		}
-		upd.Transform.Mapping = mapping
-	}
-	if !data.UniquenessPrefix.IsNull() && data.UniquenessPrefix.ValueString() != "" {
-		upd.Transform.UniquenessPrefix = data.UniquenessPrefix.ValueString()
-	}
-	eventSourceType := data.EventSourceType.ValueString()
-	var eventSourceContent map[string]interface{}
-	if err := json.Unmarshal([]byte(data.EventSourceJSON.ValueString()), &eventSourceContent); err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse stream event source JSON: %v", err))
-		return
-	}
-	upd.EventSource = map[string]interface{}{
-		"type":          eventSourceType,
-		eventSourceType: eventSourceContent,
-	}
-}
-
 func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
@@ -441,14 +402,17 @@ func (r *wfe_streamResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	var patchBody WFEStreamUpdatableAPIModel
-	r.toUpdatable(&data, &patchBody, &resp.Diagnostics)
+	// Use PUT (idempotent upsert) for updates. The full StreamInput is sent, which
+	// includes both updatable fields (name, description, started, transform, eventSource)
+	// and immutable fields (eventProcessor). Immutable fields are marked RequiresReplace
+	// in the schema, so they cannot change without a destroy+create cycle.
+	var api WFEStreamAPIModel
+	r.toAPI(&data, &api, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	streamID := data.ID.ValueString()
 
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, streamID), &api, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPut, r.apiPath(&data, data.ID.ValueString()), &api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}

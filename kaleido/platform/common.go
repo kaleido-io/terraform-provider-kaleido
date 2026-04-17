@@ -406,6 +406,7 @@ func Resources() []func() resource.Resource {
 		PMSPolicyAttachmentResourceFactory,
 		WFEWorkflowResourceFactory,
 		WFEStreamResourceFactory,
+		WFEStreamFactoryResourceFactory,
 	}
 }
 

@@ -79,6 +79,7 @@ type mockPlatform struct {
 	wfeWorkflows                map[string]*WFEWorkflowAPIModel
 	wfeWorkflowVersions         map[string]map[string]*WFEWorkflowVersionAPIModel
 	wfeStreams                  map[string]*WFEStreamAPIModel
+	wfeStreamFactories          map[string]*WFEStreamFactoryAPIModel
 	fireflyContractListeners    map[string]*FireFlyContractListenerAPIModel
 	fireflySubscriptions        map[string]*FireFlySubscriptionAPIModel
 }
@@ -126,6 +127,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		wfeWorkflows:                make(map[string]*WFEWorkflowAPIModel),
 		wfeWorkflowVersions:         make(map[string]map[string]*WFEWorkflowVersionAPIModel),
 		wfeStreams:                  make(map[string]*WFEStreamAPIModel),
+		wfeStreamFactories:          make(map[string]*WFEStreamFactoryAPIModel),
 		fireflyContractListeners:    make(map[string]*FireFlyContractListenerAPIModel),
 		fireflySubscriptions:        make(map[string]*FireFlySubscriptionAPIModel),
 		router:                      mux.NewRouter(),
@@ -341,8 +343,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	// See wfe_stream_test.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "PUT", mp.putWFEStream)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "GET", mp.getWFEStream)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "PATCH", mp.patchWFEStream)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/streams/{stream}", "DELETE", mp.deleteWFEStream)
+
+	// See wfe_stream_factory_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/stream-factories/{streamFactory}", "PUT", mp.putWFEStreamFactory)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/stream-factories/{streamFactory}", "GET", mp.getWFEStreamFactory)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/stream-factories/{streamFactory}", "DELETE", mp.deleteWFEStreamFactory)
 
 	// See account_access_policy_test.go
 	mp.register("/api/v1/account-access/policies", http.MethodPost, mp.postAccountAccessPolicy)

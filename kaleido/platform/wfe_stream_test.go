@@ -124,7 +124,7 @@ func TestWFEStream2(t *testing.T) {
 			"PUT /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
-			"PATCH /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"PUT /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
@@ -213,39 +213,6 @@ func (mp *mockPlatform) getWFEStream(res http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	mp.respond(res, stream, http.StatusOK)
-}
-
-func (mp *mockPlatform) patchWFEStream(res http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	streamNameOrID := vars["stream"]
-	stream, exists := mp.wfeStreams[streamNameOrID]
-	if !exists {
-		mp.respond(res, nil, 404)
-		return
-	}
-	var streamUpdates WFEStreamUpdatableAPIModel
-	mp.getBody(req, &streamUpdates)
-	// Apply only StreamUpdatable fields; do not overwrite eventProcessor (immutable)
-	if streamUpdates.Name != "" {
-		stream.Name = streamUpdates.Name
-	}
-	if streamUpdates.Description != "" {
-		stream.Description = streamUpdates.Description
-	}
-	if streamUpdates.Transform != nil {
-		stream.Transform = streamUpdates.Transform
-	}
-	if streamUpdates.EventSource != nil {
-		stream.EventSource = streamUpdates.EventSource
-	}
-	if streamUpdates.Started != nil {
-		stream.Started = streamUpdates.Started
-	}
-	now := time.Now().UTC()
-	stream.Updated = &now
-	mp.wfeStreams[stream.Name] = stream
-	mp.wfeStreams[stream.ID] = stream
 	mp.respond(res, stream, http.StatusOK)
 }
 
