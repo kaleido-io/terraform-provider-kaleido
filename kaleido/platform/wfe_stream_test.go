@@ -1,0 +1,230 @@
+// Copyright © Kaleido, Inc. 2024
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//     http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package platform
+
+import (
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/aidarkhanov/nanoid"
+	"github.com/gorilla/mux"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+)
+
+const wfe_stream_step1 = `
+resource "kaleido_platform_wfe_stream" "test_stream" {
+  environment = "test-env"
+  service = "test-service"
+  name = "test-stream"
+  description = "Test stream for workflow engine"
+  transform = {
+    uniqueness_prefix = "evmtx."
+  }
+  event_source_type = "handler"
+  event_source_json = jsonencode({
+      "name" = "evmTransactions"
+      "provider" = "evm-provider"
+      "config" = {
+        "fromBlock" = "latest"
+        "batchSize" = 50
+      }
+  })
+  event_processor_type = "handler"
+  event_processor_json = jsonencode({
+      "name" = "k6-test-processor"
+      "provider" = "k6-test"
+  })
+  started = true
+}
+`
+
+const wfe_stream_step2 = `
+resource "kaleido_platform_wfe_stream" "test_stream" {
+  environment = "test-env"
+  service = "test-service"
+  name = "test-stream"
+  description = "Test stream for workflow engine - updated"
+  transform = {
+    uniqueness_prefix = "evmtx."
+    filter_jsonata = "$event.status = 'confirmed'"
+    mapping_jsonata = "{ \"txHash\": $event.transactionHash }"
+  }
+  event_source_type = "handler"
+  event_source_json = jsonencode({
+      "name" = "evmTransactions"
+      "provider" = "evm-provider"
+      "config" = {
+        "fromBlock" = "latest"
+        "batchSize" = 150
+      }
+  })
+  event_processor_type = "handler"
+  event_processor_json = jsonencode({
+      "name" = "k6-test-processor"
+      "provider" = "k6-test"
+  })
+  started = false
+}
+`
+
+const wfe_stream_resource = "kaleido_platform_wfe_stream.test_stream"
+
+func TestWFEStream1(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"PUT /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+		})
+		mp.server.Close()
+	}()
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + wfe_stream_step1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(wfe_stream_resource, "environment", "test-env"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.uniqueness_prefix", "evmtx."),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "true"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "id"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "created"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "updated"),
+				),
+			},
+		},
+	})
+}
+
+func TestWFEStream2(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"PUT /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"PUT /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/streams/{stream}",
+		})
+		mp.server.Close()
+	}()
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + wfe_stream_step1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(wfe_stream_resource, "environment", "test-env"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.uniqueness_prefix", "evmtx."),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "true"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "id"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "created"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "updated"),
+				),
+			},
+			{
+				Config: providerConfig + wfe_stream_step2,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(wfe_stream_resource, "environment", "test-env"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "service", "test-service"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "name", "test-stream"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.uniqueness_prefix", "evmtx."),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.filter_jsonata", "$event.status = 'confirmed'"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "transform.mapping_jsonata", "{ \"txHash\": $event.transactionHash }"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_source_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "event_processor_type", "handler"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "started", "false"),
+					resource.TestCheckResourceAttr(wfe_stream_resource, "description", "Test stream for workflow engine - updated"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "id"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "created"),
+					resource.TestCheckResourceAttrSet(wfe_stream_resource, "updated"),
+				),
+			},
+		},
+	})
+}
+
+// Mock handlers for streams
+func (mp *mockPlatform) putWFEStream(res http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	streamNameOrID := vars["stream"]
+	stream, exists := mp.wfeStreams[streamNameOrID]
+	newStream := new(WFEStreamAPIModel)
+	mp.getBody(req, newStream)
+	now := time.Now().UTC()
+	if !exists {
+		newStream.ID = nanoid.New()
+		newStream.Created = &now
+	} else {
+		newStream.ID = stream.ID
+		newStream.Created = stream.Created
+	}
+	newStream.Updated = &now
+	mp.wfeStreams[newStream.Name] = newStream
+	mp.wfeStreams[newStream.ID] = newStream
+	mp.respond(res, newStream, http.StatusOK)
+}
+
+func (mp *mockPlatform) getWFEStream(res http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	streamNameOrID := vars["stream"]
+	stream, exists := mp.wfeStreams[streamNameOrID]
+	if !exists {
+		for _, s := range mp.wfeStreams {
+			if s.Name == streamNameOrID {
+				stream = s
+				exists = true
+				break
+			}
+		}
+	}
+	if !exists {
+		mp.respond(res, nil, 404)
+		return
+	}
+
+	mp.respond(res, stream, http.StatusOK)
+}
+
+func (mp *mockPlatform) deleteWFEStream(res http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	streamID := vars["stream"]
+	stream, exists := mp.wfeStreams[streamID]
+	if !exists {
+		mp.respond(res, nil, 404)
+		return
+	}
+	delete(mp.wfeStreams, streamID)
+	delete(mp.wfeStreams, stream.Name)
+	mp.respond(res, nil, http.StatusNoContent)
+}
