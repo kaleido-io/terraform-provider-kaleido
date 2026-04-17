@@ -18,16 +18,21 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+var SupportedArtifactFamilies = []string{
+	"provider",
+}
 
 type ARSNamespaceResourceModel struct {
 	ID              types.String `tfsdk:"id"`
@@ -35,16 +40,16 @@ type ARSNamespaceResourceModel struct {
 	Service         types.String `tfsdk:"service"`
 	Name            types.String `tfsdk:"name"`
 	AutoCreateRepos types.Bool   `tfsdk:"auto_create_repos"`
-	AllowedTypes    types.List   `tfsdk:"allowed_types"`
+	ArtifactFamily  types.String `tfsdk:"artifact_family"`
 	Description     types.String `tfsdk:"description"`
 }
 
 type ARSNamespaceAPIModel struct {
-	ID              string   `json:"id,omitempty"`
-	Name            string   `json:"name"`
-	AutoCreateRepos bool     `json:"autoCreateRepos"`
-	AllowedTypes    []string `json:"allowedTypes,omitempty"`
-	Description     string   `json:"description,omitempty"`
+	ID              string `json:"id,omitempty"`
+	Name            string `json:"name"`
+	AutoCreateRepos bool   `json:"autoCreateRepos"`
+	ArtifactFamily  string `json:"artifactFamily"`
+	Description     string `json:"description,omitempty"`
 }
 
 func ARSNamespaceResourceFactory() resource.Resource {
@@ -89,10 +94,11 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
 				Description:   "Whether to automatically create repositories when pushing unknown names.",
 			},
-			"allowed_types": &schema.ListAttribute{
-				Optional:      true,
-				ElementType:   types.StringType,
-				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
+			"artifact_family": &schema.StringAttribute{
+				Optional:      false,
+				Required:      true,
+				Validators:    []validator.String{stringvalidator.OneOf(SupportedArtifactFamilies...)},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "List of allowed manifest types (e.g. application/vnd.docker.distribution.manifest.v2+json).",
 			},
 			"description": &schema.StringAttribute{
@@ -108,13 +114,7 @@ func (data *ARSNamespaceResourceModel) toAPI(api *ARSNamespaceAPIModel) {
 	api.Name = data.Name.ValueString()
 	api.AutoCreateRepos = data.AutoCreateRepos.ValueBool()
 	api.Description = data.Description.ValueString()
-	if !data.AllowedTypes.IsNull() {
-		elems := data.AllowedTypes.Elements()
-		api.AllowedTypes = make([]string, 0, len(elems))
-		for _, e := range elems {
-			api.AllowedTypes = append(api.AllowedTypes, e.(types.String).ValueString())
-		}
-	}
+	api.ArtifactFamily = data.ArtifactFamily.ValueString()
 }
 
 func (api *ARSNamespaceAPIModel) toData(ctx context.Context, data *ARSNamespaceResourceModel) {
@@ -122,12 +122,7 @@ func (api *ARSNamespaceAPIModel) toData(ctx context.Context, data *ARSNamespaceR
 	data.Name = types.StringValue(api.Name)
 	data.AutoCreateRepos = types.BoolValue(api.AutoCreateRepos)
 	data.Description = types.StringValue(api.Description)
-	allowed, diag := types.ListValueFrom(ctx, types.StringType, api.AllowedTypes)
-	if !diag.HasError() {
-		data.AllowedTypes = allowed
-	} else {
-		data.AllowedTypes = types.ListNull(types.StringType)
-	}
+	data.ArtifactFamily = types.StringValue(api.ArtifactFamily)
 }
 
 func (r *arsNamespaceResource) apiPath(data *ARSNamespaceResourceModel) string {

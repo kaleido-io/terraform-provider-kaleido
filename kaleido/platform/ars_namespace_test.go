@@ -31,10 +31,7 @@ resource "kaleido_platform_ars_namespace" "ns1" {
   service     = "svc1"
   name        = "ns1"
   auto_create_repos = true
-  allowed_types = [
-    "application/vnd.docker.distribution.manifest.v2+json",
-    "application/vnd.kaleido.json-schema.v1+json"
-  ]
+  artifact_family = "provider"
   description = "stuff"
 }
 `
@@ -59,9 +56,7 @@ func TestARSNamespace(t *testing.T) {
 					resource.TestCheckResourceAttr(nsResource, "service", "svc1"),
 					resource.TestCheckResourceAttr(nsResource, "description", "stuff"),
 					resource.TestCheckResourceAttr(nsResource, "auto_create_repos", "true"),
-					resource.TestCheckResourceAttr(nsResource, "allowed_types.#", "2"),
-					resource.TestCheckResourceAttr(nsResource, "allowed_types.0", "application/vnd.docker.distribution.manifest.v2+json"),
-					resource.TestCheckResourceAttr(nsResource, "allowed_types.1", "application/vnd.kaleido.json-schema.v1+json"),
+					resource.TestCheckResourceAttr(nsResource, "artifact_family", "provider"),
 					func(s *terraform.State) error {
 						id := s.RootModule().Resources[nsResource].Primary.Attributes["id"]
 						obj := mp.arsNamespaces[fmt.Sprintf("env1/svc1/%s", id)]
@@ -69,7 +64,7 @@ func TestARSNamespace(t *testing.T) {
 						assert.Equal(t, "ns1", obj.Name)
 						assert.Equal(t, true, obj.AutoCreateRepos)
 						assert.Equal(t, "stuff", obj.Description)
-						assert.Len(t, obj.AllowedTypes, 2)
+						assert.Equal(t, "provider", obj.ArtifactFamily)
 						return nil
 					},
 				),
