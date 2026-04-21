@@ -17,7 +17,7 @@ A namespace in the Kaleido Artifact Registry. Namespaces group repositories and 
 
 ### Required
 
-- `artifact_family` (String) List of allowed manifest types (e.g. application/vnd.docker.distribution.manifest.v2+json).
+- `artifact_family` (String) List of allowed artifact families (e.g. provider).
 - `environment` (String) Environment ID
 - `name` (String) Namespace name
 - `service` (String) Artifact Registry service ID
