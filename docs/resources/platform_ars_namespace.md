@@ -17,7 +17,7 @@ A namespace in the Kaleido Artifact Registry. Namespaces group repositories and 
 
 ### Required
 
-- `artifact_family` (String) List of allowed artifact families (e.g. provider).
+- `artifact_family` (String) The artifact family for the namespace (e.g. provider).
 - `environment` (String) Environment ID
 - `name` (String) Namespace name
 - `service` (String) Artifact Registry service ID

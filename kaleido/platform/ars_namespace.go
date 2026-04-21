@@ -99,7 +99,7 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 				Required:      true,
 				Validators:    []validator.String{stringvalidator.OneOf(SupportedArtifactFamilies...)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "List of allowed artifact families (e.g. provider).",
+				Description:   "The artifact family for the namespace (e.g. provider).",
 			},
 			"description": &schema.StringAttribute{
 				Optional:      true,
