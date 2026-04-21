@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -25,8 +26,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+var SupportedArtifactFamilies = []string{
+	"provider",
+}
 
 type ARSNamespaceResourceModel struct {
 	ID              types.String `tfsdk:"id"`
@@ -60,7 +66,7 @@ func (r *arsNamespaceResource) Metadata(_ context.Context, _ resource.MetadataRe
 
 func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A namespace in the Kaleido Artifact Registry. Namespaces group repositories and select an artifact family preset.",
+		Description: "A namespace in the Kaleido Artifact Registry. Namespaces group repositories and define allowed manifest types.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -89,9 +95,11 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 				Description:   "Whether to automatically create repositories when pushing unknown names.",
 			},
 			"artifact_family": &schema.StringAttribute{
+				Optional:      false,
 				Required:      true,
+				Validators:    []validator.String{stringvalidator.OneOf(SupportedArtifactFamilies...)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Artifact family preset for the namespace (required by the API; e.g. `provider`).",
+				Description:   "List of allowed manifest types (e.g. application/vnd.docker.distribution.manifest.v2+json).",
 			},
 			"description": &schema.StringAttribute{
 				Optional:      true,
@@ -109,7 +117,7 @@ func (data *ARSNamespaceResourceModel) toAPI(api *ARSNamespaceAPIModel) {
 	api.ArtifactFamily = data.ArtifactFamily.ValueString()
 }
 
-func (api *ARSNamespaceAPIModel) toData(data *ARSNamespaceResourceModel) {
+func (api *ARSNamespaceAPIModel) toData(ctx context.Context, data *ARSNamespaceResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	data.AutoCreateRepos = types.BoolValue(api.AutoCreateRepos)
@@ -139,7 +147,7 @@ func (r *arsNamespaceResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -160,7 +168,7 @@ func (r *arsNamespaceResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	api.toData(&data)
+	api.toData(ctx, &data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -179,7 +187,7 @@ func (r *arsNamespaceResource) Update(ctx context.Context, req resource.UpdateRe
 	if !ok || status == 404 {
 		return
 	}
-	api.toData(&data)
+	api.toData(ctx, &data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
