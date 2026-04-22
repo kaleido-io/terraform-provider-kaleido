@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_pms_identity_list Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  The Policy Manager Identity List resource allows you to manage identity lists in the Policy Manager.
+  Manages identity list in Policy Manager.
 ---
 
 # kaleido_platform_pms_identity_list (Resource)
 
-The Policy Manager Identity List resource allows you to manage identity lists in the Policy Manager.
+Manages identity list in Policy Manager.
 
 
 
@@ -17,18 +17,18 @@ The Policy Manager Identity List resource allows you to manage identity lists in
 
 ### Required
 
-- `environment` (String) The environment ID
+- `environment` (String) Environment ID
 - `identities` (List of String) Array of identity IDs/DIDs to include in this identity list
-- `name` (String) The name of the identity list
-- `service` (String) The service ID
+- `name` (String) Unique name of the identity list
+- `service` (String) Policy Manager service ID
 
 ### Optional
 
-- `description` (String) A description of the identity list
+- `description` (String) Description of the identity list.
 
 ### Read-Only
 
 - `applied_version` (String) The currently applied version of the identity list
 - `created` (String) Creation timestamp
-- `id` (String) Unique ID of the identity list
+- `id` (String) The ID of this resource.
 - `updated` (String) Last update timestamp

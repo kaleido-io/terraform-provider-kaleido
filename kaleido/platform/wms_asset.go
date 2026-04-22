@@ -88,16 +88,20 @@ func (r *wms_assetResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
+				Description:   "Environment ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "The name of the asset",
 			},
 			"description": &schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "The description of the asset",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
+				Description:   "Wallet Management Service ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"symbol": &schema.StringAttribute{
@@ -119,7 +123,6 @@ func (r *wms_assetResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"icon_id": &schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
 				Description: "The id of the icon associated with the asset, if one has been uploaded",
 			},
 			"config_json": &schema.StringAttribute{

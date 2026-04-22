@@ -18,10 +18,10 @@ description: |-
 ### Required
 
 - `asset_name` (String) The name of the asset
-- `environment` (String) The environment ID
+- `environment` (String) Environment ID
 - `file_type` (String) The type of the file to upload. e.g. image/png or image/jpeg
-- `service` (String) The wallet manager service ID
+- `service` (String) Wallet Management Service ID
 
 ### Optional
 
-- `file_path` (String) The path to the PNG file to upload
+- `file_path` (String) Local path to the image file to upload

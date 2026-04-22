@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -109,17 +110,20 @@ func (r *connectorSetupResource) Schema(_ context.Context, _ resource.SchemaRequ
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"service_id": &schema.StringAttribute{
-				Required:    true,
-				Description: "The ID of the connector service to configure",
+				Required:      true,
+				Description:   "Connector service ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"environment": &schema.StringAttribute{
-				Required:    true,
-				Description: "The environment ID where the connector service is located",
+				Required:      true,
+				Description:   "Environment ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"config_profiles": &schema.MapAttribute{
-				Required:    true,
-				ElementType: types.StringType,
-				Description: "A map of config profile names to JSON-encoded values for ALL required config types. Keys should match config type names. Values should be JSON-encoded strings.",
+				Required:      true,
+				ElementType:   types.StringType,
+				Description:   "A map of config profile names to JSON-encoded values for ALL required config types. Keys should match config type names. Values should be JSON-encoded strings.",
+				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace()},
 			},
 		},
 	}

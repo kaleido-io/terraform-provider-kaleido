@@ -18,19 +18,19 @@ The Policy Manager Policy Deployment resource allows you to manage policy deploy
 ### Required
 
 - `config` (String) The policy-specific configuration as JSON
-- `environment` (String) The environment ID
-- `name` (String) The name of the policy deployment
+- `environment` (String) Environment ID
+- `name` (String) Unique name of this deployment
 - `policy` (String) The name of the policy to deploy
-- `service` (String) The service ID
+- `service` (String) Policy Manager service ID
 
 ### Optional
 
-- `description` (String) A description of the policy deployment
+- `description` (String) Description of this deployment
 - `policy_version` (String) The version of the policy to deploy. If not provided, the latest version will be used
 
 ### Read-Only
 
 - `created` (String) Creation timestamp
 - `current_version` (String) The currently applied version of the policy deployment
-- `id` (String) Unique ID of the policy deployment
+- `id` (String) The ID of this resource.
 - `updated` (String) Last update timestamp

@@ -17,14 +17,14 @@ The Workflow Engine Workflow resource allows you to manage workflows in the Work
 
 ### Required
 
-- `environment` (String) The environment ID
+- `environment` (String) Environment ID
 - `flow_yaml` (String) The workflow definition as YAML.  This includes stages, events, operations and subflows but does not include handler bindings or subflow bindings
 - `name` (String) The name of the workflow
-- `service` (String) The service ID
+- `service` (String) Workflow Engine service ID
 
 ### Optional
 
-- `description` (String) A description of the workflow
+- `description` (String) Description of the workflow
 - `handler_bindings_json` (String) The workflow handler bindings as JSON
 - `subflow_bindings_json` (String) The workflow subflow bindings as JSON
 
@@ -32,5 +32,5 @@ The Workflow Engine Workflow resource allows you to manage workflows in the Work
 
 - `applied_version` (String) The currently applied version of the workflow
 - `created` (String) Creation timestamp
-- `id` (String) Unique ID of the workflow
+- `id` (String) The ID of this resource.
 - `updated` (String) Last update timestamp

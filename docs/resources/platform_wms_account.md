@@ -17,13 +17,13 @@ description: |-
 
 ### Required
 
-- `asset` (String)
-- `environment` (String)
-- `service` (String)
-- `wallet` (String)
+- `asset` (String) The asset name or ID
+- `environment` (String) Environment ID
+- `service` (String) Wallet Management Service ID
+- `wallet` (String) The wallet name or ID
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `identifier` (String)
-- `identifier_type` (String)
+- `identifier` (String) The identifier for the wallet with the identifier type for the associated asset
+- `identifier_type` (String) The identifier type for the associated asset

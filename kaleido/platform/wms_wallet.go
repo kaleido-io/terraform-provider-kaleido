@@ -96,44 +96,53 @@ func (r *wms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
+				Description:   "Environment ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "The name of the wallet",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
+				Description:   "Wallet Management Service ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"color": &schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "A HTML color to associate with the asset - randomly allocated if not supplied",
+				Description: "A HTML color to associate with the wallet - randomly allocated if not supplied",
 			},
 			"icon_id": &schema.StringAttribute{
 				Optional:    true,
-				Description: "The id of the icon associated with the asset, if one has been uploaded",
+				Description: "The id of the icon associated with the wallet, if one has been uploaded",
 			},
 			"config": &schema.SingleNestedAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "The wallet configuration",
 				Attributes: map[string]schema.Attribute{
 					"type": &schema.StringAttribute{
-						Required: true,
+						Required:    true,
+						Description: "The type of configuration for the wallet",
 					},
 					"kms": &schema.SingleNestedAttribute{
-						Optional: true,
+						Optional:    true,
+						Description: "Configuration for wallets of type 'kms'",
 						Attributes: map[string]schema.Attribute{
 							"key_id": &schema.StringAttribute{
-								Required: true,
+								Required:    true,
+								Description: "Key URI identifier for the key to resolve in the Kaleido KMS",
 							},
 						},
 					},
 					"readonly": &schema.SingleNestedAttribute{
-						Optional: true,
+						Optional:    true,
+						Description: "Configuration for wallets of type 'readonly'",
 						Attributes: map[string]schema.Attribute{
 							"identifier_map": &schema.MapAttribute{
 								Required:    true,
 								ElementType: types.StringType,
+								Description: "Static map of types of public identifier, such as 'eth_address', to the account associated with this wallet in any supported blockchains",
 							},
 						},
 					},

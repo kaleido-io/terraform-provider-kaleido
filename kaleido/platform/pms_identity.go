@@ -83,53 +83,40 @@ func (r *policyIdentityResource) Metadata(_ context.Context, _ resource.Metadata
 
 func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "The Policy Identity resource allows you to manage identities in the Policy Manager.",
+		Description: "Manages Policy Manager identities",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
-				Computed:    true,
-				Description: "The ID of the identity",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"environment": &schema.StringAttribute{
-				Required:    true,
-				Description: "The environment ID",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Required:      true,
+				Description:   "Environment ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"service": &schema.StringAttribute{
-				Required:    true,
-				Description: "The service ID",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Required:      true,
+				Description:   "Policy Manager service ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the identity",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Required:      true,
+				Description:   "Unique name of the identity",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"description": &schema.StringAttribute{
 				Optional:    true,
-				Description: "A description of the identity",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Description: "Description of the identity.",
 			},
 			"owner": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Optional owner (KID) of the identity, e.g. a user or application",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Optional:      true,
+				Description:   "Optional owner (KID) of the identity, e.g. a user or application",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"preferred_assertion_method": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The preferred assertion method for the identity",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Optional:      true,
+				Description:   "The preferred assertion method for the identity",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"assertion_method": &schema.ListNestedAttribute{
 				Optional:    true,
@@ -137,9 +124,8 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": &schema.StringAttribute{
-							Optional:    true,
-							Computed:    true,
-							Description: "Unique ID of the assertion method",
+							Computed:      true,
+							PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 						},
 						"identity_id": &schema.StringAttribute{
 							Optional:    true,
@@ -147,51 +133,38 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 							Description: "ID of the identity this assertion method belongs to",
 						},
 						"name": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Name of the assertion method",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Name of this verification method.",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 						"type": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Type of the assertion method",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Type of the assertion method",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 						"signing_method": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Signing method for the assertion method",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Signing method for the assertion method",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 						"verification_material": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Verification material for the assertion method",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Verification material for the assertion method",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 						"created": &schema.StringAttribute{
-							Optional:    true,
 							Computed:    true,
 							Description: "Creation timestamp",
 						},
 						"expires": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Expiration timestamp",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Expiration timestamp",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 						"revoked": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Revocation timestamp",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Revocation timestamp",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 					},
 				},
@@ -202,25 +175,19 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Name of the notification method",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Name of the notification method",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 						"type": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Type of the notification method",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Type of the notification method",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 						"value": &schema.StringAttribute{
-							Optional:    true,
-							Description: "Value of the notification method as JSON string",
-							PlanModifiers: []planmodifier.String{
-								stringplanmodifier.RequiresReplace(),
-							},
+							Optional:      true,
+							Description:   "Value of the notification method as JSON string",
+							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 					},
 				},

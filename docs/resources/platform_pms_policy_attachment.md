@@ -18,11 +18,11 @@ The Policy Manager Attachment Point resource allows you to manage attachment poi
 ### Required
 
 - `attachment_point` (String) The name/identifier of the attachment point (e.g., 'wal:1234567890', 'was:1234567890')
-- `environment` (String) The environment ID
+- `environment` (String) Environment ID
 - `policy_deployment_id` (String) The ID of the policy deployment to attach to
-- `service` (String) The service ID
+- `service` (String) Policy Manager service ID
 - `type` (String) The type of attachment point (e.g., 'wallet_id', 'asset_id')
 
 ### Read-Only
 
-- `id` (String) Unique ID of the attachment point (computed from policy_deployment_id, type, and name)
+- `id` (String) The ID of this resource.

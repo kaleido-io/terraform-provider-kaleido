@@ -57,7 +57,6 @@ func (r *pms_policy_attachmentResource) Schema(_ context.Context, _ resource.Sch
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
-				Description:   "Unique ID of the attachment point (computed from policy_deployment_id, type, and name)",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"policy_deployment_id": &schema.StringAttribute{
@@ -77,12 +76,12 @@ func (r *pms_policy_attachmentResource) Schema(_ context.Context, _ resource.Sch
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The environment ID",
+				Description:   "Environment ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The service ID",
+				Description:   "Policy Manager service ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},

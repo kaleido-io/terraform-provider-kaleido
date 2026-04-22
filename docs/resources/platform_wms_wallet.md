@@ -17,15 +17,15 @@ description: |-
 
 ### Required
 
-- `environment` (String)
-- `name` (String)
-- `service` (String)
+- `environment` (String) Environment ID
+- `name` (String) The name of the wallet
+- `service` (String) Wallet Management Service ID
 
 ### Optional
 
-- `color` (String) A HTML color to associate with the asset - randomly allocated if not supplied
-- `config` (Attributes) (see [below for nested schema](#nestedatt--config))
-- `icon_id` (String) The id of the icon associated with the asset, if one has been uploaded
+- `color` (String) A HTML color to associate with the wallet - randomly allocated if not supplied
+- `config` (Attributes) The wallet configuration (see [below for nested schema](#nestedatt--config))
+- `icon_id` (String) The id of the icon associated with the wallet, if one has been uploaded
 
 ### Read-Only
 
@@ -36,19 +36,19 @@ description: |-
 
 Required:
 
-- `type` (String)
+- `type` (String) The type of configuration for the wallet
 
 Optional:
 
-- `kms` (Attributes) (see [below for nested schema](#nestedatt--config--kms))
-- `readonly` (Attributes) (see [below for nested schema](#nestedatt--config--readonly))
+- `kms` (Attributes) Configuration for wallets of type 'kms' (see [below for nested schema](#nestedatt--config--kms))
+- `readonly` (Attributes) Configuration for wallets of type 'readonly' (see [below for nested schema](#nestedatt--config--readonly))
 
 <a id="nestedatt--config--kms"></a>
 ### Nested Schema for `config.kms`
 
 Required:
 
-- `key_id` (String)
+- `key_id` (String) Key URI identifier for the key to resolve in the Kaleido KMS
 
 
 <a id="nestedatt--config--readonly"></a>
@@ -56,4 +56,4 @@ Required:
 
 Required:
 
-- `identifier_map` (Map of String)
+- `identifier_map` (Map of String) Static map of types of public identifier, such as 'eth_address', to the account associated with this wallet in any supported blockchains

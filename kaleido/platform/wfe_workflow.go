@@ -86,17 +86,16 @@ func (r *wfe_workflowResource) Schema(_ context.Context, _ resource.SchemaReques
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
-				Description:   "Unique ID of the workflow",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The environment ID",
+				Description:   "Environment ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The service ID",
+				Description:   "Workflow Engine service ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
@@ -106,7 +105,7 @@ func (r *wfe_workflowResource) Schema(_ context.Context, _ resource.SchemaReques
 			},
 			"description": &schema.StringAttribute{
 				Optional:    true,
-				Description: "A description of the workflow",
+				Description: "Description of the workflow",
 			},
 			"flow_yaml": &schema.StringAttribute{
 				Required:    true,

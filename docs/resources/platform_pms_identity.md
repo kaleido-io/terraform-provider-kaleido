@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_pms_identity Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  The Policy Identity resource allows you to manage identities in the Policy Manager.
+  Manages Policy Manager identities
 ---
 
 # kaleido_platform_pms_identity (Resource)
 
-The Policy Identity resource allows you to manage identities in the Policy Manager.
+Manages Policy Manager identities
 
 
 
@@ -17,36 +17,39 @@ The Policy Identity resource allows you to manage identities in the Policy Manag
 
 ### Required
 
-- `environment` (String) The environment ID
-- `name` (String) The name of the identity
-- `service` (String) The service ID
+- `environment` (String) Environment ID
+- `name` (String) Unique name of the identity
+- `service` (String) Policy Manager service ID
 
 ### Optional
 
 - `assertion_method` (Attributes List) Array of verification methods (cryptographic keys) that can be used to prove statements made by this identity (see [below for nested schema](#nestedatt--assertion_method))
-- `description` (String) A description of the identity
+- `description` (String) Description of the identity.
 - `notification_method` (Attributes List) Array of notification methods (e.g. email, phone) associated with this identity (see [below for nested schema](#nestedatt--notification_method))
 - `owner` (String) Optional owner (KID) of the identity, e.g. a user or application
 - `preferred_assertion_method` (String) The preferred assertion method for the identity
 
 ### Read-Only
 
-- `id` (String) The ID of the identity
+- `id` (String) The ID of this resource.
 
 <a id="nestedatt--assertion_method"></a>
 ### Nested Schema for `assertion_method`
 
 Optional:
 
-- `created` (String) Creation timestamp
 - `expires` (String) Expiration timestamp
-- `id` (String) Unique ID of the assertion method
 - `identity_id` (String) ID of the identity this assertion method belongs to
-- `name` (String) Name of the assertion method
+- `name` (String) Name of this verification method.
 - `revoked` (String) Revocation timestamp
 - `signing_method` (String) Signing method for the assertion method
 - `type` (String) Type of the assertion method
 - `verification_material` (String) Verification material for the assertion method
+
+Read-Only:
+
+- `created` (String) Creation timestamp
+- `id` (String)
 
 
 <a id="nestedatt--notification_method"></a>

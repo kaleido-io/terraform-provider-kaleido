@@ -18,8 +18,8 @@ Configures a connector by setting up config types, config profiles, connector fl
 ### Required
 
 - `config_profiles` (Map of String) A map of config profile names to JSON-encoded values for ALL required config types. Keys should match config type names. Values should be JSON-encoded strings.
-- `environment` (String) The environment ID where the connector service is located
-- `service_id` (String) The ID of the connector service to configure
+- `environment` (String) Environment ID
+- `service_id` (String) Connector service ID
 
 ### Read-Only
 

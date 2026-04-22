@@ -61,40 +61,29 @@ func (r *wmsAssetIconResource) Schema(ctx context.Context, req resource.SchemaRe
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"environment": &schema.StringAttribute{
-				Required:    true,
-				Description: "The environment ID",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Required:      true,
+				Description:   "Environment ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"service": &schema.StringAttribute{
-				Required:    true,
-				Description: "The wallet manager service ID",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Required:      true,
+				Description:   "Wallet Management Service ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"asset_name": &schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the asset",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Required:      true,
+				Description:   "The name of the asset",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"file_path": &schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The path to the PNG file to upload",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Optional:      true,
+				Description:   "Local path to the image file to upload",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"file_type": &schema.StringAttribute{
-				Required:    true,
-				Description: "The type of the file to upload. e.g. image/png or image/jpeg",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Required:      true,
+				Description:   "The type of the file to upload. e.g. image/png or image/jpeg",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
 	}

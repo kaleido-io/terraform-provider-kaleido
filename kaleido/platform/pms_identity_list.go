@@ -76,30 +76,29 @@ func (r *pms_identity_listResource) Metadata(_ context.Context, _ resource.Metad
 
 func (r *pms_identity_listResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "The Policy Manager Identity List resource allows you to manage identity lists in the Policy Manager.",
+		Description: "Manages identity list in Policy Manager.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
-				Description:   "Unique ID of the identity list",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The environment ID",
+				Description:   "Environment ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The service ID",
+				Description:   "Policy Manager service ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
 				Required:    true,
-				Description: "The name of the identity list",
+				Description: "Unique name of the identity list",
 			},
 			"description": &schema.StringAttribute{
 				Optional:    true,
-				Description: "A description of the identity list",
+				Description: "Description of the identity list.",
 			},
 			"identities": &schema.ListAttribute{
 				Required:    true,

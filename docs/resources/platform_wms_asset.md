@@ -18,17 +18,17 @@ description: |-
 ### Required
 
 - `account_identifier_type` (String) The type of account identifier required for a wallet to hold this asset - such as an eth_address
-- `environment` (String)
-- `name` (String)
+- `environment` (String) Environment ID
+- `name` (String) The name of the asset
 - `protocol_id` (String) The protocol / blockchain identifier for this asset - such as its ethereum address
-- `service` (String)
+- `service` (String) Wallet Management Service ID
 - `symbol` (String) The symbol for the asset
 
 ### Optional
 
 - `color` (String) A HTML color to associate with the asset - randomly allocated if not supplied
 - `config_json` (String) The asset configuration
-- `description` (String)
+- `description` (String) The description of the asset
 - `icon_id` (String) The id of the icon associated with the asset, if one has been uploaded
 
 ### Read-Only

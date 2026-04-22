@@ -66,25 +66,33 @@ func (r *wms_accountResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
+				Description:   "Environment ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
+				Description:   "Wallet Management Service ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"asset": &schema.StringAttribute{
 				Required:      true,
+				Description:   "The asset name or ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"wallet": &schema.StringAttribute{
 				Required:      true,
+				Description:   "The wallet name or ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"identifier": &schema.StringAttribute{
-				Computed: true,
+				Computed:      true,
+				Description:   "The identifier for the wallet with the identifier type for the associated asset",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"identifier_type": &schema.StringAttribute{
-				Computed: true,
+				Computed:      true,
+				Description:   "The identifier type for the associated asset",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
 	}

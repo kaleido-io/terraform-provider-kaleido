@@ -86,28 +86,26 @@ func (r *pms_policy_deploymentResource) Schema(_ context.Context, _ resource.Sch
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
-				Description:   "Unique ID of the policy deployment",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The environment ID",
+				Description:   "Environment ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The service ID",
+				Description:   "Policy Manager service ID",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The name of the policy deployment",
+				Description:   "Unique name of this deployment",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"description": &schema.StringAttribute{
-				Optional:      true,
-				Description:   "A description of the policy deployment",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Optional:    true,
+				Description: "Description of this deployment",
 			},
 			"policy": &schema.StringAttribute{
 				Required:      true,
