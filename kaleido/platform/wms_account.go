@@ -59,6 +59,7 @@ func (r *wms_accountResource) Metadata(_ context.Context, _ resource.MetadataReq
 
 func (r *wms_accountResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Manages Wallet Management Service accounts for assets under wallets",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,

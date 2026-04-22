@@ -59,6 +59,7 @@ func (r *wmsAssetIconResource) Metadata(ctx context.Context, req resource.Metada
 
 func (r *wmsAssetIconResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Manages Wallet Management Service asset icons for assets",
 		Attributes: map[string]schema.Attribute{
 			"environment": &schema.StringAttribute{
 				Required:      true,

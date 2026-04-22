@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_wms_asset_icon Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  
+  Manages Wallet Management Service asset icons for assets
 ---
 
 # kaleido_platform_wms_asset_icon (Resource)
 
-
+Manages Wallet Management Service asset icons for assets
 
 
 

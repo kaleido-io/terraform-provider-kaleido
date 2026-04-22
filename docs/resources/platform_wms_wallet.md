@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_wms_wallet Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  
+  Manages Wallet Management Service wallets, which contains assets and accounts
 ---
 
 # kaleido_platform_wms_wallet (Resource)
 
-
+Manages Wallet Management Service wallets, which contains assets and accounts
 
 
 

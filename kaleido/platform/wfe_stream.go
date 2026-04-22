@@ -92,7 +92,7 @@ func (r *wfe_streamResource) Metadata(_ context.Context, _ resource.MetadataRequ
 
 func (r *wfe_streamResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a workflow-engine Stream (see github.com/kaleido-io/firefly-enterprise/workflow-engine pkg/engtypes): an event source paired with an event processor, optionally with transform and start/stop control.",
+		Description: "Manages Workflow Engine streams for event streaming",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,

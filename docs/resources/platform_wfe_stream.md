@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_wfe_stream Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages a workflow-engine Stream (see github.com/kaleido-io/firefly-enterprise/workflow-engine pkg/engtypes): an event source paired with an event processor, optionally with transform and start/stop control.
+  Manages Workflow Engine streams for event streaming
 ---
 
 # kaleido_platform_wfe_stream (Resource)
 
-Manages a workflow-engine Stream (see github.com/kaleido-io/firefly-enterprise/workflow-engine pkg/engtypes): an event source paired with an event processor, optionally with transform and start/stop control.
+Manages Workflow Engine streams for event streaming
 
 
 
