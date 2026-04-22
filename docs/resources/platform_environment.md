@@ -21,7 +21,7 @@ Environments group multiple services, runtimes, stacks and networks together in 
 
 ### Optional
 
-- `update_strategy` (String) Update Strategy
+- `update_strategy` (String) Update Strategy (manual or automatic)
 - `version` (String) Environment Version
 
 ### Read-Only

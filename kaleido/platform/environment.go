@@ -74,7 +74,7 @@ func (r *environmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"update_strategy": &schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Update Strategy",
+				Description: "Update Strategy (manual or automatic)",
 			},
 		},
 	}
