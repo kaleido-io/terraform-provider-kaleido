@@ -386,6 +386,8 @@ func Resources() []func() resource.Resource {
 		FireFlyContractListenerResourceFactory,
 		StacksResourceFactory,
 		ConnectorResourceFactory,
+		ConnectorSetupResourceFactory,
+		ConnectorCustomAPIResourceFactory,
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		HostnameResourceFactory,
@@ -394,6 +396,17 @@ func Resources() []func() resource.Resource {
 		GroupMembershipResourceFactory,
 		Secp256k1NodeKeyResourceFactory,
 		DNSRegistrationResourceFactory,
+		WMSAccountResourceFactory,
+		WMSAssetResourceFactory,
+		WMSAssetIconResourceFactory,
+		WMSWalletResourceFactory,
+		PMSIdentityResourceFactory,
+		PMSIdentityListResourceFactory,
+		PMSPolicyDeploymentResourceFactory,
+		PMSPolicyAttachmentResourceFactory,
+		WFEWorkflowResourceFactory,
+		WFEStreamResourceFactory,
+		WFEStreamFactoryResourceFactory,
 	}
 }
 
