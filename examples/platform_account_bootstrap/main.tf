@@ -8,8 +8,8 @@ terraform {
 
 provider "kaleido" {
   platform_api = var.kaleido_platform_api
-  platform_bearer_token = var.kaleido_platform_bearer_token
-
+  platform_username = var.kaleido_platform_username
+  platform_password = var.kaleido_platform_password
   alias = "root"
 }
 
@@ -18,8 +18,8 @@ locals {
 }
 
 resource "kaleido_platform_identity_provider" "kaleido_id" {
-  name = "kaleido-id"
-  hostname = "kaleido-id"
+  name = var.idp_name
+  hostname = var.idp_hostname
   client_type = "confidential"
   client_id = var.idp_client_id
   client_secret = var.idp_client_secret
