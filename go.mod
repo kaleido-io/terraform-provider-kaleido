@@ -1,6 +1,8 @@
 module github.com/kaleido-io/terraform-provider-kaleido
 
-go 1.24.0
+go 1.25
+
+toolchain go1.25.9
 
 require (
 	github.com/aidarkhanov/nanoid v1.0.8
