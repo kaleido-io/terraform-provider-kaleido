@@ -373,7 +373,9 @@ func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag
 	data.ID = types.StringValue(api.ID)
 	data.Type = types.StringValue(api.Type)
 	data.Name = types.StringValue(api.Name)
-	data.StackID = types.StringValue(api.StackID)
+	if api.StackID != "" {
+		data.StackID = types.StringValue(api.StackID)
+	}
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	if api.Runtime.ID != "" {
 		data.Runtime = types.StringValue(api.Runtime.ID)
