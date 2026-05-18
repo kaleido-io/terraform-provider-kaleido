@@ -19,6 +19,11 @@ Environments group multiple services, runtimes, stacks and networks together in 
 
 - `name` (String) Environment Name
 
+### Optional
+
+- `update_strategy` (String) Update Strategy (manual or automatic)
+- `version` (String) Environment Version
+
 ### Read-Only
 
 - `id` (String) The ID of this resource.

@@ -31,8 +31,8 @@ resource "kaleido_platform_ars_namespace" "ns1" {
   service     = "svc1"
   name        = "ns1"
   auto_create_repos = true
-  artifact_family = "provider"
-  description = "stuff"
+  artifact_family   = "provider"
+  description       = "stuff"
 }
 `
 
