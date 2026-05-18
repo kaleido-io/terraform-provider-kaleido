@@ -13,6 +13,8 @@ LDFLAGS="-X main.buildDate=`date -u +\"%Y-%m-%dT%H:%M:%SZ\"` -X main.buildVersio
 DEPS=https://gmplib.org/download/gmp/gmp-6.0.0a.tar.bz2
 TARGETS="windows-10.0/*,darwin-10.10/*"
 
+.DEFAULT_GOAL := all
+
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
@@ -21,7 +23,7 @@ $(LOCALBIN):
 TFPLUGIN_DOCS ?= $(LOCALBIN)/tfplugindocs
 
 
-.PHONY: test
+.PHONY: all test
 
 all: deps build test vulncheck
 build:

@@ -8,6 +8,26 @@ variable "kaleido_platform_bearer_token" {
   type = string
 }
 
+variable "kaleido_platform_username" {
+  type = string
+  description = "Set the username for the Kaleido Platform API for the account creating the new Identity Provider"
+}
+
+variable "kaleido_platform_password" {
+  type = string
+  description = "Set the password for the Kaleido Platform API for the account creating the new Identity Provider"
+}
+
+variable "idp_name" {
+  type = string
+  description = "Set the name for the new Identity Provider"
+}
+
+variable "idp_hostname" {
+  type = string
+  description = "Set the hostname for the new Identity Provider"
+}
+
 variable "idp_client_id" {
   type = string
   description = "Set the client ID for the new account's identity provider"

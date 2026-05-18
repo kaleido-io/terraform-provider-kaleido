@@ -391,6 +391,7 @@ func Resources() []func() resource.Resource {
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		HostnameResourceFactory,
+		IdentityProviderResourceFactory,
 		AccountResourceFactory,
 		UserResourceFactory,
 		GroupMembershipResourceFactory,
