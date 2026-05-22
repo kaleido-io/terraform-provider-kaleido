@@ -3,7 +3,9 @@
 
 ecosystem   = { name = "ethereum", displayName = "Ethereum" }
 network     = { name = "ethereum-mainnet", displayName = "Ethereum Mainnet", chainId = "1" }
-jsonrpc_url = "https://mainnet.infura.io/v3/REPLACE_ME"
+# Contact Kaleido support to get a JSONRPC URL for Ethereum mainnet
+jsonrpc_url = "https://ethereum-mainnet.rpc.example.com"
+jsonrpc_auth = { username = "REPLACE_ME", password = "REPLACE_ME" }
 
 confirmations = {
   count = 12

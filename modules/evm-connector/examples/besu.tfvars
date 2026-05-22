@@ -2,7 +2,8 @@
 # Derived from <upstream>/evm/ecosystems/besu.yaml.
 
 ecosystem = { name = "besu", displayName = "Besu" }
-network   = { name = "besu-private", displayName = "Besu Private", chainId = "3333" }
+network   = { name = "besu-private", displayName = "Besu Private", chainId = "REPLACE_ME" }
+evm_gateway_service_id = "s:REPLACE_ME"
 
 confirmations = { count = 0 }
 

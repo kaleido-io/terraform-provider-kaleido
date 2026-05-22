@@ -3,7 +3,9 @@
 
 ecosystem   = { name = "ethereum", displayName = "Ethereum" }
 network     = { name = "ethereum-sepolia-testnet", displayName = "Ethereum Sepolia Testnet", chainId = "11155111" }
-jsonrpc_url = "https://sepolia.infura.io/v3/REPLACE_ME"
+# Contact Kaleido support to get a JSONRPC URL for Arbitrum Sepolia testnet
+jsonrpc_url = "https://ethereum-sepolia-testnet.rpc.example.com"
+jsonrpc_auth = { username = "REPLACE_ME", password = "REPLACE_ME" }
 
 confirmations = {
   count = 6

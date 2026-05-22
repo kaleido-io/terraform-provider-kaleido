@@ -2,7 +2,9 @@
 
 ecosystem   = { name = "base", displayName = "Base" }
 network     = { name = "base-mainnet", displayName = "Base Mainnet", chainId = "8453" }
-jsonrpc_url = "https://mainnet.base.org"
+# Contact Kaleido support to get a JSONRPC URL for Base mainnet
+jsonrpc_url = "https://base-mainnet.rpc.example.com"
+jsonrpc_auth = { username = "REPLACE_ME", password = "REPLACE_ME" }
 
 confirmations = {
   count = 20

@@ -9,7 +9,7 @@ behaviour is controlled by overriding the typed config-profile variables.
 
 ```hcl
 module "evm" {
-  source = "../../modules/evm-connector"
+  source = "https://github.com/kaleido-io/terraform-provider-kaleido/modules/evm-connector?ref=v1.3.0"
 
   environment_id         = kaleido_platform_environment.env.id
   key_manager_service_id = kaleido_platform_service.keymanager.id
@@ -39,6 +39,7 @@ Drop-in `*.tfvars` files under `examples/`:
 | `base-mainnet.tfvars` | 20 confirmations |
 | `base-sepolia.tfvars` | 6 confirmations |
 | `polygon-mainnet.tfvars` | 50 confirmations (reorg risk) |
+| `polygon-amoy.tfvars` | 50 confirmations (reorg risk) |
 | `arbitrum-sepolia.tfvars` | 6 confirmations |
 
 Adding a new ecosystem is a `*.tfvars` change — see the

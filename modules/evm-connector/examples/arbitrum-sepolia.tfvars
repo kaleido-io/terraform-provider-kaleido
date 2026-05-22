@@ -3,7 +3,9 @@
 
 ecosystem   = { name = "arbitrum", displayName = "Arbitrum" }
 network     = { name = "arbitrum-sepolia-testnet", displayName = "Arbitrum Sepolia Testnet", chainId = "421613" }
-jsonrpc_url = "https://sepolia-rollup.arbitrum.io/rpc"
+# Contact Kaleido support to get a JSONRPC URL for Arbitrum Sepolia testnet
+jsonrpc_url = "https://arbitrum-sepolia-testnet.rpc.example.com"
+jsonrpc_auth = { username = "REPLACE_ME", password = "REPLACE_ME" }
 
 confirmations = {
   count = 6
