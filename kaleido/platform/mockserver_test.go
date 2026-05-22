@@ -170,11 +170,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	// See network_bootstrap_test.go
 	mp.register("/api/v1/environments/{env}/networks/{network}/initdata", http.MethodGet, mp.getNetworkInitData)
 
-	// See kms_wallet.go
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postKMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getKMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPatch, mp.patchKMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteKMSWallet)
+	// See kms_wallet.go and wms_wallet.go (shared wallet API paths)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPatch, mp.patchWallet)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteWallet)
 
 	// See artifact_registry_namespace.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces", http.MethodPost, mp.postARSNamespace)
@@ -241,12 +241,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/network/organizations/self", http.MethodPost, mp.postFireFlyRegistrationOrg)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/status", http.MethodGet, mp.getFireFlyStatus)
 
-	// See wms_wallet.go
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodGet, mp.getWMSWallet)
+	// See wms_wallet.go (PUT only; other methods use shared handlers above)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPut, mp.putWMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodDelete, mp.deleteWMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets", http.MethodPost, mp.postWMSWallet)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}", http.MethodPatch, mp.patchWMSWallet)
 
 	// See wms_asset.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/assets/{asset}", http.MethodGet, mp.getWMSAsset)
@@ -357,6 +353,60 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
+}
+
+func (mp *mockPlatform) walletKey(req *http.Request) string {
+	vars := mux.Vars(req)
+	return vars["env"] + "/" + vars["service"] + "/" + vars["wallet"]
+}
+
+func (mp *mockPlatform) isWMSWalletKey(key string) bool {
+	return mp.wmsWallets[key] != nil
+}
+
+func (mp *mockPlatform) isWMSWalletRequestBody(raw []byte) bool {
+	var probe struct {
+		Config json.RawMessage `json:"config"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return false
+	}
+	return len(probe.Config) > 0 && string(probe.Config) != "null"
+}
+
+func (mp *mockPlatform) postWallet(res http.ResponseWriter, req *http.Request) {
+	raw, err := io.ReadAll(req.Body)
+	assert.NoError(mp.t, err)
+	req.Body = io.NopCloser(bytes.NewReader(raw))
+	if mp.isWMSWalletRequestBody(raw) {
+		mp.postWMSWallet(res, req)
+	} else {
+		mp.postKMSWallet(res, req)
+	}
+}
+
+func (mp *mockPlatform) getWallet(res http.ResponseWriter, req *http.Request) {
+	if mp.isWMSWalletKey(mp.walletKey(req)) {
+		mp.getWMSWallet(res, req)
+	} else {
+		mp.getKMSWallet(res, req)
+	}
+}
+
+func (mp *mockPlatform) patchWallet(res http.ResponseWriter, req *http.Request) {
+	if mp.isWMSWalletKey(mp.walletKey(req)) {
+		mp.patchWMSWallet(res, req)
+	} else {
+		mp.patchKMSWallet(res, req)
+	}
+}
+
+func (mp *mockPlatform) deleteWallet(res http.ResponseWriter, req *http.Request) {
+	if mp.isWMSWalletKey(mp.walletKey(req)) {
+		mp.deleteWMSWallet(res, req)
+	} else {
+		mp.deleteKMSWallet(res, req)
+	}
 }
 
 func (mp *mockPlatform) checkClearCalls(expected []string) {

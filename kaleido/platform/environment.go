@@ -94,13 +94,17 @@ func (data *EnvironmentResourceModel) toAPI(api *EnvironmentAPIModel) {
 
 func (api *EnvironmentAPIModel) toData(data *EnvironmentResourceModel) {
 	data.ID = types.StringValue(api.ID)
+	data.Name = types.StringValue(api.Name)
 	if api.Version != "" {
 		data.Version = types.StringValue(api.Version)
+	} else {
+		data.Version = types.StringNull()
 	}
 	if api.UpdateStrategy != "" {
 		data.UpdateStrategy = types.StringValue(api.UpdateStrategy)
+	} else {
+		data.UpdateStrategy = types.StringNull()
 	}
-
 }
 
 func (r *environmentResource) apiPath(data *EnvironmentResourceModel) string {

@@ -159,19 +159,23 @@ func (r *wfe_workflowResource) toAPI(data *WFEWorkflowResourceModel, api *WFEWor
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
 
-	handlerBindings := make(map[string]interface{})
-	if err := json.Unmarshal([]byte(data.HandlerBindingsJSON.ValueString()), &handlerBindings); err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow handler bindings JSON: %v.  %s", err, data.HandlerBindingsJSON.ValueString()))
-		return
+	if !data.HandlerBindingsJSON.IsNull() && data.HandlerBindingsJSON.ValueString() != "" {
+		handlerBindings := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(data.HandlerBindingsJSON.ValueString()), &handlerBindings); err != nil {
+			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow handler bindings JSON: %v.  %s", err, data.HandlerBindingsJSON.ValueString()))
+			return
+		}
+		api.HandlerBindings = handlerBindings
 	}
-	api.HandlerBindings = handlerBindings
 
-	subflowBindings := make(map[string]interface{})
-	if err := json.Unmarshal([]byte(data.SubflowBindingsJSON.ValueString()), &subflowBindings); err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow subflow bindings JSON: %v.  %s", err, data.SubflowBindingsJSON.ValueString()))
-		return
+	if !data.SubflowBindingsJSON.IsNull() && data.SubflowBindingsJSON.ValueString() != "" {
+		subflowBindings := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(data.SubflowBindingsJSON.ValueString()), &subflowBindings); err != nil {
+			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow subflow bindings JSON: %v.  %s", err, data.SubflowBindingsJSON.ValueString()))
+			return
+		}
+		api.SubflowBindings = subflowBindings
 	}
-	api.SubflowBindings = subflowBindings
 }
 
 func (r *wfe_workflowResource) toData(api *WFEWorkflowAPIModel, data *WFEWorkflowResourceModel, diagnostics *diag.Diagnostics) {
