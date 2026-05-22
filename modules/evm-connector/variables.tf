@@ -86,9 +86,64 @@ variable "gas_estimation" {
 }
 
 variable "gas_pricing" {
-  type        = any
+  type = object({
+    format = optional(object({
+      name                 = optional(string)
+      enableLegacyFallback = optional(bool)
+    }))
+    # `source` is a tagged union — set exactly one of fixedGasPrice / gasOracleAPI / RPCEndpoint.
+    source = optional(object({
+      fixedGasPrice = optional(object({
+        enabled              = optional(bool)
+        maxFeePerGas         = optional(string)
+        maxPriorityFeePerGas = optional(string)
+        gasPrice             = optional(string)
+      }))
+      gasOracleAPI = optional(object({
+        enabled                   = optional(bool)
+        enableRPCEndpointFallback = optional(bool)
+        url                       = optional(string)
+        method                    = optional(string)
+        body                      = optional(string)
+        bodyEncoding              = optional(string)
+        httpHeaders               = optional(map(string))
+        responseTemplate = optional(object({
+          jsonata = optional(string)
+        }))
+        cache = optional(object({
+          enabled = optional(bool)
+          size    = optional(string)
+          ttl     = optional(string)
+        }))
+      }))
+      RPCEndpoint = optional(object({
+        cache = optional(object({
+          enabled = optional(bool)
+          size    = optional(string)
+          ttl     = optional(string)
+        }))
+        ethFeeHistory = optional(object({
+          baseFeeBufferFactor   = optional(number)
+          historyBlockCount     = optional(number)
+          priorityFeePercentile = optional(number)
+        }))
+      }))
+    }))
+    autoIncrement = optional(object({
+      enabled              = optional(bool)
+      maxFeePerGas         = optional(object({ multiplier = optional(number) }))
+      maxPriorityFeePerGas = optional(object({ multiplier = optional(number) }))
+      gasPrice             = optional(object({ multiplier = optional(number) }))
+    }))
+    caps = optional(object({
+      enabled              = optional(bool)
+      maxFeePerGas         = optional(number)
+      maxPriorityFeePerGas = optional(number)
+      gasPrice             = optional(number)
+    }))
+  })
   default     = {}
-  description = "evm.gasPricing — { format = \"eip1559\"|\"legacy\", source = { fixedGasPrice|gasOracleAPI|rpcEndpoint = {...} } }. Wide tagged-union shape; pass through as-is."
+  description = "evm.gasPricing — format (eip1559|legacy), source (tagged union: fixedGasPrice | gasOracleAPI | RPCEndpoint), auto-increment, and caps."
 }
 
 variable "nonce_assignment" {
@@ -100,9 +155,16 @@ variable "nonce_assignment" {
 }
 
 variable "submission" {
-  type        = any
+  type = object({
+    # Keys are submission-error categories (gas_limit_error, gas_price_error, signature_error, …)
+    # — the schema is open, so users may add their own categories.
+    errorTypeMatchers = optional(map(object({
+      containsIgnoreCase = optional(list(string))
+      minInterval        = optional(string)
+    })))
+  })
   default     = {}
-  description = "evm.submission — { errorTypeMatchers = [...] } and similar policy knobs."
+  description = "evm.submission — error-type matchers keyed by submission error category."
 }
 
 variable "transaction_serialization" {
@@ -123,13 +185,64 @@ variable "block_events" {
 }
 
 variable "transaction_events" {
-  type        = any
+  # ABI fields (`abi`, `logFilters[].events`) accept native Terraform lists of objects;
+  # the upstream JSON Schema is recursive (parameters have `components` of the same shape)
+  # so we type them as `any` rather than re-encode the recursion.
+  type = object({
+    abi                              = optional(any)
+    batchSize                        = optional(number)
+    batchTimeout                     = optional(string)
+    catchupBlockFetchAhead           = optional(number)
+    catchupPageSize                  = optional(number)
+    catchupPageSizeAdaptiveAlpha     = optional(number)
+    catchupPageSizeAdaptiveMax       = optional(number)
+    catchupPageSizeAdaptiveMin       = optional(number)
+    catchupRetryMaxAttempts          = optional(number)
+    catchupRetryRangeReductionFactor = optional(number)
+    decodeConstructors               = optional(bool)
+    enableBlockTrace                 = optional(bool)
+    eventMode                        = optional(string)
+    fromBlock                        = optional(string)
+    includeBinaryInput               = optional(bool)
+    includeBinaryLogs                = optional(bool)
+    includeInputs                    = optional(bool)
+    includeLogsBloom                 = optional(bool)
+    logFilters = optional(list(object({
+      addresses       = optional(list(string))
+      eventSignatures = optional(list(string))
+      events          = optional(any)
+      topic0          = optional(list(string))
+      topic1          = optional(list(string))
+      topic2          = optional(list(string))
+      topic3          = optional(list(string))
+    })))
+    omitSolidityDef = optional(bool)
+    outputFormat    = optional(string)
+    pollTimeout     = optional(string)
+    requiredConfirmations = optional(number)
+    traceFilters = optional(list(object({
+      addresses   = optional(list(string))
+      excludeFrom = optional(bool)
+      excludeTo   = optional(bool)
+    })))
+    unfiltered = optional(bool)
+  })
   default     = {}
-  description = "evm.transactionEventsConfig — fromBlock, batchSize, logFilters, abi."
+  description = "evm.transactionEventsConfig — block-walking event stream tuning. eventMode is one of all|require_decoded|filter_decoded."
 }
 
 variable "contract_event_listener" {
-  type        = any
+  type = object({
+    fromBlock    = optional(string)
+    batchSize    = optional(number)
+    batchTimeout = optional(string)
+    pollTimeout  = optional(string)
+    filters = optional(list(object({
+      address = optional(string)
+      # ABI event definition. Recursive schema — accept Terraform native objects.
+      event = optional(any)
+    })))
+  })
   default     = {}
-  description = "evm.contractEventListener — fromBlock, batchSize, filters, abi."
+  description = "evm.contractEventListener — block-walking listener bound to a contract address + event ABI."
 }

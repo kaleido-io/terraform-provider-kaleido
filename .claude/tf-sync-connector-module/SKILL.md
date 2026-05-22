@@ -69,15 +69,23 @@ Translation rules (apply per `schema.properties.<field>`):
 | `type: integer` or `type: number` | `optional(number, <default>)` |
 | `type: object` with concrete `properties` | `optional(object({ ... nested ... }))` |
 | `type: object` with `additionalProperties: true` and no concrete properties | `optional(map(any))` |
+| `type: object` with `additionalProperties: { type: <prim> }` and no concrete properties | `optional(map(<prim>))` |
 | `type: array, items: <prim>` | `optional(list(<prim>))` |
 | `type: array, items: <object>` | `optional(list(object({...})))` |
-| Tagged union (multiple sibling sub-objects, only one set at a time — e.g. `gasPricing.source` has `fixedGasPrice`/`gasOracleAPI`/`rpcEndpoint`) | Fall back to `type = any` — Terraform's type system can't express tagged unions cleanly. Document the shape in the variable description. |
+| Tagged union (multiple sibling sub-objects, only one set at a time — e.g. `gasPricing.source` has `fixedGasPrice`/`gasOracleAPI`/`RPCEndpoint`) | Model as `optional(object({ variant_a = optional(object({...})), variant_b = optional(object({...})), ... }))` with all variants optional. Terraform's type system can't enforce "exactly one is set" — the server does — but typing gets you typo-catching, IDE hints, and validation on the fields inside the chosen variant. Add a comment above the union: `# tagged union — set exactly one of …`. |
+| Recursive schemas (e.g. EVM ABI fragments, which contain `components` of the same shape as the parameter that owns them) | Use `optional(any)` for the recursive subtree. Terraform's type system has no fixpoint operator, so trying to bound the recursion depth is worse than the escape hatch. Document the expected JSON shape in the variable description. Examples: `evm.transactionEventsConfig.abi`, `evm.transactionEventsConfig.logFilters[].events`, `evm.contractEventListener.filters[].event`. |
 
 Always wrap top-level fields in `optional(...)` and provide a default empty object
 `default = {}` on the variable itself, so users only override what they need.
 
 The variable's `description` must mention the upstream config type name (e.g.
 `"evm.confirmations — ..."`) so users can search for the type in any documentation.
+
+**On `null` serialization** — Terraform `optional(T)` fields that the user doesn't set
+become `null`, and `jsonencode()` includes them in the JSON sent to the server. This
+is verbose but harmless: every field in the upstream JSON Schemas is `nullable: true`,
+so the server treats `null` and missing identically. Do not try to strip nulls — there
+is no clean recursive way to do it in HCL, and the upstream tolerates them.
 
 ## Step 4 — Derive ecosystem `*.tfvars` from `ecosystems/`
 

@@ -58,9 +58,73 @@ variable "network" {
 # Schemas mirror <upstream connector definitions source>/btc/config_types/*.yaml.
 
 variable "fee_rate" {
-  type        = any
+  type = object({
+    autoIncrement = optional(object({
+      enabled         = optional(bool)
+      incrementPeriod = optional(string)
+      multiplier      = optional(number)
+    }))
+    maxFeeRate = optional(object({
+      enabled = optional(bool)
+      btcKvB  = optional(number)
+      satVb   = optional(number)
+    }))
+    # `source` is a tagged union — set exactly one of feeOracleAPI / fixedFeeRate / rpcEndpoint.
+    source = optional(object({
+      feeOracleAPI = optional(object({
+        enabled                       = optional(bool)
+        enableRPCEndpointFallback     = optional(bool)
+        url                           = optional(string)
+        method                        = optional(string)
+        body                          = optional(string)
+        authUsername                  = optional(string)
+        authPassword                  = optional(string)
+        headers                       = optional(map(string))
+        httpPassthroughHeadersEnabled = optional(bool)
+        proxyURL                      = optional(string)
+        connectionTimeout             = optional(string)
+        expectContinueTimeout         = optional(string)
+        idleTimeout                   = optional(string)
+        maxIdleTimeout                = optional(string)
+        requestTimeout                = optional(string)
+        tlsHandshakeTimeout           = optional(string)
+        maxConnsPerHost               = optional(number)
+        maxIdleConns                  = optional(number)
+        maxIdleConnsPerHost           = optional(number)
+        requestsPerSecond             = optional(number)
+        burst                         = optional(number)
+        retry                         = optional(bool)
+        retryCount                    = optional(number)
+        retryInitialDelay             = optional(string)
+        retryMaximumDelay             = optional(string)
+        retryErrorStatusCodeRegex     = optional(string)
+        responseTemplate = optional(object({
+          jsonataBTCKvB = optional(string)
+          jsonataSatVb  = optional(string)
+        }))
+        cache = optional(object({
+          enabled = optional(bool)
+          ttl     = optional(string)
+        }))
+      }))
+      fixedFeeRate = optional(object({
+        enabled = optional(bool)
+        btcKvB  = optional(number)
+        satVb   = optional(number)
+      }))
+      rpcEndpoint = optional(object({
+        enabled            = optional(bool)
+        confirmationTarget = optional(number)
+        estimateMode       = optional(string)
+        cache = optional(object({
+          enabled = optional(bool)
+          ttl     = optional(string)
+        }))
+      }))
+    }))
+  })
   default     = {}
-  description = "btc.feeRate — fee rate sources (rpcEndpoint | feeOracleAPI | fixedFeeRate), maxFeeRate cap, auto-increment policy."
+  description = "btc.feeRate — auto-increment, maxFeeRate cap, and a tagged-union source (feeOracleAPI | fixedFeeRate | rpcEndpoint)."
 }
 
 variable "assembly" {
