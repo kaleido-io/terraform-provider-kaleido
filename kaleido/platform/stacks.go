@@ -116,6 +116,9 @@ func (data *StacksResourceModel) toAPI(api *StacksAPIModel) {
 		api.SubType = data.SubType.ValueString()
 	}
 	api.Name = data.Name.ValueString()
+	if !data.SubType.IsNull() {
+		api.SubType = data.SubType.ValueString()
+	}
 	if !data.NetworkId.IsNull() {
 		api.NetworkId = data.NetworkId.ValueString()
 	}
@@ -131,6 +134,9 @@ func (api *StacksAPIModel) toData(data *StacksResourceModel) {
 	}
 	if api.NetworkId != "" && !data.NetworkId.IsNull() {
 		data.NetworkId = types.StringValue(api.NetworkId)
+	}
+	if api.SubType != "" && !data.SubType.IsNull() {
+		data.SubType = types.StringValue(api.SubType)
 	}
 }
 

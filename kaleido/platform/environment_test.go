@@ -37,6 +37,8 @@ resource "kaleido_platform_environment" "environment1" {
 var environmentStep2 = `
 resource "kaleido_platform_environment" "environment1" {
     name = "environment1_renamed"
+	version = "1.0.0"
+	update_strategy = "manual"
 }
 `
 
@@ -74,6 +76,8 @@ func TestEnvironment1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(environment1Resource, "id"),
 					resource.TestCheckResourceAttr(environment1Resource, "name", `environment1_renamed`),
+					resource.TestCheckResourceAttr(environment1Resource, "version", `1.0.0`),
+					resource.TestCheckResourceAttr(environment1Resource, "update_strategy", `manual`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[environment1Resource].Primary.Attributes["id"]
@@ -83,7 +87,9 @@ func TestEnvironment1(t *testing.T) {
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							"name": "environment1_renamed"
+							"name": "environment1_renamed",
+							"version": "1.0.0",
+							"updateStrategy": "manual"
 						}
 						`,
 							// generated fields that vary per test run
