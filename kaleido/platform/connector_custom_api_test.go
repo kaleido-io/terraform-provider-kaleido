@@ -70,23 +70,8 @@ func TestConnectorCustomAPI(t *testing.T) {
 	}
 	mp.services["env1/service1"] = service1
 
-	// Setup mock connector service endpoints
-	mp.router.HandleFunc("/endpoint/{env}/{service}/rest/api/v1/metadata/setup-info", func(res http.ResponseWriter, req *http.Request) {
-		if req.Method == http.MethodGet {
-			setupInfo := struct {
-				ConnectorFlows []ConnectorFlowInfo `json:"connectorFlows"`
-			}{
-				ConnectorFlows: []ConnectorFlowInfo{
-					{Name: "deploy-flow", FlowType: "deploy"},
-					{Name: "invoke-flow", FlowType: "invoke"},
-				},
-			}
-			json.NewEncoder(res).Encode(setupInfo)
-			return
-		}
-		res.WriteHeader(http.StatusMethodNotAllowed)
-	}).Methods(http.MethodGet)
-
+	// flow-type discovery now reads only /connector-flows; the legacy setup-info
+	// route is no longer touched by the implementation.
 	mp.router.HandleFunc("/endpoint/{env}/{service}/rest/api/v1/connector-flows", func(res http.ResponseWriter, req *http.Request) {
 		if req.Method == http.MethodGet {
 			flowsResult := struct {
