@@ -40,12 +40,12 @@ type ConnectorConfigProfileResourceModel struct {
 }
 
 type ConnectorConfigProfileAPIModel struct {
-	ID           string                 `json:"id,omitempty"`
-	Name         string                 `json:"name,omitempty"`
-	ConfigType   string                 `json:"configType,omitempty"`
-	ConfigTypeID string                 `json:"configTypeId,omitempty"`
-	Description  string                 `json:"description,omitempty"`
-	Value        map[string]any         `json:"value,omitempty"`
+	ID           string         `json:"id,omitempty"`
+	Name         string         `json:"name,omitempty"`
+	ConfigType   string         `json:"configType,omitempty"`
+	ConfigTypeID string         `json:"configTypeId,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	Value        map[string]any `json:"value,omitempty"`
 }
 
 func ConnectorConfigProfileResourceFactory() resource.Resource {

@@ -36,7 +36,7 @@ type ConnectorFlowResourceModel struct {
 	Description        types.String `tfsdk:"description"`
 	ConfigTypeBindings types.Map    `tfsdk:"config_type_bindings"`
 	FlowType           types.String `tfsdk:"flow_type"`
-	CurrentVersion    types.String `tfsdk:"current_version"`
+	CurrentVersion     types.String `tfsdk:"current_version"`
 }
 
 type ConfigProfileBindingTargetInput struct {

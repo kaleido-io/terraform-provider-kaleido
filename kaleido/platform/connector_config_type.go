@@ -36,9 +36,9 @@ type ConnectorConfigTypeResourceModel struct {
 }
 
 type ConnectorConfigTypeAPIModel struct {
-	ID      string                 `json:"id,omitempty"`
-	Name    string                 `json:"name,omitempty"`
-	Version string                 `json:"version,omitempty"`
+	ID      string         `json:"id,omitempty"`
+	Name    string         `json:"name,omitempty"`
+	Version string         `json:"version,omitempty"`
 	Schema  map[string]any `json:"schema,omitempty"`
 }
 
