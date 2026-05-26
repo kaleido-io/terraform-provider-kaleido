@@ -1,7 +1,0 @@
-kaleido_platform_api = "https://console.kaleido.io"
-
-api_key_name  = "my-admin-key"
-api_key_value = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-
-application_name = "env-scoped-app"
-new_api_key_name = "env-scoped-api-key"
