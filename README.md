@@ -7,7 +7,7 @@ Check out the [Kaleido Terraform Provider documentation](https://registry.terraf
 ## Getting Started
 
 **Prerequisites:**
-- [OpenTofu](https://opentofu.org/docs/intro/ or [Terraform](https://developer.hashicorp.com/terraform/install)
+- [OpenTofu](https://opentofu.org/docs/intro/) or [Terraform](https://developer.hashicorp.com/terraform/install)
 - A Kaleido Enterprise Platform account and API key
 
 ```hcl
@@ -35,6 +35,7 @@ See the [official Terraform modules](https://github.com/kaleido-io/terraform-kal
 **Prerequisites:**
 - Go 1.25 or greater
 - make
+
 
 ### Build & Unit Tests
 
