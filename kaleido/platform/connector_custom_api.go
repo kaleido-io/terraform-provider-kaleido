@@ -132,22 +132,13 @@ func (r *connectorCustomAPIResource) apiPath(data *ConnectorCustomAPIResourceMod
 }
 
 func (r *connectorCustomAPIResource) discoverFlowTypeBindings(ctx context.Context, data *ConnectorCustomAPIResourceModel, diagnostics *diag.Diagnostics) map[string]string {
-	// get setup info to discover connector flows and their flow types
-	var setupInfo struct {
-		ConnectorFlows []ConnectorFlowInfo `json:"connectorFlows"`
-	}
-	ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(data, "/api/v1/metadata/setup-info"), nil, &setupInfo, diagnostics)
-	if !ok {
-		return nil
-	}
-
-	// query deployed connector flows to get their actual names
+	// query deployed connector flows to get their actual names + types from labels
 	var flowsResult struct {
 		Items []struct {
 			Labels map[string]string `json:"labels"`
 		} `json:"items"`
 	}
-	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(data, "/api/v1/connector-flows"), nil, &flowsResult, diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(data, "/api/v1/connector-flows"), nil, &flowsResult, diagnostics)
 	if !ok {
 		return nil
 	}

@@ -352,6 +352,7 @@ func DataSources() []func() datasource.DataSource {
 		NetworkBootstrapDatasourceModelFactory,
 		AccountDatasourceModelFactory,
 		PaladinEVMRegistryDatasourceModelFactory,
+		ConnectorUpdatesDatasourceFactory,
 	}
 }
 
@@ -386,8 +387,13 @@ func Resources() []func() resource.Resource {
 		FireFlyContractListenerResourceFactory,
 		StacksResourceFactory,
 		ConnectorResourceFactory,
-		ConnectorSetupResourceFactory,
 		ConnectorCustomAPIResourceFactory,
+		ConnectorConfigTypeResourceFactory,
+		ConnectorConfigProfileResourceFactory,
+		ConnectorFlowResourceFactory,
+		ConnectorStreamFactoryResourceFactory,
+		ConnectorStandardAPIResourceFactory,
+		ConnectorStandardStreamResourceFactory,
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		HostnameResourceFactory,
