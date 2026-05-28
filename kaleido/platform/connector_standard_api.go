@@ -91,7 +91,7 @@ func (r *connectorStandardAPIResource) Schema(_ context.Context, _ resource.Sche
 			"flow_type_bindings": &schema.MapAttribute{
 				Required:    true,
 				ElementType: types.StringType,
-				Description: "Map of connector-flow type to deployed connector-flow name. The server iterates the standard API template's subflowBindingTypes (binding name -> flow type) and resolves each by looking up flow_type_bindings[flowType]; so multiple bindings sharing a flow type collapse to one entry here. Keys are the *values* of subflowBindingTypes (e.g. submission, query), not the binding names.",
+				Description: "Map of connector-flow type to deployed connector-flow name. The server iterates the standard API template's subflowBindingTypes (binding name -> flow type) and resolves each by looking up flow_type_bindings[flowType]; so multiple `subflow`s sharing a flow type collapse to one entry here. Keys are the *values* of subflowBindingTypes (e.g. submission, query), not the binding names.",
 			},
 			"current_version": &schema.StringAttribute{
 				Computed:    true,
