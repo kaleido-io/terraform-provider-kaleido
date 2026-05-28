@@ -18,7 +18,7 @@ Deploys a standard API from a connector service's embedded definitions, binding 
 ### Required
 
 - `environment` (String) Environment ID
-- `flow_type_bindings` (Map of String) Map of connector-flow type to deployed connector-flow name. The server iterates the standard API template's subflowBindingTypes (binding name -> flow type) and resolves each by looking up flow_type_bindings[flowType]; so multiple bindings sharing a flow type collapse to one entry here. Keys are the *values* of subflowBindingTypes (e.g. submission, query), not the binding names.
+- `flow_type_bindings` (Map of String) Map of connector-flow type to deployed connector-flow name. The server iterates the standard API template's subflowBindingTypes (binding name -> flow type) and resolves each by looking up flow_type_bindings[flowType]; so multiple `subflow`s sharing a flow type collapse to one entry here. Keys are the *values* of subflowBindingTypes (e.g. submission, query), not the binding names.
 - `name` (String) Standard API template name (e.g. evm, bitcoin)
 - `service` (String) Connector service ID
 
