@@ -68,8 +68,11 @@ func (r *cms_action_baseResource) waitForActionStatus(ctx context.Context, data 
 	path := r.apiPath(data)
 	cancelInfo := APICancelInfo()
 	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("build-check %s", path), func(attempt int) (retry bool, err error) {
-		ok, _ := r.apiRequest(ctx, http.MethodGet, path, nil, &api, diagnostics, cancelInfo)
+		ok, statusCode := r.apiRequest(ctx, http.MethodGet, path, nil, &api, diagnostics, cancelInfo)
 		if !ok {
+			if statusCode == 429 {
+				return true, fmt.Errorf("rate limit exceeded")
+			}
 			return false, fmt.Errorf("action-check failed") // already set in diag
 		}
 		cancelInfo.CancelInfo = fmt.Sprintf("waiting for completion - status: %s", api.OutputBase().Status)

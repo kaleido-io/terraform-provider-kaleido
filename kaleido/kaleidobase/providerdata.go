@@ -17,9 +17,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -123,9 +125,19 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 			}
 			return false
 		}).
-		SetRetryCount(3).
-		SetRetryWaitTime(1 * time.Second).
-		SetRetryMaxWaitTime(10 * time.Second).
+		SetRetryCount(5).
+		SetRetryAfter(func(c *resty.Client, r *resty.Response) (time.Duration, error) {
+			tflog.Debug(logCtx, fmt.Sprintf("retryAfter: %s", r.Header().Get("Retry-After")))
+			retryAfter, err := strconv.ParseFloat(r.Header().Get("Retry-After"), 64) // decimal seconds
+			if err != nil {
+				retryAfter = 1.0
+			}
+			// Uniform [0, 5s) jitter to de-sync up to 5 concurrent connections retrying up to 5 times.
+			// rand.NormFloat64 was wrong here: ~50% of draws are negative, producing a negative final
+			// duration → time.Sleep returns instantly → thundering herd back into the 429.
+			jitter := time.Duration(rand.Float64() * float64(5*time.Second))
+			return time.Duration(retryAfter*float64(time.Second)) + jitter, nil
+		}).
 		SetBaseURL(platformAPI)
 	if platformUsername != "" && platformPassword != "" {
 		platform = platform.SetBasicAuth(platformUsername, platformPassword)

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -26,17 +27,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 type ConnectorConfigProfileResourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Environment  types.String `tfsdk:"environment"`
-	Service      types.String `tfsdk:"service"`
-	Name         types.String `tfsdk:"name"`
-	ConfigType   types.String `tfsdk:"config_type"`
-	Description  types.String `tfsdk:"description"`
-	ValueJSON    types.String `tfsdk:"value_json"`
-	ConfigTypeID types.String `tfsdk:"config_type_id"`
+	ID           types.String              `tfsdk:"id"`
+	Environment  types.String              `tfsdk:"environment"`
+	Service      types.String              `tfsdk:"service"`
+	Name         types.String              `tfsdk:"name"`
+	ConfigType   types.String              `tfsdk:"config_type"`
+	Description  types.String              `tfsdk:"description"`
+	ValueJSON    jsonNullStrippedStringVal `tfsdk:"value_json"`
+	ConfigTypeID types.String              `tfsdk:"config_type_id"`
 }
 
 type ConnectorConfigProfileAPIModel struct {
@@ -45,7 +48,7 @@ type ConnectorConfigProfileAPIModel struct {
 	ConfigType   string         `json:"configType,omitempty"`
 	ConfigTypeID string         `json:"configTypeId,omitempty"`
 	Description  string         `json:"description,omitempty"`
-	Value        map[string]any `json:"value,omitempty"`
+	Value        map[string]any `json:"value"`
 }
 
 func ConnectorConfigProfileResourceFactory() resource.Resource {
@@ -93,7 +96,8 @@ func (r *connectorConfigProfileResource) Schema(_ context.Context, _ resource.Sc
 			},
 			"value_json": &schema.StringAttribute{
 				Required:    true,
-				Description: "JSON-encoded profile value. Must validate against the bound config type's JSON Schema.",
+				CustomType:  jsonNullStrippedStringType{},
+				Description: "JSON-encoded profile value. Must validate against the bound config type's JSON Schema. Null fields are stripped before submission (upstream schemas treat absence as 'use default'; explicit null fails validation); a custom-type semantic equality compares values as null-stripped JSON so jsonencode() of typed objects doesn't show spurious drift.",
 			},
 			"config_type_id": &schema.StringAttribute{
 				Computed:    true,
@@ -120,7 +124,17 @@ func (r *connectorConfigProfileResource) toAPI(data *ConnectorConfigProfileResou
 			diagnostics.AddError("Invalid value_json", fmt.Sprintf("config profile value_json must be a JSON object: %v", err))
 			return
 		}
-		api.Value = value
+		// Upstream JSON Schemas treat key absence as "use default" but reject
+		// explicit nulls for non-nullable fields. Terraform's jsonencode() of a
+		// typed object emits null for every unset optional() leaf, so strip
+		// nulls recursively before sending to the API.
+		stripped, _ := stripJSONNulls(value).(map[string]any)
+		if stripped == nil {
+			stripped = map[string]any{}
+		}
+		api.Value = stripped
+	} else {
+		api.Value = map[string]any{}
 	}
 }
 
@@ -137,7 +151,7 @@ func (r *connectorConfigProfileResource) toData(api *ConnectorConfigProfileAPIMo
 			diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("failed to marshal config profile value: %v", err))
 			return
 		}
-		data.ValueJSON = types.StringValue(string(valueBytes))
+		data.ValueJSON = newJSONNullStrippedString(string(valueBytes))
 	}
 }
 
@@ -206,4 +220,135 @@ func (r *connectorConfigProfileResource) Delete(ctx context.Context, req resourc
 		return
 	}
 	r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data, data.Name.ValueString()), nil, nil, &resp.Diagnostics, Allow404())
+}
+
+// stripJSONNulls recursively removes keys whose value is nil from maps,
+// and nil entries from slices. Returned slices/maps are new copies; scalar
+// values are returned unchanged.
+func stripJSONNulls(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			if val == nil {
+				continue
+			}
+			out[k] = stripJSONNulls(val)
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(t))
+		for _, val := range t {
+			if val == nil {
+				continue
+			}
+			out = append(out, stripJSONNulls(val))
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+func canonicalizeStrippedJSON(s string) (string, error) {
+	var v any
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		return "", err
+	}
+	out, err := json.Marshal(stripJSONNulls(v))
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// jsonNullStrippedStringType is a Terraform Plugin Framework custom string
+// type whose semantic equality compares two JSON-encoded values as equal when
+// they differ only by null fields. This lets the schema attribute remain
+// Required while accepting a planned value (e.g. jsonencode of a typed object
+// with unset optional() leaves) that the provider stores in a null-stripped
+// canonical form — without triggering Terraform's "planned value does not
+// match config value" or "inconsistent result after apply" guards.
+type jsonNullStrippedStringType struct {
+	basetypes.StringType
+}
+
+func (t jsonNullStrippedStringType) Equal(o attr.Type) bool {
+	other, ok := o.(jsonNullStrippedStringType)
+	if !ok {
+		return false
+	}
+	return t.StringType.Equal(other.StringType)
+}
+
+func (t jsonNullStrippedStringType) String() string {
+	return "jsonNullStrippedStringType"
+}
+
+func (t jsonNullStrippedStringType) ValueType(_ context.Context) attr.Value {
+	return jsonNullStrippedStringVal{}
+}
+
+func (t jsonNullStrippedStringType) ValueFromString(_ context.Context, in basetypes.StringValue) (basetypes.StringValuable, diag.Diagnostics) {
+	return jsonNullStrippedStringVal{StringValue: in}, nil
+}
+
+func (t jsonNullStrippedStringType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
+	attrValue, err := t.StringType.ValueFromTerraform(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	stringValue, ok := attrValue.(basetypes.StringValue)
+	if !ok {
+		return nil, fmt.Errorf("unexpected value type %T returned by StringType.ValueFromTerraform", attrValue)
+	}
+	stringValuable, diags := t.ValueFromString(ctx, stringValue)
+	if diags.HasError() {
+		return nil, fmt.Errorf("unexpected error converting StringValue to StringValuable: %v", diags)
+	}
+	return stringValuable, nil
+}
+
+type jsonNullStrippedStringVal struct {
+	basetypes.StringValue
+}
+
+func newJSONNullStrippedString(s string) jsonNullStrippedStringVal {
+	return jsonNullStrippedStringVal{StringValue: types.StringValue(s)}
+}
+
+func (v jsonNullStrippedStringVal) Type(_ context.Context) attr.Type {
+	return jsonNullStrippedStringType{}
+}
+
+func (v jsonNullStrippedStringVal) Equal(o attr.Value) bool {
+	other, ok := o.(jsonNullStrippedStringVal)
+	if !ok {
+		return false
+	}
+	return v.StringValue.Equal(other.StringValue)
+}
+
+func (v jsonNullStrippedStringVal) StringSemanticEquals(_ context.Context, newValuable basetypes.StringValuable) (bool, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	newValue, ok := newValuable.(jsonNullStrippedStringVal)
+	if !ok {
+		diags.AddError(
+			"Semantic Equality Check Error",
+			fmt.Sprintf("expected value type %T, got %T", v, newValuable),
+		)
+		return false, diags
+	}
+	if v.IsNull() != newValue.IsNull() || v.IsUnknown() != newValue.IsUnknown() {
+		return false, diags
+	}
+	if v.IsNull() || v.IsUnknown() {
+		return true, diags
+	}
+	a, errA := canonicalizeStrippedJSON(v.ValueString())
+	b, errB := canonicalizeStrippedJSON(newValue.ValueString())
+	if errA != nil || errB != nil {
+		return v.ValueString() == newValue.ValueString(), diags
+	}
+	return a == b, diags
 }
