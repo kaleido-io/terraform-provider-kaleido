@@ -21,7 +21,7 @@ A config profile on a connector service. Bound to a config type, validated again
 - `environment` (String) Environment ID
 - `name` (String) Name of the config profile. By convention matches the config type name (e.g. evm.confirmations).
 - `service` (String) Connector service ID
-- `value_json` (String) JSON-encoded profile value. Must validate against the bound config type's JSON Schema.
+- `value_json` (String) JSON-encoded profile value. Must validate against the bound config type's JSON Schema. Null fields are stripped before submission (upstream schemas treat absence as 'use default'; explicit null fails validation); a custom-type semantic equality compares values as null-stripped JSON so jsonencode() of typed objects doesn't show spurious drift.
 
 ### Optional
 
