@@ -132,7 +132,10 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 			if err != nil {
 				retryAfter = 1.0
 			}
-			jitter := time.Duration(rand.NormFloat64() * float64(5*time.Second)) // up to 5 second random jitter to account for 5 concurrent connections all retrying up to 5 times
+			// Uniform [0, 5s) jitter to de-sync up to 5 concurrent connections retrying up to 5 times.
+			// rand.NormFloat64 was wrong here: ~50% of draws are negative, producing a negative final
+			// duration → time.Sleep returns instantly → thundering herd back into the 429.
+			jitter := time.Duration(rand.Float64() * float64(5*time.Second))
 			return time.Duration(retryAfter*float64(time.Second)) + jitter, nil
 		}).
 		SetBaseURL(platformAPI)
