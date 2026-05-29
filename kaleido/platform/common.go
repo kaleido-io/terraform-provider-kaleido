@@ -355,7 +355,6 @@ func DataSources() []func() datasource.DataSource {
 		NetworkBootstrapDatasourceModelFactory,
 		AccountDatasourceModelFactory,
 		PaladinEVMRegistryDatasourceModelFactory,
-		ConnectorUpdatesDatasourceFactory,
 	}
 }
 
