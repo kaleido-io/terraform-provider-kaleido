@@ -28,6 +28,9 @@ provider "kaleido" {
 }
 ```
 
+> **NOTE**: if you are using the provider against local Kaleido platform instance via the [software quick start](https://docs.kaleido.io/software/quickstart/prerequisites) or internally for development,
+> include `KALEIDO_PLATFORM_INSECURE=true` in your shell in order to ignore self-signed development certificates.
+
 See the [official Terraform modules](https://github.com/kaleido-io/terraform-kaleido-modules) repository for useful modules and relevant examples.
 
 ## Development
