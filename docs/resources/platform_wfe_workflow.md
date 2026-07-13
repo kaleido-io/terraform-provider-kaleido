@@ -24,6 +24,7 @@ The Workflow Engine Workflow resource allows you to manage workflows in the Work
 
 ### Optional
 
+- `config_profile_bindings_json` (String) The workflow config profile bindings as JSON
 - `description` (String) Description of the workflow
 - `handler_bindings_json` (String) The workflow handler bindings as JSON
 - `subflow_bindings_json` (String) The workflow subflow bindings as JSON

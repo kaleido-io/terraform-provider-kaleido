@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -31,28 +32,30 @@ import (
 )
 
 type WFEWorkflowResourceModel struct {
-	ID                  types.String `tfsdk:"id"`
-	Name                types.String `tfsdk:"name"`
-	Description         types.String `tfsdk:"description"`
-	Environment         types.String `tfsdk:"environment"`
-	Service             types.String `tfsdk:"service"`
-	FlowYAML            types.String `tfsdk:"flow_yaml"` // yaml string containing workflow definition
-	AppliedVersion      types.String `tfsdk:"applied_version"`
-	Created             types.String `tfsdk:"created"`
-	Updated             types.String `tfsdk:"updated"`
-	HandlerBindingsJSON types.String `tfsdk:"handler_bindings_json"`
-	SubflowBindingsJSON types.String `tfsdk:"subflow_bindings_json"`
+	ID                        types.String `tfsdk:"id"`
+	Name                      types.String `tfsdk:"name"`
+	Description               types.String `tfsdk:"description"`
+	Environment               types.String `tfsdk:"environment"`
+	Service                   types.String `tfsdk:"service"`
+	FlowYAML                  types.String `tfsdk:"flow_yaml"` // yaml string containing workflow definition
+	AppliedVersion            types.String `tfsdk:"applied_version"`
+	Created                   types.String `tfsdk:"created"`
+	Updated                   types.String `tfsdk:"updated"`
+	HandlerBindingsJSON       types.String `tfsdk:"handler_bindings_json"`
+	SubflowBindingsJSON       types.String `tfsdk:"subflow_bindings_json"`
+	ConfigProfileBindingsJSON types.String `tfsdk:"config_profile_bindings_json"`
 }
 
 type WFEWorkflowAPIModel struct {
-	ID              string                 `json:"id,omitempty"`
-	Name            string                 `json:"name,omitempty"`
-	Description     string                 `json:"description,omitempty"`
-	Created         *time.Time             `json:"created,omitempty"`
-	Updated         *time.Time             `json:"updated,omitempty"`
-	CurrentVersion  string                 `json:"currentVersion,omitempty"`
-	HandlerBindings map[string]interface{} `json:"handlerBindings,omitempty"`
-	SubflowBindings map[string]interface{} `json:"subflowBindings,omitempty"`
+	ID                    string                 `json:"id,omitempty"`
+	Name                  string                 `json:"name,omitempty"`
+	Description           string                 `json:"description,omitempty"`
+	Created               *time.Time             `json:"created,omitempty"`
+	Updated               *time.Time             `json:"updated,omitempty"`
+	CurrentVersion        string                 `json:"currentVersion,omitempty"`
+	HandlerBindings       map[string]interface{} `json:"handlerBindings,omitempty"`
+	SubflowBindings       map[string]interface{} `json:"subflowBindings,omitempty"`
+	ConfigProfileBindings map[string]interface{} `json:"configProfileBindings,omitempty"`
 }
 
 type Definition map[string]interface{}
@@ -131,6 +134,10 @@ func (r *wfe_workflowResource) Schema(_ context.Context, _ resource.SchemaReques
 				Optional:    true,
 				Description: "The workflow subflow bindings as JSON",
 			},
+			"config_profile_bindings_json": &schema.StringAttribute{
+				Optional:    true,
+				Description: "The workflow config profile bindings as JSON",
+			},
 		},
 	}
 }
@@ -146,13 +153,17 @@ func (r *wfe_workflowResource) apiGetPath(data *WFEWorkflowResourceModel, idOrNa
 func (r *wfe_workflowResource) apiPath(data *WFEWorkflowResourceModel, idOrName string) string {
 	env := data.Environment.ValueString()
 	service := data.Service.ValueString()
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/workflows/%s", env, service, idOrName)
+	// idOrName may be a workflow name that contains "/" (e.g. connector-owned flows
+	// named "<connectorServiceId>/connector-flows/<flow>"). Escape it so the slashes
+	// are not routed as extra path segments. The API canonicalizes it back to the
+	// unescaped name, so state stays consistent with configuration.
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/workflows/%s", env, service, url.PathEscape(idOrName))
 }
 
 func (r *wfe_workflowResource) apiWorkflowVersionPath(data *WFEWorkflowResourceModel, idOrName string) string {
 	env := data.Environment.ValueString()
 	service := data.Service.ValueString()
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/workflows/%s/versions", env, service, idOrName)
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/workflows/%s/versions", env, service, url.PathEscape(idOrName))
 }
 
 func (r *wfe_workflowResource) toAPI(data *WFEWorkflowResourceModel, api *WFEWorkflowAPIModel, diagnostics *diag.Diagnostics) {
@@ -175,6 +186,15 @@ func (r *wfe_workflowResource) toAPI(data *WFEWorkflowResourceModel, api *WFEWor
 			return
 		}
 		api.SubflowBindings = subflowBindings
+	}
+
+	if !data.ConfigProfileBindingsJSON.IsNull() && data.ConfigProfileBindingsJSON.ValueString() != "" {
+		configProfileBindings := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(data.ConfigProfileBindingsJSON.ValueString()), &configProfileBindings); err != nil {
+			diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse workflow config profile bindings JSON: %v.  %s", err, data.ConfigProfileBindingsJSON.ValueString()))
+			return
+		}
+		api.ConfigProfileBindings = configProfileBindings
 	}
 }
 
