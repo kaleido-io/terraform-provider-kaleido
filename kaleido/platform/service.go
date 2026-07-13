@@ -461,11 +461,22 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 
-	if data.WaitForReady.IsNull() || data.WaitForReady.ValueBool() {
-		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	} else {
-		// no need to re-read from api, so just set the state and return
-		resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	// Persist state as soon as the service exists on the platform: if the
+	// ready-wait below fails or the apply is interrupted, the resource is then
+	// recorded as tainted and replaced on the next apply, rather than orphaned
+	// outside the state where every re-apply hits 409 "Service already exists"
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !data.WaitForReady.IsNull() && !data.WaitForReady.ValueBool() {
+		// not waiting for ready - no need to re-read from the api
+		return
+	}
+
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
