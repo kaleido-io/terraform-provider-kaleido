@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -245,10 +246,14 @@ func (mp *mockPlatform) arsFileKey(vars map[string]string) string {
 
 func (mp *mockPlatform) postARSFile(res http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	assert.Equal(mp.t, "application/octet-stream", req.Header.Get("Content-Type"))
-	fileType := req.URL.Query().Get("type")
+	// The real server accepts multipart/form-data with the 'type' field
+	// preceding the 'file' part
+	assert.True(mp.t, strings.HasPrefix(req.Header.Get("Content-Type"), "multipart/form-data"))
+	fileType := req.FormValue("type")
 	assert.NotEmpty(mp.t, fileType)
-	body, err := io.ReadAll(req.Body)
+	file, _, err := req.FormFile("file")
+	assert.NoError(mp.t, err)
+	body, err := io.ReadAll(file)
 	assert.NoError(mp.t, err)
 	digest := "sha256:" + sha256Hex(body)
 

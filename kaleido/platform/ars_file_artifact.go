@@ -14,14 +14,17 @@
 package platform
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -327,12 +330,33 @@ func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.Creat
 	apiPath := r.apiPath(&data)
 	tflog.Debug(ctx, fmt.Sprintf("Uploading file artifact %s from %s", apiPath, filePath))
 
+	// The upload route accepts multipart/form-data: the 'type' field must
+	// precede the file part
+	var form bytes.Buffer
+	w := multipart.NewWriter(&form)
+	if err := w.WriteField("type", data.Type.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not add type field: %v", err))
+		return
+	}
+	fw, err := w.CreateFormFile("file", filepath.Base(data.Name.ValueString()))
+	if err != nil {
+		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not create form file: %v", err))
+		return
+	}
+	if _, err := fw.Write(fileBytes); err != nil {
+		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not write file data: %v", err))
+		return
+	}
+	if err := w.Close(); err != nil {
+		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not finalize form: %v", err))
+		return
+	}
+
 	res, err := r.Platform.R().
 		SetContext(ctx).
 		SetDoNotParseResponse(true).
-		SetHeader("Content-Type", "application/octet-stream").
-		SetQueryParam("type", data.Type.ValueString()).
-		SetBody(fileBytes).
+		SetHeader("Content-Type", w.FormDataContentType()).
+		SetBody(form.Bytes()).
 		Post(apiPath)
 	if err != nil {
 		resp.Diagnostics.AddError("POST failed", fmt.Sprintf("POST %s failed with error: %v", apiPath, err))
