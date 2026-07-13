@@ -371,6 +371,7 @@ func Resources() []func() resource.Resource {
 		NetworkResourceFactory,
 		KMSWalletResourceFactory,
 		ARSNamespaceResourceFactory,
+		ARSFileArtifactResourceFactory,
 		KMSKeyResourceFactory,
 		CMSBuildResourceFactory,
 		CMSActionDeployResourceFactory,
