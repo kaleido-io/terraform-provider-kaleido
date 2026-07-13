@@ -181,8 +181,12 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 									"type": &schema.StringAttribute{
 										Required: true,
 									},
+									"registry_file_ref": &schema.StringAttribute{
+										Optional:    true,
+										Description: "Artifact registry reference for the file in the form namespace/repository:tag. Exactly one of 'data' or 'registry_file_ref' must be set.",
+									},
 									"data": &schema.SingleNestedAttribute{
-										Required:  true,
+										Optional:  true,
 										Sensitive: true,
 										Attributes: map[string]schema.Attribute{
 											"base64": &schema.StringAttribute{
@@ -275,7 +279,8 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 			"hex":    types.StringType,
 		}
 		fileAttrs := map[string]attr.Type{
-			"type": types.StringType,
+			"type":              types.StringType,
+			"registry_file_ref": types.StringType,
 			"data": types.ObjectType{
 				AttrTypes: dataAttrs,
 			},
@@ -302,21 +307,37 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 				tfFile, d := types.ObjectValueFrom(ctx, fileAttrs, tfFileVal)
 				diagnostics.Append(d...)
 				tfFileAttrs := tfFile.Attributes()
-				tfFileData, d := types.ObjectValueFrom(ctx, dataAttrs, tfFileAttrs["data"])
-				diagnostics.Append(d...)
 				f := &FileAPI{
 					Type: tfFileAttrs["type"].(types.String).ValueString(),
 				}
-				tfData := tfFileData.Attributes()
-				if !tfData["base64"].IsNull() {
-					f.Data.Base64 = tfData["base64"].(types.String).ValueString()
-				} else if !tfData["text"].IsNull() {
-					f.Data.Text = tfData["text"].(types.String).ValueString()
-				} else if !tfData["hex"].IsNull() {
-					f.Data.Hex = tfData["hex"].(types.String).ValueString()
+				hasRegistryRef := !tfFileAttrs["registry_file_ref"].IsNull()
+				if hasRegistryRef {
+					f.RegistryFileRef = tfFileAttrs["registry_file_ref"].(types.String).ValueString()
+				}
+				if tfFileAttrs["data"].IsNull() {
+					if !hasRegistryRef {
+						diagnostics.AddError("missing data", fmt.Sprintf("must specify data or registry_file_ref for file '%s'", filename))
+						return
+					}
 				} else {
-					diagnostics.AddError("missing data", fmt.Sprintf("must specify base64, text, or hexx data for file '%s'", filename))
-					return
+					if hasRegistryRef {
+						diagnostics.AddError("conflicting data", fmt.Sprintf("must specify only one of data or registry_file_ref for file '%s'", filename))
+						return
+					}
+					tfFileData, d := types.ObjectValueFrom(ctx, dataAttrs, tfFileAttrs["data"])
+					diagnostics.Append(d...)
+					tfData := tfFileData.Attributes()
+					f.Data = &FileDataAPI{}
+					if !tfData["base64"].IsNull() {
+						f.Data.Base64 = tfData["base64"].(types.String).ValueString()
+					} else if !tfData["text"].IsNull() {
+						f.Data.Text = tfData["text"].(types.String).ValueString()
+					} else if !tfData["hex"].IsNull() {
+						f.Data.Hex = tfData["hex"].(types.String).ValueString()
+					} else {
+						diagnostics.AddError("missing data", fmt.Sprintf("must specify base64, text, or hex data for file '%s'", filename))
+						return
+					}
 				}
 				fs.Files[filename] = f
 			}
