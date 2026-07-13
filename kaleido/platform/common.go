@@ -393,6 +393,7 @@ func Resources() []func() resource.Resource {
 		ConnectorConfigTypeResourceFactory,
 		ConnectorConfigProfileResourceFactory,
 		ConnectorFlowResourceFactory,
+		ConnectorFlowConfigBindingResourceFactory,
 		ConnectorStreamFactoryResourceFactory,
 		ConnectorStandardAPIResourceFactory,
 		ConnectorStandardStreamResourceFactory,

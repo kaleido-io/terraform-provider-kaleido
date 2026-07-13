@@ -32,12 +32,12 @@ import (
 )
 
 type WFEWorkflowResourceModel struct {
-	ID                  types.String `tfsdk:"id"`
-	Name                types.String `tfsdk:"name"`
-	Description         types.String `tfsdk:"description"`
-	Environment         types.String `tfsdk:"environment"`
-	Service             types.String `tfsdk:"service"`
-	FlowYAML            types.String `tfsdk:"flow_yaml"` // yaml string containing workflow definition
+	ID                        types.String `tfsdk:"id"`
+	Name                      types.String `tfsdk:"name"`
+	Description               types.String `tfsdk:"description"`
+	Environment               types.String `tfsdk:"environment"`
+	Service                   types.String `tfsdk:"service"`
+	FlowYAML                  types.String `tfsdk:"flow_yaml"` // yaml string containing workflow definition
 	AppliedVersion            types.String `tfsdk:"applied_version"`
 	Created                   types.String `tfsdk:"created"`
 	Updated                   types.String `tfsdk:"updated"`
@@ -47,11 +47,11 @@ type WFEWorkflowResourceModel struct {
 }
 
 type WFEWorkflowAPIModel struct {
-	ID              string                 `json:"id,omitempty"`
-	Name            string                 `json:"name,omitempty"`
-	Description     string                 `json:"description,omitempty"`
-	Created         *time.Time             `json:"created,omitempty"`
-	Updated         *time.Time             `json:"updated,omitempty"`
+	ID                    string                 `json:"id,omitempty"`
+	Name                  string                 `json:"name,omitempty"`
+	Description           string                 `json:"description,omitempty"`
+	Created               *time.Time             `json:"created,omitempty"`
+	Updated               *time.Time             `json:"updated,omitempty"`
 	CurrentVersion        string                 `json:"currentVersion,omitempty"`
 	HandlerBindings       map[string]interface{} `json:"handlerBindings,omitempty"`
 	SubflowBindings       map[string]interface{} `json:"subflowBindings,omitempty"`

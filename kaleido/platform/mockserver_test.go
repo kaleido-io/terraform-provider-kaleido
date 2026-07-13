@@ -82,6 +82,7 @@ type mockPlatform struct {
 	wfeStreamFactories          map[string]*WFEStreamFactoryAPIModel
 	fireflyContractListeners    map[string]*FireFlyContractListenerAPIModel
 	fireflySubscriptions        map[string]*FireFlySubscriptionAPIModel
+	connectorFlowConfigBindings map[string]*ConnectorFlowConfigBindingAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -350,6 +351,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/account-access/policies", http.MethodPost, mp.postAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodGet, mp.getAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodDelete, mp.deleteAccountAccessPolicy)
+
+	// See connector_flow_config_binding_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings", http.MethodGet, mp.listConnectorFlowConfigBindings)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}", http.MethodGet, mp.getConnectorFlowConfigBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}", http.MethodPatch, mp.patchConnectorFlowConfigBinding)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
