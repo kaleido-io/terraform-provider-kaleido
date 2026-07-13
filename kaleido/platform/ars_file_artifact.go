@@ -29,9 +29,11 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -61,17 +63,18 @@ var (
 )
 
 type ARSFileArtifactResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	Environment   types.String `tfsdk:"environment"`
-	Service       types.String `tfsdk:"service"`
-	Namespace     types.String `tfsdk:"namespace"`
-	Name          types.String `tfsdk:"name"`
-	FilePath      types.String `tfsdk:"file_path"`
-	Type          types.String `tfsdk:"type"`
-	Version       types.String `tfsdk:"version"`
-	Tag           types.String `tfsdk:"tag"`
-	ContentSHA256 types.String `tfsdk:"content_sha256"`
-	Size          types.Int64  `tfsdk:"size"`
+	ID                types.String `tfsdk:"id"`
+	Environment       types.String `tfsdk:"environment"`
+	Service           types.String `tfsdk:"service"`
+	Namespace         types.String `tfsdk:"namespace"`
+	Name              types.String `tfsdk:"name"`
+	FilePath          types.String `tfsdk:"file_path"`
+	Type              types.String `tfsdk:"type"`
+	Version           types.String `tfsdk:"version"`
+	Tag               types.String `tfsdk:"tag"`
+	RemoveOldVersions types.Bool   `tfsdk:"remove_old_versions"`
+	ContentSHA256     types.String `tfsdk:"content_sha256"`
+	Size              types.Int64  `tfsdk:"size"`
 }
 
 // FileVersion (POST response) / FileMetadata (GET response) from the Artifact Registry
@@ -134,9 +137,7 @@ func (r *arsFileArtifactResource) Metadata(_ context.Context, _ resource.Metadat
 
 func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace. " +
-			"With 'version' set (recommended) the tag is derived as '{version}-{first 8 hex chars of the file's SHA-256}', so any content change replaces the artifact under a new tag. " +
-			"With an explicit 'tag' the tag's existence is trusted and local file changes are NOT detected or re-uploaded; tags are immutable server-side.",
+		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:    true,
@@ -174,21 +175,25 @@ func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaReq
 				Description:   fmt.Sprintf("The file type (one of: %s)", strings.Join(SupportedFileArtifactTypes, ", ")),
 			},
 			"version": &schema.StringAttribute{
-				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Optional: true,
 				Validators: []validator.String{
 					stringvalidator.ExactlyOneOf(path.MatchRoot("version"), path.MatchRoot("tag")),
 				},
-				Description: "Version prefix for the content-addressed tag '{version}-{sha8}'. Exactly one of 'version' or 'tag' must be set. Changing the file content replaces the artifact under a new tag.",
+				Description: "Version prefix for the content-addressed tag '{version}-{sha8}'. Exactly one of 'version' or 'tag' must be set. Changing the file content uploads the artifact under a new tag.",
 			},
 			"tag": &schema.StringAttribute{
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Optional: true,
+				Computed: true,
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(arsFileTagPattern, "must be a valid OCI tag (word character followed by up to 127 word/'.'/'-' characters)"),
 				},
-				Description: "Explicit immutable tag. When set, the tag's existence is trusted: local file changes are not detected and the file is only uploaded at create. Creating against an existing tag with different content fails (tags are immutable).",
+				Description: "Explicit immutable tag. When set, the tag's existence is trusted: local file changes are not detected and the file is only uploaded when the tag changes. Pushing to an existing tag with different content fails (tags are immutable).",
+			},
+			"remove_old_versions": &schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade.",
 			},
 			"content_sha256": &schema.StringAttribute{
 				Computed:    true,
@@ -283,12 +288,11 @@ func (r *arsFileArtifactResource) ModifyPlan(ctx context.Context, req resource.M
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("tag"), derivedTag)...)
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("content_sha256"), "sha256:"+hexDigest)...)
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("size"), int64(len(fileBytes)))...)
-
-		// Attribute-level RequiresReplace plan modifiers run before ModifyPlan and cannot
-		// see the tag value derived here, so the replace must be requested explicitly.
-		if state != nil && !state.Tag.IsNull() && state.Tag.ValueString() != derivedTag {
-			resp.RequiresReplace = append(resp.RequiresReplace, path.Root("tag"))
-		}
+	} else if state != nil && (plan.Tag.IsUnknown() || plan.Tag.ValueString() != state.Tag.ValueString()) {
+		// Explicit-tag mode with a tag change: the file is re-uploaded at apply time,
+		// so the content attributes cannot be known until then
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("content_sha256"), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("size"), types.Int64Unknown())...)
 	}
 
 	// Composite ID is derivable at plan time once all its parts are known
@@ -305,18 +309,14 @@ func (r *arsFileArtifactResource) ModifyPlan(ctx context.Context, req resource.M
 	}
 }
 
-func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data ARSFileArtifactResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
+// uploadFile reads the local file, re-derives the tag in auto mode, pushes the content
+// to the registry, and populates data from the server response.
+func (r *arsFileArtifactResource) uploadFile(ctx context.Context, data *ARSFileArtifactResourceModel, diagnostics *diag.Diagnostics) bool {
 	filePath := data.FilePath.ValueString()
 	fileBytes, err := os.ReadFile(filePath)
 	if err != nil {
-		resp.Diagnostics.AddError("File not readable", fmt.Sprintf("Could not read file %s: %v", filePath, err))
-		return
+		diagnostics.AddError("File not readable", fmt.Sprintf("Could not read file %s: %v", filePath, err))
+		return false
 	}
 	sum := sha256.Sum256(fileBytes)
 	hexDigest := hex.EncodeToString(sum[:])
@@ -327,7 +327,7 @@ func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.Creat
 		data.Tag = types.StringValue(deriveFileArtifactTag(data.Version.ValueString(), hexDigest))
 	}
 
-	apiPath := r.apiPath(&data)
+	apiPath := r.apiPath(data)
 	tflog.Debug(ctx, fmt.Sprintf("Uploading file artifact %s from %s", apiPath, filePath))
 
 	// The upload route accepts multipart/form-data: the 'type' field must
@@ -335,21 +335,21 @@ func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.Creat
 	var form bytes.Buffer
 	w := multipart.NewWriter(&form)
 	if err := w.WriteField("type", data.Type.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not add type field: %v", err))
-		return
+		diagnostics.AddError("Form creation error", fmt.Sprintf("Could not add type field: %v", err))
+		return false
 	}
 	fw, err := w.CreateFormFile("file", filepath.Base(data.Name.ValueString()))
 	if err != nil {
-		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not create form file: %v", err))
-		return
+		diagnostics.AddError("Form creation error", fmt.Sprintf("Could not create form file: %v", err))
+		return false
 	}
 	if _, err := fw.Write(fileBytes); err != nil {
-		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not write file data: %v", err))
-		return
+		diagnostics.AddError("Form creation error", fmt.Sprintf("Could not write file data: %v", err))
+		return false
 	}
 	if err := w.Close(); err != nil {
-		resp.Diagnostics.AddError("Form creation error", fmt.Sprintf("Could not finalize form: %v", err))
-		return
+		diagnostics.AddError("Form creation error", fmt.Sprintf("Could not finalize form: %v", err))
+		return false
 	}
 
 	res, err := r.Platform.R().
@@ -359,29 +359,42 @@ func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.Creat
 		SetBody(form.Bytes()).
 		Post(apiPath)
 	if err != nil {
-		resp.Diagnostics.AddError("POST failed", fmt.Sprintf("POST %s failed with error: %v", apiPath, err))
-		return
+		diagnostics.AddError("POST failed", fmt.Sprintf("POST %s failed with error: %v", apiPath, err))
+		return false
 	}
 	defer res.RawResponse.Body.Close()
 	body, _ := io.ReadAll(res.RawBody())
 
 	if res.StatusCode() == http.StatusConflict {
-		resp.Diagnostics.AddError("Tag is immutable",
+		diagnostics.AddError("Tag is immutable",
 			fmt.Sprintf("POST %s returned 409: %s. The tag already exists with different content - tags are immutable. "+
 				"Push under a new tag, or use 'version' instead of 'tag' to derive content-addressed tags automatically.", apiPath, body))
-		return
+		return false
 	}
 	if !res.IsSuccess() {
-		resp.Diagnostics.AddError("POST failed", fmt.Sprintf("POST %s returned status code %d: %s", apiPath, res.StatusCode(), body))
-		return
+		diagnostics.AddError("POST failed", fmt.Sprintf("POST %s returned status code %d: %s", apiPath, res.StatusCode(), body))
+		return false
 	}
 
 	var api ARSFileArtifactAPIModel
 	if err := json.Unmarshal(body, &api); err != nil {
-		resp.Diagnostics.AddError("POST failed", fmt.Sprintf("POST %s returned unparsable body: %v", apiPath, err))
+		diagnostics.AddError("POST failed", fmt.Sprintf("POST %s returned unparsable body: %v", apiPath, err))
+		return false
+	}
+	api.toData(data)
+	return true
+}
+
+func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data ARSFileArtifactResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	api.toData(&data)
+
+	if !r.uploadFile(ctx, &data, &resp.Diagnostics) {
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -407,22 +420,51 @@ func (r *arsFileArtifactResource) Read(ctx context.Context, req resource.ReadReq
 }
 
 func (r *arsFileArtifactResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// All meaningful changes use RequiresReplace; an in-place update only happens for
-	// changes with no server-side effect (e.g. 'file_path' in explicit-tag mode, where
-	// the tag's existence is trusted and content is not re-uploaded). Read and re-set state.
 	var data ARSFileArtifactResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	var state ARSFileArtifactResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var api ARSFileArtifactAPIModel
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
-	if !ok || status == 404 {
+	// A known planned tag equal to the current one means no new version is being
+	// pushed - the update only touches attributes with no server-side effect (e.g.
+	// 'file_path' in explicit-tag mode, or 'remove_old_versions'). Read and re-set state.
+	if !data.Tag.IsUnknown() && data.Tag.ValueString() == state.Tag.ValueString() {
+		var api ARSFileArtifactAPIModel
+		ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
+		if !ok || status == 404 {
+			return
+		}
+		api.toData(&data)
+		resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 		return
 	}
-	api.toData(&data)
+
+	// Upgrade to a new tag: upload the new version first, then optionally remove the
+	// old one. Old versions are retained unless 'remove_old_versions' is set.
+	if !r.uploadFile(ctx, &data, &resp.Diagnostics) {
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if data.RemoveOldVersions.ValueBool() && data.Tag.ValueString() != state.Tag.ValueString() {
+		oldPath := r.apiPath(&state)
+		tflog.Debug(ctx, fmt.Sprintf("Removing old file artifact version %s", oldPath))
+		// The new version is already uploaded and recorded in state, so a failure to
+		// untag the old version is surfaced as a warning rather than failing the apply
+		var deleteDiags diag.Diagnostics
+		if ok, _ := r.apiRequest(ctx, http.MethodDelete, oldPath, nil, nil, &deleteDiags, Allow404()); !ok {
+			for _, d := range deleteDiags.Errors() {
+				resp.Diagnostics.AddWarning(
+					fmt.Sprintf("Failed to remove old version '%s'", state.Tag.ValueString()), d.Detail())
+			}
+		}
+	}
 }
 
 func (r *arsFileArtifactResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -459,5 +501,6 @@ func (r *arsFileArtifactResource) ImportState(ctx context.Context, req resource.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("namespace"), parts[2])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), parts[3][:colonIdx])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("tag"), parts[3][colonIdx+1:])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("remove_old_versions"), false)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }

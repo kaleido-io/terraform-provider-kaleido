@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_ars_file_artifact Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace. With 'version' set (recommended) the tag is derived as '{version}-{first 8 hex chars of the file's SHA-256}', so any content change replaces the artifact under a new tag. With an explicit 'tag' the tag's existence is trusted and local file changes are NOT detected or re-uploaded; tags are immutable server-side.
+  A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum.
 ---
 
 # kaleido_platform_ars_file_artifact (Resource)
 
-A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace. With 'version' set (recommended) the tag is derived as '{version}-{first 8 hex chars of the file's SHA-256}', so any content change replaces the artifact under a new tag. With an explicit 'tag' the tag's existence is trusted and local file changes are NOT detected or re-uploaded; tags are immutable server-side.
+A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum.
 
 ## Example Usage
 
@@ -22,28 +22,32 @@ resource "kaleido_platform_ars_namespace" "files" {
 
 # Recommended: content-addressed tagging. The tag is derived as
 # "<version>-<first 8 hex chars of the file's SHA-256>", so any change to the
-# local file replaces the artifact under a new tag.
-resource "kaleido_platform_ars_file_artifact" "schema" {
+# local file uploads the artifact under a new tag.
+resource "kaleido_platform_ars_file_artifact" "indexer_typescript" {
   environment = kaleido_platform_environment.env_0.id
   service     = kaleido_platform_service.ars_0.id
   namespace   = kaleido_platform_ars_namespace.files.name
-  name        = "schemas/payments/pacs008.json"
-  file_path   = "${path.module}/files/pacs008.json"
+  name        = "tssdk_modules/indexer.ts"
+  file_path   = "${path.module}/tssdk_modules/src/indexer.ts"
   type        = "json"
-  version     = "v1.0.0"
+  version     = "v1.0.0" # the tag will be suffixed with a shortened checksum
+
+  # Old versions are retained in the registry on upgrade by default; set this
+  # to remove the previously tracked version once the new one uploads
+  remove_old_versions = true
 }
 
 # Explicit tagging: the tag's existence is trusted and local file changes are
-# NOT detected or re-uploaded. Tags are immutable server-side, so creating
-# against an existing tag with different content fails.
+# NOT detected or re-uploaded. Tags are immutable server-side, so pushing to
+# an existing tag with different content fails.
 resource "kaleido_platform_ars_file_artifact" "release_notes" {
   environment = kaleido_platform_environment.env_0.id
   service     = kaleido_platform_service.ars_0.id
   namespace   = kaleido_platform_ars_namespace.files.name
-  name        = "docs/release-notes.yaml"
-  file_path   = "${path.module}/files/release-notes.yaml"
+  name        = "resources/routing-table.yaml"
+  file_path   = "${path.module}/files/route-table.yaml"
   type        = "yaml"
-  tag         = "rel-2026-07"
+  tag         = "rel-2026-07.001"
 }
 ```
 
@@ -61,8 +65,9 @@ resource "kaleido_platform_ars_file_artifact" "release_notes" {
 
 ### Optional
 
-- `tag` (String) Explicit immutable tag. When set, the tag's existence is trusted: local file changes are not detected and the file is only uploaded at create. Creating against an existing tag with different content fails (tags are immutable).
-- `version` (String) Version prefix for the content-addressed tag '{version}-{sha8}'. Exactly one of 'version' or 'tag' must be set. Changing the file content replaces the artifact under a new tag.
+- `remove_old_versions` (Boolean) When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade.
+- `tag` (String) Explicit immutable tag. When set, the tag's existence is trusted: local file changes are not detected and the file is only uploaded when the tag changes. Pushing to an existing tag with different content fails (tags are immutable).
+- `version` (String) Version prefix for the content-addressed tag '{version}-{sha8}'. Exactly one of 'version' or 'tag' must be set. Changing the file content uploads the artifact under a new tag.
 
 ### Read-Only
 
