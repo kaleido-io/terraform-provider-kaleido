@@ -432,8 +432,11 @@ func (r *arsFileArtifactResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
-	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
+	// Idempotent delete: Allow404 treats an already-removed tag as success.
+	ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
+	if !ok {
+		return
+	}
 }
 
 func (r *arsFileArtifactResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
