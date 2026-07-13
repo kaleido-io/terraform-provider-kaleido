@@ -257,6 +257,7 @@ func (data *NetworkResourceModel) toAPI(ctx context.Context, api *NetworkAPIMode
 				diagnostics.Append(d...)
 				f := &FileAPI{
 					Type: tfFileAttrs["type"].(types.String).ValueString(),
+					Data: &FileDataAPI{},
 				}
 				tfData := tfFileData.Attributes()
 				if !tfData["base64"].IsNull() {
