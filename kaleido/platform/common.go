@@ -397,6 +397,7 @@ func Resources() []func() resource.Resource {
 		ConnectorStreamFactoryResourceFactory,
 		ConnectorStandardAPIResourceFactory,
 		ConnectorStandardStreamResourceFactory,
+		EVMConnectorContractDeployResourceFactory,
 		ApplicationResourceFactory,
 		APIKeyResourceFactory,
 		HostnameResourceFactory,
