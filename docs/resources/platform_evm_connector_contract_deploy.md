@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_evm_connector_contract_deploy Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Deploys a smart contract to an EVM chain through the 'contract/deploy' operation of a deployed EVM standard API on a connector service (see kaleido_platform_connector_standard_api). The deployment is submitted as a workflow-engine transaction with a deterministic idempotency key, so each resource instance only ever submits one unique transaction, and re-applies auto-import the existing transaction rather than deploying again.
+  Deploys a smart contract to an EVM chain through the 'contract/deploy' operation of a deployed EVM standard API on a connector service (see kaleido_platform_connector_standard_api). The deployment is submitted as a workflow-engine transaction with a deterministic idempotency key, so each resource instance only ever submits one unique transaction. If the idempotency key is already in use by an existing transaction the apply fails, for the user to inspect that transaction and resolve the conflict.
 ---
 
 # kaleido_platform_evm_connector_contract_deploy (Resource)
 
-Deploys a smart contract to an EVM chain through the 'contract/deploy' operation of a deployed EVM standard API on a connector service (see kaleido_platform_connector_standard_api). The deployment is submitted as a workflow-engine transaction with a deterministic idempotency key, so each resource instance only ever submits one unique transaction, and re-applies auto-import the existing transaction rather than deploying again.
+Deploys a smart contract to an EVM chain through the 'contract/deploy' operation of a deployed EVM standard API on a connector service (see kaleido_platform_connector_standard_api). The deployment is submitted as a workflow-engine transaction with a deterministic idempotency key, so each resource instance only ever submits one unique transaction. If the idempotency key is already in use by an existing transaction the apply fails, for the user to inspect that transaction and resolve the conflict.
 
 
 

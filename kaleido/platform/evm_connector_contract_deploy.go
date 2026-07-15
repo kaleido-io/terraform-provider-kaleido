@@ -116,8 +116,8 @@ func (r *evmConnectorContractDeployResource) Metadata(_ context.Context, _ resou
 func (r *evmConnectorContractDeployResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Deploys a smart contract to an EVM chain through the 'contract/deploy' operation of a deployed EVM standard API on a connector service (see kaleido_platform_connector_standard_api). " +
-			"The deployment is submitted as a workflow-engine transaction with a deterministic idempotency key, so each resource instance only ever submits one unique transaction, and re-applies " +
-			"auto-import the existing transaction rather than deploying again.",
+			"The deployment is submitted as a workflow-engine transaction with a deterministic idempotency key, so each resource instance only ever submits one unique transaction. " +
+			"If the idempotency key is already in use by an existing transaction the apply fails, for the user to inspect that transaction and resolve the conflict.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -225,8 +225,9 @@ func (r *evmConnectorContractDeployResource) transactionPath(data *EVMConnectorC
 
 // deriveIdempotencyKey deterministically derives an idempotency key from all the deployment
 // inputs, so the same resource configuration always maps to the same workflow-engine
-// transaction - even if a previous apply submitted the transaction but failed to record it
-// in state (the resulting 409 is then used to auto-import the existing transaction).
+// transaction - a re-submission of the same deployment (e.g. after an apply that submitted
+// the transaction but failed to record it in state) is rejected with a 409 rather than
+// deploying a second contract.
 func (data *EVMConnectorContractDeployResourceModel) deriveIdempotencyKey() string {
 	hashInputs := []string{
 		data.Environment.ValueString(),
@@ -396,18 +397,15 @@ func (r *evmConnectorContractDeployResource) Create(ctx context.Context, req res
 	case ok:
 		txID = result.ID
 	case statusCode == http.StatusConflict:
-		// The idempotency key is already bound to a transaction (e.g. a previous apply
-		// submitted it but failed before recording state) - auto-import that transaction
-		// by looking it up via its idempotency key.
-		var existing EVMConnectorTransactionAPIModel
-		if ok, _ = r.apiRequest(ctx, http.MethodGet, r.transactionPath(&data, submit.IdempotencyKey, ""), nil, &existing, &resp.Diagnostics); !ok {
-			return
-		}
-		if existing.Status == "failure" {
-			resp.Diagnostics.AddError("deploy failed", r.failedTransactionError(&existing))
-			return
-		}
-		txID = existing.ID
+		// Another transaction - possibly one that is not this contract deployment at all -
+		// already holds this idempotency key. Never adopt it automatically: fail the apply
+		// so the user can inspect the existing transaction and decide what to do.
+		resp.Diagnostics.AddError("deploy idempotency key conflict", fmt.Sprintf(
+			"idempotency key '%s' is already in use by an existing transaction on this connector, which cannot be assumed to be this contract deployment. "+
+				"Inspect it via the connector's transactions API (GET /api/v1/transactions/%s), then either delete that transaction if it is unwanted, "+
+				"or set a distinct explicit idempotency_key on this resource.",
+			submit.IdempotencyKey, submit.IdempotencyKey))
+		return
 	default:
 		resp.Diagnostics.Append(submitDiags...)
 		return

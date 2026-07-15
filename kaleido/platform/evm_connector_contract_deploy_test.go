@@ -188,18 +188,20 @@ func TestEVMConnectorContractDeploy(t *testing.T) {
 	}`)
 }
 
-func TestEVMConnectorContractDeployIdempotencyConflictAutoImport(t *testing.T) {
+func TestEVMConnectorContractDeployIdempotencyConflict(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer mp.server.Close()
 
-	// The idempotency key is already bound to txn-0002 (e.g. a previous partial apply) -
-	// the provider must recover the transaction ID from a GET by idempotency key
+	// The idempotency key is already bound to another transaction (which might not even be
+	// a contract deployment) - the apply must fail for the user to resolve, never adopting
+	// the existing transaction
 	md := &mockEVMConnectorDeploy{
 		submitStatus: http.StatusConflict,
 		txn: &EVMConnectorTransactionAPIModel{
-			ID:     "txn-0002",
-			Status: "pending",
-			Stage:  "submit",
+			ID:             "txn-0002",
+			IdempotencyKey: "my-deploy-1",
+			Status:         "pending",
+			Stage:          "submit",
 		},
 	}
 	md.register(mp)
@@ -215,22 +217,20 @@ resource "kaleido_platform_evm_connector_contract_deploy" "deploy1" {
     idempotency_key = "my-deploy-1"
 }
 `
-	md.txn.IdempotencyKey = "my-deploy-1"
 
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + deployConfig,
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("kaleido_platform_evm_connector_contract_deploy.deploy1", "id", "txn-0002"),
-					resource.TestCheckResourceAttr("kaleido_platform_evm_connector_contract_deploy.deploy1", "idempotency_key", "my-deploy-1"),
-					resource.TestCheckResourceAttr("kaleido_platform_evm_connector_contract_deploy.deploy1", "contract_address", "0x77b7f4d0d90fbba59fb520d7c9275b2820d31234"),
-				),
+				Config:      providerConfig + deployConfig,
+				ExpectError: regexp.MustCompile(`idempotency key 'my-deploy-1' is already in use`),
 			},
 		},
 	})
+
+	// The provider must not have waited on or adopted the conflicting transaction
+	assert.Equal(t, 0, md.waitCount)
 }
 
 func TestEVMConnectorContractDeployFailedTransaction(t *testing.T) {
