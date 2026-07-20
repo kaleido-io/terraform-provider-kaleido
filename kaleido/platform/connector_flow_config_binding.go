@@ -47,7 +47,7 @@ type ConnectorFlowConfigBindingDynamicMappingModel struct {
 
 type ConnectorFlowConfigBindingDynamicMappingAPI struct {
 	NamePrefix string `json:"namePrefix,omitempty"`
-	JSONata    string `json:"JSONata,omitempty"`
+	JSONata    string `json:"jsonata,omitempty"`
 }
 
 type ConnectorFlowConfigBindingAPIModel struct {
