@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -50,11 +51,9 @@ type ConnectorFlowConfigBindingDynamicMappingAPI struct {
 }
 
 type ConnectorFlowConfigBindingAPIModel struct {
-	ID             string                                       `json:"id,omitempty"`
-	ConfigType     string                                       `json:"configType,omitempty"`
-	ConfigTypeID   string                                       `json:"configTypeId,omitempty"`
-	ConfigProfile  string                                       `json:"configProfile,omitempty"`
-	DynamicMapping *ConnectorFlowConfigBindingDynamicMappingAPI `json:"dynamicMapping,omitempty"`
+	ID                    string                                       `json:"id,omitempty"`
+	WorkflowConfigProfile string                                       `json:"workflowConfigProfile,omitempty"`
+	DynamicMapping        *ConnectorFlowConfigBindingDynamicMappingAPI `json:"dynamicMapping,omitempty"`
 }
 
 type ConnectorFlowConfigBindingPatchAPIModel struct {
@@ -140,16 +139,21 @@ func (r *connectorFlowConfigBindingResource) instancePath(data *ConnectorFlowCon
 
 // findBindingByConfigType GETs the list of bindings filtered by config type and returns the first match.
 func (r *connectorFlowConfigBindingResource) findBindingByConfigType(ctx context.Context, data *ConnectorFlowConfigBindingResourceModel, diagnostics *diag.Diagnostics) *ConnectorFlowConfigBindingAPIModel {
-	listURL := r.listPath(data) + "?workflowconfigprofile=" + data.ConfigType.ValueString()
-	var bindings []ConnectorFlowConfigBindingAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodGet, listURL, nil, &bindings, diagnostics)
+	configType := data.ConfigType.ValueString()
+	profileSuffix := configType
+	if i := strings.LastIndex(configType, "."); i >= 0 {
+		profileSuffix = configType[i+1:]
+	}
+	listURL := r.listPath(data) + "?workflowconfigprofile=" + profileSuffix
+	var result struct {
+		Items []ConnectorFlowConfigBindingAPIModel `json:"items"`
+	}
+	ok, _ := r.apiRequest(ctx, http.MethodGet, listURL, nil, &result, diagnostics)
 	if !ok {
 		return nil
 	}
-	for i := range bindings {
-		if bindings[i].ConfigType == data.ConfigType.ValueString() {
-			return &bindings[i]
-		}
+	if len(result.Items) > 0 {
+		return &result.Items[0]
 	}
 	diagnostics.AddError("Binding not found",
 		fmt.Sprintf("no config-profile binding found for config type %q on flow %q", data.ConfigType.ValueString(), data.Flow.ValueString()))

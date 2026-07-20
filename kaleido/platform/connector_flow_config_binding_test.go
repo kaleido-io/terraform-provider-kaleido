@@ -135,12 +135,14 @@ func (mp *mockPlatform) listConnectorFlowConfigBindings(res http.ResponseWriter,
 	}
 	if _, exists := mp.connectorFlowConfigBindings[bindingKey]; !exists {
 		mp.connectorFlowConfigBindings[bindingKey] = &ConnectorFlowConfigBindingAPIModel{
-			ID:         "fcb:" + nanoid.New(),
-			ConfigType: configType,
+			ID:                    "fcb:" + nanoid.New(),
+			WorkflowConfigProfile: configType,
 		}
 	}
 	binding := mp.connectorFlowConfigBindings[bindingKey]
-	mp.respond(res, []ConnectorFlowConfigBindingAPIModel{*binding}, http.StatusOK)
+	mp.respond(res, struct {
+		Items []ConnectorFlowConfigBindingAPIModel `json:"items"`
+	}{Items: []ConnectorFlowConfigBindingAPIModel{*binding}}, http.StatusOK)
 }
 
 func (mp *mockPlatform) getConnectorFlowConfigBinding(res http.ResponseWriter, req *http.Request) {
