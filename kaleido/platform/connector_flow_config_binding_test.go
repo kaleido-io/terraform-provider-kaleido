@@ -48,6 +48,26 @@ resource "kaleido_platform_connector_flow_config_binding" "test_binding" {
 }
 `
 
+var connector_flow_config_binding_step_static = `
+resource "kaleido_platform_connector_flow_config_binding" "test_binding" {
+  environment       = "test-env"
+  service           = "test-service"
+  flow              = "submission"
+  config_type       = "evm.gasPricing"
+  config_profile_id = "fcp:test123"
+}
+`
+
+var connector_flow_config_binding_step_static2 = `
+resource "kaleido_platform_connector_flow_config_binding" "test_binding" {
+  environment       = "test-env"
+  service           = "test-service"
+  flow              = "submission"
+  config_type       = "evm.gasPricing"
+  config_profile_id = "fcp:test456"
+}
+`
+
 func TestConnectorFlowConfigBinding1(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
@@ -119,6 +139,54 @@ func TestConnectorFlowConfigBinding2(t *testing.T) {
 	})
 }
 
+func TestConnectorFlowConfigBinding3(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"GET /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}",
+		})
+		mp.server.Close()
+	}()
+
+	res := "kaleido_platform_connector_flow_config_binding.test_binding"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + connector_flow_config_binding_step_static,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(res, "id"),
+					resource.TestCheckResourceAttr(res, "config_profile_id", "fcp:test123"),
+					resource.TestCheckNoResourceAttr(res, "dynamic_mapping"),
+				),
+			},
+			{
+				Config: providerConfig + connector_flow_config_binding_step_static2,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(res, "config_profile_id", "fcp:test456"),
+				),
+			},
+			{
+				Config: providerConfig + connector_flow_config_binding_step1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(res, "config_profile_id"),
+					resource.TestCheckResourceAttr(res, "dynamic_mapping.name_prefix", "s:test-service/"),
+				),
+			},
+		},
+	})
+}
+
 // Mock server handlers
 
 func (mp *mockPlatform) listConnectorFlowConfigBindings(res http.ResponseWriter, req *http.Request) {
@@ -165,6 +233,11 @@ func (mp *mockPlatform) patchConnectorFlowConfigBinding(res http.ResponseWriter,
 			var patch ConnectorFlowConfigBindingPatchAPIModel
 			mp.getBody(req, &patch)
 			b.DynamicMapping = patch.DynamicMapping
+			if patch.ConfigProfileID != nil {
+				b.ConfigProfileID = *patch.ConfigProfileID
+			} else {
+				b.ConfigProfileID = ""
+			}
 			mp.respond(res, b, http.StatusOK)
 			return
 		}
