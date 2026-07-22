@@ -60,7 +60,7 @@ type ConnectorFlowConfigBindingAPIModel struct {
 type ConnectorFlowConfigBindingPatchAPIModel struct {
 	// omitempty: the API treats absent differently from null for configProfileId.
 	// Sending null does not clear the field; omitting it leaves it unchanged.
-	ConfigProfileID *string                                       `json:"configProfileId,omitempty"`
+	ConfigProfileID *string                                      `json:"configProfileId,omitempty"`
 	DynamicMapping  *ConnectorFlowConfigBindingDynamicMappingAPI `json:"dynamicMapping"`
 }
 
