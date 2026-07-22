@@ -27,9 +27,9 @@ A reference to a signing key (also known as a key mapping) that is directly/indi
 - `attributes` (Map of String) Optional attributes of the key for key creation.
 - `path` (String) A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing.
 - `public_identifier_types` (List of String) Optional public identifier types to create for the key.
+- `uri` (String) Optional URI of the form kld:///keystore/{keystoreName}/key/{folder/path}/{keyName}. When provided, any folder path segments are automatically created if they do not already exist.
 
 ### Read-Only
 
 - `address` (String)
 - `id` (String) The ID of this resource.
-- `uri` (String)
