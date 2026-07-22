@@ -29,8 +29,8 @@ type CustomRetry struct {
 }
 
 var Retry = &CustomRetry{
-	InitialDelay: 500 * time.Millisecond,
-	MaximumDelay: 5 * time.Second,
+	InitialDelay: 5 * time.Second,
+	MaximumDelay: 30 * time.Second,
 	Factor:       2.0,
 }
 
@@ -57,20 +57,28 @@ func (r *CustomRetry) Do(ctx context.Context, logDescription string, f func(atte
 		}
 
 		// Limit the delay based on the context deadline and maximum delay
-		deadline, dok := ctx.Deadline()
-		now := time.Now()
 		if delay > r.MaximumDelay {
 			delay = r.MaximumDelay
 		}
-		if dok {
-			timeleft := deadline.Sub(now)
+		if deadline, dok := ctx.Deadline(); dok {
+			timeleft := time.Until(deadline)
+			if timeleft <= 0 {
+				return fmt.Errorf("context deadline exceeded (last error: %s)", err)
+			}
 			if timeleft < delay {
 				delay = timeleft
 			}
 		}
 
-		// Sleep and set the delay for next time
-		time.Sleep(delay)
+		// Sleep, but bail early if the context is canceled mid-wait
+		// (otherwise terraform shutdown can hang up to MaximumDelay).
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("context cancelled (last error: %s)", err)
+		case <-timer.C:
+		}
 		delay = time.Duration(float64(delay) * factor)
 	}
 }

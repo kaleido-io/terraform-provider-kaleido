@@ -22,6 +22,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 )
 
 type PaladinEVMRegistryDatasourceModel struct {
@@ -31,32 +33,38 @@ type PaladinEVMRegistryDatasourceModel struct {
 	BlockNumber types.Int64  `tfsdk:"block_number"`
 }
 
-func (m *NetworkAPIModel) toPaladinEVMRegistryData(_ context.Context, data *PaladinEVMRegistryDatasourceModel, d *diag.Diagnostics) {
+// toPaladinEVMRegistryData parses the network response into the datasource model.
+// Returns true when statusDetails.evmRegistry is fully populated and the caller
+// can stop polling; false when the caller should retry. Terminal failures
+// (e.g. wrong network type) are reported via d.AddError — check d.HasError()
+// to distinguish a hard failure from "not ready yet".
+func (m *NetworkAPIModel) toPaladinEVMRegistryData(_ context.Context, data *PaladinEVMRegistryDatasourceModel, d *diag.Diagnostics) (complete bool) {
 	if m.Type != "PaladinNetwork" {
 		d.AddError("invalid type for retrieved network", "network type must be PaladinNetwork")
-		return
+		return false
 	}
 	data.Network = types.StringValue(m.ID)
 
-	_, evmRegistryExist := m.StatusDetails["evmRegistry"]
-	if !evmRegistryExist {
-		d.AddError("evm registry not found", "evmRegistry not found in network status details, please wait and try again")
-		return
-	}
-	evmRegistry, ok := m.StatusDetails["evmRegistry"].(map[string]interface{})
+	evmRegistry, ok := m.StatusDetails["evmRegistry"].(map[string]any)
 	if !ok {
-		d.AddError("invalid evm registry", "evmRegistry must be a JSON object")
-		return
+		return false
 	}
-	data.Address = types.StringValue(evmRegistry["address"].(string))
-
-	deployTransaction, ok := evmRegistry["deployTransaction"].(map[string]interface{})
+	address, ok := evmRegistry["address"].(string)
 	if !ok {
-		d.AddError("invalid deploy transaction", "deployTransaction must be a JSON object")
-		return
+		return false
+	}
+	deployTransaction, ok := evmRegistry["deployTransaction"].(map[string]any)
+	if !ok {
+		return false
+	}
+	blockNumber, ok := deployTransaction["blockNumber"].(float64)
+	if !ok {
+		return false
 	}
 
-	data.BlockNumber = types.Int64Value(int64(deployTransaction["blockNumber"].(float64)))
+	data.Address = types.StringValue(address)
+	data.BlockNumber = types.Int64Value(int64(blockNumber))
+	return true
 }
 
 func PaladinEVMRegistryDatasourceModelFactory() datasource.DataSource {
@@ -98,19 +106,40 @@ func (s *paladinEVMRegistryDatasource) Schema(ctx context.Context, _ datasource.
 func (s *paladinEVMRegistryDatasource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	data := &PaladinEVMRegistryDatasourceModel{}
 	resp.Diagnostics.Append(req.Config.Get(ctx, data)...)
-
-	api := &NetworkAPIModel{}
-	ok, status := s.apiRequest(ctx, http.MethodGet, s.apiPath(data), nil, &api, &resp.Diagnostics, Allow404())
-	if !ok {
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	if status == 404 {
+
+	apiPath := s.apiPath(data)
+	cancelInfo := APICancelInfo()
+	cancelInfo.CancelInfo = "(waiting for paladin evm registry)"
+	removed := false
+	_ = kaleidobase.Retry.Do(ctx, fmt.Sprintf("paladin-evm-registry %s", apiPath), func(attempt int) (retry bool, err error) {
+		api := &NetworkAPIModel{}
+		ok, status := s.apiRequest(ctx, http.MethodGet, apiPath, nil, api, &resp.Diagnostics, Allow404(), cancelInfo)
+		if !ok {
+			return false, fmt.Errorf("read failed") // diag already set
+		}
+		if status == 404 {
+			removed = true
+			return false, nil
+		}
+		if api.toPaladinEVMRegistryData(ctx, data, &resp.Diagnostics) {
+			return false, nil
+		}
+		if resp.Diagnostics.HasError() {
+			return false, fmt.Errorf("terminal failure") // diag already set
+		}
+		cancelInfo.CancelInfo = fmt.Sprintf("(waiting for paladin evm registry - network status: %s)", api.Status)
+		return true, fmt.Errorf("evmRegistry not yet populated in network status details")
+	})
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if removed {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-
-	// TODO poll for the network to be ready before hand ??
-
-	api.toPaladinEVMRegistryData(ctx, data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
