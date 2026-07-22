@@ -181,8 +181,12 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 									"type": &schema.StringAttribute{
 										Required: true,
 									},
+									"registry_file_ref": &schema.StringAttribute{
+										Optional:    true,
+										Description: "Artifact registry reference for the file in the form namespace/repository:tag. Exactly one of 'data' or 'registry_file_ref' must be set.",
+									},
 									"data": &schema.SingleNestedAttribute{
-										Required:  true,
+										Optional:  true,
 										Sensitive: true,
 										Attributes: map[string]schema.Attribute{
 											"base64": &schema.StringAttribute{
@@ -275,7 +279,8 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 			"hex":    types.StringType,
 		}
 		fileAttrs := map[string]attr.Type{
-			"type": types.StringType,
+			"type":              types.StringType,
+			"registry_file_ref": types.StringType,
 			"data": types.ObjectType{
 				AttrTypes: dataAttrs,
 			},
@@ -302,21 +307,37 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 				tfFile, d := types.ObjectValueFrom(ctx, fileAttrs, tfFileVal)
 				diagnostics.Append(d...)
 				tfFileAttrs := tfFile.Attributes()
-				tfFileData, d := types.ObjectValueFrom(ctx, dataAttrs, tfFileAttrs["data"])
-				diagnostics.Append(d...)
 				f := &FileAPI{
 					Type: tfFileAttrs["type"].(types.String).ValueString(),
 				}
-				tfData := tfFileData.Attributes()
-				if !tfData["base64"].IsNull() {
-					f.Data.Base64 = tfData["base64"].(types.String).ValueString()
-				} else if !tfData["text"].IsNull() {
-					f.Data.Text = tfData["text"].(types.String).ValueString()
-				} else if !tfData["hex"].IsNull() {
-					f.Data.Hex = tfData["hex"].(types.String).ValueString()
+				hasRegistryRef := !tfFileAttrs["registry_file_ref"].IsNull()
+				if hasRegistryRef {
+					f.RegistryFileRef = tfFileAttrs["registry_file_ref"].(types.String).ValueString()
+				}
+				if tfFileAttrs["data"].IsNull() {
+					if !hasRegistryRef {
+						diagnostics.AddError("missing data", fmt.Sprintf("must specify data or registry_file_ref for file '%s'", filename))
+						return
+					}
 				} else {
-					diagnostics.AddError("missing data", fmt.Sprintf("must specify base64, text, or hexx data for file '%s'", filename))
-					return
+					if hasRegistryRef {
+						diagnostics.AddError("conflicting data", fmt.Sprintf("must specify only one of data or registry_file_ref for file '%s'", filename))
+						return
+					}
+					tfFileData, d := types.ObjectValueFrom(ctx, dataAttrs, tfFileAttrs["data"])
+					diagnostics.Append(d...)
+					tfData := tfFileData.Attributes()
+					f.Data = &FileDataAPI{}
+					if !tfData["base64"].IsNull() {
+						f.Data.Base64 = tfData["base64"].(types.String).ValueString()
+					} else if !tfData["text"].IsNull() {
+						f.Data.Text = tfData["text"].(types.String).ValueString()
+					} else if !tfData["hex"].IsNull() {
+						f.Data.Hex = tfData["hex"].(types.String).ValueString()
+					} else {
+						diagnostics.AddError("missing data", fmt.Sprintf("must specify base64, text, or hex data for file '%s'", filename))
+						return
+					}
 				}
 				fs.Files[filename] = f
 			}
@@ -440,11 +461,22 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 
-	if data.WaitForReady.IsNull() || data.WaitForReady.ValueBool() {
-		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
-	} else {
-		// no need to re-read from api, so just set the state and return
-		resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	// Persist state as soon as the service exists on the platform: if the
+	// ready-wait below fails or the apply is interrupted, the resource is then
+	// recorded as tainted and replaced on the next apply, rather than orphaned
+	// outside the state where every re-apply hits 409 "Service already exists"
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !data.WaitForReady.IsNull() && !data.WaitForReady.ValueBool() {
+		// not waiting for ready - no need to re-read from the api
+		return
+	}
+
+	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 

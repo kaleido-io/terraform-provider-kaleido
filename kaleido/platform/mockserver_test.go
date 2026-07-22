@@ -45,6 +45,7 @@ type mockPlatform struct {
 	networkinitdatas            map[string]*NetworkInitData
 	kmsWallets                  map[string]*KMSWalletAPIModel
 	arsNamespaces               map[string]*ARSNamespaceAPIModel
+	arsFiles                    map[string]*ARSFileArtifactAPIModel
 	kmsKeys                     map[string]*KMSKeyAPIModel
 	cmsBuilds                   map[string]*CMSBuildAPIModel
 	cmsActions                  map[string]CMSActionAPIBaseAccessor
@@ -97,6 +98,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		networkinitdatas:            make(map[string]*NetworkInitData),
 		kmsWallets:                  make(map[string]*KMSWalletAPIModel),
 		arsNamespaces:               make(map[string]*ARSNamespaceAPIModel),
+		arsFiles:                    make(map[string]*ARSFileArtifactAPIModel),
 		kmsKeys:                     make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:                   make(map[string]*CMSBuildAPIModel),
 		cmsActions:                  make(map[string]CMSActionAPIBaseAccessor),
@@ -181,6 +183,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces", http.MethodPost, mp.postARSNamespace)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodGet, mp.getARSNamespace)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodDelete, mp.deleteARSNamespace)
+
+	// See ars_file_artifact_test.go - greedy {name:.+} backtracks to the last colon,
+	// matching the route shape of the real Artifact Registry API
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodPost, mp.postARSFile)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodGet, mp.getARSFile)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodDelete, mp.deleteARSFile)
 
 	// See kms_key.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys", http.MethodPut, mp.putKMSKey)
