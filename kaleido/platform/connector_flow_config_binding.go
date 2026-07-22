@@ -17,13 +17,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -31,12 +31,13 @@ import (
 )
 
 type ConnectorFlowConfigBindingResourceModel struct {
-	ID             types.String `tfsdk:"id"`
-	Environment    types.String `tfsdk:"environment"`
-	Service        types.String `tfsdk:"service"`
-	Flow           types.String `tfsdk:"flow"`
-	ConfigType     types.String `tfsdk:"config_type"`
-	DynamicMapping types.Object `tfsdk:"dynamic_mapping"`
+	ID              types.String `tfsdk:"id"`
+	Environment     types.String `tfsdk:"environment"`
+	Service         types.String `tfsdk:"service"`
+	Flow            types.String `tfsdk:"flow"`
+	ConfigType      types.String `tfsdk:"config_type"`
+	ConfigProfileId types.String `tfsdk:"config_profile_id"`
+	DynamicMapping  types.Object `tfsdk:"dynamic_mapping"`
 }
 
 type ConnectorFlowConfigBindingDynamicMappingModel struct {
@@ -46,19 +47,21 @@ type ConnectorFlowConfigBindingDynamicMappingModel struct {
 
 type ConnectorFlowConfigBindingDynamicMappingAPI struct {
 	NamePrefix string `json:"namePrefix,omitempty"`
-	JSONata    string `json:"JSONata,omitempty"`
+	JSONata    string `json:"jsonata,omitempty"`
 }
 
 type ConnectorFlowConfigBindingAPIModel struct {
-	ID             string                                       `json:"id,omitempty"`
-	ConfigType     string                                       `json:"configType,omitempty"`
-	ConfigTypeID   string                                       `json:"configTypeId,omitempty"`
-	ConfigProfile  string                                       `json:"configProfile,omitempty"`
-	DynamicMapping *ConnectorFlowConfigBindingDynamicMappingAPI `json:"dynamicMapping,omitempty"`
+	ID                    string                                       `json:"id,omitempty"`
+	WorkflowConfigProfile string                                       `json:"workflowConfigProfile,omitempty"`
+	ConfigProfileID       string                                       `json:"configProfileId,omitempty"`
+	DynamicMapping        *ConnectorFlowConfigBindingDynamicMappingAPI `json:"dynamicMapping,omitempty"`
 }
 
 type ConnectorFlowConfigBindingPatchAPIModel struct {
-	DynamicMapping *ConnectorFlowConfigBindingDynamicMappingAPI `json:"dynamicMapping"`
+	// omitempty: the API treats absent differently from null for configProfileId.
+	// Sending null does not clear the field; omitting it leaves it unchanged.
+	ConfigProfileID *string                                      `json:"configProfileId,omitempty"`
+	DynamicMapping  *ConnectorFlowConfigBindingDynamicMappingAPI `json:"dynamicMapping"`
 }
 
 func ConnectorFlowConfigBindingResourceFactory() resource.Resource {
@@ -80,7 +83,7 @@ var dynamicMappingAttrTypes = map[string]attr.Type{
 
 func (r *connectorFlowConfigBindingResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages the dynamic mapping on a config profile binding within a deployed connector flow. Use this resource to select a gas pricing profile (or any other config profile) dynamically per-transaction based on a JSONata expression evaluated against the transaction payload.",
+		Description: "Manages a config profile binding within a deployed connector flow. Binds a config type slot to either a specific profile (config_profile_id) or a JSONata expression that selects the profile dynamically at runtime (dynamic_mapping). Exactly one of config_profile_id or dynamic_mapping must be set.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -107,16 +110,17 @@ func (r *connectorFlowConfigBindingResource) Schema(_ context.Context, _ resourc
 				Description:   "Config type name of the binding to update (e.g. evm.gasPricing).",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
+			"config_profile_id": &schema.StringAttribute{
+				Optional:    true,
+				Description: "ID of the config profile to statically bind to this config type slot. Mutually exclusive with dynamic_mapping.",
+			},
 			"dynamic_mapping": &schema.SingleNestedAttribute{
-				Required:    true,
-				Description: "Dynamic mapping that selects the config profile name at transaction submission time via a JSONata expression.",
-				PlanModifiers: []planmodifier.Object{
-					objectplanmodifier.UseStateForUnknown(),
-				},
+				Optional:    true,
+				Description: "Dynamic mapping that selects the config profile name at transaction submission time via a JSONata expression. Mutually exclusive with config_profile_id.",
 				Attributes: map[string]schema.Attribute{
 					"name_prefix": &schema.StringAttribute{
 						Required:    true,
-						Description: "Prefix prepended to the profile name returned by the JSONata expression (e.g. \"s:serviceId/\").",
+						Description: "Prefix prepended to the profile name returned by the JSONata expression (e.g. the connector service ID followed by /).",
 					},
 					"jsonata": &schema.StringAttribute{
 						Required:    true,
@@ -140,16 +144,21 @@ func (r *connectorFlowConfigBindingResource) instancePath(data *ConnectorFlowCon
 
 // findBindingByConfigType GETs the list of bindings filtered by config type and returns the first match.
 func (r *connectorFlowConfigBindingResource) findBindingByConfigType(ctx context.Context, data *ConnectorFlowConfigBindingResourceModel, diagnostics *diag.Diagnostics) *ConnectorFlowConfigBindingAPIModel {
-	listURL := r.listPath(data) + "?workflowconfigprofile=" + data.ConfigType.ValueString()
-	var bindings []ConnectorFlowConfigBindingAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodGet, listURL, nil, &bindings, diagnostics)
+	configType := data.ConfigType.ValueString()
+	profileSuffix := configType
+	if i := strings.LastIndex(configType, "."); i >= 0 {
+		profileSuffix = configType[i+1:]
+	}
+	listURL := r.listPath(data) + "?workflowconfigprofile=" + profileSuffix
+	var result struct {
+		Items []ConnectorFlowConfigBindingAPIModel `json:"items"`
+	}
+	ok, _ := r.apiRequest(ctx, http.MethodGet, listURL, nil, &result, diagnostics)
 	if !ok {
 		return nil
 	}
-	for i := range bindings {
-		if bindings[i].ConfigType == data.ConfigType.ValueString() {
-			return &bindings[i]
-		}
+	if len(result.Items) > 0 {
+		return &result.Items[0]
 	}
 	diagnostics.AddError("Binding not found",
 		fmt.Sprintf("no config-profile binding found for config type %q on flow %q", data.ConfigType.ValueString(), data.Flow.ValueString()))
@@ -159,12 +168,34 @@ func (r *connectorFlowConfigBindingResource) findBindingByConfigType(ctx context
 func (r *connectorFlowConfigBindingResource) toData(api *ConnectorFlowConfigBindingAPIModel, data *ConnectorFlowConfigBindingResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	if api.DynamicMapping != nil {
+		// When dynamic mapping is active, config_profile_id is not tracked — the
+		// API may retain a previous static value but the dynamic mapping takes
+		// precedence at runtime and the field is irrelevant to the operator.
+		data.ConfigProfileId = types.StringNull()
 		dm, diags := types.ObjectValueFrom(context.Background(), dynamicMappingAttrTypes, ConnectorFlowConfigBindingDynamicMappingModel{
 			NamePrefix: types.StringValue(api.DynamicMapping.NamePrefix),
 			JSONata:    types.StringValue(api.DynamicMapping.JSONata),
 		})
 		diagnostics.Append(diags...)
 		data.DynamicMapping = dm
+	} else {
+		if api.ConfigProfileID != "" {
+			data.ConfigProfileId = types.StringValue(api.ConfigProfileID)
+		} else {
+			data.ConfigProfileId = types.StringNull()
+		}
+		data.DynamicMapping = types.ObjectNull(dynamicMappingAttrTypes)
+	}
+}
+
+func (r *connectorFlowConfigBindingResource) validateExactlyOne(data *ConnectorFlowConfigBindingResourceModel, diagnostics *diag.Diagnostics) {
+	hasProfileId := !data.ConfigProfileId.IsNull() && !data.ConfigProfileId.IsUnknown()
+	hasDynamic := !data.DynamicMapping.IsNull() && !data.DynamicMapping.IsUnknown()
+	if !hasProfileId && !hasDynamic {
+		diagnostics.AddError("Invalid configuration", "exactly one of config_profile_id or dynamic_mapping must be set")
+	}
+	if hasProfileId && hasDynamic {
+		diagnostics.AddError("Invalid configuration", "config_profile_id and dynamic_mapping are mutually exclusive; set exactly one")
 	}
 }
 
@@ -183,6 +214,23 @@ func (r *connectorFlowConfigBindingResource) dynamicMappingFromData(ctx context.
 	}
 }
 
+func (r *connectorFlowConfigBindingResource) buildPatch(ctx context.Context, data *ConnectorFlowConfigBindingResourceModel, diagnostics *diag.Diagnostics) *ConnectorFlowConfigBindingPatchAPIModel {
+	r.validateExactlyOne(data, diagnostics)
+	if diagnostics.HasError() {
+		return nil
+	}
+	var configProfileID *string
+	if !data.ConfigProfileId.IsNull() && !data.ConfigProfileId.IsUnknown() {
+		v := data.ConfigProfileId.ValueString()
+		configProfileID = &v
+	}
+	dm := r.dynamicMappingFromData(ctx, data, diagnostics)
+	if diagnostics.HasError() {
+		return nil
+	}
+	return &ConnectorFlowConfigBindingPatchAPIModel{ConfigProfileID: configProfileID, DynamicMapping: dm}
+}
+
 func (r *connectorFlowConfigBindingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data ConnectorFlowConfigBindingResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -196,13 +244,12 @@ func (r *connectorFlowConfigBindingResource) Create(ctx context.Context, req res
 	}
 	data.ID = types.StringValue(binding.ID)
 
-	dm := r.dynamicMappingFromData(ctx, &data, &resp.Diagnostics)
+	patch := r.buildPatch(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	patch := ConnectorFlowConfigBindingPatchAPIModel{DynamicMapping: dm}
 	var api ConnectorFlowConfigBindingAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), patch, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -236,15 +283,28 @@ func (r *connectorFlowConfigBindingResource) Update(ctx context.Context, req res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	dm := r.dynamicMappingFromData(ctx, &data, &resp.Diagnostics)
+	patch := r.buildPatch(ctx, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	patch := ConnectorFlowConfigBindingPatchAPIModel{DynamicMapping: dm}
 	var api ConnectorFlowConfigBindingAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
+	ok, status := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), patch, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
+	}
+	if status == 404 {
+		// The flow was re-deployed (e.g. after destroy+recreate) and the binding
+		// slot was assigned a new ID. Re-discover the current ID and retry.
+		resp.Diagnostics = diag.Diagnostics{}
+		binding := r.findBindingByConfigType(ctx, &data, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.ID = types.StringValue(binding.ID)
+		ok, _ = r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), patch, &api, &resp.Diagnostics)
+		if !ok {
+			return
+		}
 	}
 	r.toData(&api, &data, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -256,7 +316,7 @@ func (r *connectorFlowConfigBindingResource) Delete(ctx context.Context, req res
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Clear the dynamic mapping by patching with null, restoring the static binding.
-	patch := ConnectorFlowConfigBindingPatchAPIModel{DynamicMapping: nil}
+	// Clear both fields, leaving the binding slot unset.
+	patch := ConnectorFlowConfigBindingPatchAPIModel{ConfigProfileID: nil, DynamicMapping: nil}
 	r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, nil, &resp.Diagnostics, Allow404())
 }
