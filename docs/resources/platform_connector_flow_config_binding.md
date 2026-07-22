@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_connector_flow_config_binding Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages the dynamic mapping on a config profile binding within a deployed connector flow. Use this resource to select a gas pricing profile (or any other config profile) dynamically per-transaction based on a JSONata expression evaluated against the transaction payload.
+  Manages a config profile binding within a deployed connector flow. Binds a config type slot to either a specific profile (config_profile_id) or a JSONata expression that selects the profile dynamically at runtime (dynamic_mapping). Exactly one of config_profile_id or dynamic_mapping must be set.
 ---
 
 # kaleido_platform_connector_flow_config_binding (Resource)
 
-Manages the dynamic mapping on a config profile binding within a deployed connector flow. Use this resource to select a gas pricing profile (or any other config profile) dynamically per-transaction based on a JSONata expression evaluated against the transaction payload.
+Manages a config profile binding within a deployed connector flow. Binds a config type slot to either a specific profile (config_profile_id) or a JSONata expression that selects the profile dynamically at runtime (dynamic_mapping). Exactly one of config_profile_id or dynamic_mapping must be set.
 
 
 
@@ -18,10 +18,14 @@ Manages the dynamic mapping on a config profile binding within a deployed connec
 ### Required
 
 - `config_type` (String) Config type name of the binding to update (e.g. evm.gasPricing).
-- `dynamic_mapping` (Attributes) Dynamic mapping that selects the config profile name at transaction submission time via a JSONata expression. (see [below for nested schema](#nestedatt--dynamic_mapping))
 - `environment` (String) Environment ID.
 - `flow` (String) Name of the deployed connector flow (e.g. submission).
 - `service` (String) Connector service ID.
+
+### Optional
+
+- `config_profile_id` (String) ID of the config profile to statically bind to this config type slot. Mutually exclusive with dynamic_mapping.
+- `dynamic_mapping` (Attributes) Dynamic mapping that selects the config profile name at transaction submission time via a JSONata expression. Mutually exclusive with config_profile_id. (see [below for nested schema](#nestedatt--dynamic_mapping))
 
 ### Read-Only
 
@@ -33,4 +37,4 @@ Manages the dynamic mapping on a config profile binding within a deployed connec
 Required:
 
 - `jsonata` (String) JSONata expression evaluated against the transaction state to produce a config profile short name.
-- `name_prefix` (String) Prefix prepended to the profile name returned by the JSONata expression (e.g. "s:serviceId/").
+- `name_prefix` (String) Prefix prepended to the profile name returned by the JSONata expression (e.g. the connector service ID followed by /).
