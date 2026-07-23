@@ -35,6 +35,7 @@ type KMSKeyResourceModel struct {
 	Wallet                types.String `tfsdk:"wallet"`
 	Name                  types.String `tfsdk:"name"`
 	Path                  types.String `tfsdk:"path"`
+	FolderPath            types.String `tfsdk:"folder_path"`
 	URI                   types.String `tfsdk:"uri"`
 	Address               types.String `tfsdk:"address"`
 	Attributes            types.Map    `tfsdk:"attributes"`
@@ -97,8 +98,15 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:    true,
 				Description: "A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing.",
 			},
+			"folder_path": &schema.StringAttribute{
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description:   "Slash-separated folder hierarchy to place this key in, e.g. \"treasury\" or \"ops/hot\". Folders are automatically created if they do not exist. Changing this field requires key replacement.",
+			},
 			"uri": &schema.StringAttribute{
-				Computed: true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description:   "The canonical URI of the key, assigned by the server after creation.",
 			},
 			"address": &schema.StringAttribute{
 				Computed: true,
@@ -159,20 +167,21 @@ func (api *KMSKeyAPIModel) toData(ctx context.Context, data *KMSKeyResourceModel
 	}
 }
 
-func (r *kms_keyResource) apiPath(ctx context.Context, data *KMSKeyResourceModel, diagnostics *diag.Diagnostics) (string, bool) {
-	// KMS requires that key operations are performed using the NAME of the wallet, not the ID.
-	// Whereas we strongly encourage in the terraform provider using the ID of the wallet.
+// apiPath resolves the wallet ID to its name (required by the KMS API) and returns
+// both the full key API path and the wallet name. The wallet name is needed on Create
+// to build the folder URI.
+func (r *kms_keyResource) apiPath(ctx context.Context, data *KMSKeyResourceModel, diagnostics *diag.Diagnostics) (string, string, bool) {
 	var wallet KMSWalletAPIModel
 	walletPath := fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/wallets/%s", data.Environment.ValueString(), data.Service.ValueString(), data.Wallet.ValueString())
 	ok, _ := r.apiRequest(ctx, http.MethodGet, walletPath, nil, &wallet, diagnostics)
 	if !ok {
-		return "", false
+		return "", "", false
 	}
-	path := fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/wallets/%s/keys", data.Environment.ValueString(), data.Service.ValueString(), wallet.Name)
+	p := fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/wallets/%s/keys", data.Environment.ValueString(), data.Service.ValueString(), wallet.Name)
 	if data.ID.ValueString() != "" {
-		path = path + "/" + data.ID.ValueString()
+		p = p + "/" + data.ID.ValueString()
 	}
-	return path, true
+	return p, wallet.Name, true
 }
 
 func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -185,8 +194,13 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 
 	var api KMSKeyAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
-	apiPath, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
+	apiPath, walletName, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
 	if ok {
+		// If the user specified a folder_path, build the URI so the API auto-creates
+		// the folder hierarchy and places the key within it.
+		if !data.FolderPath.IsNull() && data.FolderPath.ValueString() != "" {
+			api.URI = fmt.Sprintf("kld:///keystore/%s/key/%s/%s", walletName, data.FolderPath.ValueString(), data.Name.ValueString())
+		}
 		ok, _ = r.apiRequest(ctx, http.MethodPut /* note different to wallets */, apiPath, api, &api, &resp.Diagnostics)
 	}
 	if !ok {
@@ -194,7 +208,7 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	api.toData(ctx, &data, &resp.Diagnostics)
-	// Restore planned value into state
+	// Restore planned values that the API does not echo back
 	if !plannedPublicIdentifierTypes.IsNull() && !plannedPublicIdentifierTypes.IsUnknown() {
 		data.PublicIdentifierTypes = plannedPublicIdentifierTypes
 	}
@@ -213,7 +227,7 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	// Read full current object
 	var api KMSKeyAPIModel
-	apiPath, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
+	apiPath, _, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
 	if ok {
 		ok, _ = r.apiRequest(ctx, http.MethodGet, apiPath, nil, &api, &resp.Diagnostics)
 	}
@@ -221,14 +235,14 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// Update from plan
+	// Update from plan (folder_path is RequiresReplace so never changes here)
 	data.toAPI(ctx, &api, &resp.Diagnostics)
 	if ok, _ = r.apiRequest(ctx, http.MethodPatch /* note there is no put-by-ID */, apiPath, api, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
 	api.toData(ctx, &data, &resp.Diagnostics)
-	// Restore planned value into state
+	// Restore planned values that the API does not echo back
 	if !plannedPublicIdentifierTypes.IsNull() && !plannedPublicIdentifierTypes.IsUnknown() {
 		data.PublicIdentifierTypes = plannedPublicIdentifierTypes
 	}
@@ -239,12 +253,13 @@ func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 	var data KMSKeyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	// Preserve current state's publicIdentifierTypes, as API does not return them on GET
+	// Preserve fields that the API does not return on GET
+	currentFolderPath := data.FolderPath
 	currentPublicIdentifierTypes := data.PublicIdentifierTypes
 
 	var api KMSKeyAPIModel
 	api.ID = data.ID.ValueString()
-	apiPath, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
+	apiPath, _, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -253,12 +268,21 @@ func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 	if status == 404 {
+		// The v1 GET-by-ID does not traverse folder hierarchy; a folder-placed key
+		// will 404 here even though it exists. Preserve state so subsequent plans
+		// remain stable. Plain (non-folder) keys are correctly removed on 404.
+		if !currentFolderPath.IsNull() && currentFolderPath.ValueString() != "" {
+			resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+			return
+		}
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
 	api.toData(ctx, &data, &resp.Diagnostics)
-	// Restore current state's value into state
+	if !currentFolderPath.IsNull() {
+		data.FolderPath = currentFolderPath
+	}
 	if !currentPublicIdentifierTypes.IsNull() && !currentPublicIdentifierTypes.IsUnknown() {
 		data.PublicIdentifierTypes = currentPublicIdentifierTypes
 	}
@@ -269,7 +293,7 @@ func (r *kms_keyResource) Delete(ctx context.Context, req resource.DeleteRequest
 	var data KMSKeyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	apiPath, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
+	apiPath, _, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
 	if !ok {
 		return
 	}
