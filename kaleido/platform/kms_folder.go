@@ -33,15 +33,24 @@ type KMSFolderResourceModel struct {
 	Keystore       types.String `tfsdk:"keystore"`
 	Name           types.String `tfsdk:"name"`
 	ParentFolderID types.String `tfsdk:"parent_folder_id"`
+	Path           types.String `tfsdk:"path"`
 }
 
 type KMSFolderAPIModel struct {
-	ID             string     `json:"id,omitempty"`
-	Created        *time.Time `json:"created,omitempty"`
-	Updated        *time.Time `json:"updated,omitempty"`
-	Name           string     `json:"name"`
-	KeystoreName   string     `json:"keystoreName"`
-	ParentFolderID string     `json:"parentFolderId,omitempty"`
+	ID              string        `json:"id,omitempty"`
+	Created         *time.Time    `json:"created,omitempty"`
+	Updated         *time.Time    `json:"updated,omitempty"`
+	Name            string        `json:"name"`
+	KeystoreName    string        `json:"keystoreName"`
+	ParentFolderID  string        `json:"parentFolderId,omitempty"`
+	FolderPathParts []FolderParts `json:"folderPathParts,omitempty"`
+	FullFolderPath  string        `json:"fullFolderPath,omitempty"`
+}
+
+type FolderParts struct {
+	Index int    `json:"index"`
+	Name  string `json:"name"`
+	ID    string `json:"id"`
 }
 
 func KMSFolderResourceFactory() resource.Resource {
@@ -89,6 +98,10 @@ func (r *kms_folderResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "ID of the parent folder. Omit to create a root-level folder.",
 			},
+			"path": &schema.StringAttribute{
+				Computed:    true,
+				Description: "The full path of the folder, including all parent folder names. This is the path that will be used to create the folder.",
+			},
 		},
 	}
 }
@@ -101,10 +114,13 @@ func (r *kms_folderResource) resolveKeystoreName(ctx context.Context, data *KMSF
 	return wallet.Name, ok
 }
 
-func (r *kms_folderResource) apiPath(data *KMSFolderResourceModel) string {
+func (r *kms_folderResource) apiPath(data *KMSFolderResourceModel, withDetails bool) string {
 	p := fmt.Sprintf("/endpoint/%s/%s/rest/api/v2/folders", data.Environment.ValueString(), data.Service.ValueString())
 	if data.ID.ValueString() != "" {
 		p = p + "/" + data.ID.ValueString()
+	}
+	if withDetails {
+		p = p + "?fetchDetail=true"
 	}
 	return p
 }
@@ -127,7 +143,7 @@ func (r *kms_folderResource) Create(ctx context.Context, req resource.CreateRequ
 		api.ParentFolderID = data.ParentFolderID.ValueString()
 	}
 
-	ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(&data), api, &api, &resp.Diagnostics)
+	ok, _ = r.apiRequest(ctx, http.MethodPost, r.apiPath(&data, false), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -141,7 +157,7 @@ func (r *kms_folderResource) Read(ctx context.Context, req resource.ReadRequest,
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	var api KMSFolderAPIModel
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data, true), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -154,6 +170,9 @@ func (r *kms_folderResource) Read(ctx context.Context, req resource.ReadRequest,
 	data.Name = types.StringValue(api.Name)
 	if api.ParentFolderID != "" {
 		data.ParentFolderID = types.StringValue(api.ParentFolderID)
+	}
+	if api.FullFolderPath != "" {
+		data.Path = types.StringValue(api.FullFolderPath)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -169,7 +188,7 @@ func (r *kms_folderResource) Delete(ctx context.Context, req resource.DeleteRequ
 	var data KMSFolderResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data, false), nil, nil, &resp.Diagnostics, Allow404())
 
-	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
+	r.waitForRemoval(ctx, r.apiPath(&data, false), &resp.Diagnostics)
 }
