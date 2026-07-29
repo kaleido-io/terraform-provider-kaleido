@@ -35,6 +35,7 @@ type ConnectorFlowResourceModel struct {
 	Name               types.String `tfsdk:"name"`
 	Description        types.String `tfsdk:"description"`
 	ConfigTypeBindings types.Map    `tfsdk:"config_type_bindings"`
+	Version            types.String `tfsdk:"version"`
 	FlowType           types.String `tfsdk:"flow_type"`
 	CurrentVersion     types.String `tfsdk:"current_version"`
 }
@@ -109,6 +110,11 @@ func (r *connectorFlowResource) Schema(_ context.Context, _ resource.SchemaReque
 					mapplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"version": &schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Template version to pin the deployed flow to. A connector service can only deploy the template version embedded in its current image, so this acts as an expectation: changing it triggers an upgrade of the deployed flow, and the apply fails if the service deploys a different version than requested. If omitted, the flow tracks whatever version the service deploys.",
+			},
 			"flow_type": &schema.StringAttribute{
 				Computed:    true,
 				Description: "The flow type as reported by the deployed workflow (e.g. submission, query).",
@@ -155,6 +161,22 @@ func (r *connectorFlowResource) toData(api *ConnectorFlowAPIModel, data *Connect
 	}
 	data.FlowType = types.StringValue(api.FlowType)
 	data.CurrentVersion = types.StringValue(api.CurrentVersion)
+	// `version` always reflects the deployed version, so out-of-band upgrades
+	// surface as a plan diff against a pinned config value.
+	data.Version = types.StringValue(api.CurrentVersion)
+}
+
+// A connector service can only deploy the template version embedded in its image, so
+// `version` is verified after deploy/upgrade rather than sent to the API.
+func (r *connectorFlowResource) checkVersionPin(requested types.String, api *ConnectorFlowAPIModel, diagnostics *diag.Diagnostics) {
+	if requested.IsNull() || requested.IsUnknown() || requested.ValueString() == api.CurrentVersion {
+		return
+	}
+	diagnostics.AddError(
+		"Connector flow version mismatch",
+		fmt.Sprintf("Requested version %q of connector flow %q, but the connector service deployed version %q. The service deploys only the template version embedded in its current image — upgrade the connector service to an image that embeds %q, or change `version` to %q.",
+			requested.ValueString(), api.Name, api.CurrentVersion, requested.ValueString(), api.CurrentVersion),
+	)
 }
 
 func (r *connectorFlowResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -179,8 +201,12 @@ func (r *connectorFlowResource) Create(ctx context.Context, req resource.CreateR
 	if !ok {
 		return
 	}
+	requestedVersion := data.Version
 	r.toData(&api, &data)
+	// Set state even on a version mismatch so the deployed flow is tracked (and
+	// re-created on the next apply) rather than orphaned.
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	r.checkVersionPin(requestedVersion, &api, &resp.Diagnostics)
 }
 
 func (r *connectorFlowResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -223,8 +249,11 @@ func (r *connectorFlowResource) Update(ctx context.Context, req resource.UpdateR
 	if !ok {
 		return
 	}
+	requestedVersion := data.Version
 	r.toData(&api, &data)
+	// Record the actual deployed version even when it doesn't match the pin.
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	r.checkVersionPin(requestedVersion, &api, &resp.Diagnostics)
 }
 
 func (r *connectorFlowResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
