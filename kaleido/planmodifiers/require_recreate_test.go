@@ -61,17 +61,17 @@ func TestRequireRecreate_ErrorsOnChange(t *testing.T) {
 		State: tfsdk.State{Raw: tftypes.NewValue(tftypes.Object{
 			AttributeTypes: map[string]tftypes.Type{"name": tftypes.String},
 		}, map[string]tftypes.Value{
-			"name": tftypes.NewValue(tftypes.String, "hot"),
+			"name": tftypes.NewValue(tftypes.String, "name1"),
 		})},
-		StateValue: types.StringValue("hot"),
-		PlanValue:  types.StringValue("cold"),
+		StateValue: types.StringValue("name1"),
+		PlanValue:  types.StringValue("name2"),
 	}, &resp)
 
 	require.True(t, resp.Diagnostics.HasError())
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "Immutable attribute cannot be updated")
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "name")
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "kaleido_platform_kms_folder")
-	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "destroy")
+	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "create a new, separate")
 }
 
 func TestRequireRecreate_ErrorsOnNullToValue(t *testing.T) {

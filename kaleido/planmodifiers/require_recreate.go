@@ -69,11 +69,10 @@ func (m requireRecreateModifier) PlanModifyString(ctx context.Context, req planm
 		"Immutable attribute cannot be updated",
 		fmt.Sprintf(
 			"Changing %q on an existing %s is not supported, and automatic resource replace is disabled for this attribute.\n\n"+
-				"To use a different value, destroy the existing resource and create a new one, for example:\n"+
-				"  terraform destroy -target=<this resource>\n"+
-				"  terraform apply\n\n"+
+				"To use a different value, create a new, separate %s instead.\n\n"+
 				"Prior value: %s\nProposed value: %s",
 			attr,
+			resourceLabel,
 			resourceLabel,
 			stringValueForDiag(req.StateValue.IsNull(), req.StateValue.ValueString()),
 			stringValueForDiag(req.PlanValue.IsNull(), req.PlanValue.ValueString()),
