@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/planmodifiers"
 )
 
 type KMSKeyResourceModel struct {
@@ -68,6 +69,7 @@ func (r *kms_keyResource) Metadata(_ context.Context, _ resource.MetadataRequest
 }
 
 func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	const typeName = "kaleido_platform_kms_key"
 	resp.Schema = schema.Schema{
 		Description: "A reference to a signing key (also known as a key mapping) that is directly/indirectly derived from a piece of key material, and can be used for signing.",
 		Attributes: map[string]schema.Attribute{
@@ -77,18 +79,18 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Environment ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Key Manager Service ID",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Key Manager Service ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
 			},
 			"wallet": &schema.StringAttribute{
 				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Wallet ID",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Wallet ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true, // technically optional in Kaleido service, but it is an anti-pattern we do not support in the terraform provider
@@ -101,8 +103,8 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"folder_path": &schema.StringAttribute{
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Slash-separated folder hierarchy to place this key in, e.g. \"treasury\" or \"ops/hot\". Folders are automatically created if they do not exist. Changing this field requires key replacement.",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Slash-separated folder hierarchy to place this key in, e.g. \"treasury\" or \"ops/hot\". Folders are automatically created if they do not exist. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
 			},
 			"uri": &schema.StringAttribute{
 				Computed:      true,
@@ -237,7 +239,7 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// Update from plan (folder_path is RequiresReplace so never changes here)
+	// Update from plan (immutable fields use RequireRecreate so cannot change here)
 	data.toAPI(ctx, &api, &resp.Diagnostics)
 	if ok, _ = r.apiRequest(ctx, http.MethodPatch /* note there is no put-by-ID */, apiPath, api, &api, &resp.Diagnostics); !ok {
 		return

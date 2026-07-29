@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/planmodifiers"
 )
 
 type KMSFolderResourceModel struct {
@@ -66,8 +67,9 @@ func (r *kms_folderResource) Metadata(_ context.Context, _ resource.MetadataRequ
 }
 
 func (r *kms_folderResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	const typeName = "kaleido_platform_kms_folder"
 	resp.Schema = schema.Schema{
-		Description: "A folder within a KMS keystore, used to organise keys into a hierarchy. Folders cannot be renamed or moved after creation — changes require replacement. A folder cannot be deleted while it still contains keys or sub-folders.",
+		Description: "A folder within a KMS keystore, used to organise keys into a hierarchy. Folders cannot be renamed or moved after creation — changes are not supported and require destroying and recreating the folder. A folder cannot be deleted while it still contains keys or sub-folders.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -75,28 +77,28 @@ func (r *kms_folderResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Environment ID",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Environment ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Key Manager Service ID",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Key Manager Service ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
 			},
 			"keystore": &schema.StringAttribute{
 				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Keystore (KMS Wallet) ID",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Keystore (KMS Wallet) ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
 			},
 			"name": &schema.StringAttribute{
 				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Folder name",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "Folder name. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
 			},
 			"parent_folder_id": &schema.StringAttribute{
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "ID of the parent folder. Omit to create a root-level folder.",
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				Description:   "ID of the parent folder. Omit to create a root-level folder. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
 			},
 			"path": &schema.StringAttribute{
 				Computed:    true,
@@ -194,7 +196,7 @@ func (r *kms_folderResource) Read(ctx context.Context, req resource.ReadRequest,
 }
 
 func (r *kms_folderResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// All mutable fields are RequiresReplace — this method should never be called.
+	// All mutable fields use RequireRecreate — this method should never be called.
 	var data KMSFolderResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
