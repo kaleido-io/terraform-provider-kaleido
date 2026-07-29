@@ -46,6 +46,7 @@ type mockPlatform struct {
 	kmsWallets                  map[string]*KMSWalletAPIModel
 	arsNamespaces               map[string]*ARSNamespaceAPIModel
 	kmsKeys                     map[string]*KMSKeyAPIModel
+	kmsKeysByID                 map[string]*KMSKeyAPIModel // env/service/id for global /keys/{id}
 	cmsBuilds                   map[string]*CMSBuildAPIModel
 	cmsActions                  map[string]CMSActionAPIBaseAccessor
 	amsTasks                    map[string]*AMSTaskAPIModel
@@ -98,6 +99,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		kmsWallets:                  make(map[string]*KMSWalletAPIModel),
 		arsNamespaces:               make(map[string]*ARSNamespaceAPIModel),
 		kmsKeys:                     make(map[string]*KMSKeyAPIModel),
+		kmsKeysByID:                 make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:                   make(map[string]*CMSBuildAPIModel),
 		cmsActions:                  make(map[string]CMSActionAPIBaseAccessor),
 		amsTasks:                    make(map[string]*AMSTaskAPIModel),
@@ -187,6 +189,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodGet, mp.getKMSKey)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodPatch, mp.patchKMSKey)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodDelete, mp.deleteKMSKey)
+	// Global by-ID routes used for folder-key delete confirmation
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodGet, mp.getKMSKeyByID)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodDelete, mp.deleteKMSKeyByID)
 
 	// See cms_build.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds", http.MethodPost, mp.postCMSBuild)

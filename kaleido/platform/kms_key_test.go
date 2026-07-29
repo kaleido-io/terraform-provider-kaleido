@@ -152,6 +152,15 @@ func (mp *mockPlatform) getKMSKey(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (mp *mockPlatform) getKMSKeyByID(res http.ResponseWriter, req *http.Request) {
+	obj := mp.kmsKeysByID[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"]]
+	if obj == nil {
+		mp.respond(res, nil, 404)
+	} else {
+		mp.respond(res, obj, 200)
+	}
+}
+
 func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 	var obj KMSKeyAPIModel
 	mp.getBody(req, &obj)
@@ -160,9 +169,14 @@ func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 	obj.Created = &now
 	obj.Updated = &now
 	obj.Address = nanoid.New()
-	obj.URI = "uri/for/" + obj.Name
+	if obj.URI == "" {
+		obj.URI = "uri/for/" + obj.Name
+	}
 	obj.PublicIdentifierTypes = nil
-	mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+obj.ID] = &obj
+	walletKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["wallet"] + "/" + obj.ID
+	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + obj.ID
+	mp.kmsKeys[walletKey] = &obj
+	mp.kmsKeysByID[idKey] = &obj
 	mp.respond(res, &obj, 201)
 }
 
@@ -178,6 +192,7 @@ func (mp *mockPlatform) patchKMSKey(res http.ResponseWriter, req *http.Request) 
 	newObj.Updated = &now
 	newObj.URI = "uri/for/" + newObj.Name
 	mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]] = &newObj
+	mp.kmsKeysByID[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"]] = &newObj
 	mp.respond(res, &newObj, 200)
 }
 
@@ -185,5 +200,68 @@ func (mp *mockPlatform) deleteKMSKey(res http.ResponseWriter, req *http.Request)
 	obj := mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]]
 	assert.NotNil(mp.t, obj)
 	delete(mp.kmsKeys, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"])
+	delete(mp.kmsKeysByID, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"])
 	mp.respond(res, nil, 204)
+}
+
+func (mp *mockPlatform) deleteKMSKeyByID(res http.ResponseWriter, req *http.Request) {
+	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["key"]
+	obj := mp.kmsKeysByID[idKey]
+	assert.NotNil(mp.t, obj)
+	delete(mp.kmsKeysByID, idKey)
+	for k, v := range mp.kmsKeys {
+		if v.ID == obj.ID {
+			delete(mp.kmsKeys, k)
+		}
+	}
+	mp.respond(res, nil, 204)
+}
+
+var kms_keyFolderStep = `
+resource "kaleido_platform_kms_key" "kms_key_folder" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "folder_key"
+	folder_path = "keys/hot"
+	public_identifier_types = ["address_ethereum"]
+}
+`
+
+func TestKMSKeyFolderDelete(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			// Create
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"PUT /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys",
+			// Read refresh (wallet-scoped)
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			// Delete via global by-ID path + waitForRemoval on same path
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
+		})
+		mp.server.Close()
+	}()
+
+	mp.kmsWallets["env1/service1/wallet1_id"] = &KMSWalletAPIModel{Name: "wallet1"}
+
+	resourceName := "kaleido_platform_kms_key.kms_key_folder"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + kms_keyFolderStep,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "folder_path", "keys/hot"),
+					resource.TestCheckResourceAttr(resourceName, "name", "folder_key"),
+				),
+			},
+		},
+	})
+
+	assert.Empty(t, mp.kmsKeysByID, "folder key should be deleted via global /keys/{id} path")
 }

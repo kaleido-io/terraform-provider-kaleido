@@ -187,6 +187,17 @@ func (r *kms_keyResource) apiPath(ctx context.Context, data *KMSKeyResourceModel
 	return p, wallet.Name, true
 }
 
+func (data *KMSKeyResourceModel) hasFolderPath() bool {
+	return !data.FolderPath.IsNull() && data.FolderPath.ValueString() != ""
+}
+
+// keyByIDPath is the global KMS key-by-ID route. Unlike the wallet-scoped path, it
+// finds keys inside folders, so DELETE + waitForRemoval can rely on a real 404.
+func (r *kms_keyResource) keyByIDPath(data *KMSKeyResourceModel) string {
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/keys/%s",
+		data.Environment.ValueString(), data.Service.ValueString(), data.ID.ValueString())
+}
+
 func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
 	var data KMSKeyResourceModel
@@ -201,7 +212,7 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 	if ok {
 		// If the user specified a folder_path, build the URI so the API auto-creates
 		// the folder hierarchy and places the key within it.
-		if !data.FolderPath.IsNull() && data.FolderPath.ValueString() != "" {
+		if data.hasFolderPath() {
 			path := strings.TrimPrefix(data.FolderPath.ValueString(), "/")
 			api.URI = fmt.Sprintf("kld:///keystore/%s/key/%s/%s", walletName, path, data.Name.ValueString())
 		}
@@ -272,9 +283,10 @@ func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 	if status == 404 {
-		// The v1 GET-by-ID does not traverse folder hierarchy; a folder-placed key
-		// will 404 here even though it exists. Preserve state so subsequent plans
-		// remain stable. Plain (non-folder) keys are correctly removed on 404.
+		// The v1 wallet-scoped GET-by-ID does not traverse folder hierarchy; a
+		// folder-placed key will 404 here even though it exists. Preserve state so
+		// subsequent plans remain stable. Plain (non-folder) keys are correctly
+		// removed on 404.
 		if !currentFolderPath.IsNull() && currentFolderPath.ValueString() != "" {
 			resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 			return
@@ -297,11 +309,22 @@ func (r *kms_keyResource) Delete(ctx context.Context, req resource.DeleteRequest
 	var data KMSKeyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	apiPath, _, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
-	if !ok {
+	// Folder keys are not included in the wallet-scoped GET path (always 404 even
+	// when present). Delete and confirm removal via the global by-ID endpoint
+	var deletePath string
+	if data.hasFolderPath() {
+		deletePath = r.keyByIDPath(&data)
+	} else {
+		var ok bool
+		deletePath, _, ok = r.apiPath(ctx, &data, &resp.Diagnostics)
+		if !ok {
+			return
+		}
+	}
+
+	if ok, _ := r.apiRequest(ctx, http.MethodDelete, deletePath, nil, nil, &resp.Diagnostics, Allow404()); !ok {
 		return
 	}
-	_, _ = r.apiRequest(ctx, http.MethodDelete, apiPath, nil, nil, &resp.Diagnostics, Allow404())
 
-	r.waitForRemoval(ctx, apiPath, &resp.Diagnostics)
+	r.waitForRemoval(ctx, deletePath, &resp.Diagnostics)
 }
