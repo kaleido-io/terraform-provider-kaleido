@@ -239,10 +239,9 @@ func (r *connectorFlowResource) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Use /upgrade which accepts the same configTypeBindings and is idempotent on the
-	// current template version. The connector-manager merges bindings server-side.
-	// See .ai/plan.md for the open question on whether to switch to PATCH for
-	// binding-only edits once that's verified end-to-end.
+	// Use /upgrade, which moves the flow to the template version embedded in the
+	// running connector image (no version can be requested; downgrades are rejected
+	// server-side and same-version is an early-return no-op).
 	body := ConnectorFlowUpgradeAPIModel{ConfigTypeBindings: bindings}
 	var api ConnectorFlowAPIModel
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.metadataPath(&data, "/upgrade"), &body, &api, &resp.Diagnostics)
