@@ -25,6 +25,7 @@ Deploys a connector flow (workflow template) from a connector service's embedded
 
 - `config_type_bindings` (Map of String) Map of config type name to config profile name-or-ID. Each entry binds a config type referenced by the flow to a concrete config profile.
 - `description` (String) Optional description override for the deployed workflow.
+- `version` (String) Template version to pin the deployed flow to. A connector service can only deploy the template version embedded in its current image, so this acts as an expectation: changing it triggers an upgrade of the deployed flow, and the apply fails if the service deploys a different version than requested. If omitted, the flow tracks whatever version the service deploys.
 
 ### Read-Only
 
