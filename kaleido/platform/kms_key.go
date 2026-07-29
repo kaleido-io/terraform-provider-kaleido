@@ -41,6 +41,7 @@ type KMSKeyResourceModel struct {
 	Address               types.String `tfsdk:"address"`
 	Attributes            types.Map    `tfsdk:"attributes"`
 	PublicIdentifierTypes types.List   `tfsdk:"public_identifier_types"`
+	Force                 types.Bool   `tfsdk:"force"`
 }
 
 type KMSKeyAPIModel struct {
@@ -108,6 +109,10 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 				Description:   "The canonical URI of the key, assigned by the server after creation.",
+			},
+			"force": &schema.BoolAttribute{
+				Optional:    true,
+				Description: "Force the key to be replaced if it already exists.",
 			},
 			"address": &schema.StringAttribute{
 				Computed: true,
@@ -297,6 +302,11 @@ func (r *kms_keyResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	apiPath, _, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
 	if !ok {
+		return
+	}
+
+	if !data.Force.ValueBool() {
+		resp.Diagnostics.AddError("Delete not supported", "Delete is not supported for KMS keys without the force flag")
 		return
 	}
 	_, _ = r.apiRequest(ctx, http.MethodDelete, apiPath, nil, nil, &resp.Diagnostics, Allow404())
