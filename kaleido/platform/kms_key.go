@@ -80,17 +80,17 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Environment ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
+				Description:   "Environment ID. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Key Manager Service ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
+				Description:   "Key Manager Service ID. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"wallet": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Wallet ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
+				Description:   "Wallet ID. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"name": &schema.StringAttribute{
 				Required:    true, // technically optional in Kaleido service, but it is an anti-pattern we do not support in the terraform provider
@@ -104,7 +104,7 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"folder_path": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Slash-separated folder hierarchy to place this key in, e.g. \"treasury\" or \"ops/hot\". Folders are automatically created if they do not exist. Immutable after create — changing this value is not supported; destroy and recreate the key instead.",
+				Description:   "Slash-separated folder hierarchy to place this key in, e.g. \"treasury\" or \"ops/hot\". Folders are automatically created if they do not exist. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"uri": &schema.StringAttribute{
 				Computed:      true,

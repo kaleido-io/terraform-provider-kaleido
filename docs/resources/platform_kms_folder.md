@@ -17,14 +17,14 @@ A folder within a KMS keystore, used to organise keys into a hierarchy. Folders 
 
 ### Required
 
-- `environment` (String) Environment ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.
-- `keystore` (String) Keystore (KMS Wallet) ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.
-- `name` (String) Folder name. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.
-- `service` (String) Key Manager Service ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.
+- `environment` (String) Environment ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.
+- `keystore` (String) Keystore (KMS Wallet) ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.
+- `name` (String) Folder name. Immutable after create — changing this value is not supported; create a new, separate folder instead.
+- `service` (String) Key Manager Service ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.
 
 ### Optional
 
-- `parent_folder_id` (String) ID of the parent folder. Omit to create a root-level folder. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.
+- `parent_folder_id` (String) ID of the parent folder. Omit to create a root-level folder. Immutable after create — changing this value is not supported; create a new, separate folder instead.
 
 ### Read-Only
 

@@ -17,15 +17,15 @@ A reference to a signing key (also known as a key mapping) that is directly/indi
 
 ### Required
 
-- `environment` (String) Environment ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.
+- `environment` (String) Environment ID. Immutable after create — changing this value is not supported; create a new, separate key instead.
 - `name` (String) Key Display Name
-- `service` (String) Key Manager Service ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.
-- `wallet` (String) Wallet ID. Immutable after create — changing this value is not supported; destroy and recreate the key instead.
+- `service` (String) Key Manager Service ID. Immutable after create — changing this value is not supported; create a new, separate key instead.
+- `wallet` (String) Wallet ID. Immutable after create — changing this value is not supported; create a new, separate key instead.
 
 ### Optional
 
 - `attributes` (Map of String) Optional attributes of the key for key creation.
-- `folder_path` (String) Slash-separated folder hierarchy to place this key in, e.g. "treasury" or "ops/hot". Folders are automatically created if they do not exist. Immutable after create — changing this value is not supported; destroy and recreate the key instead.
+- `folder_path` (String) Slash-separated folder hierarchy to place this key in, e.g. "treasury" or "ops/hot". Folders are automatically created if they do not exist. Immutable after create — changing this value is not supported; create a new, separate key instead.
 - `path` (String) A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing.
 - `public_identifier_types` (List of String) Optional public identifier types to create for the key.
 

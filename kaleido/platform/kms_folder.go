@@ -78,27 +78,27 @@ func (r *kms_folderResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"environment": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Environment ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
+				Description:   "Environment ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.",
 			},
 			"service": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Key Manager Service ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
+				Description:   "Key Manager Service ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.",
 			},
 			"keystore": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Keystore (KMS Wallet) ID. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
+				Description:   "Keystore (KMS Wallet) ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.",
 			},
 			"name": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Folder name. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
+				Description:   "Folder name. Immutable after create — changing this value is not supported; create a new, separate folder instead.",
 			},
 			"parent_folder_id": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "ID of the parent folder. Omit to create a root-level folder. Immutable after create — changing this value is not supported; destroy and recreate the folder instead.",
+				Description:   "ID of the parent folder. Omit to create a root-level folder. Immutable after create — changing this value is not supported; create a new, separate folder instead.",
 			},
 			"path": &schema.StringAttribute{
 				Computed:    true,
