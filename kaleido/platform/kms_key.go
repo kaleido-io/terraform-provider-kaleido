@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -199,7 +200,8 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 		// If the user specified a folder_path, build the URI so the API auto-creates
 		// the folder hierarchy and places the key within it.
 		if !data.FolderPath.IsNull() && data.FolderPath.ValueString() != "" {
-			api.URI = fmt.Sprintf("kld:///keystore/%s/key/%s/%s", walletName, data.FolderPath.ValueString(), data.Name.ValueString())
+			path := strings.TrimPrefix(data.FolderPath.ValueString(), "/")
+			api.URI = fmt.Sprintf("kld:///keystore/%s/key/%s/%s", walletName, path, data.Name.ValueString())
 		}
 		ok, _ = r.apiRequest(ctx, http.MethodPut /* note different to wallets */, apiPath, api, &api, &resp.Diagnostics)
 	}

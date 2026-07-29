@@ -125,6 +125,20 @@ func (r *kms_folderResource) apiPath(data *KMSFolderResourceModel, withDetails b
 	return p
 }
 
+func (api *KMSFolderAPIModel) toData(data *KMSFolderResourceModel) {
+	data.ID = types.StringValue(api.ID)
+	data.Name = types.StringValue(api.Name)
+	if api.ParentFolderID != "" {
+		data.ParentFolderID = types.StringValue(api.ParentFolderID)
+	}
+	// Always set a known value — Terraform forbids unknown computed attrs after apply.
+	if api.FullFolderPath != "" {
+		data.Path = types.StringValue(api.FullFolderPath)
+	} else {
+		data.Path = types.StringNull()
+	}
+}
+
 func (r *kms_folderResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data KMSFolderResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -148,7 +162,16 @@ func (r *kms_folderResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	// set this to get the details of the created folder
 	data.ID = types.StringValue(api.ID)
+
+	var updatedAPI KMSFolderAPIModel
+	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data, true), nil, &updatedAPI, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+
+	updatedAPI.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -166,14 +189,7 @@ func (r *kms_folderResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	data.ID = types.StringValue(api.ID)
-	data.Name = types.StringValue(api.Name)
-	if api.ParentFolderID != "" {
-		data.ParentFolderID = types.StringValue(api.ParentFolderID)
-	}
-	if api.FullFolderPath != "" {
-		data.Path = types.StringValue(api.FullFolderPath)
-	}
+	api.toData(&data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
