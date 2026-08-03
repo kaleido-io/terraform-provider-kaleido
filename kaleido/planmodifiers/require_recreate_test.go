@@ -1,4 +1,4 @@
-// Copyright © Kaleido, Inc. 2024-2026
+// Copyright © Kaleido, Inc. 2026
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,4 +90,31 @@ func TestRequireRecreate_ErrorsOnNullToValue(t *testing.T) {
 	require.True(t, resp.Diagnostics.HasError())
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "(null)")
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "kaleido_platform_kms_folder")
+}
+
+func TestRequireRecreateMap_ErrorsOnChange(t *testing.T) {
+	var resp planmodifier.MapResponse
+	prior, diags := types.MapValueFrom(context.Background(), types.StringType, map[string]string{"a": "1"})
+	require.False(t, diags.HasError())
+	proposed, diags := types.MapValueFrom(context.Background(), types.StringType, map[string]string{"a": "2"})
+	require.False(t, diags.HasError())
+
+	RequireRecreateMap("kaleido_platform_kms_key").PlanModifyMap(context.Background(), planmodifier.MapRequest{
+		Path: path.Root("attributes"),
+		State: tfsdk.State{Raw: tftypes.NewValue(tftypes.Object{
+			AttributeTypes: map[string]tftypes.Type{
+				"attributes": tftypes.Map{ElementType: tftypes.String},
+			},
+		}, map[string]tftypes.Value{
+			"attributes": tftypes.NewValue(tftypes.Map{ElementType: tftypes.String}, map[string]tftypes.Value{
+				"attribute": tftypes.NewValue(tftypes.String, "1"),
+			}),
+		})},
+		StateValue: prior,
+		PlanValue:  proposed,
+	}, &resp)
+
+	require.True(t, resp.Diagnostics.HasError())
+	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "attributes")
+	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "kaleido_platform_kms_key")
 }
