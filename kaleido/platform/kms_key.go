@@ -100,7 +100,7 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing.",
+				Description:   "A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"folder_path": &schema.StringAttribute{
 				Optional:      true,
@@ -119,7 +119,7 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:      true,
 				ElementType:   types.StringType,
 				PlanModifiers: []planmodifier.Map{planmodifiers.RequireRecreateMap(typeName)},
-				Description:   "Optional attributes of the key for key creation.",
+				Description:   "Optional attributes of the key for key creation. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"public_identifier_types": &schema.ListAttribute{
 				Optional:    true,
