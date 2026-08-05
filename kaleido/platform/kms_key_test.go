@@ -16,6 +16,7 @@ package platform
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"testing"
 	"time"
 
@@ -34,20 +35,39 @@ resource "kaleido_platform_kms_key" "kms_key1" {
 	service = "service1"
 	wallet = "wallet1_id"
     name = "kms_key1"
+	path = "some/path"
 	attributes = {
 		"attribute1" = "value1"
+		"attribute2" = "value2"
 	}
 	public_identifier_types = ["address_ethereum"]
 }
 `
 
+// Mutable update only — path/attributes are immutable (RequireRecreate).
 var kms_keyStep2 = `
 resource "kaleido_platform_kms_key" "kms_key1" {
     environment = "env1"
 	service = "service1"
 	wallet = "wallet1_id"
-    name = "kms_key1"
+    name = "kms_key1_renamed"
 	path = "some/path"
+	attributes = {
+		"attribute1" = "value1"
+		"attribute2" = "value2"
+	}
+	public_identifier_types = ["address_ethereum"]
+}
+`
+
+// Changing an immutable field must fail planning (no automatic replace).
+var kms_keyStepImmutablePath = `
+resource "kaleido_platform_kms_key" "kms_key1" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "kms_key1_renamed"
+	path = "other/path"
 	attributes = {
 		"attribute1" = "value1"
 		"attribute2" = "value2"
@@ -73,6 +93,8 @@ func TestKMSKey1(t *testing.T) {
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
 		})
@@ -92,9 +114,11 @@ func TestKMSKey1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "id"),
 					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "path", `some/path`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1`),
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "address"),
 					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute1", `value1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute2", `value2`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "public_identifier_types.0", `address_ethereum`),
 				),
 			},
@@ -102,7 +126,7 @@ func TestKMSKey1(t *testing.T) {
 				Config: providerConfig + kms_keyStep2,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "id"),
-					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1_renamed`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "path", `some/path`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1`),
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "address"),
@@ -118,7 +142,7 @@ func TestKMSKey1(t *testing.T) {
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							"name": "kms_key1",
+							"name": "kms_key1_renamed",
 							"path": "some/path",
 							"address": "%[4]s",
 							"uri": "uri/for/kms_key1",
@@ -138,6 +162,10 @@ func TestKMSKey1(t *testing.T) {
 						return nil
 					},
 				),
+			},
+			{
+				Config:      providerConfig + kms_keyStepImmutablePath,
+				ExpectError: regexp.MustCompile(`Immutable attribute cannot be updated`),
 			},
 		},
 	})
@@ -190,7 +218,8 @@ func (mp *mockPlatform) patchKMSKey(res http.ResponseWriter, req *http.Request) 
 	now := time.Now().UTC()
 	newObj.Created = obj.Created
 	newObj.Updated = &now
-	newObj.URI = "uri/for/" + newObj.Name
+	newObj.Address = obj.Address
+	newObj.URI = obj.URI // canonical URI is immutable after create
 	mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]] = &newObj
 	mp.kmsKeysByID[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"]] = &newObj
 	mp.respond(res, &newObj, 200)
