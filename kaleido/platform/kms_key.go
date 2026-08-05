@@ -107,7 +107,7 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"path": &schema.StringAttribute{
 				Optional:      true,
 				Computed:      true,
-				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
+				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName), stringplanmodifier.UseStateForUnknown()},
 				Description:   "A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"folder_path": &schema.StringAttribute{
