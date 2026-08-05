@@ -39,6 +39,11 @@ func RequireRecreateMap(resourceType string) planmodifier.Map {
 	return requireRecreateMapModifier{resourceType: resourceType}
 }
 
+// RequireRecreateList is the list-attribute equivalent of RequireRecreate.
+func RequireRecreateList(resourceType string) planmodifier.List {
+	return requireRecreateListModifier{resourceType: resourceType}
+}
+
 type requireRecreateStringModifier struct {
 	resourceType string
 }
@@ -89,6 +94,31 @@ func (m requireRecreateMapModifier) PlanModifyMap(ctx context.Context, req planm
 	)
 }
 
+type requireRecreateListModifier struct {
+	resourceType string
+}
+
+func (m requireRecreateListModifier) Description(_ context.Context) string {
+	return requireRecreateDescription
+}
+
+func (m requireRecreateListModifier) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (m requireRecreateListModifier) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+	addRequireRecreateErrorIfChanged(
+		req.State.Raw.IsNull(),
+		req.PlanValue.IsUnknown() || req.StateValue.IsUnknown(),
+		req.PlanValue.Equal(req.StateValue),
+		req.Path,
+		m.resourceType,
+		listValueForDiag(req.StateValue),
+		listValueForDiag(req.PlanValue),
+		&resp.Diagnostics,
+	)
+}
+
 const requireRecreateDescription = "If the value of this attribute changes after create, planning fails because replace is not supported; create a new resource instead."
 
 func addRequireRecreateErrorIfChanged(
@@ -135,6 +165,13 @@ func stringValueForDiag(isNull bool, value string) string {
 }
 
 func mapValueForDiag(value types.Map) string {
+	if value.IsNull() {
+		return "(null)"
+	}
+	return value.String()
+}
+
+func listValueForDiag(value types.List) string {
 	if value.IsNull() {
 		return "(null)"
 	}

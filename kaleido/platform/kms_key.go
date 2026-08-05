@@ -96,6 +96,14 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required:    true, // technically optional in Kaleido service, but it is an anti-pattern we do not support in the terraform provider
 				Description: "Key Display Name",
 			},
+			"uri": &schema.StringAttribute{
+				Computed:    true,
+				Description: "The canonical URI of the key, assigned by the server after creation. Updates when the key is renamed.",
+			},
+			"address": &schema.StringAttribute{
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 			"path": &schema.StringAttribute{
 				Optional:      true,
 				Computed:      true,
@@ -107,14 +115,6 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
 				Description:   "Slash-separated folder hierarchy to place this key in, e.g. \"treasury\" or \"ops/hot\". Folders are automatically created if they do not exist. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
-			"uri": &schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-				Description:   "The canonical URI of the key, assigned by the server after creation.",
-			},
-			"address": &schema.StringAttribute{
-				Computed: true,
-			},
 			"attributes": &schema.MapAttribute{
 				Optional:      true,
 				ElementType:   types.StringType,
@@ -122,9 +122,10 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description:   "Optional attributes of the key for key creation. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"public_identifier_types": &schema.ListAttribute{
-				Optional:    true,
-				ElementType: types.StringType,
-				Description: "Optional public identifier types to create for the key.",
+				Optional:      true,
+				ElementType:   types.StringType,
+				PlanModifiers: []planmodifier.List{planmodifiers.RequireRecreateList(typeName)},
+				Description:   "Optional public identifier types to create for the key. Applied only at create — immutable after create; changing this value is not supported; create a new, separate key instead.",
 			},
 		},
 	}
@@ -194,10 +195,20 @@ func (data *KMSKeyResourceModel) hasFolderPath() bool {
 }
 
 // keyByIDPath is the global KMS key-by-ID route. Unlike the wallet-scoped path, it
-// finds keys inside folders, so DELETE + waitForRemoval can rely on a real 404.
+// finds keys inside folders, so GET/PATCH/DELETE can rely on it for folder-placed keys.
 func (r *kms_keyResource) keyByIDPath(data *KMSKeyResourceModel) string {
 	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/keys/%s",
 		data.Environment.ValueString(), data.Service.ValueString(), data.ID.ValueString())
+}
+
+// keyMutationPath returns the path for GET/PATCH/DELETE of an existing key.
+// Folder keys must use the global by-ID route
+func (r *kms_keyResource) keyMutationPath(ctx context.Context, data *KMSKeyResourceModel, diagnostics *diag.Diagnostics) (string, bool) {
+	if data.hasFolderPath() {
+		return r.keyByIDPath(data), true
+	}
+	p, _, ok := r.apiPath(ctx, data, diagnostics)
+	return p, ok
 }
 
 func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -242,19 +253,23 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 	// Preserve planned publicIdentifierTypes, as API does not return them on GET
 	plannedPublicIdentifierTypes := data.PublicIdentifierTypes
 
-	// Read full current object
-	var api KMSKeyAPIModel
-	apiPath, _, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
-	if ok {
-		ok, _ = r.apiRequest(ctx, http.MethodGet, apiPath, nil, &api, &resp.Diagnostics)
-	}
+	keyPath, ok := r.keyMutationPath(ctx, &data, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	// Update from plan (immutable fields use RequireRecreate so cannot change here)
-	data.toAPI(ctx, &api, &resp.Diagnostics)
-	if ok, _ = r.apiRequest(ctx, http.MethodPatch /* note there is no put-by-ID */, apiPath, api, &api, &resp.Diagnostics); !ok {
+	// Read full current object
+	var api KMSKeyAPIModel
+	if ok, _ = r.apiRequest(ctx, http.MethodGet, keyPath, nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
+
+	// Update from plan. Key PATCH only accepts name - URI will be updated based on the new name
+	patch := KMSKeyAPIModel{
+		ID:   api.ID,
+		Name: data.Name.ValueString(),
+	}
+	if ok, _ = r.apiRequest(ctx, http.MethodPatch /* note there is no put-by-ID */, keyPath, patch, &api, &resp.Diagnostics); !ok {
 		return
 	}
 
@@ -313,15 +328,9 @@ func (r *kms_keyResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	// Folder keys are not included in the wallet-scoped GET path (always 404 even
 	// when present). Delete and confirm removal via the global by-ID endpoint
-	var deletePath string
-	if data.hasFolderPath() {
-		deletePath = r.keyByIDPath(&data)
-	} else {
-		var ok bool
-		deletePath, _, ok = r.apiPath(ctx, &data, &resp.Diagnostics)
-		if !ok {
-			return
-		}
+	deletePath, ok := r.keyMutationPath(ctx, &data, &resp.Diagnostics)
+	if !ok {
+		return
 	}
 
 	if ok, _ := r.apiRequest(ctx, http.MethodDelete, deletePath, nil, nil, &resp.Diagnostics, Allow404()); !ok {

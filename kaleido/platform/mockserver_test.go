@@ -191,6 +191,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodDelete, mp.deleteKMSKey)
 	// Global by-ID routes used for folder-key delete confirmation
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodGet, mp.getKMSKeyByID)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodPatch, mp.patchKMSKeyByID)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodDelete, mp.deleteKMSKeyByID)
 
 	// See cms_build.go

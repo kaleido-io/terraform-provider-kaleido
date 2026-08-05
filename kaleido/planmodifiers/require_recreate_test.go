@@ -118,3 +118,30 @@ func TestRequireRecreateMap_ErrorsOnChange(t *testing.T) {
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "attributes")
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "kaleido_platform_kms_key")
 }
+
+func TestRequireRecreateList_ErrorsOnChange(t *testing.T) {
+	var resp planmodifier.ListResponse
+	prior, diags := types.ListValueFrom(context.Background(), types.StringType, []string{"address_ethereum"})
+	require.False(t, diags.HasError())
+	proposed, diags := types.ListValueFrom(context.Background(), types.StringType, []string{"address_ethereum", "address_ethereum_checksum"})
+	require.False(t, diags.HasError())
+
+	RequireRecreateList("kaleido_platform_kms_key").PlanModifyList(context.Background(), planmodifier.ListRequest{
+		Path: path.Root("public_identifier_types"),
+		State: tfsdk.State{Raw: tftypes.NewValue(tftypes.Object{
+			AttributeTypes: map[string]tftypes.Type{
+				"public_identifier_types": tftypes.List{ElementType: tftypes.String},
+			},
+		}, map[string]tftypes.Value{
+			"public_identifier_types": tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, []tftypes.Value{
+				tftypes.NewValue(tftypes.String, "address_ethereum"),
+			}),
+		})},
+		StateValue: prior,
+		PlanValue:  proposed,
+	}, &resp)
+
+	require.True(t, resp.Diagnostics.HasError())
+	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "public_identifier_types")
+	assert.Contains(t, resp.Diagnostics.Errors()[0].Detail(), "kaleido_platform_kms_key")
+}
