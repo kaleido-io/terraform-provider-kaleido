@@ -196,7 +196,7 @@ func (r *kms_folderResource) Read(ctx context.Context, req resource.ReadRequest,
 }
 
 func (r *kms_folderResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// All mutable fields use RequireRecreate — this method should never be called.
+	// All immutable fields use RequireRecreate — this method should never be called.
 	var data KMSFolderResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
