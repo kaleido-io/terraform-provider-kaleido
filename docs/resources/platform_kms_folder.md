@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_kms_folder Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  A folder within a KMS keystore, used to organise keys into a hierarchy. Folders cannot be renamed or moved after creation — changes require replacement. A folder cannot be deleted while it still contains keys or sub-folders.
+  A folder within a KMS keystore, used to organise keys into a hierarchy. Folders cannot be renamed or moved after creation — changes are not supported and require destroying and recreating the folder. A folder cannot be deleted while it still contains keys or sub-folders.
 ---
 
 # kaleido_platform_kms_folder (Resource)
 
-A folder within a KMS keystore, used to organise keys into a hierarchy. Folders cannot be renamed or moved after creation — changes require replacement. A folder cannot be deleted while it still contains keys or sub-folders.
+A folder within a KMS keystore, used to organise keys into a hierarchy. Folders cannot be renamed or moved after creation — changes are not supported and require destroying and recreating the folder. A folder cannot be deleted while it still contains keys or sub-folders.
 
 
 
@@ -17,14 +17,14 @@ A folder within a KMS keystore, used to organise keys into a hierarchy. Folders 
 
 ### Required
 
-- `environment` (String) Environment ID
-- `keystore` (String) Keystore (KMS Wallet) ID
-- `name` (String) Folder name
-- `service` (String) Key Manager Service ID
+- `environment` (String) Environment ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.
+- `keystore` (String) Keystore (KMS Wallet) ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.
+- `name` (String) Folder name. Immutable after create — changing this value is not supported; create a new, separate folder instead.
+- `service` (String) Key Manager Service ID. Immutable after create — changing this value is not supported; create a new, separate folder instead.
 
 ### Optional
 
-- `parent_folder_id` (String) ID of the parent folder. Omit to create a root-level folder.
+- `parent_folder_id` (String) ID of the parent folder. Omit to create a root-level folder. Immutable after create — changing this value is not supported; create a new, separate folder instead.
 
 ### Read-Only
 
