@@ -16,6 +16,7 @@ package platform
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"testing"
 	"time"
 
@@ -34,25 +35,59 @@ resource "kaleido_platform_kms_key" "kms_key1" {
 	service = "service1"
 	wallet = "wallet1_id"
     name = "kms_key1"
-	attributes = {
-		"attribute1" = "value1"
-	}
-	public_identifier_types = ["address_ethereum"]
-}
-`
-
-var kms_keyStep2 = `
-resource "kaleido_platform_kms_key" "kms_key1" {
-    environment = "env1"
-	service = "service1"
-	wallet = "wallet1_id"
-    name = "kms_key1"
 	path = "some/path"
 	attributes = {
 		"attribute1" = "value1"
 		"attribute2" = "value2"
 	}
 	public_identifier_types = ["address_ethereum"]
+}
+`
+
+// Mutable update only — path/attributes are immutable (RequireRecreate).
+var kms_keyStep2 = `
+resource "kaleido_platform_kms_key" "kms_key1" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "kms_key1_renamed"
+	path = "some/path"
+	attributes = {
+		"attribute1" = "value1"
+		"attribute2" = "value2"
+	}
+	public_identifier_types = ["address_ethereum"]
+}
+`
+
+// Changing an immutable field must fail planning (no automatic replace).
+var kms_keyStepImmutablePath = `
+resource "kaleido_platform_kms_key" "kms_key1" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "kms_key1_renamed"
+	path = "other/path"
+	attributes = {
+		"attribute1" = "value1"
+		"attribute2" = "value2"
+	}
+	public_identifier_types = ["address_ethereum"]
+}
+`
+
+var kms_keyStepImmutablePublicIdentifiers = `
+resource "kaleido_platform_kms_key" "kms_key1" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "kms_key1_renamed"
+	path = "some/path"
+	attributes = {
+		"attribute1" = "value1"
+		"attribute2" = "value2"
+	}
+	public_identifier_types = ["address_ethereum", "address_ethereum_checksum"]
 }
 `
 
@@ -70,6 +105,11 @@ func TestKMSKey1(t *testing.T) {
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
 			"PATCH /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			// ExpectError steps refresh then fail during plan (immutable attrs)
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
@@ -92,9 +132,11 @@ func TestKMSKey1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "id"),
 					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "path", `some/path`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1`),
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "address"),
 					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute1", `value1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute2", `value2`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "public_identifier_types.0", `address_ethereum`),
 				),
 			},
@@ -102,7 +144,7 @@ func TestKMSKey1(t *testing.T) {
 				Config: providerConfig + kms_keyStep2,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "id"),
-					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1_renamed`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "path", `some/path`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1`),
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "address"),
@@ -118,15 +160,14 @@ func TestKMSKey1(t *testing.T) {
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							"name": "kms_key1",
+							"name": "kms_key1_renamed",
 							"path": "some/path",
 							"address": "%[4]s",
 							"uri": "uri/for/kms_key1",
 							"attributes": {
 								"attribute1": "value1",
 								"attribute2": "value2"
-							},
-							"publicIdentifierTypes": ["address_ethereum"]
+							}
 						}
 						`,
 							// generated fields that vary per test run
@@ -139,12 +180,29 @@ func TestKMSKey1(t *testing.T) {
 					},
 				),
 			},
+			{
+				Config:      providerConfig + kms_keyStepImmutablePath,
+				ExpectError: regexp.MustCompile(`Immutable attribute cannot be updated`),
+			},
+			{
+				Config:      providerConfig + kms_keyStepImmutablePublicIdentifiers,
+				ExpectError: regexp.MustCompile(`Immutable attribute cannot be updated`),
+			},
 		},
 	})
 }
 
 func (mp *mockPlatform) getKMSKey(res http.ResponseWriter, req *http.Request) {
 	obj := mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]]
+	if obj == nil {
+		mp.respond(res, nil, 404)
+	} else {
+		mp.respond(res, obj, 200)
+	}
+}
+
+func (mp *mockPlatform) getKMSKeyByID(res http.ResponseWriter, req *http.Request) {
+	obj := mp.kmsKeysByID[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"]]
 	if obj == nil {
 		mp.respond(res, nil, 404)
 	} else {
@@ -160,9 +218,14 @@ func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 	obj.Created = &now
 	obj.Updated = &now
 	obj.Address = nanoid.New()
-	obj.URI = "uri/for/" + obj.Name
+	if obj.URI == "" {
+		obj.URI = "uri/for/" + obj.Name
+	}
 	obj.PublicIdentifierTypes = nil
-	mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+obj.ID] = &obj
+	walletKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["wallet"] + "/" + obj.ID
+	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + obj.ID
+	mp.kmsKeys[walletKey] = &obj
+	mp.kmsKeysByID[idKey] = &obj
 	mp.respond(res, &obj, 201)
 }
 
@@ -173,11 +236,55 @@ func (mp *mockPlatform) patchKMSKey(res http.ResponseWriter, req *http.Request) 
 	mp.getBody(req, &newObj)
 	assert.Equal(mp.t, obj.ID, newObj.ID)            // expected behavior of provider
 	assert.Equal(mp.t, obj.ID, mux.Vars(req)["key"]) // expected behavior of provider
+	assert.Empty(mp.t, newObj.URI, "PATCH must not echo URI; KM rejects name/URI mismatch (KA053006)")
 	now := time.Now().UTC()
 	newObj.Created = obj.Created
 	newObj.Updated = &now
-	newObj.URI = "uri/for/" + newObj.Name
+	newObj.Address = obj.Address
+	newObj.URI = obj.URI // server regenerates; mock keeps prior URI for simplicity
+	if newObj.Path == "" {
+		newObj.Path = obj.Path
+	}
+	if newObj.Attributes == nil {
+		newObj.Attributes = obj.Attributes
+	}
+	if newObj.PublicIdentifierTypes == nil {
+		newObj.PublicIdentifierTypes = obj.PublicIdentifierTypes
+	}
 	mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]] = &newObj
+	mp.kmsKeysByID[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"]] = &newObj
+	mp.respond(res, &newObj, 200)
+}
+
+func (mp *mockPlatform) patchKMSKeyByID(res http.ResponseWriter, req *http.Request) {
+	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["key"]
+	obj := mp.kmsKeysByID[idKey]
+	assert.NotNil(mp.t, obj)
+	var newObj KMSKeyAPIModel
+	mp.getBody(req, &newObj)
+	assert.Equal(mp.t, obj.ID, newObj.ID)
+	assert.Equal(mp.t, obj.ID, mux.Vars(req)["key"])
+	assert.Empty(mp.t, newObj.URI, "PATCH must not echo URI; KM rejects name/URI mismatch (KA053006)")
+	now := time.Now().UTC()
+	newObj.Created = obj.Created
+	newObj.Updated = &now
+	newObj.Address = obj.Address
+	newObj.URI = obj.URI
+	if newObj.Path == "" {
+		newObj.Path = obj.Path
+	}
+	if newObj.Attributes == nil {
+		newObj.Attributes = obj.Attributes
+	}
+	if newObj.PublicIdentifierTypes == nil {
+		newObj.PublicIdentifierTypes = obj.PublicIdentifierTypes
+	}
+	mp.kmsKeysByID[idKey] = &newObj
+	for k, v := range mp.kmsKeys {
+		if v.ID == obj.ID {
+			mp.kmsKeys[k] = &newObj
+		}
+	}
 	mp.respond(res, &newObj, 200)
 }
 
@@ -185,5 +292,103 @@ func (mp *mockPlatform) deleteKMSKey(res http.ResponseWriter, req *http.Request)
 	obj := mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]]
 	assert.NotNil(mp.t, obj)
 	delete(mp.kmsKeys, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"])
+	delete(mp.kmsKeysByID, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"])
 	mp.respond(res, nil, 204)
+}
+
+func (mp *mockPlatform) deleteKMSKeyByID(res http.ResponseWriter, req *http.Request) {
+	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["key"]
+	obj := mp.kmsKeysByID[idKey]
+	assert.NotNil(mp.t, obj)
+	delete(mp.kmsKeysByID, idKey)
+	for k, v := range mp.kmsKeys {
+		if v.ID == obj.ID {
+			delete(mp.kmsKeys, k)
+		}
+	}
+	mp.respond(res, nil, 204)
+}
+
+var kms_keyFolderStep = `
+resource "kaleido_platform_kms_key" "kms_key_folder" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "folder_key"
+	folder_path = "keys/folder"
+	public_identifier_types = ["address_ethereum"]
+}
+`
+
+var kms_keyFolderStepRename = `
+resource "kaleido_platform_kms_key" "kms_key_folder" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "folder_key_renamed"
+	folder_path = "keys/folder"
+	public_identifier_types = ["address_ethereum"]
+}
+`
+
+func TestKMSKeyFolderUpdateAndDelete(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			// Create
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"PUT /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys",
+			// Read refresh after create (wallet-scoped — 404 preserved for folder keys)
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			// Plan refresh before update
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			// Update via global by-ID path
+			"GET /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
+			// Read refresh after update
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			// Delete via global by-ID path + waitForRemoval on same path
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
+		})
+		mp.server.Close()
+	}()
+
+	mp.kmsWallets["env1/service1/wallet1_id"] = &KMSWalletAPIModel{Name: "wallet1"}
+
+	resourceName := "kaleido_platform_kms_key.kms_key_folder"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + kms_keyFolderStep,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "folder_path", "keys/folder"),
+					resource.TestCheckResourceAttr(resourceName, "name", "folder_key"),
+				),
+			},
+			{
+				Config: providerConfig + kms_keyFolderStepRename,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "folder_path", "keys/folder"),
+					resource.TestCheckResourceAttr(resourceName, "name", "folder_key_renamed"),
+					func(s *terraform.State) error {
+						id := s.RootModule().Resources[resourceName].Primary.Attributes["id"]
+						obj := mp.kmsKeysByID[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						assert.Equal(t, "folder_key_renamed", obj.Name)
+						return nil
+					},
+				),
+			},
+		},
+	})
+
+	assert.Empty(t, mp.kmsKeysByID, "folder key should be deleted via global /keys/{id} path")
 }

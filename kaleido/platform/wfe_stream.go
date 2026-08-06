@@ -254,8 +254,17 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 		data.Description = types.StringValue(api.Description)
 	}
 
-	// Extract transform fields
-	if api.Transform != nil {
+	// Extract transform fields. The API returns an (empty) transform object even when
+	// none was configured; materializing it as a non-null object with all-null fields
+	// makes the state inconsistent with a config that omits `transform` ("Provider
+	// produced inconsistent result after apply"). Treat an all-empty transform as absent.
+	transformEmpty := api.Transform == nil ||
+		(api.Transform.UniquenessPrefix == "" &&
+			(api.Transform.Filter == nil || api.Transform.Filter.JSONata == "") &&
+			(api.Transform.Mapping == nil || api.Transform.Mapping.JSONata == ""))
+	if transformEmpty {
+		data.Transform = nil
+	} else {
 		if data.Transform == nil {
 			data.Transform = &WFEStreamTransformResourceModel{}
 		}
@@ -277,9 +286,6 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 		} else {
 			data.Transform.MappingJSONata = types.StringNull()
 		}
-	} else if data.Transform != nil {
-		// API returned no transform, but we had one — clear it
-		data.Transform = nil
 	}
 
 	// EventSource: extract type and type-specific content from nested structure

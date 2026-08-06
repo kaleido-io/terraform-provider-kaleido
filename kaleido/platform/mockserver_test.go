@@ -47,6 +47,7 @@ type mockPlatform struct {
 	arsNamespaces               map[string]*ARSNamespaceAPIModel
 	arsFiles                    map[string]*ARSFileArtifactAPIModel
 	kmsKeys                     map[string]*KMSKeyAPIModel
+	kmsKeysByID                 map[string]*KMSKeyAPIModel // env/service/id for global /keys/{id}
 	cmsBuilds                   map[string]*CMSBuildAPIModel
 	cmsActions                  map[string]CMSActionAPIBaseAccessor
 	amsTasks                    map[string]*AMSTaskAPIModel
@@ -83,6 +84,7 @@ type mockPlatform struct {
 	wfeStreamFactories          map[string]*WFEStreamFactoryAPIModel
 	fireflyContractListeners    map[string]*FireFlyContractListenerAPIModel
 	fireflySubscriptions        map[string]*FireFlySubscriptionAPIModel
+	connectorFlowConfigBindings map[string]*ConnectorFlowConfigBindingAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -99,6 +101,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		arsNamespaces:               make(map[string]*ARSNamespaceAPIModel),
 		arsFiles:                    make(map[string]*ARSFileArtifactAPIModel),
 		kmsKeys:                     make(map[string]*KMSKeyAPIModel),
+		kmsKeysByID:                 make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:                   make(map[string]*CMSBuildAPIModel),
 		cmsActions:                  make(map[string]CMSActionAPIBaseAccessor),
 		amsTasks:                    make(map[string]*AMSTaskAPIModel),
@@ -194,6 +197,10 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodGet, mp.getKMSKey)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodPatch, mp.patchKMSKey)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodDelete, mp.deleteKMSKey)
+	// Global by-ID routes used for folder-key delete confirmation
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodGet, mp.getKMSKeyByID)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodPatch, mp.patchKMSKeyByID)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodDelete, mp.deleteKMSKeyByID)
 
 	// See cms_build.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds", http.MethodPost, mp.postCMSBuild)
@@ -358,6 +365,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/account-access/policies", http.MethodPost, mp.postAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodGet, mp.getAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodDelete, mp.deleteAccountAccessPolicy)
+
+	// See connector_flow_config_binding_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings", http.MethodGet, mp.listConnectorFlowConfigBindings)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}", http.MethodGet, mp.getConnectorFlowConfigBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}", http.MethodPatch, mp.patchConnectorFlowConfigBinding)
 
 	mp.server = httptest.NewServer(mp.router)
 	return mp
