@@ -59,4 +59,4 @@ Optional:
 
 - `name` (String) Name of the notification method
 - `type` (String) Type of the notification method
-- `value` (String) The type-specific configuration of the notification method, as a JSON string (use jsonencode); the provider sends it to the API as a JSON object
+- `value_json` (String) The type-specific configuration of the notification method, as a JSON string (use jsonencode)

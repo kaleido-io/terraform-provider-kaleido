@@ -102,7 +102,7 @@ resource "kaleido_platform_pms_identity" "notify_identity" {
     {
       name = "notify-workflow"
       type = "workflow"
-      value = jsonencode({
+      value_json = jsonencode({
         workflow  = "test-workflow"
         operation = "test-operation"
       })
@@ -139,10 +139,10 @@ func TestPMSIdentityNotificationMethodValue(t *testing.T) {
 						id := s.RootModule().Resources[pms_identity_resource].Primary.Attributes["id"]
 						obj := mp.policyIdentities[id]
 						assert.Len(t, obj.NotificationMethod, 1)
-						assert.Equal(t, map[string]interface{}{
+						assert.JSONEq(t, `{
 							"workflow":  "test-workflow",
-							"operation": "test-operation",
-						}, obj.NotificationMethod[0].Value)
+							"operation": "test-operation"
+						}`, string(obj.NotificationMethod[0].Value))
 						return nil
 					},
 				),

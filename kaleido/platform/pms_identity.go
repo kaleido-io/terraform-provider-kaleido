@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -67,12 +66,9 @@ type AssertionMethod struct {
 }
 
 type NotificationMethod struct {
-	Name string `json:"name,omitempty"`
-	Type string `json:"type,omitempty"`
-	// The API models the type-specific notification configuration as an object, so the
-	// JSON string held in the `value` attribute is parsed on the way out and re-rendered
-	// on the way back in - the same treatment `eventSource` gets in kaleido_platform_wfe_stream
-	Value map[string]interface{} `json:"value,omitempty"`
+	Name  string          `json:"name,omitempty"`
+	Type  string          `json:"type,omitempty"`
+	Value json.RawMessage `json:"value,omitempty"` // we don't model the value, just translate it to/from JSON
 }
 
 func PMSIdentityResourceFactory() resource.Resource {
@@ -190,9 +186,9 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 							Description:   "Type of the notification method",
 							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
-						"value": &schema.StringAttribute{
+						"value_json": &schema.StringAttribute{
 							Optional:      true,
-							Description:   "The type-specific configuration of the notification method, as a JSON string (use jsonencode); the provider sends it to the API as a JSON object",
+							Description:   "The type-specific configuration of the notification method, as a JSON string (use jsonencode)",
 							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 					},
@@ -334,13 +330,10 @@ func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *P
 				if val, ok := attrs["type"]; ok && !val.IsNull() {
 					nm.Type = val.(types.String).ValueString()
 				}
-				if val, ok := attrs["value"]; ok && !val.IsNull() {
+				if val, ok := attrs["value_json"]; ok && !val.IsNull() {
 					valueJSON := val.(types.String).ValueString()
 					if valueJSON != "" {
-						if err := json.Unmarshal([]byte(valueJSON), &nm.Value); err != nil {
-							diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse notification method value JSON: %v", err))
-							return
-						}
+						nm.Value = json.RawMessage(valueJSON)
 					}
 				}
 				notificationMethods = append(notificationMethods, nm)
@@ -348,63 +341,6 @@ func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *P
 		}
 		api.NotificationMethod = notificationMethods
 	}
-}
-
-// priorNotificationMethodValues returns the `value` JSON strings already held in the plan
-// or state, indexed by position in the list, so that a value the API has not actually
-// changed can be echoed back exactly as it was defined
-func priorNotificationMethodValues(data *PolicyIdentityResourceModel) []types.String {
-	if data.NotificationMethod.IsNull() || data.NotificationMethod.IsUnknown() {
-		return nil
-	}
-	elements := data.NotificationMethod.Elements()
-	values := make([]types.String, len(elements))
-	for i, item := range elements {
-		obj, ok := item.(types.Object)
-		if !ok {
-			continue
-		}
-		if val, ok := obj.Attributes()["value"]; ok {
-			if str, ok := val.(types.String); ok {
-				values[i] = str
-			}
-		}
-	}
-	return values
-}
-
-// notificationMethodValueToData renders the object the API returned back into the JSON
-// string held by the `value` attribute. The prior value is kept whenever it describes the
-// same object, because re-marshalling reorders keys and drops whitespace - which would
-// otherwise show up as a permanent diff, or as "Provider produced inconsistent result
-// after apply" for a configuration that did not happen to be written in canonical form.
-func notificationMethodValueToData(apiValue map[string]interface{}, prior types.String) (types.String, error) {
-	if !prior.IsNull() && !prior.IsUnknown() && jsonObjectEquivalent(prior.ValueString(), apiValue) {
-		return prior, nil
-	}
-	if len(apiValue) == 0 {
-		return types.StringNull(), nil
-	}
-	valueBytes, err := json.Marshal(apiValue)
-	if err != nil {
-		return types.StringNull(), err
-	}
-	return types.StringValue(string(valueBytes)), nil
-}
-
-// jsonObjectEquivalent reports whether a JSON string describes the same object as the one
-// the API returned, treating an absent object and an empty one as the same thing
-func jsonObjectEquivalent(priorJSON string, apiValue map[string]interface{}) bool {
-	var priorValue map[string]interface{}
-	if priorJSON != "" {
-		if err := json.Unmarshal([]byte(priorJSON), &priorValue); err != nil {
-			return false
-		}
-	}
-	if len(priorValue) == 0 && len(apiValue) == 0 {
-		return true
-	}
-	return reflect.DeepEqual(priorValue, apiValue)
 }
 
 func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *PolicyIdentityResourceModel, diagnostics *diag.Diagnostics) {
@@ -505,47 +441,41 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 		})
 	}
 
-	// Convert notification methods
+	// Convert notification methods from API
 	if len(api.NotificationMethod) > 0 {
-		priorValues := priorNotificationMethodValues(data)
-		var notificationMethods []attr.Value
+		notificationMethods := make([]attr.Value, len(api.NotificationMethod))
 		for i, nm := range api.NotificationMethod {
-			var prior types.String
-			if i < len(priorValues) {
-				prior = priorValues[i]
-			}
-			value, err := notificationMethodValueToData(nm.Value, prior)
-			if err != nil {
-				diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal notification method value: %v", err))
-				return
+			var jsonValue string
+			if nm.Value != nil {
+				jsonValue = string(nm.Value)
 			}
 			attrs := map[string]attr.Value{
-				"name":  types.StringValue(nm.Name),
-				"type":  types.StringValue(nm.Type),
-				"value": value,
+				"name":       types.StringValue(nm.Name),
+				"type":       types.StringValue(nm.Type),
+				"value_json": types.StringValue(jsonValue),
 			}
 
 			obj, _ := types.ObjectValue(map[string]attr.Type{
-				"name":  types.StringType,
-				"type":  types.StringType,
-				"value": types.StringType,
+				"name":       types.StringType,
+				"type":       types.StringType,
+				"value_json": types.StringType,
 			}, attrs)
 
-			notificationMethods = append(notificationMethods, obj)
+			notificationMethods[i] = obj
 		}
 		data.NotificationMethod = types.ListValueMust(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"name":  types.StringType,
-				"type":  types.StringType,
-				"value": types.StringType,
+				"name":       types.StringType,
+				"type":       types.StringType,
+				"value_json": types.StringType,
 			},
 		}, notificationMethods)
 	} else {
 		data.NotificationMethod = types.ListNull(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"name":  types.StringType,
-				"type":  types.StringType,
-				"value": types.StringType,
+				"name":       types.StringType,
+				"type":       types.StringType,
+				"value_json": types.StringType,
 			},
 		})
 	}
