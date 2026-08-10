@@ -48,7 +48,7 @@ resource "kaleido_platform_pms_identity" "test_identity" {
     {
       name = "test-notification-method"
       type = "workflow"
-      value = "{\"workflow\": \"test-workflow\", \"operation\": \"test-operation\"}"
+      value_json = "{\"workflow\":\"test-workflow\",\"operation\":\"test-operation\"}"
     }
   ]
 }
@@ -86,7 +86,7 @@ func TestPMSIdentity1(t *testing.T) {
 					resource.TestCheckResourceAttr(pms_identity_resource, "assertion_method.0.signing_method", "local"),
 					resource.TestCheckResourceAttr(pms_identity_resource, "notification_method.0.name", "test-notification-method"),
 					resource.TestCheckResourceAttr(pms_identity_resource, "notification_method.0.type", "workflow"),
-					resource.TestCheckResourceAttr(pms_identity_resource, "notification_method.0.value", "{\"workflow\": \"test-workflow\", \"operation\": \"test-operation\"}"),
+					resource.TestCheckResourceAttr(pms_identity_resource, "notification_method.0.value_json", "{\"workflow\":\"test-workflow\",\"operation\":\"test-operation\"}"),
 				),
 			},
 		},

@@ -445,14 +445,14 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 	if len(api.NotificationMethod) > 0 {
 		notificationMethods := make([]attr.Value, len(api.NotificationMethod))
 		for i, nm := range api.NotificationMethod {
-			var jsonValue string
+			valueJSON := types.StringNull()
 			if nm.Value != nil {
-				jsonValue = string(nm.Value)
+				valueJSON = types.StringValue(string(nm.Value))
 			}
 			attrs := map[string]attr.Value{
 				"name":       types.StringValue(nm.Name),
 				"type":       types.StringValue(nm.Type),
-				"value_json": types.StringValue(jsonValue),
+				"value_json": valueJSON,
 			}
 
 			obj, _ := types.ObjectValue(map[string]attr.Type{
