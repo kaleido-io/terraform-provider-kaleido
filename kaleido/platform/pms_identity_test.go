@@ -14,6 +14,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
 
 	_ "embed"
@@ -91,9 +93,93 @@ func TestPMSIdentity1(t *testing.T) {
 	})
 }
 
+var pms_identity_notification_value = `
+resource "kaleido_platform_pms_identity" "notify_identity" {
+  environment = "test-env"
+  service = "test-service"
+  name = "notify-identity"
+  notification_method = [
+    {
+      name = "notify-workflow"
+      type = "workflow"
+      value = jsonencode({
+        workflow  = "test-workflow"
+        operation = "test-operation"
+      })
+    }
+  ]
+}
+`
+
+func TestPMSIdentityNotificationMethodValue(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v1/identities",
+			"GET /endpoint/{env}/{service}/rest/api/v1/identities/{identity}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/identities/{identity}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/identities/{identity}",
+		})
+		mp.server.Close()
+	}()
+
+	pms_identity_resource := "kaleido_platform_pms_identity.notify_identity"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + pms_identity_notification_value,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(pms_identity_resource, "notification_method.0.name", "notify-workflow"),
+					resource.TestCheckResourceAttr(pms_identity_resource, "notification_method.0.type", "workflow"),
+					func(s *terraform.State) error {
+						// The value must have been stored server-side as a structured object,
+						// not as a string containing JSON
+						id := s.RootModule().Resources[pms_identity_resource].Primary.Attributes["id"]
+						obj := mp.policyIdentities[id]
+						assert.Len(t, obj.NotificationMethod, 1)
+						assert.Equal(t, map[string]interface{}{
+							"workflow":  "test-workflow",
+							"operation": "test-operation",
+						}, obj.NotificationMethod[0].Value)
+						return nil
+					},
+				),
+			},
+			{
+				// Re-planning against the value the API returns must produce no diff
+				Config:             providerConfig + pms_identity_notification_value,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+// assertNotificationMethodValuesAreObjects fails the test if a notification method value
+// reaches the API as a JSON string rather than as a JSON object
+func (mp *mockPlatform) assertNotificationMethodValuesAreObjects(rawBody []byte) {
+	var wire struct {
+		NotificationMethod []struct {
+			Value json.RawMessage `json:"value"`
+		} `json:"notificationMethod"`
+	}
+	err := json.Unmarshal(rawBody, &wire)
+	assert.NoError(mp.t, err)
+	for _, nm := range wire.NotificationMethod {
+		if len(nm.Value) == 0 {
+			continue
+		}
+		assert.Equal(mp.t, uint8('{'), nm.Value[0],
+			"notificationMethod value must be sent as a JSON object, got: %s", nm.Value)
+	}
+}
+
 func (mp *mockPlatform) postPolicyIdentity(res http.ResponseWriter, req *http.Request) {
 	var obj PolicyIdentityAPIModel
-	mp.getBody(req, &obj)
+	rawBody := mp.peekBody(req, &obj)
+	mp.assertNotificationMethodValuesAreObjects(rawBody)
 	obj.ID = nanoid.New()
 	now := time.Now().UTC()
 	obj.Created = &now
