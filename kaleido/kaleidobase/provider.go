@@ -24,6 +24,7 @@ import (
 
 type kaleidoProvider struct {
 	version     string
+	commit      string
 	resources   []func() resource.Resource
 	datasources []func() datasource.DataSource
 }
@@ -76,7 +77,7 @@ func (p *kaleidoProvider) Configure(ctx context.Context, req provider.ConfigureR
 	var data ProviderModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
-	pd := NewProviderData(ctx, &data)
+	pd := NewProviderData(ctx, &data, p.version, p.commit)
 	resp.DataSourceData = pd
 	resp.ResourceData = pd
 }
@@ -91,9 +92,10 @@ func (p *kaleidoProvider) Resources(_ context.Context) []func() resource.Resourc
 	return p.resources
 }
 
-func New(version string, resources []func() resource.Resource, datasources []func() datasource.DataSource) provider.Provider {
+func New(version, commit string, resources []func() resource.Resource, datasources []func() datasource.DataSource) provider.Provider {
 	return &kaleidoProvider{
 		version:     version,
+		commit:      commit,
 		resources:   resources,
 		datasources: datasources,
 	}

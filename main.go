@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	// TODO: To be overwritten by a release process
+	// Overwritten at release time by goreleaser via ldflags (see .goreleaser.yml)
 	version string = "dev"
+	commit  string = ""
 )
 
 func main() {
@@ -34,7 +35,7 @@ func main() {
 		//Debug:           true,
 	}
 
-	err := providerserver.Serve(context.Background(), kaleido.New(version), opts)
+	err := providerserver.Serve(context.Background(), kaleido.New(version, commit), opts)
 
 	if err != nil {
 		log.Fatal(err.Error())
