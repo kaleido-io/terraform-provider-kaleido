@@ -40,13 +40,14 @@ func (d *baasBaseDatasource) Configure(_ context.Context, req datasource.Configu
 }
 
 func newTestProviderData() *kaleidobase.ProviderData {
-	return kaleidobase.NewProviderData(context.Background(), &kaleidobase.ProviderModel{})
+	return kaleidobase.NewProviderData(context.Background(), &kaleidobase.ProviderModel{}, "dev", "")
 }
 
-func New(version string) func() provider.Provider {
+func New(version, commit string) func() provider.Provider {
 	return func() provider.Provider {
 		return kaleidobase.New(
 			version,
+			commit,
 			append([]func() resource.Resource{
 				ResourceConsortiumFactory,
 				ResourceEnvironmentFactory,

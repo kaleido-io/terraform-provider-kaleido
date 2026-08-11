@@ -41,6 +41,7 @@ provider "kaleido" {
 func init() {
 	kaleidoProvider := kaleidobase.New(
 		"0.0.1-unittest",
+		"",
 		Resources(),
 		DataSources(),
 	)
