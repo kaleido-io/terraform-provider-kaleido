@@ -15,10 +15,12 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -64,9 +66,9 @@ type AssertionMethod struct {
 }
 
 type NotificationMethod struct {
-	Name  string `json:"name,omitempty"`
-	Type  string `json:"type,omitempty"`
-	Value string `json:"value,omitempty"`
+	Name  string          `json:"name,omitempty"`
+	Type  string          `json:"type,omitempty"`
+	Value json.RawMessage `json:"value,omitempty"` // we don't model the value, just translate it to/from JSON
 }
 
 func PMSIdentityResourceFactory() resource.Resource {
@@ -184,9 +186,9 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 							Description:   "Type of the notification method",
 							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
-						"value": &schema.StringAttribute{
+						"value_json": &schema.StringAttribute{
 							Optional:      true,
-							Description:   "Value of the notification method as JSON string",
+							Description:   "The type-specific configuration of the notification method, as a JSON string (use jsonencode)",
 							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 						},
 					},
@@ -219,13 +221,19 @@ func (r *policyIdentityResource) Create(ctx context.Context, req resource.Create
 	}
 
 	var api PolicyIdentityAPIModel
-	r.toAPI(&data, &api)
+	r.toAPI(&data, &api, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	ok, _ := r.apiRequest(ctx, "POST", r.apiPath(&data), api, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	r.toData(&api, &data)
+	r.toData(&api, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -245,7 +253,10 @@ func (r *policyIdentityResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	r.toData(&api, &data)
+	r.toData(&api, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -267,7 +278,7 @@ func (r *policyIdentityResource) Delete(ctx context.Context, req resource.Delete
 	_, _ = r.apiRequest(ctx, "DELETE", r.apiPath(&data), nil, nil, &resp.Diagnostics)
 }
 
-func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *PolicyIdentityAPIModel) {
+func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *PolicyIdentityAPIModel, diagnostics *diag.Diagnostics) {
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
 	api.Owner = data.Owner.ValueString()
@@ -319,8 +330,11 @@ func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *P
 				if val, ok := attrs["type"]; ok && !val.IsNull() {
 					nm.Type = val.(types.String).ValueString()
 				}
-				if val, ok := attrs["value"]; ok && !val.IsNull() {
-					nm.Value = val.(types.String).ValueString()
+				if val, ok := attrs["value_json"]; ok && !val.IsNull() {
+					valueJSON := val.(types.String).ValueString()
+					if valueJSON != "" {
+						nm.Value = json.RawMessage(valueJSON)
+					}
 				}
 				notificationMethods = append(notificationMethods, nm)
 			}
@@ -329,7 +343,7 @@ func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *P
 	}
 }
 
-func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *PolicyIdentityResourceModel) {
+func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *PolicyIdentityResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	// Note: environment and service are not returned by the API, they remain as set in the resource
@@ -427,37 +441,41 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 		})
 	}
 
-	// Convert notification methods
+	// Convert notification methods from API
 	if len(api.NotificationMethod) > 0 {
-		var notificationMethods []attr.Value
-		for _, nm := range api.NotificationMethod {
+		notificationMethods := make([]attr.Value, len(api.NotificationMethod))
+		for i, nm := range api.NotificationMethod {
+			valueJSON := types.StringNull()
+			if nm.Value != nil {
+				valueJSON = types.StringValue(string(nm.Value))
+			}
 			attrs := map[string]attr.Value{
-				"name":  types.StringValue(nm.Name),
-				"type":  types.StringValue(nm.Type),
-				"value": types.StringValue(nm.Value),
+				"name":       types.StringValue(nm.Name),
+				"type":       types.StringValue(nm.Type),
+				"value_json": valueJSON,
 			}
 
 			obj, _ := types.ObjectValue(map[string]attr.Type{
-				"name":  types.StringType,
-				"type":  types.StringType,
-				"value": types.StringType,
+				"name":       types.StringType,
+				"type":       types.StringType,
+				"value_json": types.StringType,
 			}, attrs)
 
-			notificationMethods = append(notificationMethods, obj)
+			notificationMethods[i] = obj
 		}
 		data.NotificationMethod = types.ListValueMust(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"name":  types.StringType,
-				"type":  types.StringType,
-				"value": types.StringType,
+				"name":       types.StringType,
+				"type":       types.StringType,
+				"value_json": types.StringType,
 			},
 		}, notificationMethods)
 	} else {
 		data.NotificationMethod = types.ListNull(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"name":  types.StringType,
-				"type":  types.StringType,
-				"value": types.StringType,
+				"name":       types.StringType,
+				"type":       types.StringType,
+				"value_json": types.StringType,
 			},
 		})
 	}

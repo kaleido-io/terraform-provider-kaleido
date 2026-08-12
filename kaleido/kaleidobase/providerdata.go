@@ -31,7 +31,20 @@ import (
 	kaleido "github.com/kaleido-io/kaleido-sdk-go/kaleido"
 )
 
-const version = "v1.2.0"
+// buildUserAgent constructs the User-Agent header for API diagnostics from the
+// version and commit injected at release time via ldflags (see .goreleaser.yml).
+func buildUserAgent(version, commit, api string) string {
+	if version == "" {
+		version = "dev"
+	}
+	if len(commit) > 8 {
+		commit = commit[:8]
+	}
+	if commit != "" {
+		version = fmt.Sprintf("%s+%s", version, commit)
+	}
+	return fmt.Sprintf("Terraform / %s (%s)", version, api)
+}
 
 type ProviderData struct {
 	BaaS     *kaleido.KaleidoClient
@@ -66,7 +79,7 @@ func ConfigureProviderData(providerData any, diagnostics *diag.Diagnostics) *Pro
 	return kaleidoProviderData
 }
 
-func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData {
+func NewProviderData(logCtx context.Context, conf *ProviderModel, version, commit string) *ProviderData {
 
 	baasAPI := conf.API.ValueString()
 	if baasAPI == "" {
@@ -80,7 +93,7 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 		SetTransport(http.DefaultTransport).
 		SetBaseURL(baasAPI).
 		SetAuthToken(baasAPIKey).
-		SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (BaaS)", version))
+		SetHeader("User-Agent", buildUserAgent(version, commit, "BaaS"))
 	AddRestyLogging(logCtx, r)
 	baas := &kaleido.KaleidoClient{Client: r}
 
@@ -115,7 +128,7 @@ func NewProviderData(logCtx context.Context, conf *ProviderModel) *ProviderData 
 	}
 	platform := resty.New().
 		SetTransport(platformHttp).
-		SetHeader("User-Agent", fmt.Sprintf("Terraform / %s (Platform)", version)).
+		SetHeader("User-Agent", buildUserAgent(version, commit, "Platform")).
 		AddRetryCondition(func(r *resty.Response, err error) bool {
 			if err != nil {
 				return false
