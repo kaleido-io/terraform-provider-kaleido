@@ -103,7 +103,7 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:      true,
 				Default:       booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplaceIfConfigured()},
-				Description:   "Default true. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.",
+				Description:   "Default false. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.",
 			},
 			"oauth": &schema.SingleNestedAttribute{
 				Optional: true,
@@ -166,6 +166,9 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
 	if data.OAuth != nil {
 		api.OAuth = &ApplicationOAuthAPIModel{}
+		if !data.OAuth.EnableBasicAuth.IsNull() {
+			api.OAuth.EnableBasicAuth = data.OAuth.EnableBasicAuth.ValueBoolPointer()
+		}
 		if !data.OAuth.OIDCConfigURL.IsNull() {
 			api.OAuth.OIDCConfigURL = data.OAuth.OIDCConfigURL.ValueString()
 		} else {
@@ -187,9 +190,6 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 			if !data.OAuth.Audience.IsNull() {
 				api.OAuth.Audience = data.OAuth.Audience.ValueString()
 			}
-			if !data.OAuth.EnableBasicAuth.IsNull() {
-				api.OAuth.EnableBasicAuth = data.OAuth.EnableBasicAuth.ValueBoolPointer()
-			}
 		}
 	}
 
@@ -204,6 +204,9 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	}
 	if api.OAuth != nil {
 		data.OAuth = &ApplicationOAuthResourceModel{}
+		if api.OAuth.EnableBasicAuth != nil {
+			data.OAuth.EnableBasicAuth = types.BoolValue(*api.OAuth.EnableBasicAuth)
+		}
 		if api.OAuth.OIDCConfigURL != "" {
 			data.OAuth.OIDCConfigURL = types.StringValue(api.OAuth.OIDCConfigURL)
 		} else {
@@ -224,9 +227,6 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 			}
 			if api.OAuth.Audience != "" {
 				data.OAuth.Audience = types.StringValue(api.OAuth.Audience)
-			}
-			if api.OAuth.EnableBasicAuth != nil {
-				data.OAuth.EnableBasicAuth = types.BoolValue(*api.OAuth.EnableBasicAuth)
 			}
 		}
 	}
