@@ -56,6 +56,7 @@ type ApplicationOAuthAPIModel struct {
 	AuthorizedParty string `json:"azp,omitempty"`
 	OIDCConfigURL   string `json:"oidcConfigURL,omitempty"`
 	CACertificate   string `json:"caCertificate,omitempty"`
+	EnableBasicAuth *bool  `json:"enableBasicAuth,omitempty"`
 }
 
 type ApplicationOAuthResourceModel struct {
@@ -66,6 +67,7 @@ type ApplicationOAuthResourceModel struct {
 	AuthorizedParty types.String `tfsdk:"azp"`
 	OIDCConfigURL   types.String `tfsdk:"oidc_config_url"`
 	CACertificate   types.String `tfsdk:"ca_certificate"`
+	EnableBasicAuth types.Bool   `tfsdk:"enable_basic_auth"`
 }
 
 func ApplicationResourceFactory() resource.Resource {
@@ -135,17 +137,21 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 						Optional:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
+					"enable_basic_auth": &schema.BoolAttribute{
+						Optional: true,
+					},
 				},
 				Default: objectdefault.StaticValue(
 					types.ObjectNull(
 						map[string]attr.Type{
-							"aud":             types.StringType,
-							"azp":             types.StringType,
-							"ca_certificate":  types.StringType,
-							"issuer":          types.StringType,
-							"jwks":            types.StringType,
-							"jwks_endpoint":   types.StringType,
-							"oidc_config_url": types.StringType,
+							"aud":               types.StringType,
+							"azp":               types.StringType,
+							"ca_certificate":    types.StringType,
+							"issuer":            types.StringType,
+							"jwks":              types.StringType,
+							"jwks_endpoint":     types.StringType,
+							"oidc_config_url":   types.StringType,
+							"enable_basic_auth": types.BoolType,
 						},
 					),
 				),
@@ -181,6 +187,9 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 			if !data.OAuth.Audience.IsNull() {
 				api.OAuth.Audience = data.OAuth.Audience.ValueString()
 			}
+			if !data.OAuth.EnableBasicAuth.IsNull() {
+				api.OAuth.EnableBasicAuth = data.OAuth.EnableBasicAuth.ValueBoolPointer()
+			}
 		}
 	}
 
@@ -215,6 +224,9 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 			}
 			if api.OAuth.Audience != "" {
 				data.OAuth.Audience = types.StringValue(api.OAuth.Audience)
+			}
+			if api.OAuth.EnableBasicAuth != nil {
+				data.OAuth.EnableBasicAuth = types.BoolValue(*api.OAuth.EnableBasicAuth)
 			}
 		}
 	}
