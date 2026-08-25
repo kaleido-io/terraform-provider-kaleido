@@ -119,26 +119,17 @@ func TestEnvironmentUpgradeAvailableDetail(t *testing.T) {
 	assert.Contains(t, detail, `Set version = "26.2.0" to upgrade it`)
 	assert.NotContains(t, detail, "migrations")
 
+	// Migrations apply, so the warning must not imply that moving the version
+	// here is enough - the platform rejects the update either way
 	detail = upgradeAvailableDetail(state, &VersionIdentifierAPIModel{
 		Version: "26.2.0",
 		Migrations: []VersionMigrationAPIModel{
-			{Summary: "besu fast sync resync", Required: true, Overridable: true},
-			{Summary: "chain data reindex", Required: true, Overridable: true},
+			{Summary: "besu fast sync resync", Required: true},
+			{Summary: "chain data reindex", Required: true},
 		},
 	})
-	assert.Contains(t, detail, "requires migrations that apply to this environment (besu fast sync resync; chain data reindex)")
-	assert.Contains(t, detail, "rejects the upgrade until it is confirmed")
-	assert.Contains(t, detail, `setting version = "26.2.0" here on its own is rejected`)
-
-	// Not overridable: no amount of confirming gets this through
-	detail = upgradeAvailableDetail(state, &VersionIdentifierAPIModel{
-		Version: "26.2.0",
-		Migrations: []VersionMigrationAPIModel{
-			{Summary: "storage format change"},
-		},
-	})
-	assert.Contains(t, detail, "It cannot be applied yet: migrations that cannot be overridden apply to this environment (storage format change)")
-	assert.NotContains(t, detail, "until it is confirmed")
+	assert.Contains(t, detail, `Setting version = "26.2.0" is rejected while migrations apply to this environment (besu fast sync resync; chain data reindex)`)
+	assert.NotContains(t, detail, "to upgrade it")
 
 	// An environment created before versions were tracked has no version in state
 	detail = upgradeAvailableDetail(&EnvironmentResourceModel{

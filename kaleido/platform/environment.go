@@ -175,26 +175,19 @@ func upgradeAvailableDetail(state *EnvironmentResourceModel, latest *VersionIden
 	detail := fmt.Sprintf("Environment %q is running %s, and version %s is available.",
 		state.Name.ValueString(), currentVersion, latest.Version)
 
-	migrations := ""
-	if summaries := latest.migrationSummaries(); len(summaries) > 0 {
-		migrations = fmt.Sprintf(" (%s)", strings.Join(summaries, "; "))
+	if latest.blocksUpgrade() {
+		migrations := ""
+		if summaries := latest.migrationSummaries(); len(summaries) > 0 {
+			migrations = fmt.Sprintf(" (%s)", strings.Join(summaries, "; "))
+		}
+		return detail + fmt.Sprintf(
+			" Setting version = %q is rejected while migrations apply to this environment%s. Deal with those against the platform API or UI first, then bring the version forward here.",
+			latest.Version, migrations)
 	}
 
-	switch {
-	case latest.blocksUpgrade():
-		detail += fmt.Sprintf(
-			" It cannot be applied yet: migrations that cannot be overridden apply to this environment%s. Change the environment so that they no longer apply, then set version = %q.",
-			migrations, latest.Version)
-	case latest.requiresConfirmation():
-		detail += fmt.Sprintf(
-			" It requires migrations that apply to this environment%s, so the platform rejects the upgrade until it is confirmed. Confirm it against the platform API or UI - setting version = %q here on its own is rejected.",
-			migrations, latest.Version)
-	default:
-		detail += fmt.Sprintf(
-			" Set version = %q to upgrade it, or leave the configuration as it is to stay on the current version.",
-			latest.Version)
-	}
-	return detail
+	return detail + fmt.Sprintf(
+		" Set version = %q to upgrade it, or leave the configuration as it is to stay on the current version.",
+		latest.Version)
 }
 
 func (r *environmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

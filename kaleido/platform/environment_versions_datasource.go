@@ -32,11 +32,10 @@ type EnvironmentVersionsDatasourceModel struct {
 }
 
 type EnvironmentAvailableVersionModel struct {
-	Version              types.String                `tfsdk:"version"`
-	Tag                  types.String                `tfsdk:"tag"`
-	BlocksUpgrade        types.Bool                  `tfsdk:"blocks_upgrade"`
-	RequiresConfirmation types.Bool                  `tfsdk:"requires_confirmation"`
-	Migrations           []EnvironmentMigrationModel `tfsdk:"migrations"`
+	Version       types.String                `tfsdk:"version"`
+	Tag           types.String                `tfsdk:"tag"`
+	BlocksUpgrade types.Bool                  `tfsdk:"blocks_upgrade"`
+	Migrations    []EnvironmentMigrationModel `tfsdk:"migrations"`
 }
 
 type EnvironmentMigrationModel struct {
@@ -87,21 +86,12 @@ func (api *EnvironmentVersionsAPIModel) latest() *VersionIdentifierAPIModel {
 	return &VersionIdentifierAPIModel{Version: api.EnvironmentVersions.LatestVersion}
 }
 
+// blocksUpgrade reports whether setting this version on the environment will be
+// rejected. Migrations returned for an environment are already filtered to the
+// ones that apply to it.
 func (v *VersionIdentifierAPIModel) blocksUpgrade() bool {
 	for _, m := range v.Migrations {
-		if !m.Overridable {
-			return true
-		}
-	}
-	return false
-}
-
-func (v *VersionIdentifierAPIModel) requiresConfirmation() bool {
-	if v.blocksUpgrade() {
-		return false
-	}
-	for _, m := range v.Migrations {
-		if m.Required {
+		if !m.Overridable || m.Required {
 			return true
 		}
 	}
@@ -135,10 +125,9 @@ func (api *EnvironmentVersionsAPIModel) toData(data *EnvironmentVersionsDatasour
 	data.AvailableVersions = make([]EnvironmentAvailableVersionModel, 0, len(api.EnvironmentVersions.Versions))
 	for _, v := range api.EnvironmentVersions.Versions {
 		available := EnvironmentAvailableVersionModel{
-			Version:              types.StringValue(v.Version),
-			BlocksUpgrade:        types.BoolValue(v.blocksUpgrade()),
-			RequiresConfirmation: types.BoolValue(v.requiresConfirmation()),
-			Migrations:           make([]EnvironmentMigrationModel, 0, len(v.Migrations)),
+			Version:       types.StringValue(v.Version),
+			BlocksUpgrade: types.BoolValue(v.blocksUpgrade()),
+			Migrations:    make([]EnvironmentMigrationModel, 0, len(v.Migrations)),
 		}
 		if v.Tag != "" {
 			available.Tag = types.StringValue(v.Tag)
@@ -213,11 +202,7 @@ func (s *environmentVersionsDatasource) Schema(_ context.Context, _ datasource.S
 						},
 						"blocks_upgrade": &schema.BoolAttribute{
 							Computed:    true,
-							Description: "True when the platform rejects an upgrade to this version until the environment configuration changes so that the migrations below no longer apply to it",
-						},
-						"requires_confirmation": &schema.BoolAttribute{
-							Computed:    true,
-							Description: "True when the upgrade is permitted, but the platform requires confirmation before it is applied",
+							Description: "True when setting this version on the environment is rejected until the migrations below are dealt with, either by changing the environment so they no longer apply or by confirming the upgrade against the platform API or UI",
 						},
 						"migrations": &schema.ListNestedAttribute{
 							Computed:    true,

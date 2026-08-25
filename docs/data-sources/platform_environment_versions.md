@@ -3,19 +3,19 @@
 page_title: "kaleido_platform_environment_versions Data Source - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Fetch the platform versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and warn about - a pending upgrade of an environment with update_strategy = "manual" without proposing any change to it.
+  Fetch the platform versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with update_strategy = "manual" without proposing any change to it.
 ---
 
 # kaleido_platform_environment_versions (Data Source)
 
-Fetch the platform versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and warn about - a pending upgrade of an environment with `update_strategy = "manual"` without proposing any change to it.
+Fetch the platform versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with `update_strategy = "manual"` without proposing any change to it.
 
 ## Example Usage
 
 ```terraform
 resource "kaleido_platform_environment" "env" {
   name            = "environment_name"
-  version         = "1.2.0"
+  version         = "26.1.0"
   update_strategy = "manual"
 }
 
@@ -55,7 +55,7 @@ check "environment_up_to_date" {
 
 - `available_versions` (Attributes List) Versions the environment can be upgraded to, newest first (see [below for nested schema](#nestedatt--available_versions))
 - `latest_version` (String) Newest version the environment can be upgraded to. Null when the environment is already running the newest version available to it
-- `platform_version` (String) Version of the Kaleido platform itself
+- `platform_version` (String) Kaleido platform version
 - `upgrade_available` (Boolean) True when at least one newer version is available to the environment
 
 <a id="nestedatt--available_versions"></a>
@@ -63,9 +63,8 @@ check "environment_up_to_date" {
 
 Read-Only:
 
-- `blocks_upgrade` (Boolean) True when the platform rejects an upgrade to this version until the environment configuration changes so that the migrations below no longer apply to it
+- `blocks_upgrade` (Boolean) True when setting this version on the environment is rejected until the migrations below are dealt with, either by changing the environment so they no longer apply or by confirming the upgrade against the platform API or UI
 - `migrations` (Attributes List) Migrations that apply to the resources in this environment when upgrading to this version (see [below for nested schema](#nestedatt--available_versions--migrations))
-- `requires_confirmation` (Boolean) True when the upgrade is permitted, but the platform rejects it until it is explicitly confirmed
 - `tag` (String) Release tag associated with the version
 - `version` (String) Version to set on the environment to upgrade to this release
 

@@ -75,8 +75,7 @@ func TestEnvironmentVersions(t *testing.T) {
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.#", `2`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.version", `1.2.0`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.tag", `v1.2.0`),
-					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.blocks_upgrade", `false`),
-					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.requires_confirmation", `true`),
+					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.blocks_upgrade", `true`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.#", `1`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.0.summary", `besu fast sync resync`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.0.details", `re-sync affected nodes`),
@@ -84,7 +83,6 @@ func TestEnvironmentVersions(t *testing.T) {
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.0.overridable", `true`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.version", `1.1.0`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.blocks_upgrade", `false`),
-					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.requires_confirmation", `false`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.migrations.#", `0`),
 				),
 			},
@@ -115,37 +113,27 @@ func TestEnvironmentVersionsLatestNotInList(t *testing.T) {
 	assert.NotNil(t, latest)
 	assert.Equal(t, "1.2.0", latest.Version)
 	assert.False(t, latest.blocksUpgrade())
-	assert.False(t, latest.requiresConfirmation())
 }
 
-// A migration is only overridable when it says so, so the zero value of a
-// migration blocks the upgrade rather than merely warning about it.
 func TestEnvironmentVersionsMigrationGating(t *testing.T) {
-	blocking := &VersionIdentifierAPIModel{Migrations: []VersionMigrationAPIModel{
+	// A migration is only overridable when it says so, so the zero value of a
+	// migration blocks rather than merely warning
+	notOverridable := &VersionIdentifierAPIModel{Migrations: []VersionMigrationAPIModel{
 		{Summary: "storage format change"},
 	}}
-	assert.True(t, blocking.blocksUpgrade())
-	assert.False(t, blocking.requiresConfirmation())
+	assert.True(t, notOverridable.blocksUpgrade())
 
+	// Confirmable by the platform, but not by this provider, so still blocking
 	confirmable := &VersionIdentifierAPIModel{Migrations: []VersionMigrationAPIModel{
 		{Summary: "resync nodes", Required: true, Overridable: true},
 	}}
-	assert.False(t, confirmable.blocksUpgrade())
-	assert.True(t, confirmable.requiresConfirmation())
+	assert.True(t, confirmable.blocksUpgrade())
 
+	// Purely informational: the platform applies the upgrade without confirmation
 	informational := &VersionIdentifierAPIModel{Migrations: []VersionMigrationAPIModel{
 		{Summary: "index rebuilt in the background", Overridable: true},
 	}}
 	assert.False(t, informational.blocksUpgrade())
-	assert.False(t, informational.requiresConfirmation())
-
-	// Blocking wins over confirmable when both apply
-	mixed := &VersionIdentifierAPIModel{Migrations: []VersionMigrationAPIModel{
-		{Summary: "resync nodes", Required: true, Overridable: true},
-		{Summary: "storage format change"},
-	}}
-	assert.True(t, mixed.blocksUpgrade())
-	assert.False(t, mixed.requiresConfirmation())
 }
 
 func (mp *mockPlatform) getEnvironmentVersions(res http.ResponseWriter, req *http.Request) {
