@@ -15,16 +15,22 @@ package platform
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
+
+const updateStrategyManual = "manual"
 
 type EnvironmentResourceModel struct {
 	ID             types.String `tfsdk:"id"`
@@ -50,6 +56,8 @@ type environmentResource struct {
 	commonResource
 }
 
+var _ resource.ResourceWithModifyPlan = &environmentResource{}
+
 func (r *environmentResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "kaleido_platform_environment"
 }
@@ -69,7 +77,7 @@ func (r *environmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"version": &schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Environment Version",
+				Description: "Environment Version. With `update_strategy = \"manual\"` a plan warns when a newer version is available, without proposing a change to the environment - see the `kaleido_platform_environment_versions` data source to query the available versions directly",
 			},
 			"update_strategy": &schema.StringAttribute{
 				Optional:    true,
@@ -113,6 +121,80 @@ func (r *environmentResource) apiPath(data *EnvironmentResourceModel) string {
 		path = path + "/" + data.ID.ValueString()
 	}
 	return path
+}
+
+// ModifyPlan raises a warning when a manually-updated environment has a newer version available.
+func (r *environmentResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() || r.ProviderData == nil {
+		return // creating or destroying, so there is no upgrade to advise on
+	}
+
+	var state EnvironmentResourceModel
+	if diags := req.State.Get(ctx, &state); diags.HasError() {
+		return
+	}
+	if state.ID.ValueString() == "" || state.UpdateStrategy.ValueString() != updateStrategyManual {
+		return
+	}
+
+	var plannedVersion types.String
+	if diags := req.Plan.GetAttribute(ctx, path.Root("version"), &plannedVersion); diags.HasError() {
+		return
+	}
+	if !plannedVersion.IsUnknown() && plannedVersion.ValueString() != state.Version.ValueString() {
+		return // this plan already moves the version
+	}
+
+	// Advisory only, so failures must never break a plan
+	var probe diag.Diagnostics
+	var api EnvironmentVersionsAPIModel
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, environmentVersionsAPIPath(state.ID.ValueString()), nil, &api, &probe); !ok {
+		tflog.Debug(ctx, fmt.Sprintf("unable to check environment %s for available versions: %v", state.ID.ValueString(), probe.Errors()))
+		return
+	}
+
+	latest := api.latest()
+	if latest == nil || latest.Version == state.Version.ValueString() {
+		return
+	}
+	resp.Diagnostics.AddAttributeWarning(
+		path.Root("version"),
+		"Environment upgrade available",
+		upgradeAvailableDetail(&state, latest),
+	)
+}
+
+func upgradeAvailableDetail(state *EnvironmentResourceModel, latest *VersionIdentifierAPIModel) string {
+	currentVersion := state.Version.ValueString()
+	if currentVersion == "" {
+		currentVersion = "an unrecorded version"
+	} else {
+		currentVersion = fmt.Sprintf("version %s", currentVersion)
+	}
+
+	detail := fmt.Sprintf("Environment %q is running %s, and version %s is available.",
+		state.Name.ValueString(), currentVersion, latest.Version)
+
+	migrations := ""
+	if summaries := latest.migrationSummaries(); len(summaries) > 0 {
+		migrations = fmt.Sprintf(" (%s)", strings.Join(summaries, "; "))
+	}
+
+	switch {
+	case latest.blocksUpgrade():
+		detail += fmt.Sprintf(
+			" It cannot be applied yet: migrations that cannot be overridden apply to this environment%s. Change the environment so that they no longer apply, then set version = %q.",
+			migrations, latest.Version)
+	case latest.requiresConfirmation():
+		detail += fmt.Sprintf(
+			" It requires migrations that apply to this environment%s, so the platform rejects the upgrade until it is confirmed. Confirm it against the platform API or UI - setting version = %q here on its own is rejected.",
+			migrations, latest.Version)
+	default:
+		detail += fmt.Sprintf(
+			" Set version = %q to upgrade it, or leave the configuration as it is to stay on the current version.",
+			latest.Version)
+	}
+	return detail
 }
 
 func (r *environmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

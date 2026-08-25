@@ -21,6 +21,7 @@ import (
 
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,9 @@ func TestEnvironment1(t *testing.T) {
 			"GET /api/v1/environments/{env}",
 			"GET /api/v1/environments/{env}",
 			"PUT /api/v1/environments/{env}",
+			"GET /api/v1/environments/{env}/versions",
 			"GET /api/v1/environments/{env}",
+			"GET /api/v1/environments/{env}/versions",
 			"DELETE /api/v1/environments/{env}",
 			"GET /api/v1/environments/{env}",
 		})
@@ -103,6 +106,46 @@ func TestEnvironment1(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestEnvironmentUpgradeAvailableDetail(t *testing.T) {
+	state := &EnvironmentResourceModel{
+		Name:    types.StringValue("environment1"),
+		Version: types.StringValue("26.1.0"),
+	}
+
+	detail := upgradeAvailableDetail(state, &VersionIdentifierAPIModel{Version: "26.2.0"})
+	assert.Contains(t, detail, `Environment "environment1" is running version 26.1.0, and version 26.2.0 is available`)
+	assert.Contains(t, detail, `Set version = "26.2.0" to upgrade it`)
+	assert.NotContains(t, detail, "migrations")
+
+	detail = upgradeAvailableDetail(state, &VersionIdentifierAPIModel{
+		Version: "26.2.0",
+		Migrations: []VersionMigrationAPIModel{
+			{Summary: "besu fast sync resync", Required: true, Overridable: true},
+			{Summary: "chain data reindex", Required: true, Overridable: true},
+		},
+	})
+	assert.Contains(t, detail, "requires migrations that apply to this environment (besu fast sync resync; chain data reindex)")
+	assert.Contains(t, detail, "rejects the upgrade until it is confirmed")
+	assert.Contains(t, detail, `setting version = "26.2.0" here on its own is rejected`)
+
+	// Not overridable: no amount of confirming gets this through
+	detail = upgradeAvailableDetail(state, &VersionIdentifierAPIModel{
+		Version: "26.2.0",
+		Migrations: []VersionMigrationAPIModel{
+			{Summary: "storage format change"},
+		},
+	})
+	assert.Contains(t, detail, "It cannot be applied yet: migrations that cannot be overridden apply to this environment (storage format change)")
+	assert.NotContains(t, detail, "until it is confirmed")
+
+	// An environment created before versions were tracked has no version in state
+	detail = upgradeAvailableDetail(&EnvironmentResourceModel{
+		Name:    types.StringValue("environment1"),
+		Version: types.StringNull(),
+	}, &VersionIdentifierAPIModel{Version: "26.1.0"})
+	assert.Contains(t, detail, "is running an unrecorded version, and version 26.1.0 is available")
 }
 
 func (mp *mockPlatform) getEnvironment(res http.ResponseWriter, req *http.Request) {
