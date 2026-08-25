@@ -25,7 +25,7 @@ import (
 var environmentVersionsStep1 = `
 resource "kaleido_platform_environment" "environment1" {
     name = "environment1"
-	version = "1.0.0"
+	version = "26.1.0"
 	update_strategy = "manual"
 }
 
@@ -34,25 +34,22 @@ data "kaleido_platform_environment_versions" "environment1" {
 }
 `
 
-// TestEnvironmentVersions covers the data source, and the promise that an
-// environment with an upgrade waiting still produces an empty plan - the test
-// framework fails a step whose apply leaves a non-empty plan behind.
 func TestEnvironmentVersions(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	mp.environmentVersions = &EnvironmentVersionsAPIModel{
-		PlatformVersion: VersionIdentifierAPIModel{Version: "1.2.0"},
+		PlatformVersion: VersionIdentifierAPIModel{Version: "26.2.0"},
 		EnvironmentVersions: EnvironmentVersionListAPIModel{
-			LatestVersion: "1.2.0",
+			LatestVersion: "26.2.0",
 			Versions: []VersionIdentifierAPIModel{
 				{
-					Version: "1.2.0",
-					Tag:     "v1.2.0",
+					Version: "26.2.0",
+					Tag:     "v26.2.0",
 					Migrations: []VersionMigrationAPIModel{
 						{Summary: "besu fast sync resync", Details: "re-sync affected nodes", Required: true, Overridable: true},
 					},
 				},
-				{Version: "1.1.0", Tag: "v1.1.0"},
+				{Version: "26.1.0", Tag: "v26.1.0"},
 			},
 		},
 	}
@@ -68,20 +65,20 @@ func TestEnvironmentVersions(t *testing.T) {
 			{
 				Config: providerConfig + environmentVersionsStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("kaleido_platform_environment.environment1", "version", `1.0.0`),
-					resource.TestCheckResourceAttr(versionsDatasource, "platform_version", `1.2.0`),
-					resource.TestCheckResourceAttr(versionsDatasource, "latest_version", `1.2.0`),
+					resource.TestCheckResourceAttr("kaleido_platform_environment.environment1", "version", `26.1.0`),
+					resource.TestCheckResourceAttr(versionsDatasource, "platform_version", `26.2.0`),
+					resource.TestCheckResourceAttr(versionsDatasource, "latest_version", `26.2.0`),
 					resource.TestCheckResourceAttr(versionsDatasource, "upgrade_available", `true`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.#", `2`),
-					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.version", `1.2.0`),
-					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.tag", `v1.2.0`),
+					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.version", `26.2.0`),
+					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.tag", `v26.2.0`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.blocks_upgrade", `true`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.#", `1`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.0.summary", `besu fast sync resync`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.0.details", `re-sync affected nodes`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.0.required", `true`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.0.migrations.0.overridable", `true`),
-					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.version", `1.1.0`),
+					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.version", `26.1.0`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.blocks_upgrade", `false`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.1.migrations.#", `0`),
 				),
@@ -92,7 +89,7 @@ func TestEnvironmentVersions(t *testing.T) {
 
 func TestEnvironmentVersionsUpToDate(t *testing.T) {
 	api := &EnvironmentVersionsAPIModel{
-		PlatformVersion: VersionIdentifierAPIModel{Version: "1.2.0"},
+		PlatformVersion: VersionIdentifierAPIModel{Version: "26.2.0"},
 	}
 	var data EnvironmentVersionsDatasourceModel
 	api.toData(&data)
@@ -104,10 +101,8 @@ func TestEnvironmentVersionsUpToDate(t *testing.T) {
 }
 
 func TestEnvironmentVersionsLatestNotInList(t *testing.T) {
-	// Defensive: the latest version should always appear in the list, but a
-	// mismatch must still yield an actionable version rather than a nil panic.
 	api := &EnvironmentVersionsAPIModel{
-		EnvironmentVersions: EnvironmentVersionListAPIModel{LatestVersion: "1.2.0"},
+		EnvironmentVersions: EnvironmentVersionListAPIModel{LatestVersion: "26.2.0"},
 	}
 	latest := api.latest()
 	assert.NotNil(t, latest)
@@ -116,8 +111,6 @@ func TestEnvironmentVersionsLatestNotInList(t *testing.T) {
 }
 
 func TestEnvironmentVersionsMigrationGating(t *testing.T) {
-	// A migration is only overridable when it says so, so the zero value of a
-	// migration blocks rather than merely warning
 	notOverridable := &VersionIdentifierAPIModel{Migrations: []VersionMigrationAPIModel{
 		{Summary: "storage format change"},
 	}}
@@ -131,7 +124,7 @@ func TestEnvironmentVersionsMigrationGating(t *testing.T) {
 
 	// Purely informational: the platform applies the upgrade without confirmation
 	informational := &VersionIdentifierAPIModel{Migrations: []VersionMigrationAPIModel{
-		{Summary: "index rebuilt in the background", Overridable: true},
+		{Summary: "Migration summary", Overridable: true},
 	}}
 	assert.False(t, informational.blocksUpgrade())
 }
