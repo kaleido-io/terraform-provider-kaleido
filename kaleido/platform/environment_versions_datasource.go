@@ -87,11 +87,6 @@ func (api *EnvironmentVersionsAPIModel) latest() *VersionIdentifierAPIModel {
 	return &VersionIdentifierAPIModel{Version: api.EnvironmentVersions.LatestVersion}
 }
 
-// blocksUpgrade reports whether the platform refuses to move an environment to
-// this version. Migrations returned for an environment have already been
-// filtered to the ones that apply to it, and a migration that is not
-// explicitly overridable can only be cleared by changing the environment's
-// configuration until the migration no longer matches.
 func (v *VersionIdentifierAPIModel) blocksUpgrade() bool {
 	for _, m := range v.Migrations {
 		if !m.Overridable {
@@ -101,12 +96,9 @@ func (v *VersionIdentifierAPIModel) blocksUpgrade() bool {
 	return false
 }
 
-// requiresConfirmation reports whether the upgrade is permitted but has to be
-// explicitly confirmed, which the platform accepts as ?confirmed=true on the
-// environment update.
 func (v *VersionIdentifierAPIModel) requiresConfirmation() bool {
 	if v.blocksUpgrade() {
-		return false // blocked outright, so confirmation is not on offer
+		return false
 	}
 	for _, m := range v.Migrations {
 		if m.Required {
