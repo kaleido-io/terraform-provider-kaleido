@@ -106,7 +106,7 @@ func TestEnvironmentVersionsLatestNotInList(t *testing.T) {
 	}
 	latest := api.latest()
 	assert.NotNil(t, latest)
-	assert.Equal(t, "1.2.0", latest.Version)
+	assert.Equal(t, "26.2.0", latest.Version)
 	assert.False(t, latest.blocksUpgrade())
 }
 
