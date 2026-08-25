@@ -28,10 +28,6 @@ output "environment_latest_version" {
   value = data.kaleido_platform_environment_versions.env.latest_version
 }
 
-# Report an outstanding upgrade as a warning on every plan and apply, without
-# proposing a change to the environment. Scoping the data source to the check
-# block means a failed lookup is reported as a warning too, rather than failing
-# the run.
 check "environment_up_to_date" {
   data "kaleido_platform_environment_versions" "upgrade" {
     environment = kaleido_platform_environment.env.id
