@@ -161,7 +161,7 @@ func (s *environmentVersionsDatasource) Metadata(_ context.Context, _ datasource
 
 func (s *environmentVersionsDatasource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Fetch the platform versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with `update_strategy = \"manual\"` without proposing any change to it.",
+		Description: "Fetch the versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with `update_strategy = \"manual\"` without proposing any change to it.",
 		Attributes: map[string]schema.Attribute{
 			"environment": &schema.StringAttribute{
 				Required:    true,

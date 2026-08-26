@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_environment_versions Data Source - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Fetch the platform versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with update_strategy = "manual" without proposing any change to it.
+  Fetch the versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with update_strategy = "manual" without proposing any change to it.
 ---
 
 # kaleido_platform_environment_versions (Data Source)
 
-Fetch the platform versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with `update_strategy = "manual"` without proposing any change to it.
+Fetch the versions an environment can be upgraded to. Only versions newer than the version the environment is currently running are returned, so this can be used to detect - and notify - a pending upgrade of an environment with `update_strategy = "manual"` without proposing any change to it.
 
 ## Example Usage
 
