@@ -9,17 +9,11 @@ data "kaleido_platform_environment_versions" "env" {
   environment = kaleido_platform_environment.env.id
 }
 
-output "environment_latest_version" {
-  value = data.kaleido_platform_environment_versions.env.latest_version
+output "environment_upgrade_available" {
+  value = data.kaleido_platform_environment_versions.env.upgrade_available
 }
 
-check "environment_up_to_date" {
-  data "kaleido_platform_environment_versions" "upgrade" {
-    environment = kaleido_platform_environment.env.id
-  }
-
-  assert {
-    condition     = !data.kaleido_platform_environment_versions.upgrade.upgrade_available
-    error_message = "Environment ${kaleido_platform_environment.env.name} can be upgraded to ${data.kaleido_platform_environment_versions.upgrade.latest_version}"
-  }
+# Null when the environment is already running the newest version available to it
+output "environment_latest_version" {
+  value = data.kaleido_platform_environment_versions.env.latest_version
 }
