@@ -37,6 +37,7 @@ type mockPlatform struct {
 	router                      *mux.Router
 	server                      *httptest.Server
 	environments                map[string]*EnvironmentAPIModel
+	environmentVersions         *EnvironmentVersionsAPIModel // served for every environment
 	runtimes                    map[string]*RuntimeAPIModel
 	services                    map[string]*ServiceAPIModel
 	networks                    map[string]*NetworkAPIModel
@@ -145,6 +146,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}", http.MethodGet, mp.getEnvironment)
 	mp.register("/api/v1/environments/{env}", http.MethodPut, mp.putEnvironment)
 	mp.register("/api/v1/environments/{env}", http.MethodDelete, mp.deleteEnvironment)
+
+	// See environment_versions_datasource_test.go
+	mp.register("/api/v1/environments/{env}/versions", http.MethodGet, mp.getEnvironmentVersions)
 
 	// See runtime_test.go
 	mp.register("/api/v1/environments/{env}/runtimes", http.MethodPost, mp.postRuntime)

@@ -28,7 +28,7 @@ resource "kaleido_platform_environment" "env" {
 ### Optional
 
 - `update_strategy` (String) Update Strategy (manual or automatic)
-- `version` (String) Environment Version
+- `version` (String) Environment Version. With `update_strategy = "manual"` a plan warns when a newer version is available, without proposing a change to the environment - see the `kaleido_platform_environment_versions` data source to query the available versions directly
 
 ### Read-Only
 
