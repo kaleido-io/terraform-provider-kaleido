@@ -25,7 +25,6 @@ import (
 
 type EnvironmentVersionsDatasourceModel struct {
 	Environment       types.String                       `tfsdk:"environment"`
-	PlatformVersion   types.String                       `tfsdk:"platform_version"`
 	LatestVersion     types.String                       `tfsdk:"latest_version"`
 	UpgradeAvailable  types.Bool                         `tfsdk:"upgrade_available"`
 	AvailableVersions []EnvironmentAvailableVersionModel `tfsdk:"available_versions"`
@@ -46,7 +45,6 @@ type EnvironmentMigrationModel struct {
 }
 
 type EnvironmentVersionsAPIModel struct {
-	PlatformVersion     VersionIdentifierAPIModel      `json:"platformVersion,omitempty"`
 	EnvironmentVersions EnvironmentVersionListAPIModel `json:"environmentVersions,omitempty"`
 }
 
@@ -109,12 +107,6 @@ func (v *VersionIdentifierAPIModel) migrationSummaries() []string {
 }
 
 func (api *EnvironmentVersionsAPIModel) toData(data *EnvironmentVersionsDatasourceModel) {
-	if api.PlatformVersion.Version != "" {
-		data.PlatformVersion = types.StringValue(api.PlatformVersion.Version)
-	} else {
-		data.PlatformVersion = types.StringNull()
-	}
-
 	if api.EnvironmentVersions.LatestVersion != "" {
 		data.LatestVersion = types.StringValue(api.EnvironmentVersions.LatestVersion)
 	} else {
@@ -174,10 +166,6 @@ func (s *environmentVersionsDatasource) Schema(_ context.Context, _ datasource.S
 			"environment": &schema.StringAttribute{
 				Required:    true,
 				Description: "ID or name of the environment",
-			},
-			"platform_version": &schema.StringAttribute{
-				Computed:    true,
-				Description: "Kaleido platform version",
 			},
 			"latest_version": &schema.StringAttribute{
 				Computed:    true,

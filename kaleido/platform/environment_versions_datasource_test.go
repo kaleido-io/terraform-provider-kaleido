@@ -38,7 +38,6 @@ func TestEnvironmentVersions(t *testing.T) {
 
 	mp, providerConfig := testSetup(t)
 	mp.environmentVersions = &EnvironmentVersionsAPIModel{
-		PlatformVersion: VersionIdentifierAPIModel{Version: "26.2.0"},
 		EnvironmentVersions: EnvironmentVersionListAPIModel{
 			LatestVersion: "26.2.0",
 			Versions: []VersionIdentifierAPIModel{
@@ -66,7 +65,6 @@ func TestEnvironmentVersions(t *testing.T) {
 				Config: providerConfig + environmentVersionsStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("kaleido_platform_environment.environment1", "version", `26.1.0`),
-					resource.TestCheckResourceAttr(versionsDatasource, "platform_version", `26.2.0`),
 					resource.TestCheckResourceAttr(versionsDatasource, "latest_version", `26.2.0`),
 					resource.TestCheckResourceAttr(versionsDatasource, "upgrade_available", `true`),
 					resource.TestCheckResourceAttr(versionsDatasource, "available_versions.#", `2`),
@@ -88,9 +86,7 @@ func TestEnvironmentVersions(t *testing.T) {
 }
 
 func TestEnvironmentVersionsUpToDate(t *testing.T) {
-	api := &EnvironmentVersionsAPIModel{
-		PlatformVersion: VersionIdentifierAPIModel{Version: "26.2.0"},
-	}
+	api := &EnvironmentVersionsAPIModel{}
 	var data EnvironmentVersionsDatasourceModel
 	api.toData(&data)
 

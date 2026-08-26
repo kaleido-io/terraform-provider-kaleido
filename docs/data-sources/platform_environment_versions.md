@@ -51,7 +51,6 @@ check "environment_up_to_date" {
 
 - `available_versions` (Attributes List) Versions the environment can be upgraded to, newest first (see [below for nested schema](#nestedatt--available_versions))
 - `latest_version` (String) Newest version the environment can be upgraded to. Null when the environment is already running the newest version available to it
-- `platform_version` (String) Kaleido platform version
 - `upgrade_available` (Boolean) True when at least one newer version is available to the environment
 
 <a id="nestedatt--available_versions"></a>
