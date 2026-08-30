@@ -34,6 +34,7 @@ import (
 
 type APIRequestOption struct {
 	allow404         bool
+	allowStatus      []int
 	captureLastError bool
 	yamlBody         bool
 	CancelInfo       string
@@ -58,6 +59,14 @@ func (r *commonDataSource) Configure(_ context.Context, req datasource.Configure
 func Allow404() *APIRequestOption {
 	return &APIRequestOption{
 		allow404: true,
+	}
+}
+
+// AllowStatus treats the given response status codes as expected rather than as an
+// error, leaving the caller to decide what they mean from the status code returned.
+func AllowStatus(codes ...int) *APIRequestOption {
+	return &APIRequestOption{
+		allowStatus: codes,
 	}
 }
 
@@ -172,15 +181,18 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 			)
 		}
 	} else if !res.IsSuccess() {
-		isOk404 := false
-		if statusCode == 404 {
-			for _, o := range options {
-				if o.allow404 {
-					isOk404 = true
+		expected := false
+		for _, o := range options {
+			if o.allow404 && statusCode == 404 {
+				expected = true
+			}
+			for _, code := range o.allowStatus {
+				if statusCode == code {
+					expected = true
 				}
 			}
 		}
-		if !isOk404 {
+		if !expected {
 			ok = false
 			errorInfo := fmt.Sprintf("%s %s returned status code %d: %s", method, path, statusCode, rawBytes)
 			diagnostics.AddError(
@@ -415,6 +427,11 @@ func Resources() []func() resource.Resource {
 		WMSWalletResourceFactory,
 		PMSIdentityResourceFactory,
 		PMSIdentityListResourceFactory,
+		PMSPolicyResourceFactory,
+		PMSPolicyVersionResourceFactory,
+		PMSPolicyMatcherResourceFactory,
+		PMSPolicyEvidenceSourceBindingResourceFactory,
+		PMSPolicyIdentityListBindingResourceFactory,
 		PMSPolicyDeploymentResourceFactory,
 		PMSPolicyAttachmentResourceFactory,
 		WFEWorkflowResourceFactory,

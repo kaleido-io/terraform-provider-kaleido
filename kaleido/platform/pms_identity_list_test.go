@@ -59,17 +59,20 @@ func TestPMSIdentityList1(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
-			"PUT /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"POST /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}/versions",
-			"GET /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"PATCH /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"POST /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}/versions",
-			"GET /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}",
+			"PUT /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"POST /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}/versions",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}/versions",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}/versions",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"POST /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}/versions",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}/versions",
+			"DELETE /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}",
 		})
 		mp.server.Close()
 	}()
@@ -91,6 +94,7 @@ func TestPMSIdentityList1(t *testing.T) {
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "identities.1", "pmi:67890fghij"),
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "identities.2", "pmi:12345fghij"),
 					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "applied_version"),
+					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "applied_version_id"),
 					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "created"),
 					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "updated"),
 				),
@@ -107,6 +111,7 @@ func TestPMSIdentityList1(t *testing.T) {
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "identities.1", "pmi:fghij67890"),
 					resource.TestCheckResourceAttr(pms_identity_list_resource, "identities.2", "pmi:fghij12345"),
 					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "applied_version"),
+					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "applied_version_id"),
 					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "created"),
 					resource.TestCheckResourceAttrSet(pms_identity_list_resource, "updated"),
 				),
@@ -210,4 +215,22 @@ func (mp *mockPlatform) postPMSIdentityListVersion(res http.ResponseWriter, req 
 	}
 
 	mp.respond(res, &version, http.StatusOK)
+}
+
+// getPMSIdentityListVersions serves the version list filtered by name, which the
+// resource uses to resolve applied_version_id on read
+func (mp *mockPlatform) getPMSIdentityListVersions(res http.ResponseWriter, req *http.Request) {
+	identityList := mp.pmsIdentityLists[mux.Vars(req)["identityList"]]
+	if identityList == nil {
+		mp.respond(res, nil, 404)
+		return
+	}
+	name := req.URL.Query().Get("name")
+	items := []*PMSIdentityListVersionAPIModel{}
+	for _, version := range mp.pmsIdentityListVersions[identityList.ID] {
+		if name == "" || version.Name == name {
+			items = append(items, version)
+		}
+	}
+	mp.respond(res, map[string]interface{}{"items": items, "count": len(items)}, http.StatusOK)
 }

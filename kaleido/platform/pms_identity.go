@@ -17,58 +17,89 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 type PolicyIdentityResourceModel struct {
-	ID                       types.String `tfsdk:"id"`
-	Environment              types.String `tfsdk:"environment"`
-	Service                  types.String `tfsdk:"service"`
-	Name                     types.String `tfsdk:"name"`
-	Description              types.String `tfsdk:"description"`
-	Owner                    types.String `tfsdk:"owner"`
-	PreferredAssertionMethod types.String `tfsdk:"preferred_assertion_method"`
-	AssertionMethod          types.List   `tfsdk:"assertion_method"`
-	NotificationMethod       types.List   `tfsdk:"notification_method"`
+	ID                  types.String `tfsdk:"id"`
+	Environment         types.String `tfsdk:"environment"`
+	Service             types.String `tfsdk:"service"`
+	Name                types.String `tfsdk:"name"`
+	Description         types.String `tfsdk:"description"`
+	Controller          types.String `tfsdk:"controller"`
+	VerificationMethods types.List   `tfsdk:"verification_method"`
+	NotificationMethods types.List   `tfsdk:"notification_method"`
 }
 
 type PolicyIdentityAPIModel struct {
-	ID                       string               `json:"id,omitempty"`
-	Created                  *time.Time           `json:"created,omitempty"`
-	Updated                  *time.Time           `json:"updated,omitempty"`
-	Name                     string               `json:"name,omitempty"`
-	Description              string               `json:"description,omitempty"`
-	Owner                    string               `json:"owner,omitempty"`
-	PreferredAssertionMethod string               `json:"preferredAssertionMethod,omitempty"`
-	AssertionMethod          []AssertionMethod    `json:"assertionMethod,omitempty"`
-	NotificationMethod       []NotificationMethod `json:"notificationMethod,omitempty"`
+	ID                  string               `json:"id,omitempty"`
+	Created             *time.Time           `json:"created,omitempty"`
+	Updated             *time.Time           `json:"updated,omitempty"`
+	Name                string               `json:"name,omitempty"`
+	Description         string               `json:"description,omitempty"`
+	Controller          string               `json:"controller,omitempty"`
+	VerificationMethods []VerificationMethod `json:"verificationMethods,omitempty"`
+	NotificationMethods []NotificationMethod `json:"notificationMethods,omitempty"`
 }
 
-type AssertionMethod struct {
-	ID                   string     `json:"id,omitempty"`
-	IdentityID           string     `json:"identityId,omitempty"`
-	Name                 string     `json:"name,omitempty"`
-	Type                 string     `json:"type,omitempty"`
-	SigningMethod        string     `json:"signingMethod,omitempty"`
-	VerificationMaterial string     `json:"verificationMaterial,omitempty"`
-	Created              *time.Time `json:"created,omitempty"`
-	Updated              *time.Time `json:"updated,omitempty"`
-	Expires              *time.Time `json:"expires,omitempty"`
-	Revoked              *time.Time `json:"revoked,omitempty"`
-}
-
+// NotificationMethod is read-only on the v2 API - identities return their notification
+// methods but there is no v2 write path for them.
 type NotificationMethod struct {
-	Name  string          `json:"name,omitempty"`
-	Type  string          `json:"type,omitempty"`
-	Value json.RawMessage `json:"value,omitempty"` // we don't model the value, just translate it to/from JSON
+	ID         string          `json:"id,omitempty"`
+	IdentityID string          `json:"identityId,omitempty"`
+	Name       string          `json:"name,omitempty"`
+	Type       string          `json:"type,omitempty"`
+	Value      json.RawMessage `json:"value,omitempty"`
+}
+
+type VerificationMethod struct {
+	ID                 string          `json:"id,omitempty"`
+	IdentityID         string          `json:"identityId,omitempty"`
+	Name               string          `json:"name,omitempty"`
+	Type               string          `json:"type,omitempty"`
+	Controller         string          `json:"controller,omitempty"`
+	PublicKeyMultibase string          `json:"publicKeyMultibase,omitempty"`
+	PublicKeyJwk       json.RawMessage `json:"publicKeyJwk,omitempty"`
+	KeyURI             string          `json:"keyUri,omitempty"`
+	Created            *time.Time      `json:"created,omitempty"`
+	Updated            *time.Time      `json:"updated,omitempty"`
+	Expires            *time.Time      `json:"expires,omitempty"`
+	Revoked            *time.Time      `json:"revoked,omitempty"`
+}
+
+// verificationMethodAttrTypes is the object type of the verification_method list elements.
+var verificationMethodAttrTypes = map[string]attr.Type{
+	"id":                   types.StringType,
+	"identity_id":          types.StringType,
+	"name":                 types.StringType,
+	"type":                 types.StringType,
+	"controller":           types.StringType,
+	"public_key_multibase": types.StringType,
+	"public_key_jwk_json":  types.StringType,
+	"created":              types.StringType,
+	"expires":              types.StringType,
+	"revoked":              types.StringType,
+	"key_uri":              types.StringType,
+}
+
+// notificationMethodAttrTypes is the object type of the notification_method list elements.
+var notificationMethodAttrTypes = map[string]attr.Type{
+	"id":         types.StringType,
+	"name":       types.StringType,
+	"type":       types.StringType,
+	"value_json": types.StringType,
 }
 
 func PMSIdentityResourceFactory() resource.Resource {
@@ -85,7 +116,7 @@ func (r *policyIdentityResource) Metadata(_ context.Context, _ resource.Metadata
 
 func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages Policy Manager identities",
+		Description: "Manages Policy Manager identities. An identity is a subject that can make attestations, and carries the verification methods (public keys) used to prove those attestations.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -107,22 +138,19 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"description": &schema.StringAttribute{
-				Optional:    true,
-				Description: "Description of the identity.",
-			},
-			"owner": &schema.StringAttribute{
 				Optional:      true,
-				Description:   "Optional owner (KID) of the identity, e.g. a user or application",
+				Description:   "Description of the identity.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"preferred_assertion_method": &schema.StringAttribute{
+			"controller": &schema.StringAttribute{
 				Optional:      true,
-				Description:   "The preferred assertion method for the identity",
+				Description:   "Optional controller (KID) of the identity, e.g. a user or application. If set, attestations against this identity are only accepted from that controller. This is the field called `owner` on the v1 API. Distinct from the `controller` of an individual verification method, which identifies who controls that particular key.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"assertion_method": &schema.ListNestedAttribute{
-				Optional:    true,
-				Description: "Array of verification methods (cryptographic keys) that can be used to prove statements made by this identity",
+			"verification_method": &schema.ListNestedAttribute{
+				Optional:      true,
+				Description:   "Array of verification methods (cryptographic keys) that can be used to prove statements made by this identity",
+				PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": &schema.StringAttribute{
@@ -132,64 +160,69 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 						"identity_id": &schema.StringAttribute{
 							Optional:    true,
 							Computed:    true,
-							Description: "ID of the identity this assertion method belongs to",
+							Description: "ID of the identity this verification method belongs to",
 						},
 						"name": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Name of this verification method.",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							Optional:    true,
+							Description: "A human-readable label for this verification method, e.g. 'primary-signing-key'",
 						},
 						"type": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Type of the assertion method",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							Optional:    true,
+							Description: "The key format: Multikey (use public_key_multibase) or JsonWebKey (use public_key_jwk_json)",
+							Validators:  []validator.String{stringvalidator.OneOf("Multikey", "JsonWebKey")},
 						},
-						"signing_method": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Signing method for the assertion method",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+						"controller": &schema.StringAttribute{
+							Optional:    true,
+							Description: "Optional URI, KID, or DID identifying who controls this specific key (may differ from the identity subject)",
 						},
-						"verification_material": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Verification material for the assertion method",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+						"public_key_multibase": &schema.StringAttribute{
+							Optional:    true,
+							Description: "Multibase-encoded public key, for type Multikey. For secp256k1/Ethereum: 0xe701 varint prefix + 33-byte compressed key, base58btc-encoded with a 'z' header.",
+						},
+						"public_key_jwk_json": &schema.StringAttribute{
+							Optional:    true,
+							Description: "JWK-encoded public key as a JSON string (use jsonencode), for type JsonWebKey (RFC 7517). For Ethereum signing: {kty:EC, crv:secp256k1, x:..., y:...}",
 						},
 						"created": &schema.StringAttribute{
 							Computed:    true,
 							Description: "Creation timestamp",
 						},
 						"expires": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Expiration timestamp",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							Optional:    true,
+							Description: "Expiration timestamp",
 						},
 						"revoked": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Revocation timestamp",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							Optional:    true,
+							Description: "Revocation timestamp",
+						},
+						"key_uri": &schema.StringAttribute{
+							Optional:    true,
+							Description: "URI of the Key Manager key backing this verification method, e.g. 'kld:///keystore/<id>/key/<name>'. Required to route a signing request to the Key Manager, which addresses keys by URI rather than by public key.",
 						},
 					},
 				},
 			},
 			"notification_method": &schema.ListNestedAttribute{
-				Optional:    true,
-				Description: "Array of notification methods (e.g. email, phone) associated with this identity",
+				Computed:      true,
+				Description:   "Notification methods (e.g. workflow) associated with this identity. Read-only: the v2 Policy Manager API returns notification methods but provides no way to create them.",
+				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
+						"id": &schema.StringAttribute{
+							Computed:    true,
+							Description: "ID of the notification method",
+						},
 						"name": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Name of the notification method",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							Computed:    true,
+							Description: "Name of the notification method",
 						},
 						"type": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "Type of the notification method",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							Computed:    true,
+							Description: "Type of the notification method, e.g. 'workflow' or 'email'",
 						},
 						"value_json": &schema.StringAttribute{
-							Optional:      true,
-							Description:   "The type-specific configuration of the notification method, as a JSON string (use jsonencode)",
-							PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							Computed:    true,
+							Description: "The type-specific configuration of the notification method, as a JSON string",
 						},
 					},
 				},
@@ -207,9 +240,14 @@ func (r *policyIdentityResource) apiPath(data *PolicyIdentityResourceModel) stri
 	service := data.Service.ValueString()
 
 	if data.ID.IsNull() || data.ID.IsUnknown() {
-		return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identities", env, service)
+		return fmt.Sprintf("/endpoint/%s/%s/rest/api/v2/identities", env, service)
 	}
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identities/%s?fetchDetails=true", env, service, data.ID.ValueString())
+	return r.apiInstancePath(data, data.ID.ValueString())
+}
+
+func (r *policyIdentityResource) apiInstancePath(data *PolicyIdentityResourceModel, id string) string {
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v2/identities/%s?fetchDetails=true",
+		data.Environment.ValueString(), data.Service.ValueString(), id)
 }
 
 func (r *policyIdentityResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -230,7 +268,16 @@ func (r *policyIdentityResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	r.toData(&api, &data, &resp.Diagnostics)
+	// The create response carries only the identity itself - its verification methods
+	// are inserted separately and are not attached to it. Re-read with fetchDetails so
+	// they are not nulled out of state straight after apply.
+	var created PolicyIdentityAPIModel
+	ok, _ = r.apiRequest(ctx, "GET", r.apiInstancePath(&data, api.ID), nil, &created, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+
+	r.toData(&created, &data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -248,8 +295,12 @@ func (r *policyIdentityResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	var api PolicyIdentityAPIModel
-	ok, _ := r.apiRequest(ctx, "GET", r.apiPath(&data), nil, &api, &resp.Diagnostics)
+	ok, status := r.apiRequest(ctx, "GET", r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
+		return
+	}
+	if status == 404 {
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -263,7 +314,7 @@ func (r *policyIdentityResource) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *policyIdentityResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	//updates are not supported - requires replacement
+	// The API has no identity PATCH - every attribute requires replacement
 	resp.Diagnostics.AddError("Update not supported", "Policy identities cannot be updated. Use replace instead.")
 }
 
@@ -275,72 +326,72 @@ func (r *policyIdentityResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	_, _ = r.apiRequest(ctx, "DELETE", r.apiPath(&data), nil, nil, &resp.Diagnostics)
+	_, _ = r.apiRequest(ctx, "DELETE", r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
 }
 
 func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *PolicyIdentityAPIModel, diagnostics *diag.Diagnostics) {
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
-	api.Owner = data.Owner.ValueString()
-	api.PreferredAssertionMethod = data.PreferredAssertionMethod.ValueString()
+	api.Controller = data.Controller.ValueString()
 
-	// Convert assertion methods
-	if !data.AssertionMethod.IsNull() && !data.AssertionMethod.IsUnknown() {
-		var assertionMethods []AssertionMethod
-		for _, item := range data.AssertionMethod.Elements() {
-			if obj, ok := item.(types.Object); ok {
-				am := AssertionMethod{}
-				attrs := obj.Attributes()
-
-				if val, ok := attrs["id"]; ok && !val.IsNull() {
-					am.ID = val.(types.String).ValueString()
-				}
-				if val, ok := attrs["identity_id"]; ok && !val.IsNull() {
-					am.IdentityID = val.(types.String).ValueString()
-				}
-				if val, ok := attrs["name"]; ok && !val.IsNull() {
-					am.Name = val.(types.String).ValueString()
-				}
-				if val, ok := attrs["type"]; ok && !val.IsNull() {
-					am.Type = val.(types.String).ValueString()
-				}
-				if val, ok := attrs["signing_method"]; ok && !val.IsNull() {
-					am.SigningMethod = val.(types.String).ValueString()
-				}
-				if val, ok := attrs["verification_material"]; ok && !val.IsNull() {
-					am.VerificationMaterial = val.(types.String).ValueString()
-				}
-				assertionMethods = append(assertionMethods, am)
-			}
-		}
-		api.AssertionMethod = assertionMethods
+	if data.VerificationMethods.IsNull() || data.VerificationMethods.IsUnknown() {
+		return
 	}
-
-	// Convert notification methods
-	if !data.NotificationMethod.IsNull() && !data.NotificationMethod.IsUnknown() {
-		var notificationMethods []NotificationMethod
-		for _, item := range data.NotificationMethod.Elements() {
-			if obj, ok := item.(types.Object); ok {
-				nm := NotificationMethod{}
-				attrs := obj.Attributes()
-
-				if val, ok := attrs["name"]; ok && !val.IsNull() {
-					nm.Name = val.(types.String).ValueString()
-				}
-				if val, ok := attrs["type"]; ok && !val.IsNull() {
-					nm.Type = val.(types.String).ValueString()
-				}
-				if val, ok := attrs["value_json"]; ok && !val.IsNull() {
-					valueJSON := val.(types.String).ValueString()
-					if valueJSON != "" {
-						nm.Value = json.RawMessage(valueJSON)
-					}
-				}
-				notificationMethods = append(notificationMethods, nm)
-			}
+	var verificationMethods []VerificationMethod
+	for _, item := range data.VerificationMethods.Elements() {
+		obj, ok := item.(types.Object)
+		if !ok {
+			continue
 		}
-		api.NotificationMethod = notificationMethods
+		attrs := obj.Attributes()
+		vm := VerificationMethod{
+			ID:                 stringAttr(attrs, "id"),
+			IdentityID:         stringAttr(attrs, "identity_id"),
+			Name:               stringAttr(attrs, "name"),
+			Type:               stringAttr(attrs, "type"),
+			Controller:         stringAttr(attrs, "controller"),
+			PublicKeyMultibase: stringAttr(attrs, "public_key_multibase"),
+			KeyURI:             stringAttr(attrs, "key_uri"),
+		}
+		if jwk := stringAttr(attrs, "public_key_jwk_json"); jwk != "" {
+			if !json.Valid([]byte(jwk)) {
+				diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse verification method public_key_jwk_json: %s", jwk))
+				return
+			}
+			vm.PublicKeyJwk = json.RawMessage(jwk)
+		}
+		if expires := stringAttr(attrs, "expires"); expires != "" {
+			t, err := time.Parse(time.RFC3339, expires)
+			if err != nil {
+				diagnostics.AddError("Invalid timestamp", fmt.Sprintf("Failed to parse verification method expires %q: %v", expires, err))
+				return
+			}
+			vm.Expires = &t
+		}
+		if revoked := stringAttr(attrs, "revoked"); revoked != "" {
+			t, err := time.Parse(time.RFC3339, revoked)
+			if err != nil {
+				diagnostics.AddError("Invalid timestamp", fmt.Sprintf("Failed to parse verification method revoked %q: %v", revoked, err))
+				return
+			}
+			vm.Revoked = &t
+		}
+		verificationMethods = append(verificationMethods, vm)
 	}
+	api.VerificationMethods = verificationMethods
+}
+
+// stringAttr reads an optional string out of a terraform object's attribute map.
+func stringAttr(attrs map[string]attr.Value, name string) string {
+	val, ok := attrs[name]
+	if !ok || val.IsNull() || val.IsUnknown() {
+		return ""
+	}
+	s, ok := val.(types.String)
+	if !ok {
+		return ""
+	}
+	return s.ValueString()
 }
 
 func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *PolicyIdentityResourceModel, diagnostics *diag.Diagnostics) {
@@ -354,129 +405,111 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 		data.Description = types.StringNull()
 	}
 
-	if api.Owner != "" {
-		data.Owner = types.StringValue(api.Owner)
-	} else {
-		data.Owner = types.StringNull()
+	data.Controller = optionalString(api.Controller)
+
+	r.notificationMethodsToData(api, data, diagnostics)
+
+	if len(api.VerificationMethods) == 0 {
+		data.VerificationMethods = types.ListNull(types.ObjectType{AttrTypes: verificationMethodAttrTypes})
+		return
 	}
 
-	if api.PreferredAssertionMethod != "" {
-		data.PreferredAssertionMethod = types.StringValue(api.PreferredAssertionMethod)
-	} else {
-		data.PreferredAssertionMethod = types.StringNull()
-	}
-
-	// Convert assertion methods
-	if len(api.AssertionMethod) > 0 {
-		var assertionMethods []attr.Value
-		for _, am := range api.AssertionMethod {
-			attrs := map[string]attr.Value{
-				"id":                    types.StringValue(am.ID),
-				"identity_id":           types.StringValue(am.IdentityID),
-				"name":                  types.StringValue(am.Name),
-				"type":                  types.StringValue(am.Type),
-				"signing_method":        types.StringValue(am.SigningMethod),
-				"verification_material": types.StringValue(am.VerificationMaterial),
+	priorVMs := data.VerificationMethods.Elements()
+	verificationMethods := make([]attr.Value, len(api.VerificationMethods))
+	for i, vm := range api.VerificationMethods {
+		var priorJwk types.String
+		if i < len(priorVMs) {
+			if obj, ok := priorVMs[i].(types.Object); ok {
+				if val, ok := obj.Attributes()["public_key_jwk_json"]; ok {
+					if str, ok := val.(types.String); ok {
+						priorJwk = str
+					}
+				}
 			}
-
-			// Handle time fields
-			if am.Created != nil {
-				attrs["created"] = types.StringValue(am.Created.Format(time.RFC3339))
-			} else {
-				attrs["created"] = types.StringNull()
-			}
-
-			if am.Expires != nil {
-				attrs["expires"] = types.StringValue(am.Expires.Format(time.RFC3339))
-			} else {
-				attrs["expires"] = types.StringNull()
-			}
-
-			if am.Revoked != nil {
-				attrs["revoked"] = types.StringValue(am.Revoked.Format(time.RFC3339))
-			} else {
-				attrs["revoked"] = types.StringNull()
-			}
-
-			obj, _ := types.ObjectValue(map[string]attr.Type{
-				"id":                    types.StringType,
-				"identity_id":           types.StringType,
-				"name":                  types.StringType,
-				"type":                  types.StringType,
-				"signing_method":        types.StringType,
-				"verification_material": types.StringType,
-				"created":               types.StringType,
-				"expires":               types.StringType,
-				"revoked":               types.StringType,
-			}, attrs)
-
-			assertionMethods = append(assertionMethods, obj)
 		}
-		data.AssertionMethod = types.ListValueMust(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"id":                    types.StringType,
-				"identity_id":           types.StringType,
-				"name":                  types.StringType,
-				"type":                  types.StringType,
-				"signing_method":        types.StringType,
-				"verification_material": types.StringType,
-				"created":               types.StringType,
-				"expires":               types.StringType,
-				"revoked":               types.StringType,
-			},
-		}, assertionMethods)
-	} else {
-		data.AssertionMethod = types.ListNull(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"id":                    types.StringType,
-				"identity_id":           types.StringType,
-				"name":                  types.StringType,
-				"type":                  types.StringType,
-				"signing_method":        types.StringType,
-				"verification_material": types.StringType,
-				"created":               types.StringType,
-				"expires":               types.StringType,
-				"revoked":               types.StringType,
-			},
-		})
-	}
-
-	// Convert notification methods from API
-	if len(api.NotificationMethod) > 0 {
-		notificationMethods := make([]attr.Value, len(api.NotificationMethod))
-		for i, nm := range api.NotificationMethod {
-			valueJSON := types.StringNull()
-			if nm.Value != nil {
-				valueJSON = types.StringValue(string(nm.Value))
-			}
-			attrs := map[string]attr.Value{
-				"name":       types.StringValue(nm.Name),
-				"type":       types.StringValue(nm.Type),
-				"value_json": valueJSON,
-			}
-
-			obj, _ := types.ObjectValue(map[string]attr.Type{
-				"name":       types.StringType,
-				"type":       types.StringType,
-				"value_json": types.StringType,
-			}, attrs)
-
-			notificationMethods[i] = obj
+		publicKeyJwk := preserveJSONFormatting(priorJwk, vm.PublicKeyJwk)
+		attrs := map[string]attr.Value{
+			"id":                   types.StringValue(vm.ID),
+			"identity_id":          types.StringValue(vm.IdentityID),
+			"name":                 optionalString(vm.Name),
+			"type":                 optionalString(vm.Type),
+			"controller":           optionalString(vm.Controller),
+			"public_key_multibase": optionalString(vm.PublicKeyMultibase),
+			"public_key_jwk_json":  publicKeyJwk,
+			"key_uri":              optionalString(vm.KeyURI),
+			"created":              timeAttr(vm.Created),
+			"expires":              timeAttr(vm.Expires),
+			"revoked":              timeAttr(vm.Revoked),
 		}
-		data.NotificationMethod = types.ListValueMust(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":       types.StringType,
-				"type":       types.StringType,
-				"value_json": types.StringType,
-			},
-		}, notificationMethods)
-	} else {
-		data.NotificationMethod = types.ListNull(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":       types.StringType,
-				"type":       types.StringType,
-				"value_json": types.StringType,
-			},
-		})
+		obj, diags := types.ObjectValue(verificationMethodAttrTypes, attrs)
+		diagnostics.Append(diags...)
+		verificationMethods[i] = obj
 	}
+	data.VerificationMethods = types.ListValueMust(types.ObjectType{AttrTypes: verificationMethodAttrTypes}, verificationMethods)
+}
+
+// notificationMethodsToData renders the read-only notification methods returned by the API.
+func (r *policyIdentityResource) notificationMethodsToData(api *PolicyIdentityAPIModel, data *PolicyIdentityResourceModel, diagnostics *diag.Diagnostics) {
+	if len(api.NotificationMethods) == 0 {
+		data.NotificationMethods = types.ListNull(types.ObjectType{AttrTypes: notificationMethodAttrTypes})
+		return
+	}
+	notificationMethods := make([]attr.Value, len(api.NotificationMethods))
+	for i, nm := range api.NotificationMethods {
+		valueJSON := types.StringNull()
+		if nm.Value != nil {
+			valueJSON = types.StringValue(string(nm.Value))
+		}
+		obj, diags := types.ObjectValue(notificationMethodAttrTypes, map[string]attr.Value{
+			"id":         types.StringValue(nm.ID),
+			"name":       optionalString(nm.Name),
+			"type":       optionalString(nm.Type),
+			"value_json": valueJSON,
+		})
+		diagnostics.Append(diags...)
+		notificationMethods[i] = obj
+	}
+	data.NotificationMethods = types.ListValueMust(types.ObjectType{AttrTypes: notificationMethodAttrTypes}, notificationMethods)
+}
+
+// preserveJSONFormatting keeps the configured JSON string when the API returns the same
+// value formatted differently. The server re-serializes a JWK with its keys sorted, so a
+// byte comparison against the configured string would otherwise report a change that is
+// not one.
+func preserveJSONFormatting(configured types.String, apiValue json.RawMessage) types.String {
+	if len(apiValue) == 0 {
+		return types.StringNull()
+	}
+	if !configured.IsNull() && !configured.IsUnknown() &&
+		jsonSemanticallyEqual([]byte(configured.ValueString()), apiValue) {
+		return configured
+	}
+	return types.StringValue(string(apiValue))
+}
+
+// jsonSemanticallyEqual reports whether two JSON documents differ only in key order or
+// whitespace.
+func jsonSemanticallyEqual(a, b []byte) bool {
+	var aVal, bVal interface{}
+	if json.Unmarshal(a, &aVal) != nil || json.Unmarshal(b, &bVal) != nil {
+		return false
+	}
+	return reflect.DeepEqual(aVal, bVal)
+}
+
+// optionalString renders an API string as a terraform string, mapping empty to null
+// so that attributes left unset in configuration stay null in state.
+func optionalString(s string) types.String {
+	if s == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(s)
+}
+
+// timeAttr renders an optional API timestamp as an RFC3339 terraform string.
+func timeAttr(t *time.Time) types.String {
+	if t == nil {
+		return types.StringNull()
+	}
+	return types.StringValue(t.Format(time.RFC3339))
 }

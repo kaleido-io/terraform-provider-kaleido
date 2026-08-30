@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_pms_identity Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages Policy Manager identities
+  Manages Policy Manager identities. An identity is a subject that can make attestations, and carries the verification methods (public keys) used to prove those attestations.
 ---
 
 # kaleido_platform_pms_identity (Resource)
 
-Manages Policy Manager identities
+Manages Policy Manager identities. An identity is a subject that can make attestations, and carries the verification methods (public keys) used to prove those attestations.
 
 
 
@@ -23,28 +23,29 @@ Manages Policy Manager identities
 
 ### Optional
 
-- `assertion_method` (Attributes List) Array of verification methods (cryptographic keys) that can be used to prove statements made by this identity (see [below for nested schema](#nestedatt--assertion_method))
+- `controller` (String) Optional controller (KID) of the identity, e.g. a user or application. If set, attestations against this identity are only accepted from that controller. This is the field called `owner` on the v1 API. Distinct from the `controller` of an individual verification method, which identifies who controls that particular key.
 - `description` (String) Description of the identity.
-- `notification_method` (Attributes List) Array of notification methods (e.g. email, phone) associated with this identity (see [below for nested schema](#nestedatt--notification_method))
-- `owner` (String) Optional owner (KID) of the identity, e.g. a user or application
-- `preferred_assertion_method` (String) The preferred assertion method for the identity
+- `verification_method` (Attributes List) Array of verification methods (cryptographic keys) that can be used to prove statements made by this identity (see [below for nested schema](#nestedatt--verification_method))
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `notification_method` (Attributes List) Notification methods (e.g. workflow) associated with this identity. Read-only: the v2 Policy Manager API returns notification methods but provides no way to create them. (see [below for nested schema](#nestedatt--notification_method))
 
-<a id="nestedatt--assertion_method"></a>
-### Nested Schema for `assertion_method`
+<a id="nestedatt--verification_method"></a>
+### Nested Schema for `verification_method`
 
 Optional:
 
+- `controller` (String) Optional URI, KID, or DID identifying who controls this specific key (may differ from the identity subject)
 - `expires` (String) Expiration timestamp
-- `identity_id` (String) ID of the identity this assertion method belongs to
-- `name` (String) Name of this verification method.
+- `identity_id` (String) ID of the identity this verification method belongs to
+- `key_uri` (String) URI of the Key Manager key backing this verification method, e.g. 'kld:///keystore/<id>/key/<name>'. Required to route a signing request to the Key Manager, which addresses keys by URI rather than by public key.
+- `name` (String) A human-readable label for this verification method, e.g. 'primary-signing-key'
+- `public_key_jwk_json` (String) JWK-encoded public key as a JSON string (use jsonencode), for type JsonWebKey (RFC 7517). For Ethereum signing: {kty:EC, crv:secp256k1, x:..., y:...}
+- `public_key_multibase` (String) Multibase-encoded public key, for type Multikey. For secp256k1/Ethereum: 0xe701 varint prefix + 33-byte compressed key, base58btc-encoded with a 'z' header.
 - `revoked` (String) Revocation timestamp
-- `signing_method` (String) Signing method for the assertion method
-- `type` (String) Type of the assertion method
-- `verification_material` (String) Verification material for the assertion method
+- `type` (String) The key format: Multikey (use public_key_multibase) or JsonWebKey (use public_key_jwk_json)
 
 Read-Only:
 
@@ -55,8 +56,9 @@ Read-Only:
 <a id="nestedatt--notification_method"></a>
 ### Nested Schema for `notification_method`
 
-Optional:
+Read-Only:
 
+- `id` (String) ID of the notification method
 - `name` (String) Name of the notification method
-- `type` (String) Type of the notification method
-- `value_json` (String) The type-specific configuration of the notification method, as a JSON string (use jsonencode)
+- `type` (String) Type of the notification method, e.g. 'workflow' or 'email'
+- `value_json` (String) The type-specific configuration of the notification method, as a JSON string

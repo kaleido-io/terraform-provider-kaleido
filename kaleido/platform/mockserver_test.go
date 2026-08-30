@@ -32,50 +32,64 @@ import (
 )
 
 type mockPlatform struct {
-	t                           *testing.T
-	lock                        sync.Mutex
-	router                      *mux.Router
-	server                      *httptest.Server
-	environments                map[string]*EnvironmentAPIModel
-	environmentVersions         *EnvironmentVersionsAPIModel // served for every environment
-	runtimes                    map[string]*RuntimeAPIModel
-	services                    map[string]*ServiceAPIModel
-	networks                    map[string]*NetworkAPIModel
-	stacks                      map[string]*StacksAPIModel
-	connectors                  map[string]*ConnectorAPIModel
-	networkinitdatas            map[string]*NetworkInitData
-	kmsWallets                  map[string]*KMSWalletAPIModel
-	arsNamespaces               map[string]*ARSNamespaceAPIModel
-	kmsKeys                     map[string]*KMSKeyAPIModel
-	kmsKeysByID                 map[string]*KMSKeyAPIModel // env/service/id for global /keys/{id}
-	cmsBuilds                   map[string]*CMSBuildAPIModel
-	cmsActions                  map[string]CMSActionAPIBaseAccessor
-	amsTasks                    map[string]*AMSTaskAPIModel
-	amsTaskVersions             map[string]map[string]interface{}
-	amsPolicies                 map[string]*AMSPolicyAPIModel
-	amsPolicyVersions           map[string]*AMSPolicyVersionAPIModel
-	amsDMUpserts                map[string]map[string]interface{}
-	amsFFListeners              map[string]*AMSFFListenerAPIModel
-	amsDMListeners              map[string]*AMSDMListenerAPIModel
-	amsVariableSets             map[string]*AMSVariableSetAPIModel
-	amsCollections              map[string]*AMSCollectionAPIModel
-	groups                      map[string]*GroupAPIModel
-	ffsNode                     *FireFlyStatusNodeAPIModel
-	ffsOrg                      *FireFlyStatusOrgAPIModel
-	calls                       []string
-	applications                map[string]*ApplicationAPIModel
-	apiKeys                     map[string]*APIKeyAPIModel
-	serviceAccess               map[string]*ServiceAccessAPIModel
-	serviceAccessPolicies       map[string]*ServiceAccessPolicyAPIModel
-	accountAccessPolicies       map[string]*AccountAccessPolicyAPIModel
-	stackAccess                 map[string]*StackAccessAPIModel
-	wmsWallets                  map[string]*WMSWalletAPIModel
-	wmsAssets                   map[string]*WMSAssetAPIModel
-	wmsAssetIcons               map[string]*struct{}
-	wmsAccounts                 map[string]*WMSAccountAPIModel
-	policyIdentities            map[string]*PolicyIdentityAPIModel
-	pmsIdentityLists            map[string]*PMSIdentityListAPIModel
-	pmsIdentityListVersions     map[string]map[string]*PMSIdentityListVersionAPIModel
+	t                         *testing.T
+	lock                      sync.Mutex
+	router                    *mux.Router
+	server                    *httptest.Server
+	environments              map[string]*EnvironmentAPIModel
+	environmentVersions       *EnvironmentVersionsAPIModel // served for every environment
+	runtimes                  map[string]*RuntimeAPIModel
+	services                  map[string]*ServiceAPIModel
+	networks                  map[string]*NetworkAPIModel
+	stacks                    map[string]*StacksAPIModel
+	connectors                map[string]*ConnectorAPIModel
+	networkinitdatas          map[string]*NetworkInitData
+	kmsWallets                map[string]*KMSWalletAPIModel
+	arsNamespaces             map[string]*ARSNamespaceAPIModel
+	kmsKeys                   map[string]*KMSKeyAPIModel
+	kmsKeysByID               map[string]*KMSKeyAPIModel // env/service/id for global /keys/{id}
+	cmsBuilds                 map[string]*CMSBuildAPIModel
+	cmsActions                map[string]CMSActionAPIBaseAccessor
+	amsTasks                  map[string]*AMSTaskAPIModel
+	amsTaskVersions           map[string]map[string]interface{}
+	amsPolicies               map[string]*AMSPolicyAPIModel
+	amsPolicyVersions         map[string]*AMSPolicyVersionAPIModel
+	amsDMUpserts              map[string]map[string]interface{}
+	amsFFListeners            map[string]*AMSFFListenerAPIModel
+	amsDMListeners            map[string]*AMSDMListenerAPIModel
+	amsVariableSets           map[string]*AMSVariableSetAPIModel
+	amsCollections            map[string]*AMSCollectionAPIModel
+	groups                    map[string]*GroupAPIModel
+	ffsNode                   *FireFlyStatusNodeAPIModel
+	ffsOrg                    *FireFlyStatusOrgAPIModel
+	calls                     []string
+	applications              map[string]*ApplicationAPIModel
+	apiKeys                   map[string]*APIKeyAPIModel
+	serviceAccess             map[string]*ServiceAccessAPIModel
+	serviceAccessPolicies     map[string]*ServiceAccessPolicyAPIModel
+	accountAccessPolicies     map[string]*AccountAccessPolicyAPIModel
+	stackAccess               map[string]*StackAccessAPIModel
+	wmsWallets                map[string]*WMSWalletAPIModel
+	wmsAssets                 map[string]*WMSAssetAPIModel
+	wmsAssetIcons             map[string]*struct{}
+	wmsAccounts               map[string]*WMSAccountAPIModel
+	policyIdentities          map[string]*PolicyIdentityAPIModel
+	pmsIdentityLists          map[string]*PMSIdentityListAPIModel
+	pmsIdentityListVersions   map[string]map[string]*PMSIdentityListVersionAPIModel
+	pmsPolicies               map[string]*PMSPolicyAPIModel
+	pmsPolicyVersions         map[string]map[string]*PMSPolicyVersionAPIModel
+	pmsPolicyMatchers         map[string]*PMSPolicyMatcherAPIModel
+	pmsEvidenceSourceBindings map[string]*PMSEvidenceSourceBindingAPIModel
+	pmsIdentityListBindings   map[string]*PMSIdentityListBindingAPIModel
+	// echoEmptyEvidenceSourceBindingBlocks makes the mock return empty objects for the
+	// type-specific binding fields that were not supplied, as the real API does
+	echoEmptyEvidenceSourceBindingBlocks bool
+	// pmsPolicyPutBodies records the raw body of each policy PUT, so a test can assert
+	// what was carried in the single call that creates a policy
+	pmsPolicyPutBodies []map[string]interface{}
+	// expectIdentityController / expectKeyURI assert the values sent on identity create
+	expectIdentityController    string
+	expectKeyURI                string
 	pmsPolicyDeployments        map[string]*PMSPolicyDeploymentAPIModel
 	pmsPolicyDeploymentVersions map[string]map[string]*PMSPolicyDeploymentVersionAPIModel
 	wfeWorkflows                map[string]*WFEWorkflowAPIModel
@@ -126,6 +140,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		policyIdentities:            make(map[string]*PolicyIdentityAPIModel),
 		pmsIdentityLists:            make(map[string]*PMSIdentityListAPIModel),
 		pmsIdentityListVersions:     make(map[string]map[string]*PMSIdentityListVersionAPIModel),
+		pmsPolicies:                 make(map[string]*PMSPolicyAPIModel),
+		pmsPolicyVersions:           make(map[string]map[string]*PMSPolicyVersionAPIModel),
+		pmsPolicyMatchers:           make(map[string]*PMSPolicyMatcherAPIModel),
+		pmsEvidenceSourceBindings:   make(map[string]*PMSEvidenceSourceBindingAPIModel),
+		pmsIdentityListBindings:     make(map[string]*PMSIdentityListBindingAPIModel),
 		pmsPolicyDeployments:        make(map[string]*PMSPolicyDeploymentAPIModel),
 		pmsPolicyDeploymentVersions: make(map[string]map[string]*PMSPolicyDeploymentVersionAPIModel),
 		wfeWorkflows:                make(map[string]*WFEWorkflowAPIModel),
@@ -273,17 +292,49 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/accounts/{account}", http.MethodDelete, mp.deleteWMSAccount)
 
 	// See policy_identity.go
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identities", http.MethodPost, mp.postPolicyIdentity)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identities/{identity}", http.MethodGet, mp.getPolicyIdentity)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identities/{identity}", http.MethodPut, mp.putPolicyIdentity)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identities/{identity}", http.MethodDelete, mp.deletePolicyIdentity)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identities", http.MethodPost, mp.postPolicyIdentity)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identities/{identity}", http.MethodGet, mp.getPolicyIdentity)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identities/{identity}", http.MethodDelete, mp.deletePolicyIdentity)
 
 	// See pms_identity_list.go
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}", http.MethodPut, mp.putPMSIdentityList)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}", http.MethodGet, mp.getPMSIdentityList)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}", http.MethodPatch, mp.patchPMSIdentityList)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}", http.MethodDelete, mp.deletePMSIdentityList)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/identity-lists/{identityList}/versions", http.MethodPost, mp.postPMSIdentityListVersion)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}", http.MethodPut, mp.putPMSIdentityList)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}", http.MethodGet, mp.getPMSIdentityList)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}", http.MethodPatch, mp.patchPMSIdentityList)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}", http.MethodDelete, mp.deletePMSIdentityList)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}/versions", http.MethodPost, mp.postPMSIdentityListVersion)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/identity-lists/{identityList}/versions", http.MethodGet, mp.getPMSIdentityListVersions)
+
+	// See pms_policy.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}", http.MethodPut, mp.putPMSPolicy)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}", http.MethodGet, mp.getPMSPolicy)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}", http.MethodPatch, mp.patchPMSPolicy)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}", http.MethodDelete, mp.deletePMSPolicy)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/versions", http.MethodPost, mp.postPMSPolicyVersion)
+
+	// See pms_policy_version.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/versions/{version}", http.MethodGet, mp.getPMSPolicyVersion)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/versions/{version}", http.MethodPatch, mp.patchPMSPolicyVersion)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/versions/{version}", http.MethodDelete, mp.deletePMSPolicyVersion)
+
+	// See pms_policy_matcher.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers", http.MethodPost, mp.postPMSPolicyMatcher)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}", http.MethodGet, mp.getPMSPolicyMatcher)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}", http.MethodPatch, mp.patchPMSPolicyMatcher)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}", http.MethodDelete, mp.deletePMSPolicyMatcher)
+
+	// See pms_policy_evidence_source_binding.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings", http.MethodPost, mp.postPMSEvidenceSourceBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings", http.MethodGet, mp.getPMSEvidenceSourceBindings)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}", http.MethodGet, mp.getPMSEvidenceSourceBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}", http.MethodPatch, mp.patchPMSEvidenceSourceBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}", http.MethodDelete, mp.deletePMSEvidenceSourceBinding)
+
+	// See pms_policy_identity_list_binding.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings", http.MethodPost, mp.postPMSIdentityListBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings", http.MethodGet, mp.getPMSIdentityListBindings)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodGet, mp.getPMSIdentityListBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodPatch, mp.patchPMSIdentityListBinding)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodDelete, mp.deletePMSIdentityListBinding)
 
 	// See pms_policy_deployment.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}", http.MethodPut, mp.putPMSPolicyDeployment)
