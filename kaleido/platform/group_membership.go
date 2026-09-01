@@ -180,6 +180,7 @@ func (r *groupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 	}
 
 	if foundMembership == nil {
+		// User is not in the group, remove from state
 		resp.State.RemoveResource(ctx)
 		return
 	}
