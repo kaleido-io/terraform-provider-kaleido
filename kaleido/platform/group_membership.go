@@ -17,6 +17,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -117,6 +119,10 @@ func (r *groupMembershipResource) apiPath(data *GroupMembershipResourceModel) st
 	return fmt.Sprintf("/api/v1/groups/%s/members", data.GroupID.ValueString())
 }
 
+func (r *groupMembershipResource) memberLookupPath(data *GroupMembershipResourceModel) string {
+	return fmt.Sprintf("%s?userid=%s", r.apiPath(data), url.QueryEscape(data.UserID.ValueString()))
+}
+
 func (r *groupMembershipResource) memberPath(data *GroupMembershipResourceModel) string {
 	if data.ID.ValueString() != "" {
 		return fmt.Sprintf("/api/v1/groups/%s/members/%s", data.GroupID.ValueString(), data.ID.ValueString())
@@ -154,9 +160,8 @@ func (r *groupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 	var data GroupMembershipResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
-	// List all members of the group and find the specific user
 	var membersList GroupMembershipListAPIModel
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &membersList, &resp.Diagnostics, Allow404())
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.memberLookupPath(&data), nil, &membersList, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
 	}
@@ -165,18 +170,16 @@ func (r *groupMembershipResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	// Find the specific user in the members list
-	var foundMembership *GroupMembershipAPIModel
 	targetUserID := data.UserID.ValueString()
-	for _, membership := range membersList.Items {
-		if membership.UserID == targetUserID {
-			foundMembership = &membership
+	var foundMembership *GroupMembershipAPIModel
+	for i := range membersList.Items {
+		if membersList.Items[i].UserID == targetUserID {
+			foundMembership = &membersList.Items[i]
 			break
 		}
 	}
 
 	if foundMembership == nil {
-		// User is not in the group, remove from state
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -190,10 +193,19 @@ func (r *groupMembershipResource) Delete(ctx context.Context, req resource.Delet
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	_, _ = r.apiRequest(ctx, http.MethodDelete, r.memberPath(&data), nil, nil, &resp.Diagnostics, Allow404())
-
-	r.waitForRemoval(ctx, r.memberPath(&data), &resp.Diagnostics)
 }
 
 func (r *groupMembershipResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.AddError("Import not supported", "Import is not currentlysupported for group memberships")
+	// Format: group_id/user_id (e.g. g:abcd1234/u:1234abcd).
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Invalid import ID",
+			"Import ID must be in the format group_id/user_id (e.g. g:abcd1234/u:1234abcd)",
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("user_id"), parts[1])...)
 }
