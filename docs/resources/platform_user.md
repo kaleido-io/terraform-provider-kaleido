@@ -40,7 +40,7 @@ resource "kaleido_platform_user" "admin_user" {
 
 ### Optional
 
-- `email` (String) Email address of the user
+- `email` (String) Email address of the user. Required to be lowercase
 - `is_admin` (Boolean) Whether the user is a platform administrator
 - `sub` (String) OAuth subject identifier of the user
 
