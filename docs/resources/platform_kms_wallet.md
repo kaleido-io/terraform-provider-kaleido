@@ -27,6 +27,7 @@ Keys that are used for signing must reside in a resource known as a wallet. Once
 - `config_json` (String) Optional JSON object containing configuration applicable to the wallet type.
 - `creds_json` (String) Optional JSON object containing credentials applicable to the wallet type.
 - `key_discovery_config` (Map of List of String) Optionally provide key discovery configuration. Example: `{ "secp256k1": ["address_ethereum", "address_ethereum_checksum"] }`
+- `default_key_attributes` (Map of String) Optional map of default key attributes applied to keys created in this wallet. Sent to the API as `defaultKeyAttributes`. Example: `{ "pkcs11:CKA_EXTRACTABLE" = "true" }`.
 
 ### Read-Only
 
