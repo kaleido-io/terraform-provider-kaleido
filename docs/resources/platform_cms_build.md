@@ -53,7 +53,7 @@ Required:
 
 Optional:
 
-- `auth_token` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments))
+- `auth_token` (String)
 - `contract_name` (String)
 
 
