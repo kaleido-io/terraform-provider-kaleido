@@ -110,7 +110,7 @@ func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"default_key_attributes": &schema.MapAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
-				Description: "Optional map of default key attributes applied to keys created in this wallet. Sent to the API as `defaultKeyAttributes`. Example: `{ \"pkcs11:CKA_EXTRACTABLE\" = \"true\" }`.",
+				Description: "Optional map of default key attributes applied to keys created in this wallet. Sent to the API as `defaultKeyAttributes`.",
 			},
 		},
 	}

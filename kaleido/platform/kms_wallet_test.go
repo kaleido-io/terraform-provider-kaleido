@@ -337,14 +337,13 @@ var kms_walletDefaultKeyAttributesStep1 = `
 resource "kaleido_platform_kms_wallet" "kms_wallet_defaultattrs" {
     environment = "env1"
 	service = "service1"
-    type = "remotemodule"
-    name = "hsm-keystore"
+    type = "hdwallet"
+    name = "wallet_defaultattrs"
     config_json = jsonencode({
-        mode = "rest"
-        url  = "https://signing.example/module"
+        "setting1": "value1"
     })
     default_key_attributes = {
-        "pkcs11:CKA_EXTRACTABLE" = "true"
+        "attr1" = "value1"
     }
 }
 `
@@ -353,15 +352,14 @@ var kms_walletDefaultKeyAttributesStep2 = `
 resource "kaleido_platform_kms_wallet" "kms_wallet_defaultattrs" {
     environment = "env1"
 	service = "service1"
-    type = "remotemodule"
-    name = "hsm-keystore"
+    type = "hdwallet"
+    name = "wallet_defaultattrs"
     config_json = jsonencode({
-        mode = "rest"
-        url  = "https://signing.example/module"
+        "setting1": "value1"
     })
     default_key_attributes = {
-        "pkcs11:CKA_EXTRACTABLE" = "false"
-        "pkcs11:CKA_SENSITIVE"   = "true"
+        "attr1" = "updated"
+        "attr2" = "value2"
     }
 }
 `
@@ -391,30 +389,27 @@ func TestKMSWalletDefaultKeyAttributes(t *testing.T) {
 				Config: providerConfig + kms_walletDefaultKeyAttributesStep1,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(kms_walletResource, "id"),
-					resource.TestCheckResourceAttr(kms_walletResource, "name", `hsm-keystore`),
-					resource.TestCheckResourceAttr(kms_walletResource, "type", `remotemodule`),
+					resource.TestCheckResourceAttr(kms_walletResource, "name", `wallet_defaultattrs`),
+					resource.TestCheckResourceAttr(kms_walletResource, "type", `hdwallet`),
 					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.%", "1"),
-					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.pkcs11:CKA_EXTRACTABLE", "true"),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.attr1", "value1"),
 					func(s *terraform.State) error {
 						id := s.RootModule().Resources[kms_walletResource].Primary.Attributes["id"]
 						obj := mp.kmsWallets[fmt.Sprintf("env1/service1/%s", id)]
 						assert.NotNil(t, obj)
-						assert.Equal(t, "hsm-keystore", obj.Name)
-						assert.Equal(t, "remotemodule", obj.Type)
-						assert.Equal(t, map[string]string{"pkcs11:CKA_EXTRACTABLE": "true"}, obj.DefaultKeyAttributes)
+						assert.Equal(t, map[string]string{"attr1": "value1"}, obj.DefaultKeyAttributes)
 						testJSONEqual(t, obj, fmt.Sprintf(`
 						{
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							"type": "remotemodule",
-							"name": "hsm-keystore",
+							"type": "hdwallet",
+							"name": "wallet_defaultattrs",
 							"configuration": {
-								"mode": "rest",
-								"url": "https://signing.example/module"
+								"setting1": "value1"
 							},
 							"defaultKeyAttributes": {
-								"pkcs11:CKA_EXTRACTABLE": "true"
+								"attr1": "value1"
 							}
 						}
 						`,
@@ -431,30 +426,29 @@ func TestKMSWalletDefaultKeyAttributes(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(kms_walletResource, "id"),
 					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.%", "2"),
-					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.pkcs11:CKA_EXTRACTABLE", "false"),
-					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.pkcs11:CKA_SENSITIVE", "true"),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.attr1", "updated"),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.attr2", "value2"),
 					func(s *terraform.State) error {
 						id := s.RootModule().Resources[kms_walletResource].Primary.Attributes["id"]
 						obj := mp.kmsWallets[fmt.Sprintf("env1/service1/%s", id)]
 						assert.NotNil(t, obj)
 						assert.Equal(t, map[string]string{
-							"pkcs11:CKA_EXTRACTABLE": "false",
-							"pkcs11:CKA_SENSITIVE":   "true",
+							"attr1": "updated",
+							"attr2": "value2",
 						}, obj.DefaultKeyAttributes)
 						testJSONEqual(t, obj, fmt.Sprintf(`
 						{
 							"id": "%[1]s",
 							"created": "%[2]s",
 							"updated": "%[3]s",
-							"type": "remotemodule",
-							"name": "hsm-keystore",
+							"type": "hdwallet",
+							"name": "wallet_defaultattrs",
 							"configuration": {
-								"mode": "rest",
-								"url": "https://signing.example/module"
+								"setting1": "value1"
 							},
 							"defaultKeyAttributes": {
-								"pkcs11:CKA_EXTRACTABLE": "false",
-								"pkcs11:CKA_SENSITIVE":   "true"
+								"attr1": "updated",
+								"attr2": "value2"
 							}
 						}
 						`,
