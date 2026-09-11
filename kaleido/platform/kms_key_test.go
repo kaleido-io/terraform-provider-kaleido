@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -222,6 +223,27 @@ func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 		obj.URI = "uri/for/" + obj.Name
 	}
 	obj.PublicIdentifierTypes = nil
+	// Mirror the real API: merge the wallet's default_key_attributes into the
+	// key's attributes. Per-key values take precedence; every default the key
+	// didn't explicitly set is added.
+	walletName := mux.Vars(req)["wallet"]
+	envSvcPrefix := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/"
+	for k, w := range mp.kmsWallets {
+		if !strings.HasPrefix(k, envSvcPrefix) || w.Name != walletName {
+			continue
+		}
+		if len(w.DefaultKeyAttributes) > 0 {
+			if obj.Attributes == nil {
+				obj.Attributes = map[string]string{}
+			}
+			for ak, av := range w.DefaultKeyAttributes {
+				if _, set := obj.Attributes[ak]; !set {
+					obj.Attributes[ak] = av
+				}
+			}
+		}
+		break
+	}
 	walletKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["wallet"] + "/" + obj.ID
 	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + obj.ID
 	mp.kmsKeys[walletKey] = &obj
@@ -391,4 +413,178 @@ func TestKMSKeyFolderUpdateAndDelete(t *testing.T) {
 	})
 
 	assert.Empty(t, mp.kmsKeysByID, "folder key should be deleted via global /keys/{id} path")
+}
+
+// kms_keyInheritedAttributes exercises a wallet that has default_key_attributes:
+// creating a key without attributes should inherit them from the wallet, and the
+// provider must not error with "inconsistent result after apply" and must not
+// show a drift on the next plan.
+var kms_keyInheritedAttributesStep = `
+resource "kaleido_platform_kms_key" "kms_key_inherited" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet_defaults_id"
+    name = "inherited_key"
+}
+`
+
+func TestKMSKeyInheritsWalletDefaultAttributes(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer mp.server.Close()
+
+	mp.kmsWallets["env1/service1/wallet_defaults_id"] = &KMSWalletAPIModel{
+		Name: "wallet_defaults",
+		DefaultKeyAttributes: map[string]string{
+			"attr1": "value1",
+		},
+	}
+
+	resourceName := "kaleido_platform_kms_key.kms_key_inherited"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				// First apply: wallet defaults get injected server-side; state must
+				// accept the returned map even though config didn't set attributes.
+				Config: providerConfig + kms_keyInheritedAttributesStep,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "name", "inherited_key"),
+					resource.TestCheckResourceAttr(resourceName, "attributes.%", "1"),
+					resource.TestCheckResourceAttr(resourceName, "attributes.attr1", "value1"),
+				),
+			},
+			{
+				// Re-apply the same config: with UseStateForUnknown, the plan reuses
+				// the stored value and produces no diff.
+				Config:   providerConfig + kms_keyInheritedAttributesStep,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// kms_keyExplicitAttributes covers the case where the user sets attributes in
+// config directly: the sent value must round-trip through create + refresh with
+// no drift on the next plan.
+var kms_keyExplicitAttributesStep = `
+resource "kaleido_platform_kms_key" "kms_key_explicit" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "explicit_key"
+	attributes = {
+		"custom" = "yes"
+	}
+}
+`
+
+func TestKMSKeyExplicitAttributesRoundTrip(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer mp.server.Close()
+
+	mp.kmsWallets["env1/service1/wallet1_id"] = &KMSWalletAPIModel{Name: "wallet1"}
+
+	resourceName := "kaleido_platform_kms_key.kms_key_explicit"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + kms_keyExplicitAttributesStep,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "attributes.%", "1"),
+					resource.TestCheckResourceAttr(resourceName, "attributes.custom", "yes"),
+				),
+			},
+			{
+				Config:   providerConfig + kms_keyExplicitAttributesStep,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+
+// kms_keyMergedAttributes covers the merge path: the wallet has defaults and
+// the key sets its own attributes. The state must contain the union — the
+// per-key value wins on conflicts and the extra wallet-default entries are
+// included.
+//
+// Note on re-plan drift: if the user's config sets `attributes` and the wallet
+// contributes additional defaults, the state has more entries than the config.
+// The RequireRecreateMap plan modifier then flags that as an immutable change
+// on the NEXT plan and errors telling the user to recreate. The clean-round-
+// trip options for users are (a) list every merged entry in config, or
+// (b) don't set attributes in config at all and let the wallet defaults flow
+// through (covered by TestKMSKeyInheritsWalletDefaultAttributes). This test
+// therefore only asserts state after create.
+var kms_keyMergedAttributesStep = `
+resource "kaleido_platform_kms_key" "kms_key_merged" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet_defaults_id"
+    name = "merged_key"
+	attributes = {
+		"custom" = "yes"
+		"attr1"  = "override"
+	}
+}
+`
+
+func TestKMSKeyMergesWalletDefaultAttributes(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer mp.server.Close()
+
+	// Wallet defaults: attr1=default1, shared=fromWallet.
+	// Key config: custom=yes, attr1=override (overrides wallet default).
+	// Server-side merge: attr1=override, custom=yes, shared=fromWallet.
+	// Terraform state (after the plan-preservation logic): only the two config
+	// entries — extras from wallet defaults are hidden from state so that
+	// plan-consistency holds and re-plans are clean.
+	mp.kmsWallets["env1/service1/wallet_defaults_id"] = &KMSWalletAPIModel{
+		Name: "wallet_defaults",
+		DefaultKeyAttributes: map[string]string{
+			"attr1":  "default1",
+			"shared": "fromWallet",
+		},
+	}
+
+	resourceName := "kaleido_platform_kms_key.kms_key_merged"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + kms_keyMergedAttributesStep,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					// State mirrors config: 2 entries, key's override wins.
+					resource.TestCheckResourceAttr(resourceName, "attributes.%", "2"),
+					resource.TestCheckResourceAttr(resourceName, "attributes.attr1", "override"),
+					resource.TestCheckResourceAttr(resourceName, "attributes.custom", "yes"),
+					resource.TestCheckNoResourceAttr(resourceName, "attributes.shared"),
+					func(s *terraform.State) error {
+						id := s.RootModule().Resources[resourceName].Primary.Attributes["id"]
+						obj := mp.kmsKeysByID[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						assert.Equal(t, map[string]string{
+							"attr1":  "override",
+							"custom": "yes",
+							"shared": "fromWallet",
+						}, obj.Attributes, "server-side attributes should be the merge of config + wallet defaults, config winning on conflicts")
+						return nil
+					},
+				),
+			},
+			{
+				// Round-trip: re-apply the same config; the wallet-merged extras must
+				// not leak back into state and re-plan must be a no-op.
+				Config:   providerConfig + kms_keyMergedAttributesStep,
+				PlanOnly: true,
+			},
+		},
+	})
 }
