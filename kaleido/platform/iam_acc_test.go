@@ -15,21 +15,18 @@ package platform
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/aidarkhanov/nanoid"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccPlatformIAM(t *testing.T) {
-	suffix := nanoid.New()
+	suffix := testAccNameSuffix()
 	envName := fmt.Sprintf("tf-acc-env-%s", suffix)
 	groupName := fmt.Sprintf("tf-acc-group-%s", suffix)
 	userName := fmt.Sprintf("tf-acc-user-%s", suffix)
-	// Email must be lowercase (provider rejects mixed case).
-	userEmail := fmt.Sprintf("tf-acc-%s@example.com", strings.ToLower(suffix))
+	userEmail := fmt.Sprintf("tf-acc-%s@example.com", suffix)
 	userSub := fmt.Sprintf("tf-acc-sub-%s", suffix)
 	appName := fmt.Sprintf("tf-acc-app-%s", suffix)
 	apiKeyName := fmt.Sprintf("tf-acc-key-%s", suffix)

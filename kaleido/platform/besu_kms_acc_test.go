@@ -18,7 +18,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aidarkhanov/nanoid"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
@@ -140,7 +139,7 @@ func TestAccPlatformBesuAndKMS(t *testing.T) {
 		t.Setenv("TF_LOG_PROVIDER", "INFO")
 	}
 
-	suffix := nanoid.New()
+	suffix := testAccNameSuffix()
 	base := besuKMSAccConfig{
 		envName:   fmt.Sprintf("tf-acc-besu-%s", suffix),
 		netName:   fmt.Sprintf("tf-acc-net-%s", suffix),

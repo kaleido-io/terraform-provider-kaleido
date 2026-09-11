@@ -19,7 +19,6 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/aidarkhanov/nanoid"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
@@ -102,7 +101,7 @@ func TestAccPlatformKMSHDWallet(t *testing.T) {
 		t.Setenv("TF_LOG_PROVIDER", "INFO")
 	}
 
-	suffix := nanoid.New()
+	suffix := testAccNameSuffix()
 	base := kmsAccConfig{
 		envName:           fmt.Sprintf("tf-acc-kms-%s", suffix),
 		attributedKeyName: "attributed",

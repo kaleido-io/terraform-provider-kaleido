@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aidarkhanov/nanoid"
 	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -61,6 +62,12 @@ func testAccPlatformProviderConfig() string {
 
 func testAccPlatformClient() *resty.Client {
 	return kaleidobase.NewProviderData(context.Background(), &kaleidobase.ProviderModel{}, "acc-test", "").Platform
+}
+
+// testAccNameSuffix returns a lowercase alphanumeric id that is accepted as a valid resource name
+func testAccNameSuffix() string {
+	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
+	return nanoid.Must(nanoid.Generate(alphabet, 16))
 }
 
 // testAccCheckPlatformAPIGone expects GET path to eventually be 404 after destroy.
