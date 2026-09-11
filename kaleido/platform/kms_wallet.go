@@ -30,25 +30,27 @@ import (
 )
 
 type KMSWalletResourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	Environment        types.String `tfsdk:"environment"`
-	Service            types.String `tfsdk:"service"`
-	Type               types.String `tfsdk:"type"`
-	Name               types.String `tfsdk:"name"`
-	ConfigJSON         types.String `tfsdk:"config_json"`
-	CredsJSON          types.String `tfsdk:"creds_json"`
-	KeyDiscoveryConfig types.Map    `tfsdk:"key_discovery_config"`
+	ID                   types.String `tfsdk:"id"`
+	Environment          types.String `tfsdk:"environment"`
+	Service              types.String `tfsdk:"service"`
+	Type                 types.String `tfsdk:"type"`
+	Name                 types.String `tfsdk:"name"`
+	ConfigJSON           types.String `tfsdk:"config_json"`
+	CredsJSON            types.String `tfsdk:"creds_json"`
+	KeyDiscoveryConfig   types.Map    `tfsdk:"key_discovery_config"`
+	DefaultKeyAttributes types.Map    `tfsdk:"default_key_attributes"`
 }
 
 type KMSWalletAPIModel struct {
-	ID                 string                 `json:"id,omitempty"`
-	Created            *time.Time             `json:"created,omitempty"`
-	Updated            *time.Time             `json:"updated,omitempty"`
-	Type               string                 `json:"type"`
-	Name               string                 `json:"name"`
-	Configuration      map[string]interface{} `json:"configuration,omitempty"`
-	Credentials        map[string]interface{} `json:"credentials,omitempty"`
-	KeyDiscoveryConfig map[string][]string    `json:"keyDiscoveryConfig,omitempty"`
+	ID                   string                 `json:"id,omitempty"`
+	Created              *time.Time             `json:"created,omitempty"`
+	Updated              *time.Time             `json:"updated,omitempty"`
+	Type                 string                 `json:"type"`
+	Name                 string                 `json:"name"`
+	Configuration        map[string]interface{} `json:"configuration,omitempty"`
+	Credentials          map[string]interface{} `json:"credentials,omitempty"`
+	KeyDiscoveryConfig   map[string][]string    `json:"keyDiscoveryConfig,omitempty"`
+	DefaultKeyAttributes map[string]string      `json:"defaultKeyAttributes,omitempty"`
 }
 
 func KMSWalletResourceFactory() resource.Resource {
@@ -105,6 +107,11 @@ func (r *kms_walletResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				ElementType: types.ListType{ElemType: types.StringType},
 				Description: "Optionally provide key discovery configuration. Example: `{ \"secp256k1\": [\"address_ethereum\", \"address_ethereum_checksum\"] }`",
 			},
+			"default_key_attributes": &schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Optional default key attributes for the keystore that will be applied to all keys created in the keystore when the key creation request does not provide attributes. Attributes must be a map of string name/value pairs. Sent to the API as `defaultKeyAttributes`.",
+			},
 		},
 	}
 }
@@ -128,6 +135,11 @@ func (data *KMSWalletResourceModel) toAPI(ctx context.Context, api *KMSWalletAPI
 	if !data.KeyDiscoveryConfig.IsNull() && !data.KeyDiscoveryConfig.IsUnknown() {
 		api.KeyDiscoveryConfig = make(map[string][]string)
 		d := data.KeyDiscoveryConfig.ElementsAs(ctx, &api.KeyDiscoveryConfig, false)
+		diagnostics.Append(d...)
+	}
+	if !data.DefaultKeyAttributes.IsNull() && !data.DefaultKeyAttributes.IsUnknown() {
+		api.DefaultKeyAttributes = make(map[string]string)
+		d := data.DefaultKeyAttributes.ElementsAs(ctx, &api.DefaultKeyAttributes, false)
 		diagnostics.Append(d...)
 	}
 }
@@ -159,6 +171,14 @@ func (api *KMSWalletAPIModel) toData(ctx context.Context, data *KMSWalletResourc
 		keyDiscoveryConfig, d := types.MapValueFrom(ctx, types.ListType{ElemType: types.StringType}, api.KeyDiscoveryConfig)
 		diagnostics.Append(d...)
 		data.KeyDiscoveryConfig = keyDiscoveryConfig
+	}
+
+	if len(api.DefaultKeyAttributes) > 0 {
+		defaultKeyAttributes, d := types.MapValueFrom(ctx, types.StringType, api.DefaultKeyAttributes)
+		diagnostics.Append(d...)
+		data.DefaultKeyAttributes = defaultKeyAttributes
+	} else {
+		data.DefaultKeyAttributes = types.MapNull(types.StringType)
 	}
 
 	data.ID = types.StringValue(api.ID)
