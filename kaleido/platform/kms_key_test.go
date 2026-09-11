@@ -507,7 +507,6 @@ func TestKMSKeyExplicitAttributesRoundTrip(t *testing.T) {
 	})
 }
 
-
 // kms_keyMergedAttributes covers the merge path: the wallet has defaults and
 // the key sets its own attributes. The state must contain the union — the
 // per-key value wins on conflicts and the extra wallet-default entries are

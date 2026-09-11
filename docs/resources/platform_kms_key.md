@@ -24,7 +24,7 @@ A reference to a signing key (also known as a key mapping) that is directly/indi
 
 ### Optional
 
-- `attributes` (Map of String) Optional attributes of the key for key creation. Immutable after create — changing this value is not supported; create a new, separate key instead.
+- `attributes` (Map of String) Optional attributes of the key for key creation. Merged server-side with the wallet's default_key_attributes (per-key values take precedence), so the value read back may include additional entries even when none are set here. Immutable after create — changing this value is not supported; create a new, separate key instead.
 - `folder_path` (String) Slash-separated folder hierarchy to place this key in, e.g. "treasury" or "ops/hot". Folders are automatically created if they do not exist. Immutable after create — changing this value is not supported; create a new, separate key instead.
 - `path` (String) A unique identifier for a piece of key material that is understood by the associated signing technology for a wallet. Each key that exists must have a path to associate the key with the key material that is used for signing. Immutable after create — changing this value is not supported; create a new, separate key instead.
 - `public_identifier_types` (List of String) Optional public identifier types to create for the key. Applied only at create — immutable after create; changing this value is not supported; create a new, separate key instead.
