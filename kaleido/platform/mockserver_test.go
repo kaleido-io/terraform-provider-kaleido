@@ -87,6 +87,7 @@ type mockPlatform struct {
 	fireflyContractListeners    map[string]*FireFlyContractListenerAPIModel
 	fireflySubscriptions        map[string]*FireFlySubscriptionAPIModel
 	connectorFlowConfigBindings map[string]*ConnectorFlowConfigBindingAPIModel
+	cantonParties               map[string]*CantonPartyAPIModel
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -138,6 +139,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		wfeStreamFactories:          make(map[string]*WFEStreamFactoryAPIModel),
 		fireflyContractListeners:    make(map[string]*FireFlyContractListenerAPIModel),
 		fireflySubscriptions:        make(map[string]*FireFlySubscriptionAPIModel),
+		cantonParties:               make(map[string]*CantonPartyAPIModel),
 		router:                      mux.NewRouter(),
 		calls:                       []string{},
 	}
@@ -374,6 +376,11 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/account-access/policies", http.MethodPost, mp.postAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodGet, mp.getAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodDelete, mp.deleteAccountAccessPolicy)
+
+	// See canton_party_test.go
+	mp.register("/endpoint/{env}/{service}/node/parties", http.MethodPut, mp.putCantonParty)
+	mp.register("/endpoint/{env}/{service}/node/parties/{party}", http.MethodGet, mp.getCantonParty)
+	mp.register("/endpoint/{env}/{service}/node/parties/{party}", http.MethodPatch, mp.patchCantonParty)
 
 	// See connector_flow_config_binding_test.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings", http.MethodGet, mp.listConnectorFlowConfigBindings)
