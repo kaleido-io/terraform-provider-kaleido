@@ -332,3 +332,134 @@ func TestKMSWalletKeyDiscoveryConfig(t *testing.T) {
 		},
 	})
 }
+
+var kms_walletDefaultKeyAttributesStep1 = `
+resource "kaleido_platform_kms_wallet" "kms_wallet_defaultattrs" {
+    environment = "env1"
+	service = "service1"
+    type = "hdwallet"
+    name = "wallet_defaultattrs"
+    config_json = jsonencode({
+        "setting1": "value1"
+    })
+    default_key_attributes = {
+        "attr1" = "value1"
+    }
+}
+`
+
+var kms_walletDefaultKeyAttributesStep2 = `
+resource "kaleido_platform_kms_wallet" "kms_wallet_defaultattrs" {
+    environment = "env1"
+	service = "service1"
+    type = "hdwallet"
+    name = "wallet_defaultattrs"
+    config_json = jsonencode({
+        "setting1": "value1"
+    })
+    default_key_attributes = {
+        "attr1" = "updated"
+        "attr2" = "value2"
+    }
+}
+`
+
+func TestKMSWalletDefaultKeyAttributes(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v1/wallets",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+		})
+		mp.server.Close()
+	}()
+
+	kms_walletResource := "kaleido_platform_kms_wallet.kms_wallet_defaultattrs"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + kms_walletDefaultKeyAttributesStep1,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(kms_walletResource, "id"),
+					resource.TestCheckResourceAttr(kms_walletResource, "name", `wallet_defaultattrs`),
+					resource.TestCheckResourceAttr(kms_walletResource, "type", `hdwallet`),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.%", "1"),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.attr1", "value1"),
+					func(s *terraform.State) error {
+						id := s.RootModule().Resources[kms_walletResource].Primary.Attributes["id"]
+						obj := mp.kmsWallets[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						assert.Equal(t, map[string]string{"attr1": "value1"}, obj.DefaultKeyAttributes)
+						testJSONEqual(t, obj, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "hdwallet",
+							"name": "wallet_defaultattrs",
+							"configuration": {
+								"setting1": "value1"
+							},
+							"defaultKeyAttributes": {
+								"attr1": "value1"
+							}
+						}
+						`,
+							id,
+							obj.Created.UTC().Format(time.RFC3339Nano),
+							obj.Updated.UTC().Format(time.RFC3339Nano),
+						))
+						return nil
+					},
+				),
+			},
+			{
+				Config: providerConfig + kms_walletDefaultKeyAttributesStep2,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(kms_walletResource, "id"),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.%", "2"),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.attr1", "updated"),
+					resource.TestCheckResourceAttr(kms_walletResource, "default_key_attributes.attr2", "value2"),
+					func(s *terraform.State) error {
+						id := s.RootModule().Resources[kms_walletResource].Primary.Attributes["id"]
+						obj := mp.kmsWallets[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						assert.Equal(t, map[string]string{
+							"attr1": "updated",
+							"attr2": "value2",
+						}, obj.DefaultKeyAttributes)
+						testJSONEqual(t, obj, fmt.Sprintf(`
+						{
+							"id": "%[1]s",
+							"created": "%[2]s",
+							"updated": "%[3]s",
+							"type": "hdwallet",
+							"name": "wallet_defaultattrs",
+							"configuration": {
+								"setting1": "value1"
+							},
+							"defaultKeyAttributes": {
+								"attr1": "updated",
+								"attr2": "value2"
+							}
+						}
+						`,
+							id,
+							obj.Created.UTC().Format(time.RFC3339Nano),
+							obj.Updated.UTC().Format(time.RFC3339Nano),
+						))
+						return nil
+					},
+				),
+			},
+		},
+	})
+}

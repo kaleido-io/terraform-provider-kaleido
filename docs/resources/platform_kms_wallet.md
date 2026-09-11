@@ -26,6 +26,7 @@ Keys that are used for signing must reside in a resource known as a wallet. Once
 
 - `config_json` (String) Optional JSON object containing configuration applicable to the wallet type.
 - `creds_json` (String) Optional JSON object containing credentials applicable to the wallet type.
+- `default_key_attributes` (Map of String) Optional default key attributes for the keystore that will be applied to all keys created in the keystore when the key creation request does not provide attributes. Attributes must be a map of string name/value pairs. Sent to the API as `defaultKeyAttributes`.
 - `key_discovery_config` (Map of List of String) Optionally provide key discovery configuration. Example: `{ "secp256k1": ["address_ethereum", "address_ethereum_checksum"] }`
 
 ### Read-Only
