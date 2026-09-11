@@ -47,7 +47,7 @@ resource "kaleido_platform_user" "jit_bound_user" {
 
 ### Optional
 
-- `email` (String) Email address of the user
+- `email` (String) Email address of the user. Required to be lowercase
 - `is_admin` (Boolean) Whether the user is a platform administrator
 - `sub` (String) OAuth subject identifier of the user. Optional on create; if omitted, the platform may bind it on first login and Terraform will retain that value.
 
