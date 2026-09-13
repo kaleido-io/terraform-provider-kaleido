@@ -32,6 +32,9 @@ import (
 
 var SupportedArtifactFamilies = []string{
 	"provider",
+	"file",
+	"evmcontracts",
+	"dar",
 }
 
 type ARSNamespaceResourceModel struct {
@@ -99,7 +102,7 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 				Required:      true,
 				Validators:    []validator.String{stringvalidator.OneOf(SupportedArtifactFamilies...)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The artifact family for the namespace (e.g. provider).",
+				Description:   "The artifact family for the namespace (one of: provider, file, evmcontracts, dar).",
 			},
 			"description": &schema.StringAttribute{
 				Optional:      true,

@@ -372,6 +372,7 @@ func Resources() []func() resource.Resource {
 		NetworkResourceFactory,
 		KMSWalletResourceFactory,
 		ARSNamespaceResourceFactory,
+		ARSFileArtifactResourceFactory,
 		KMSFolderResourceFactory,
 		KMSKeyResourceFactory,
 		CMSBuildResourceFactory,
@@ -429,8 +430,10 @@ type FileSetAPI struct {
 }
 
 type FileAPI struct {
-	Type string      `json:"type,omitempty"`
-	Data FileDataAPI `json:"data,omitempty"`
+	Type string `json:"type,omitempty"`
+	// Exactly one of Data or RegistryFileRef - the server rejects both together
+	Data            *FileDataAPI `json:"data,omitempty"`
+	RegistryFileRef string       `json:"registryFileRef,omitempty"`
 }
 
 type FileDataAPI struct {
