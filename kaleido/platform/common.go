@@ -430,6 +430,7 @@ func Resources() []func() resource.Resource {
 		PMSPolicyResourceFactory,
 		PMSPolicyVersionResourceFactory,
 		PMSPolicyMatcherResourceFactory,
+		PMSEvidenceSourceResourceFactory,
 		PMSPolicyEvidenceSourceBindingResourceFactory,
 		PMSPolicyIdentityListBindingResourceFactory,
 		PMSPolicyDeploymentResourceFactory,

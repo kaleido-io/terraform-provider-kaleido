@@ -34,17 +34,9 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
 
   evidence_source_binding = [
     {
-      name = "approvers"
-      type = "approval"
-      approval = {
-        approval = {
-          payload_type             = "TypedDataV4"
-          payload_template_jsonata = "$.request"
-        }
-        identity_list_version = {
-          id = kaleido_platform_pms_identity_list.treasury_ops.applied_version_id
-        }
-      }
+      policy_evidence_source = "approvers"
+      evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+      attesters              = "treasuryOperations"
     }
   ]
 
@@ -92,7 +84,7 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
 
 - `definition_yaml` (String) The policy definition as YAML, containing components, constants, evidence, decision, output, parameters, parameterValues and summaryTemplate. Omit it to create the policy as an empty container, so that bindings and a kaleido_platform_pms_policy_version resource can be declared separately. Matchers are never part of the definition - they are managed by kaleido_platform_pms_policy_matcher.
 - `description` (String) Description of the policy
-- `evidence_source_binding` (Attributes List) Evidence source bindings declared inline on the policy, each telling the policy where the evidence for a slot comes from. As with identity list bindings these are written in the same call that creates the policy and its first version, and only the names listed here are managed, so bindings managed by a kaleido_platform_pms_policy_evidence_source_binding resource can safely coexist. (see [below for nested schema](#nestedatt--evidence_source_binding))
+- `evidence_source_binding` (Attributes List) Evidence source bindings declared inline on the policy, each tying an evidence slot to a kaleido_platform_pms_evidence_source (or marking it sourceless). As with identity list bindings these are written in the same call that creates the policy and its first version, and only the names listed here are managed, so bindings managed by a kaleido_platform_pms_policy_evidence_source_binding resource can safely coexist. (see [below for nested schema](#nestedatt--evidence_source_binding))
 - `identity_list_binding` (Attributes List) Identity list bindings declared inline on the policy, each resolving an attester label used by the policy definition to a version of an identity list. They are written in the same call that creates the policy and its first version, which is what lets a definition reference a label on the very first apply. Only the labels listed here are managed - any other binding on the policy is left untouched, so bindings managed by a kaleido_platform_pms_policy_identity_list_binding resource can safely coexist. (see [below for nested schema](#nestedatt--identity_list_binding))
 - `version` (String) Name to give the policy version created by this resource. If omitted the server assigns a name based on the previous version.
 
@@ -108,64 +100,19 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
 
 Required:
 
-- `name` (String) The name of the evidence source binding within the policy. Referenced by the 'source' field of an evidence slot in the policy definition.
-- `type` (String) The type of evidence source binding: 'approval' or 'attachment'
+- `policy_evidence_source` (String) The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition.
 
 Optional:
 
-- `approval` (Attributes) Configuration for a binding of type 'approval', where evidence is gathered by asking the members of an identity list version to approve or reject (see [below for nested schema](#nestedatt--evidence_source_binding--approval))
-- `attachment` (Attributes) Configuration for a binding of type 'attachment', where evidence is mapped directly out of the transaction input (see [below for nested schema](#nestedatt--evidence_source_binding--attachment))
+- `attestation_jsonata` (String) JSONata selecting the attestation out of a message POSTed to the slot's attach endpoint
+- `attesters` (String) The attester label of one of the policy's identity list bindings; its identity list version supplies the identities the source addresses (the approvers of an approval source). Required when bound to an approval source.
+- `evidence_source_id` (String) ID of the kaleido_platform_pms_evidence_source that gathers this slot. Omit for a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound by whatever builds the transaction.
+- `payload_jsonata` (String) JSONata selecting the evidence payload out of a message POSTed to the slot's attach endpoint
+- `run_as` (String) Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.
 
 Read-Only:
 
 - `id` (String) The binding ID assigned by the server
-
-<a id="nestedatt--evidence_source_binding--approval"></a>
-### Nested Schema for `evidence_source_binding.approval`
-
-Optional:
-
-- `approval` (Attributes) The action a reviewer selects to approve the request (see [below for nested schema](#nestedatt--evidence_source_binding--approval--approval))
-- `identity_list_version` (Attributes) Reference to the identity list version whose members are notified and assigned tasks to approve or reject the request (see [below for nested schema](#nestedatt--evidence_source_binding--approval--identity_list_version))
-- `rejection` (Attributes) The action a reviewer selects to reject the request (see [below for nested schema](#nestedatt--evidence_source_binding--approval--rejection))
-
-<a id="nestedatt--evidence_source_binding--approval--approval"></a>
-### Nested Schema for `evidence_source_binding.approval.approval`
-
-Optional:
-
-- `payload_template_jsonata` (String) JSONata template used to build the action payload from the binding context
-- `payload_type` (String) The type of the action payload, e.g. 'TypedDataV4'
-
-
-<a id="nestedatt--evidence_source_binding--approval--identity_list_version"></a>
-### Nested Schema for `evidence_source_binding.approval.identity_list_version`
-
-Optional:
-
-- `hash` (String) The hash of the identity list version, for irrefutable post hoc comparison
-- `id` (String) ID of the identity list version - use the applied_version_id attribute of a kaleido_platform_pms_identity_list
-- `version` (String) The name of the identity list version
-
-
-<a id="nestedatt--evidence_source_binding--approval--rejection"></a>
-### Nested Schema for `evidence_source_binding.approval.rejection`
-
-Optional:
-
-- `payload_template_jsonata` (String) JSONata template used to build the action payload from the binding context
-- `payload_type` (String) The type of the action payload, e.g. 'TypedDataV4'
-
-
-
-<a id="nestedatt--evidence_source_binding--attachment"></a>
-### Nested Schema for `evidence_source_binding.attachment`
-
-Optional:
-
-- `attestation_jsonata` (String) JSONata mapping from the transaction input to the evidence attestation for the slot
-- `payload_jsonata` (String) JSONata mapping from the transaction input to the evidence payload for the slot
-
 
 
 <a id="nestedatt--identity_list_binding"></a>

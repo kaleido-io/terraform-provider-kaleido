@@ -235,10 +235,10 @@ func TestPMSPolicyInlineBindingsLeaveOthersAlone(t *testing.T) {
 // absent map leaves that kind of binding alone, a present one is authoritative.
 type pmsPolicyWriteBody struct {
 	PMSPolicyAPIModel
-	Version                string                                       `json:"version,omitempty"`
-	VersionDescription     string                                       `json:"versionDescription,omitempty"`
-	IdentityListBindings   *map[string]pmsInlineIdentityListBinding     `json:"identityListBindings,omitempty"`
-	EvidenceSourceBindings *map[string]PMSEvidenceSourceBindingAPIModel `json:"evidenceSourceBindings,omitempty"`
+	Version                string                                             `json:"version,omitempty"`
+	VersionDescription     string                                             `json:"versionDescription,omitempty"`
+	IdentityListBindings   *map[string]pmsInlineIdentityListBinding           `json:"identityListBindings,omitempty"`
+	EvidenceSourceBindings *map[string]PMSEvidenceSourceBindingTargetAPIModel `json:"evidenceSourceBindings,omitempty"`
 }
 
 type pmsInlineIdentityListBinding struct {
@@ -293,24 +293,22 @@ func (mp *mockPlatform) writeInlinePolicyBindings(policyID string, body *pmsPoli
 			written[name] = true
 			existing := (*PMSEvidenceSourceBindingAPIModel)(nil)
 			for _, binding := range mp.pmsEvidenceSourceBindings {
-				if binding.PolicyID == policyID && binding.Name == name {
+				if binding.PolicyID == policyID && binding.PolicyEvidenceSource == name {
 					existing = binding
 				}
 			}
 			if existing == nil {
 				existing = &PMSEvidenceSourceBindingAPIModel{
-					ID: nanoid.New(), PolicyID: policyID, Name: name, Created: &now,
+					ID: nanoid.New(), PolicyID: policyID, PolicyEvidenceSource: name, Created: &now,
 				}
 				mp.pmsEvidenceSourceBindings[existing.ID] = existing
 			}
-			existing.Type = incoming.Type
-			existing.Approval = incoming.Approval
-			existing.Attachment = incoming.Attachment
+			existing.PMSEvidenceSourceBindingTargetAPIModel = incoming
 			existing.Updated = &now
 		}
 		if replaceAll {
 			for id, binding := range mp.pmsEvidenceSourceBindings {
-				if binding.PolicyID == policyID && !written[binding.Name] {
+				if binding.PolicyID == policyID && !written[binding.PolicyEvidenceSource] {
 					delete(mp.pmsEvidenceSourceBindings, id)
 				}
 			}
@@ -488,20 +486,13 @@ resource "kaleido_platform_pms_policy" "wired" {
   ]
   evidence_source_binding = [
     {
-      name = "approvers"
-      type = "approval"
-      approval = {
-        approval = {
-          payload_type = "TypedDataV4"
-        }
-      }
+      policy_evidence_source = "approvers"
+      evidence_source_id = "pes:12345abcde"
+      attesters = "treasuryOperations"
     },
     {
-      name = "documents"
-      type = "attachment"
-      attachment = {
-        payload_jsonata = "$.input.document"
-      }
+      policy_evidence_source = "documents"
+      payload_jsonata = "$.input.document"
     }
   ]
   definition_yaml = yamlencode({
@@ -525,13 +516,9 @@ resource "kaleido_platform_pms_policy" "wired" {
   ]
   evidence_source_binding = [
     {
-      name = "approvers"
-      type = "approval"
-      approval = {
-        approval = {
-          payload_type = "TypedDataV4"
-        }
-      }
+      policy_evidence_source = "approvers"
+      evidence_source_id = "pes:12345abcde"
+      attesters = "treasuryOperations"
     }
   ]
   definition_yaml = yamlencode({
@@ -555,8 +542,8 @@ func TestPMSPolicyInlineBindingsAndVersionInOneCall(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(policyResource, "applied_version"),
 					resource.TestCheckResourceAttrSet(policyResource, "evidence_source_binding.0.id"),
-					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.0.name", "approvers"),
-					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.1.name", "documents"),
+					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.0.policy_evidence_source", "approvers"),
+					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.1.policy_evidence_source", "documents"),
 					func(s *terraform.State) error {
 						assert.Len(t, mp.pmsPolicyPutBodies, 1, "the policy, its bindings and its version must be created by one call")
 						body := mp.pmsPolicyPutBodies[0]
@@ -577,7 +564,7 @@ func TestPMSPolicyInlineBindingsAndVersionInOneCall(t *testing.T) {
 					func(s *terraform.State) error {
 						names := map[string]bool{}
 						for _, b := range mp.pmsEvidenceSourceBindings {
-							names[b.Name] = true
+							names[b.PolicyEvidenceSource] = true
 						}
 						assert.True(t, names["approvers"], "the binding still in the configuration must remain")
 						assert.False(t, names["documents"], "the binding dropped from the configuration must be deleted")

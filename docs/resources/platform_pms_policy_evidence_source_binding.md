@@ -3,52 +3,57 @@
 page_title: "kaleido_platform_pms_policy_evidence_source_binding Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages an evidence source binding on a Policy Manager policy. The binding tells the policy where the evidence for a slot comes from. Types 'approval' and 'attachment' are supported; 'workflow' and 'serviceRequest' are not yet implemented.
+  Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). A binding with no evidence_source_id is a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound; it may still carry the ingress mappings.
 ---
 
 # kaleido_platform_pms_policy_evidence_source_binding (Resource)
 
-Manages an evidence source binding on a Policy Manager policy. The binding tells the policy where the evidence for a slot comes from. Types 'approval' and 'attachment' are supported; 'workflow' and 'serviceRequest' are not yet implemented.
+Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). A binding with no evidence_source_id is a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound; it may still carry the ingress mappings.
 
 ## Example Usage
 
 ```terraform
-# Evidence gathered by asking the members of an identity list version to approve or reject
-resource "kaleido_platform_pms_policy_evidence_source_binding" "approvers" {
-  environment = kaleido_platform_environment.env_0.id
-  service     = kaleido_platform_service.pms_0.id
-  policy      = kaleido_platform_pms_policy.dual_approval.id
-  name        = "approvers"
-  type        = "approval"
+# A binding ties one of the policy's evidence slots (evidence[].source) to an evidence
+# source, plus the inputs that source needs from this policy.
 
-  approval = {
-    approval = {
-      payload_type             = "TypedDataV4"
-      payload_template_jsonata = "$.decision.approve"
-    }
-    rejection = {
-      payload_type             = "TypedDataV4"
-      payload_template_jsonata = "$.decision.reject"
-    }
-    identity_list_version = {
-      id      = kaleido_platform_pms_identity_list.treasury_ops.applied_version_id
-      version = kaleido_platform_pms_identity_list.treasury_ops.applied_version
-    }
-  }
+# Approvals: both slots share one source and differ only in who is asked
+resource "kaleido_platform_pms_policy_evidence_source_binding" "treasury_approval" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "treasuryApproval"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+  attesters              = "treasuryOperations" # an identity list binding label on this policy
 }
 
-# Evidence mapped directly out of the transaction input
-resource "kaleido_platform_pms_policy_evidence_source_binding" "documents" {
-  environment = kaleido_platform_environment.env_0.id
-  service     = kaleido_platform_service.pms_0.id
-  policy      = kaleido_platform_pms_policy.dual_approval.id
-  name        = "documents"
-  type        = "attachment"
+resource "kaleido_platform_pms_policy_evidence_source_binding" "executive_approval" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "executiveApproval"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+  attesters              = "treasuryExecutives"
+}
 
-  attachment = {
-    payload_jsonata     = "$.input.document"
-    attestation_jsonata = "$.input.signature"
-  }
+# A service request source acts as an application
+resource "kaleido_platform_pms_policy_evidence_source_binding" "wallet_mapping" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "walletMapping"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.wallet_lookup.id
+  run_as                 = "ap:294hqr959b"
+}
+
+# A slot with no source: its evidence is seeded by a matcher or attached, and the
+# mappings select the payload and attestation out of the message that arrives
+resource "kaleido_platform_pms_policy_evidence_source_binding" "request" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "request"
+  payload_jsonata        = "body.request"
+  attestation_jsonata    = "body.attestation"
 }
 ```
 
@@ -58,62 +63,18 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "documents" {
 ### Required
 
 - `environment` (String) Environment ID
-- `name` (String) The name of the evidence source binding within the policy. Referenced by the 'source' field of an evidence slot in the policy definition. Immutable after create.
 - `policy` (String) Name or ID of the policy this binding belongs to
+- `policy_evidence_source` (String) The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition. Immutable after create.
 - `service` (String) Policy Manager service ID
-- `type` (String) The type of evidence source binding: 'approval' or 'attachment'. Immutable after create.
 
 ### Optional
 
-- `approval` (Attributes) Configuration for a binding of type 'approval', where evidence is gathered by asking the members of an identity list version to approve or reject (see [below for nested schema](#nestedatt--approval))
-- `attachment` (Attributes) Configuration for a binding of type 'attachment', where evidence is mapped directly out of the transaction input (see [below for nested schema](#nestedatt--attachment))
+- `attestation_jsonata` (String) JSONata selecting the attestation out of a message POSTed to the slot's attach endpoint
+- `attesters` (String) The attester label of one of the policy's identity list bindings; its identity list version supplies the identities the source addresses (the approvers of an approval source). Required when bound to an approval source.
+- `evidence_source_id` (String) ID of the kaleido_platform_pms_evidence_source that gathers this slot. Omit for a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound by whatever builds the transaction.
+- `payload_jsonata` (String) JSONata selecting the evidence payload out of a message POSTed to the slot's attach endpoint
+- `run_as` (String) Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.
 
 ### Read-Only
 
 - `id` (String) The binding ID assigned by the server
-
-<a id="nestedatt--approval"></a>
-### Nested Schema for `approval`
-
-Optional:
-
-- `approval` (Attributes) The action a reviewer selects to approve the request (see [below for nested schema](#nestedatt--approval--approval))
-- `identity_list_version` (Attributes) Reference to the identity list version whose members are notified and assigned tasks to approve or reject the request (see [below for nested schema](#nestedatt--approval--identity_list_version))
-- `rejection` (Attributes) The action a reviewer selects to reject the request (see [below for nested schema](#nestedatt--approval--rejection))
-
-<a id="nestedatt--approval--approval"></a>
-### Nested Schema for `approval.approval`
-
-Optional:
-
-- `payload_template_jsonata` (String) JSONata template used to build the action payload from the binding context
-- `payload_type` (String) The type of the action payload, e.g. 'TypedDataV4'
-
-
-<a id="nestedatt--approval--identity_list_version"></a>
-### Nested Schema for `approval.identity_list_version`
-
-Optional:
-
-- `hash` (String) The hash of the identity list version, for irrefutable post hoc comparison
-- `id` (String) ID of the identity list version - use the applied_version_id attribute of a kaleido_platform_pms_identity_list
-- `version` (String) The name of the identity list version
-
-
-<a id="nestedatt--approval--rejection"></a>
-### Nested Schema for `approval.rejection`
-
-Optional:
-
-- `payload_template_jsonata` (String) JSONata template used to build the action payload from the binding context
-- `payload_type` (String) The type of the action payload, e.g. 'TypedDataV4'
-
-
-
-<a id="nestedatt--attachment"></a>
-### Nested Schema for `attachment`
-
-Optional:
-
-- `attestation_jsonata` (String) JSONata mapping from the transaction input to the evidence attestation for the slot
-- `payload_jsonata` (String) JSONata mapping from the transaction input to the evidence payload for the slot

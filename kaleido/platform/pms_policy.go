@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -28,7 +27,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"gopkg.in/yaml.v3"
 )
@@ -153,25 +151,9 @@ func (r *pms_policyResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"evidence_source_binding": &schema.ListNestedAttribute{
 				Optional:    true,
-				Description: "Evidence source bindings declared inline on the policy, each telling the policy where the evidence for a slot comes from. As with identity list bindings these are written in the same call that creates the policy and its first version, and only the names listed here are managed, so bindings managed by a kaleido_platform_pms_policy_evidence_source_binding resource can safely coexist.",
+				Description: "Evidence source bindings declared inline on the policy, each tying an evidence slot to a kaleido_platform_pms_evidence_source (or marking it sourceless). As with identity list bindings these are written in the same call that creates the policy and its first version, and only the names listed here are managed, so bindings managed by a kaleido_platform_pms_policy_evidence_source_binding resource can safely coexist.",
 				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"id": &schema.StringAttribute{
-							Computed:    true,
-							Description: "The binding ID assigned by the server",
-						},
-						"name": &schema.StringAttribute{
-							Required:    true,
-							Description: "The name of the evidence source binding within the policy. Referenced by the 'source' field of an evidence slot in the policy definition.",
-						},
-						"type": &schema.StringAttribute{
-							Required:    true,
-							Description: "The type of evidence source binding: 'approval' or 'attachment'",
-							Validators:  []validator.String{stringvalidator.OneOf(evidenceSourceBindingTypeApproval, evidenceSourceBindingTypeAttachment)},
-						},
-						"approval":   evidenceSourceBindingApprovalSchema(),
-						"attachment": evidenceSourceBindingAttachmentSchema(),
-					},
+					Attributes: policyInlineEvidenceSourceBindingAttributes(),
 				},
 			},
 		},
@@ -324,11 +306,32 @@ var policyIdentityListBindingAttrTypes = map[string]attr.Type{
 }
 
 var policyEvidenceSourceBindingAttrTypes = map[string]attr.Type{
-	"id":         types.StringType,
-	"name":       types.StringType,
-	"type":       types.StringType,
-	"approval":   types.ObjectType{AttrTypes: esbApprovalAttrTypes},
-	"attachment": types.ObjectType{AttrTypes: esbAttachmentAttrTypes},
+	"id":                     types.StringType,
+	"policy_evidence_source": types.StringType,
+	"evidence_source_id":     types.StringType,
+	"attesters":              types.StringType,
+	"run_as":                 types.StringType,
+	"payload_jsonata":        types.StringType,
+	"attestation_jsonata":    types.StringType,
+}
+
+// policyInlineEvidenceSourceBindingAttributes is the schema of one inline binding block:
+// the slot name plus the same target attributes as the standalone binding resource.
+func policyInlineEvidenceSourceBindingAttributes() map[string]schema.Attribute {
+	attributes := map[string]schema.Attribute{
+		"id": &schema.StringAttribute{
+			Computed:    true,
+			Description: "The binding ID assigned by the server",
+		},
+		"policy_evidence_source": &schema.StringAttribute{
+			Required:    true,
+			Description: "The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition.",
+		},
+	}
+	for name, attribute := range evidenceSourceBindingTargetSchema() {
+		attributes[name] = attribute
+	}
+	return attributes
 }
 
 // desiredIdentityListBindings reads the inline blocks, keyed by attester label. The
@@ -356,10 +359,10 @@ func (r *pms_policyResource) desiredIdentityListBindings(data *PMSPolicyResource
 	return desired
 }
 
-// desiredEvidenceSourceBindings reads the inline blocks, keyed by binding name, which is
-// how the API and the 'source' field of an evidence slot address them.
-func (r *pms_policyResource) desiredEvidenceSourceBindings(data *PMSPolicyResourceModel, diagnostics *diag.Diagnostics) map[string]*PMSEvidenceSourceBindingAPIModel {
-	desired := map[string]*PMSEvidenceSourceBindingAPIModel{}
+// desiredEvidenceSourceBindings reads the inline blocks, keyed by policy evidence source
+// name, which is how the API and the 'source' field of an evidence slot address them.
+func (r *pms_policyResource) desiredEvidenceSourceBindings(data *PMSPolicyResourceModel, diagnostics *diag.Diagnostics) map[string]*PMSEvidenceSourceBindingTargetAPIModel {
+	desired := map[string]*PMSEvidenceSourceBindingTargetAPIModel{}
 	if data.EvidenceSourceBindings.IsNull() || data.EvidenceSourceBindings.IsUnknown() {
 		return desired
 	}
@@ -369,20 +372,14 @@ func (r *pms_policyResource) desiredEvidenceSourceBindings(data *PMSPolicyResour
 			continue
 		}
 		attrs := obj.Attributes()
-		name := stringAttr(attrs, "name")
+		name := stringAttr(attrs, "policy_evidence_source")
 		if _, duplicate := desired[name]; duplicate {
 			diagnostics.AddError("Duplicate evidence source binding",
-				fmt.Sprintf("name %q is declared more than once; each evidence source binding name is unique within a policy", name))
+				fmt.Sprintf("policy_evidence_source %q is declared more than once; each is unique within a policy", name))
 			return nil
 		}
-		approval, _ := objectAttr(attrs, "approval")
-		attachment, _ := objectAttr(attrs, "attachment")
-		binding := &PMSEvidenceSourceBindingAPIModel{}
-		evidenceSourceBindingToAPI(name, stringAttr(attrs, "type"), approval, attachment, binding, diagnostics)
-		if diagnostics.HasError() {
-			return nil
-		}
-		desired[name] = binding
+		target := evidenceSourceBindingTargetToAPI(attrs)
+		desired[name] = &target
 	}
 	return desired
 }
@@ -414,7 +411,7 @@ func (r *pms_policyResource) listEvidenceSourceBindings(ctx context.Context, dat
 	}
 	byName := make(map[string]PMSEvidenceSourceBindingAPIModel, len(result.Items))
 	for _, item := range result.Items {
-		byName[item.Name] = item
+		byName[item.PolicyEvidenceSource] = item
 	}
 	return byName
 }
@@ -486,20 +483,16 @@ func (r *pms_policyResource) evidenceSourceBindingsToData(ctx context.Context, d
 		if !ok {
 			continue
 		}
-		name := stringAttr(obj.Attributes(), "name")
+		name := stringAttr(obj.Attributes(), "policy_evidence_source")
 		current, found := existing[name]
 		if !found {
 			// Deleted outside terraform - drop it so the next plan recreates it
 			continue
 		}
-		approval, attachment := esbBlocksToData(&current, diagnostics)
-		value, diags := types.ObjectValue(policyEvidenceSourceBindingAttrTypes, map[string]attr.Value{
-			"id":         types.StringValue(current.ID),
-			"name":       types.StringValue(name),
-			"type":       types.StringValue(current.Type),
-			"approval":   approval,
-			"attachment": attachment,
-		})
+		values := evidenceSourceBindingTargetToData(&current.PMSEvidenceSourceBindingTargetAPIModel)
+		values["id"] = types.StringValue(current.ID)
+		values["policy_evidence_source"] = types.StringValue(name)
+		value, diags := types.ObjectValue(policyEvidenceSourceBindingAttrTypes, values)
 		diagnostics.Append(diags...)
 		elements = append(elements, value)
 	}

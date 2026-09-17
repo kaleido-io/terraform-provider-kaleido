@@ -19,17 +19,9 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
 
   evidence_source_binding = [
     {
-      name = "approvers"
-      type = "approval"
-      approval = {
-        approval = {
-          payload_type             = "TypedDataV4"
-          payload_template_jsonata = "$.request"
-        }
-        identity_list_version = {
-          id = kaleido_platform_pms_identity_list.treasury_ops.applied_version_id
-        }
-      }
+      policy_evidence_source = "approvers"
+      evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+      attesters              = "treasuryOperations"
     }
   ]
 

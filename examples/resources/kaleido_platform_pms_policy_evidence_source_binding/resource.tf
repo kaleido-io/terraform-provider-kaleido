@@ -1,37 +1,42 @@
-# Evidence gathered by asking the members of an identity list version to approve or reject
-resource "kaleido_platform_pms_policy_evidence_source_binding" "approvers" {
-  environment = kaleido_platform_environment.env_0.id
-  service     = kaleido_platform_service.pms_0.id
-  policy      = kaleido_platform_pms_policy.dual_approval.id
-  name        = "approvers"
-  type        = "approval"
+# A binding ties one of the policy's evidence slots (evidence[].source) to an evidence
+# source, plus the inputs that source needs from this policy.
 
-  approval = {
-    approval = {
-      payload_type             = "TypedDataV4"
-      payload_template_jsonata = "$.decision.approve"
-    }
-    rejection = {
-      payload_type             = "TypedDataV4"
-      payload_template_jsonata = "$.decision.reject"
-    }
-    identity_list_version = {
-      id      = kaleido_platform_pms_identity_list.treasury_ops.applied_version_id
-      version = kaleido_platform_pms_identity_list.treasury_ops.applied_version
-    }
-  }
+# Approvals: both slots share one source and differ only in who is asked
+resource "kaleido_platform_pms_policy_evidence_source_binding" "treasury_approval" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "treasuryApproval"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+  attesters              = "treasuryOperations" # an identity list binding label on this policy
 }
 
-# Evidence mapped directly out of the transaction input
-resource "kaleido_platform_pms_policy_evidence_source_binding" "documents" {
-  environment = kaleido_platform_environment.env_0.id
-  service     = kaleido_platform_service.pms_0.id
-  policy      = kaleido_platform_pms_policy.dual_approval.id
-  name        = "documents"
-  type        = "attachment"
+resource "kaleido_platform_pms_policy_evidence_source_binding" "executive_approval" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "executiveApproval"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+  attesters              = "treasuryExecutives"
+}
 
-  attachment = {
-    payload_jsonata     = "$.input.document"
-    attestation_jsonata = "$.input.signature"
-  }
+# A service request source acts as an application
+resource "kaleido_platform_pms_policy_evidence_source_binding" "wallet_mapping" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "walletMapping"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.wallet_lookup.id
+  run_as                 = "ap:294hqr959b"
+}
+
+# A slot with no source: its evidence is seeded by a matcher or attached, and the
+# mappings select the payload and attestation out of the message that arrives
+resource "kaleido_platform_pms_policy_evidence_source_binding" "request" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "request"
+  payload_jsonata        = "body.request"
+  attestation_jsonata    = "body.attestation"
 }

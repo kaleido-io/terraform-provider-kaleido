@@ -80,10 +80,8 @@ type mockPlatform struct {
 	pmsPolicyVersions         map[string]map[string]*PMSPolicyVersionAPIModel
 	pmsPolicyMatchers         map[string]*PMSPolicyMatcherAPIModel
 	pmsEvidenceSourceBindings map[string]*PMSEvidenceSourceBindingAPIModel
+	pmsEvidenceSources        map[string]*PMSEvidenceSourceAPIModel
 	pmsIdentityListBindings   map[string]*PMSIdentityListBindingAPIModel
-	// echoEmptyEvidenceSourceBindingBlocks makes the mock return empty objects for the
-	// type-specific binding fields that were not supplied, as the real API does
-	echoEmptyEvidenceSourceBindingBlocks bool
 	// pmsPolicyPutBodies records the raw body of each policy PUT, so a test can assert
 	// what was carried in the single call that creates a policy
 	pmsPolicyPutBodies []map[string]interface{}
@@ -144,6 +142,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		pmsPolicyVersions:           make(map[string]map[string]*PMSPolicyVersionAPIModel),
 		pmsPolicyMatchers:           make(map[string]*PMSPolicyMatcherAPIModel),
 		pmsEvidenceSourceBindings:   make(map[string]*PMSEvidenceSourceBindingAPIModel),
+		pmsEvidenceSources:          make(map[string]*PMSEvidenceSourceAPIModel),
 		pmsIdentityListBindings:     make(map[string]*PMSIdentityListBindingAPIModel),
 		pmsPolicyDeployments:        make(map[string]*PMSPolicyDeploymentAPIModel),
 		pmsPolicyDeploymentVersions: make(map[string]map[string]*PMSPolicyDeploymentVersionAPIModel),
@@ -321,6 +320,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}", http.MethodGet, mp.getPMSPolicyMatcher)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}", http.MethodPatch, mp.patchPMSPolicyMatcher)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}", http.MethodDelete, mp.deletePMSPolicyMatcher)
+
+	// See pms_evidence_source.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources", http.MethodPost, mp.postPMSEvidenceSource)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}", http.MethodGet, mp.getPMSEvidenceSource)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}", http.MethodPatch, mp.patchPMSEvidenceSource)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}", http.MethodDelete, mp.deletePMSEvidenceSource)
 
 	// See pms_policy_evidence_source_binding.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings", http.MethodPost, mp.postPMSEvidenceSourceBinding)

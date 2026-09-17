@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -28,87 +27,40 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-const (
-	evidenceSourceBindingTypeApproval   = "approval"
-	evidenceSourceBindingTypeAttachment = "attachment"
-)
-
 type PMSEvidenceSourceBindingResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	Environment types.String `tfsdk:"environment"`
-	Service     types.String `tfsdk:"service"`
-	Policy      types.String `tfsdk:"policy"`
-	Name        types.String `tfsdk:"name"`
-	Type        types.String `tfsdk:"type"`
-	Approval    types.Object `tfsdk:"approval"`
-	Attachment  types.Object `tfsdk:"attachment"`
+	ID                   types.String `tfsdk:"id"`
+	Environment          types.String `tfsdk:"environment"`
+	Service              types.String `tfsdk:"service"`
+	Policy               types.String `tfsdk:"policy"`
+	PolicyEvidenceSource types.String `tfsdk:"policy_evidence_source"`
+	EvidenceSourceID     types.String `tfsdk:"evidence_source_id"`
+	Attesters            types.String `tfsdk:"attesters"`
+	RunAs                types.String `tfsdk:"run_as"`
+	PayloadJSONata       types.String `tfsdk:"payload_jsonata"`
+	AttestationJSONata   types.String `tfsdk:"attestation_jsonata"`
 }
 
-// PMSActionAPIModel configures the action a reviewer selects to approve or reject.
-type PMSActionAPIModel struct {
-	PayloadType     string             `json:"payloadType,omitempty"`
-	PayloadTemplate *JSONataMappingAPI `json:"payloadTemplate,omitempty"`
-}
-
-type PMSIdentityListVersionReferenceAPIModel struct {
-	ID      string `json:"id,omitempty"`
-	Version string `json:"version,omitempty"`
-	Hash    string `json:"hash,omitempty"`
-}
-
-type PMSApprovalEvidenceSourceBindingAPIModel struct {
-	Approval            *PMSActionAPIModel                       `json:"approval,omitempty"`
-	Rejection           *PMSActionAPIModel                       `json:"rejection,omitempty"`
-	IdentityListVersion *PMSIdentityListVersionReferenceAPIModel `json:"identityListVersion,omitempty"`
-}
-
-type PMSAttachmentEvidenceSourceBindingAPIModel struct {
+// PMSEvidenceSourceBindingTargetAPIModel is what a policy evidence slot is bound to: the
+// evidence source that gathers it (none for a sourceless slot) plus the per-policy inputs
+// that source needs.
+type PMSEvidenceSourceBindingTargetAPIModel struct {
+	EvidenceSourceID   string             `json:"evidenceSourceId,omitempty"`
+	Attesters          string             `json:"attesters,omitempty"`
+	RunAs              string             `json:"runAs,omitempty"`
 	PayloadMapping     *JSONataMappingAPI `json:"payloadMapping,omitempty"`
 	AttestationMapping *JSONataMappingAPI `json:"attestationMapping,omitempty"`
 }
 
 type PMSEvidenceSourceBindingAPIModel struct {
-	ID         string                                      `json:"id,omitempty"`
-	PolicyID   string                                      `json:"policyId,omitempty"`
-	Name       string                                      `json:"name,omitempty"`
-	Type       string                                      `json:"type,omitempty"`
-	Approval   *PMSApprovalEvidenceSourceBindingAPIModel   `json:"approval,omitempty"`
-	Attachment *PMSAttachmentEvidenceSourceBindingAPIModel `json:"attachment,omitempty"`
-	Created    *time.Time                                  `json:"created,omitempty"`
-	Updated    *time.Time                                  `json:"updated,omitempty"`
-}
-
-// PMSEvidenceSourceBindingPatchAPIModel is the PATCH body - name and type are
-// immutable after create.
-type PMSEvidenceSourceBindingPatchAPIModel struct {
-	Approval   *PMSApprovalEvidenceSourceBindingAPIModel   `json:"approval,omitempty"`
-	Attachment *PMSAttachmentEvidenceSourceBindingAPIModel `json:"attachment,omitempty"`
-}
-
-var esbActionAttrTypes = map[string]attr.Type{
-	"payload_type":             types.StringType,
-	"payload_template_jsonata": types.StringType,
-}
-
-var esbIdentityListVersionAttrTypes = map[string]attr.Type{
-	"id":      types.StringType,
-	"version": types.StringType,
-	"hash":    types.StringType,
-}
-
-var esbApprovalAttrTypes = map[string]attr.Type{
-	"approval":              types.ObjectType{AttrTypes: esbActionAttrTypes},
-	"rejection":             types.ObjectType{AttrTypes: esbActionAttrTypes},
-	"identity_list_version": types.ObjectType{AttrTypes: esbIdentityListVersionAttrTypes},
-}
-
-var esbAttachmentAttrTypes = map[string]attr.Type{
-	"payload_jsonata":     types.StringType,
-	"attestation_jsonata": types.StringType,
+	ID                   string     `json:"id,omitempty"`
+	PolicyID             string     `json:"policyId,omitempty"`
+	PolicyEvidenceSource string     `json:"policyEvidenceSource,omitempty"`
+	Created              *time.Time `json:"created,omitempty"`
+	Updated              *time.Time `json:"updated,omitempty"`
+	PMSEvidenceSourceBindingTargetAPIModel
 }
 
 func PMSPolicyEvidenceSourceBindingResourceFactory() resource.Resource {
@@ -123,112 +75,68 @@ func (r *pms_evidenceSourceBindingResource) Metadata(_ context.Context, _ resour
 	resp.TypeName = "kaleido_platform_pms_policy_evidence_source_binding"
 }
 
-func actionSchema(description string) *schema.SingleNestedAttribute {
-	return &schema.SingleNestedAttribute{
-		Optional:    true,
-		Description: description,
-		Attributes: map[string]schema.Attribute{
-			"payload_type": &schema.StringAttribute{
-				Optional:    true,
-				Description: "The type of the action payload, e.g. 'TypedDataV4'",
-			},
-			"payload_template_jsonata": &schema.StringAttribute{
-				Optional:    true,
-				Description: "JSONata template used to build the action payload from the binding context",
-			},
+// evidenceSourceBindingTargetSchema is the set of attributes describing what a slot is
+// bound to, shared by the standalone binding resource and the inline blocks on
+// kaleido_platform_pms_policy.
+func evidenceSourceBindingTargetSchema() map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		"evidence_source_id": &schema.StringAttribute{
+			Optional:    true,
+			Description: "ID of the kaleido_platform_pms_evidence_source that gathers this slot. Omit for a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound by whatever builds the transaction.",
 		},
-	}
-}
-
-// evidenceSourceBindingApprovalSchema is the 'approval' configuration block, shared by
-// the standalone binding resource and the inline blocks on kaleido_platform_pms_policy.
-func evidenceSourceBindingApprovalSchema() *schema.SingleNestedAttribute {
-	return &schema.SingleNestedAttribute{
-		Optional:    true,
-		Description: "Configuration for a binding of type 'approval', where evidence is gathered by asking the members of an identity list version to approve or reject",
-		Attributes: map[string]schema.Attribute{
-			"approval":  actionSchema("The action a reviewer selects to approve the request"),
-			"rejection": actionSchema("The action a reviewer selects to reject the request"),
-			"identity_list_version": &schema.SingleNestedAttribute{
-				Optional:    true,
-				Description: "Reference to the identity list version whose members are notified and assigned tasks to approve or reject the request",
-				Attributes: map[string]schema.Attribute{
-					"id": &schema.StringAttribute{
-						Optional:    true,
-						Description: "ID of the identity list version - use the applied_version_id attribute of a kaleido_platform_pms_identity_list",
-					},
-					"version": &schema.StringAttribute{
-						Optional:    true,
-						Description: "The name of the identity list version",
-					},
-					"hash": &schema.StringAttribute{
-						Optional:    true,
-						Computed:    true,
-						Description: "The hash of the identity list version, for irrefutable post hoc comparison",
-					},
-				},
-			},
+		"attesters": &schema.StringAttribute{
+			Optional:    true,
+			Description: "The attester label of one of the policy's identity list bindings; its identity list version supplies the identities the source addresses (the approvers of an approval source). Required when bound to an approval source.",
 		},
-	}
-}
-
-// evidenceSourceBindingAttachmentSchema is the 'attachment' configuration block, shared
-// by the standalone binding resource and the inline blocks on kaleido_platform_pms_policy.
-func evidenceSourceBindingAttachmentSchema() *schema.SingleNestedAttribute {
-	return &schema.SingleNestedAttribute{
-		Optional:    true,
-		Description: "Configuration for a binding of type 'attachment', where evidence is mapped directly out of the transaction input",
-		Attributes: map[string]schema.Attribute{
-			"payload_jsonata": &schema.StringAttribute{
-				Optional:    true,
-				Description: "JSONata mapping from the transaction input to the evidence payload for the slot",
-			},
-			"attestation_jsonata": &schema.StringAttribute{
-				Optional:    true,
-				Description: "JSONata mapping from the transaction input to the evidence attestation for the slot",
-			},
+		"run_as": &schema.StringAttribute{
+			Optional:    true,
+			Description: "Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.",
+		},
+		"payload_jsonata": &schema.StringAttribute{
+			Optional:    true,
+			Description: "JSONata selecting the evidence payload out of a message POSTed to the slot's attach endpoint",
+		},
+		"attestation_jsonata": &schema.StringAttribute{
+			Optional:    true,
+			Description: "JSONata selecting the attestation out of a message POSTed to the slot's attach endpoint",
 		},
 	}
 }
 
 func (r *pms_evidenceSourceBindingResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		Description: "Manages an evidence source binding on a Policy Manager policy. The binding tells the policy where the evidence for a slot comes from. Types 'approval' and 'attachment' are supported; 'workflow' and 'serviceRequest' are not yet implemented.",
-		Attributes: map[string]schema.Attribute{
-			"id": &schema.StringAttribute{
-				Computed:      true,
-				Description:   "The binding ID assigned by the server",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"environment": &schema.StringAttribute{
-				Required:      true,
-				Description:   "Environment ID",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"service": &schema.StringAttribute{
-				Required:      true,
-				Description:   "Policy Manager service ID",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"policy": &schema.StringAttribute{
-				Required:      true,
-				Description:   "Name or ID of the policy this binding belongs to",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"name": &schema.StringAttribute{
-				Required:      true,
-				Description:   "The name of the evidence source binding within the policy. Referenced by the 'source' field of an evidence slot in the policy definition. Immutable after create.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"type": &schema.StringAttribute{
-				Required:      true,
-				Description:   "The type of evidence source binding: 'approval' or 'attachment'. Immutable after create.",
-				Validators:    []validator.String{stringvalidator.OneOf(evidenceSourceBindingTypeApproval, evidenceSourceBindingTypeAttachment)},
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"approval":   evidenceSourceBindingApprovalSchema(),
-			"attachment": evidenceSourceBindingAttachmentSchema(),
+	attributes := map[string]schema.Attribute{
+		"id": &schema.StringAttribute{
+			Computed:      true,
+			Description:   "The binding ID assigned by the server",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 		},
+		"environment": &schema.StringAttribute{
+			Required:      true,
+			Description:   "Environment ID",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+		"service": &schema.StringAttribute{
+			Required:      true,
+			Description:   "Policy Manager service ID",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+		"policy": &schema.StringAttribute{
+			Required:      true,
+			Description:   "Name or ID of the policy this binding belongs to",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+		"policy_evidence_source": &schema.StringAttribute{
+			Required:      true,
+			Description:   "The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition. Immutable after create.",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+	}
+	for name, attribute := range evidenceSourceBindingTargetSchema() {
+		attributes[name] = attribute
+	}
+	resp.Schema = schema.Schema{
+		Description: "Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). A binding with no evidence_source_id is a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound; it may still carry the ingress mappings.",
+		Attributes:  attributes,
 	}
 }
 
@@ -245,181 +153,61 @@ func (r *pms_evidenceSourceBindingResource) instancePath(data *PMSEvidenceSource
 	return fmt.Sprintf("%s/%s", r.listPath(data), data.ID.ValueString())
 }
 
-// validateEvidenceSourceBindingBlocks checks that the configuration block matching
-// type is the one - and the only one - that is set.
-func validateEvidenceSourceBindingBlocks(bindingType string, approval, attachment types.Object, diagnostics *diag.Diagnostics) {
-	hasApproval := !approval.IsNull() && !approval.IsUnknown()
-	hasAttachment := !attachment.IsNull() && !attachment.IsUnknown()
-
-	if hasApproval && hasAttachment {
-		diagnostics.AddError("Invalid configuration", "approval and attachment are mutually exclusive; set only the block matching type")
-		return
+// evidenceSourceBindingTargetToAPI builds the wire target from the target attributes,
+// whether they sit on the standalone binding resource or inline on the policy.
+func evidenceSourceBindingTargetToAPI(attrs map[string]attr.Value) PMSEvidenceSourceBindingTargetAPIModel {
+	target := PMSEvidenceSourceBindingTargetAPIModel{
+		EvidenceSourceID: stringAttr(attrs, "evidence_source_id"),
+		Attesters:        stringAttr(attrs, "attesters"),
+		RunAs:            stringAttr(attrs, "run_as"),
 	}
-	switch bindingType {
-	case evidenceSourceBindingTypeApproval:
-		if !hasApproval {
-			diagnostics.AddError("Invalid configuration", "the approval block must be set when type is \"approval\"")
-		}
-	case evidenceSourceBindingTypeAttachment:
-		if !hasAttachment {
-			diagnostics.AddError("Invalid configuration", "the attachment block must be set when type is \"attachment\"")
-		}
-	}
-}
-
-// esbApprovalToAPI builds the 'approval' half of an evidence source binding from its
-// configuration block, whether that block is on the standalone binding resource or
-// inline on the policy.
-func esbApprovalToAPI(approval types.Object) *PMSApprovalEvidenceSourceBindingAPIModel {
-	if approval.IsNull() || approval.IsUnknown() {
-		return nil
-	}
-	attrs := approval.Attributes()
-	result := &PMSApprovalEvidenceSourceBindingAPIModel{
-		Approval:  actionToAPI(attrs["approval"]),
-		Rejection: actionToAPI(attrs["rejection"]),
-	}
-	if obj, ok := objectAttr(attrs, "identity_list_version"); ok {
-		ilvAttrs := obj.Attributes()
-		result.IdentityListVersion = &PMSIdentityListVersionReferenceAPIModel{
-			ID:      stringAttr(ilvAttrs, "id"),
-			Version: stringAttr(ilvAttrs, "version"),
-			Hash:    stringAttr(ilvAttrs, "hash"),
-		}
-	}
-	return result
-}
-
-// esbAttachmentToAPI builds the 'attachment' half of an evidence source binding from
-// its configuration block.
-func esbAttachmentToAPI(attachment types.Object) *PMSAttachmentEvidenceSourceBindingAPIModel {
-	if attachment.IsNull() || attachment.IsUnknown() {
-		return nil
-	}
-	attrs := attachment.Attributes()
-	result := &PMSAttachmentEvidenceSourceBindingAPIModel{}
 	if jsonata := stringAttr(attrs, "payload_jsonata"); jsonata != "" {
-		result.PayloadMapping = &JSONataMappingAPI{JSONata: jsonata}
+		target.PayloadMapping = &JSONataMappingAPI{JSONata: jsonata}
 	}
 	if jsonata := stringAttr(attrs, "attestation_jsonata"); jsonata != "" {
-		result.AttestationMapping = &JSONataMappingAPI{JSONata: jsonata}
+		target.AttestationMapping = &JSONataMappingAPI{JSONata: jsonata}
 	}
-	return result
+	return target
 }
 
-// objectAttr reads an optional nested object out of a terraform object's attribute map.
-func objectAttr(attrs map[string]attr.Value, name string) (types.Object, bool) {
-	val, ok := attrs[name]
-	if !ok || val.IsNull() || val.IsUnknown() {
-		return types.Object{}, false
+// evidenceSourceBindingTargetToData renders the wire target as terraform attribute
+// values, keyed as the schema names them.
+func evidenceSourceBindingTargetToData(target *PMSEvidenceSourceBindingTargetAPIModel) map[string]attr.Value {
+	return map[string]attr.Value{
+		"evidence_source_id":  optionalString(target.EvidenceSourceID),
+		"attesters":           optionalString(target.Attesters),
+		"run_as":              optionalString(target.RunAs),
+		"payload_jsonata":     jsonataAttr(target.PayloadMapping),
+		"attestation_jsonata": jsonataAttr(target.AttestationMapping),
 	}
-	obj, ok := val.(types.Object)
-	return obj, ok
 }
 
-func actionToAPI(val attr.Value) *PMSActionAPIModel {
-	if val == nil || val.IsNull() || val.IsUnknown() {
-		return nil
+func (r *pms_evidenceSourceBindingResource) targetAttrs(data *PMSEvidenceSourceBindingResourceModel) map[string]attr.Value {
+	return map[string]attr.Value{
+		"evidence_source_id":  data.EvidenceSourceID,
+		"attesters":           data.Attesters,
+		"run_as":              data.RunAs,
+		"payload_jsonata":     data.PayloadJSONata,
+		"attestation_jsonata": data.AttestationJSONata,
 	}
-	obj, ok := val.(types.Object)
-	if !ok {
-		return nil
-	}
-	attrs := obj.Attributes()
-	action := &PMSActionAPIModel{PayloadType: stringAttr(attrs, "payload_type")}
-	if jsonata := stringAttr(attrs, "payload_template_jsonata"); jsonata != "" {
-		action.PayloadTemplate = &JSONataMappingAPI{JSONata: jsonata}
-	}
-	return action
 }
 
-func actionToData(action *PMSActionAPIModel, diagnostics *diag.Diagnostics) types.Object {
-	if action == nil || (action.PayloadType == "" && action.PayloadTemplate == nil) {
-		return types.ObjectNull(esbActionAttrTypes)
-	}
-	obj, diags := types.ObjectValue(esbActionAttrTypes, map[string]attr.Value{
-		"payload_type":             optionalString(action.PayloadType),
-		"payload_template_jsonata": jsonataAttr(action.PayloadTemplate),
-	})
-	diagnostics.Append(diags...)
-	return obj
+func (r *pms_evidenceSourceBindingResource) toAPI(data *PMSEvidenceSourceBindingResourceModel, api *PMSEvidenceSourceBindingAPIModel) {
+	api.PolicyEvidenceSource = data.PolicyEvidenceSource.ValueString()
+	api.PMSEvidenceSourceBindingTargetAPIModel = evidenceSourceBindingTargetToAPI(r.targetAttrs(data))
 }
 
-func (r *pms_evidenceSourceBindingResource) toAPI(data *PMSEvidenceSourceBindingResourceModel, api *PMSEvidenceSourceBindingAPIModel, diagnostics *diag.Diagnostics) {
-	evidenceSourceBindingToAPI(data.Name.ValueString(), data.Type.ValueString(), data.Approval, data.Attachment, api, diagnostics)
-}
-
-// evidenceSourceBindingToAPI populates the wire model from a binding's configuration,
-// validating that the block supplied matches the declared type.
-func evidenceSourceBindingToAPI(name, bindingType string, approval, attachment types.Object, api *PMSEvidenceSourceBindingAPIModel, diagnostics *diag.Diagnostics) {
-	validateEvidenceSourceBindingBlocks(bindingType, approval, attachment, diagnostics)
-	if diagnostics.HasError() {
-		return
-	}
-	api.Name = name
-	api.Type = bindingType
-	api.Approval = esbApprovalToAPI(approval)
-	api.Attachment = esbAttachmentToAPI(attachment)
-}
-
-// esbBlocksToData renders the type-specific blocks from the wire model. Only the block
-// matching the binding type is populated: the API echoes back an empty object for the
-// other one, which would otherwise turn a block the operator left unset into a non-null
-// value in state.
-func esbBlocksToData(api *PMSEvidenceSourceBindingAPIModel, diagnostics *diag.Diagnostics) (approval, attachment types.Object) {
-	approval = types.ObjectNull(esbApprovalAttrTypes)
-	attachment = types.ObjectNull(esbAttachmentAttrTypes)
-	switch api.Type {
-	case evidenceSourceBindingTypeApproval:
-		if api.Approval == nil {
-			return
-		}
-		obj, diags := types.ObjectValue(esbApprovalAttrTypes, map[string]attr.Value{
-			"approval":              actionToData(api.Approval.Approval, diagnostics),
-			"rejection":             actionToData(api.Approval.Rejection, diagnostics),
-			"identity_list_version": identityListVersionToData(api.Approval.IdentityListVersion, diagnostics),
-		})
-		diagnostics.Append(diags...)
-		approval = obj
-	case evidenceSourceBindingTypeAttachment:
-		if api.Attachment == nil {
-			return
-		}
-		obj, diags := types.ObjectValue(esbAttachmentAttrTypes, map[string]attr.Value{
-			"payload_jsonata":     jsonataAttr(api.Attachment.PayloadMapping),
-			"attestation_jsonata": jsonataAttr(api.Attachment.AttestationMapping),
-		})
-		diagnostics.Append(diags...)
-		attachment = obj
-	}
-	return
-}
-
-func (r *pms_evidenceSourceBindingResource) toData(api *PMSEvidenceSourceBindingAPIModel, data *PMSEvidenceSourceBindingResourceModel, diagnostics *diag.Diagnostics) {
+func (r *pms_evidenceSourceBindingResource) toData(api *PMSEvidenceSourceBindingAPIModel, data *PMSEvidenceSourceBindingResourceModel, _ *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
-	if api.Name != "" {
-		data.Name = types.StringValue(api.Name)
+	if api.PolicyEvidenceSource != "" {
+		data.PolicyEvidenceSource = types.StringValue(api.PolicyEvidenceSource)
 	}
-	if api.Type != "" {
-		data.Type = types.StringValue(api.Type)
-	}
-
-	data.Approval, data.Attachment = esbBlocksToData(api, diagnostics)
-}
-
-// identityListVersionToData renders the identity list version reference, treating a
-// reference with no fields set as absent.
-func identityListVersionToData(ilv *PMSIdentityListVersionReferenceAPIModel, diagnostics *diag.Diagnostics) types.Object {
-	if ilv == nil || (ilv.ID == "" && ilv.Version == "" && ilv.Hash == "") {
-		return types.ObjectNull(esbIdentityListVersionAttrTypes)
-	}
-	obj, diags := types.ObjectValue(esbIdentityListVersionAttrTypes, map[string]attr.Value{
-		"id":      optionalString(ilv.ID),
-		"version": optionalString(ilv.Version),
-		"hash":    optionalString(ilv.Hash),
-	})
-	diagnostics.Append(diags...)
-	return obj
+	values := evidenceSourceBindingTargetToData(&api.PMSEvidenceSourceBindingTargetAPIModel)
+	data.EvidenceSourceID = values["evidence_source_id"].(types.String)
+	data.Attesters = values["attesters"].(types.String)
+	data.RunAs = values["run_as"].(types.String)
+	data.PayloadJSONata = values["payload_jsonata"].(types.String)
+	data.AttestationJSONata = values["attestation_jsonata"].(types.String)
 }
 
 func (r *pms_evidenceSourceBindingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -430,10 +218,7 @@ func (r *pms_evidenceSourceBindingResource) Create(ctx context.Context, req reso
 	}
 
 	var api PMSEvidenceSourceBindingAPIModel
-	r.toAPI(&data, &api, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	r.toAPI(&data, &api)
 
 	ok, _ := r.apiRequest(ctx, http.MethodPost, r.listPath(&data), &api, &api, &resp.Diagnostics)
 	if !ok {
@@ -473,14 +258,9 @@ func (r *pms_evidenceSourceBindingResource) Update(ctx context.Context, req reso
 		return
 	}
 
-	validateEvidenceSourceBindingBlocks(data.Type.ValueString(), data.Approval, data.Attachment, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	patch := PMSEvidenceSourceBindingPatchAPIModel{
-		Approval:   esbApprovalToAPI(data.Approval),
-		Attachment: esbAttachmentToAPI(data.Attachment),
-	}
+	// PATCH replaces each field it carries and cannot clear one, so a field removed from
+	// the configuration is left as the server has it.
+	patch := evidenceSourceBindingTargetToAPI(r.targetAttrs(&data))
 
 	var api PMSEvidenceSourceBindingAPIModel
 	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
