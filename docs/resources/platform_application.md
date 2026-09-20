@@ -32,6 +32,7 @@ resource "kaleido_platform_application" "application" {
 - `admin_enabled` (Boolean) Grant the application the ability to act as an administrator of the platform
 - `oauth` (Attributes) (see [below for nested schema](#nestedatt--oauth))
 - `oauth_enabled` (Boolean) Default true. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.
+- `service_principal` (Boolean) Mark the application as a service principal: one that other services act as through a run-as binding, such as a Policy Manager evidence source's run_as. A service principal cannot have OAuth configuration or API keys, and cannot be an administrator. Immutable after create.
 
 ### Read-Only
 

@@ -16,6 +16,7 @@ package platform
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"testing"
 	"time"
 
@@ -109,6 +110,81 @@ func TestApplication1(t *testing.T) {
 						return nil
 					},
 				),
+			},
+		},
+	})
+}
+
+var applicationServicePrincipal = `
+resource "kaleido_platform_application" "runner" {
+  name = "policy-evidence"
+  service_principal = true
+}
+`
+
+func TestApplicationServicePrincipal(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /api/v1/applications",
+			"GET /api/v1/applications/{application}",
+			"GET /api/v1/applications/{application}",
+			"DELETE /api/v1/applications/{application}",
+			"GET /api/v1/applications/{application}",
+		})
+		mp.server.Close()
+	}()
+
+	appResource := "kaleido_platform_application.runner"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + applicationServicePrincipal,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(appResource, "service_principal", "true"),
+					resource.TestCheckResourceAttr(appResource, "oauth_enabled", "false"),
+					func(s *terraform.State) error {
+						id := s.RootModule().Resources[appResource].Primary.Attributes["id"]
+						rt := mp.applications[id]
+						assert.NotNil(t, rt.ServicePrincipal)
+						assert.True(t, *rt.ServicePrincipal)
+						return nil
+					},
+				),
+			},
+			{
+				Config:             providerConfig + applicationServicePrincipal,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+var applicationServicePrincipalAdmin = `
+resource "kaleido_platform_application" "bad" {
+  name = "bad"
+  service_principal = true
+  admin_enabled = true
+}
+`
+
+func TestApplicationServicePrincipalCannotBeAdmin(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{})
+		mp.server.Close()
+	}()
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      providerConfig + applicationServicePrincipalAdmin,
+				ExpectError: regexp.MustCompile(`(?s)admin_enabled must not be true.*service_principal`),
 			},
 		},
 	})

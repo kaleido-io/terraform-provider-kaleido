@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -31,11 +32,12 @@ import (
 )
 
 type ApplicationResourceModel struct {
-	ID           types.String                   `tfsdk:"id"`
-	Name         types.String                   `tfsdk:"name"`
-	OAuthEnabled types.Bool                     `tfsdk:"oauth_enabled"`
-	AdminEnabled types.Bool                     `tfsdk:"admin_enabled"`
-	OAuth        *ApplicationOAuthResourceModel `tfsdk:"oauth"`
+	ID               types.String                   `tfsdk:"id"`
+	Name             types.String                   `tfsdk:"name"`
+	OAuthEnabled     types.Bool                     `tfsdk:"oauth_enabled"`
+	AdminEnabled     types.Bool                     `tfsdk:"admin_enabled"`
+	ServicePrincipal types.Bool                     `tfsdk:"service_principal"`
+	OAuth            *ApplicationOAuthResourceModel `tfsdk:"oauth"`
 }
 
 type ApplicationAPIModel struct {
@@ -46,6 +48,10 @@ type ApplicationAPIModel struct {
 	OAuth       *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
 	IsAdmin     *bool                     `json:"isAdmin,omitempty"`
 	EnableOAuth *bool                     `json:"enableOAuth,omitempty"`
+	// ServicePrincipal marks an application that exists only to be acted as through a
+	// run-as binding (for example by a Policy Manager evidence source). It cannot
+	// authenticate itself: no OAuth, no API keys, and never an administrator.
+	ServicePrincipal *bool `json:"servicePrincipal,omitempty"`
 }
 
 type ApplicationOAuthAPIModel struct {
@@ -95,6 +101,13 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 				Description: "Grant the application the ability to act as an administrator of the platform",
+			},
+			"service_principal": &schema.BoolAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Description:   "Mark the application as a service principal: one that other services act as through a run-as binding, such as a Policy Manager evidence source's run_as. A service principal cannot have OAuth configuration or API keys, and cannot be an administrator. Immutable after create.",
 			},
 			"oauth_enabled": &schema.BoolAttribute{
 				Optional:      true,
@@ -154,10 +167,27 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 	}
 }
 
+// validateServicePrincipal rejects at plan time the combinations the server refuses: a
+// service principal has no way to authenticate itself and cannot be an administrator.
+func (data *ApplicationResourceModel) validateServicePrincipal(diagnostics *diag.Diagnostics) {
+	if !data.ServicePrincipal.ValueBool() {
+		return
+	}
+	if data.AdminEnabled.ValueBool() {
+		diagnostics.AddError("Invalid configuration", "admin_enabled must not be true when service_principal is true: a service principal cannot be an administrator")
+	}
+	if data.OAuthEnabled.ValueBool() || data.OAuth != nil {
+		diagnostics.AddError("Invalid configuration", "oauth_enabled and oauth must not be set when service_principal is true: a service principal cannot authenticate itself")
+	}
+}
+
 func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.Name = data.Name.ValueString()
 	api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
+	if data.ServicePrincipal.ValueBool() {
+		api.ServicePrincipal = data.ServicePrincipal.ValueBoolPointer()
+	}
 	if data.OAuth != nil {
 		api.OAuth = &ApplicationOAuthAPIModel{}
 		if !data.OAuth.OIDCConfigURL.IsNull() {
@@ -190,6 +220,8 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	data.AdminEnabled = types.BoolPointerValue(api.IsAdmin)
+	// The server omits the field on an ordinary application; that is a plain false
+	data.ServicePrincipal = types.BoolValue(api.ServicePrincipal != nil && *api.ServicePrincipal)
 	if api.EnableOAuth != nil {
 		data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
 	}
@@ -232,6 +264,10 @@ func (r *applicationResource) Create(ctx context.Context, req resource.CreateReq
 
 	var data ApplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	data.validateServicePrincipal(&resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	var api ApplicationAPIModel
 	data.toAPI(&api)
@@ -250,6 +286,10 @@ func (r *applicationResource) Update(ctx context.Context, req resource.UpdateReq
 	var data ApplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+	data.validateServicePrincipal(&resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Read full current object
 	var api ApplicationAPIModel
