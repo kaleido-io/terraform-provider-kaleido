@@ -72,6 +72,7 @@ type VerificationMethod struct {
 	Controller         string          `json:"controller,omitempty"`
 	PublicKeyMultibase string          `json:"publicKeyMultibase,omitempty"`
 	PublicKeyJwk       json.RawMessage `json:"publicKeyJwk,omitempty"`
+	EthereumAddress    string          `json:"ethereumAddress,omitempty"`
 	KeyURI             string          `json:"keyUri,omitempty"`
 	Created            *time.Time      `json:"created,omitempty"`
 	Updated            *time.Time      `json:"updated,omitempty"`
@@ -88,6 +89,7 @@ var verificationMethodAttrTypes = map[string]attr.Type{
 	"controller":           types.StringType,
 	"public_key_multibase": types.StringType,
 	"public_key_jwk_json":  types.StringType,
+	"ethereum_address":     types.StringType,
 	"created":              types.StringType,
 	"expires":              types.StringType,
 	"revoked":              types.StringType,
@@ -168,8 +170,8 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 						},
 						"type": &schema.StringAttribute{
 							Optional:    true,
-							Description: "The key format: Multikey (use public_key_multibase) or JsonWebKey (use public_key_jwk_json)",
-							Validators:  []validator.String{stringvalidator.OneOf("Multikey", "JsonWebKey")},
+							Description: "The key format: Multikey (use public_key_multibase), JsonWebKey (use public_key_jwk_json) or EthereumAddress (use ethereum_address)",
+							Validators:  []validator.String{stringvalidator.OneOf("Multikey", "JsonWebKey", "EthereumAddress")},
 						},
 						"controller": &schema.StringAttribute{
 							Optional:    true,
@@ -182,6 +184,10 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 						"public_key_jwk_json": &schema.StringAttribute{
 							Optional:    true,
 							Description: "JWK-encoded public key as a JSON string (use jsonencode), for type JsonWebKey (RFC 7517). For Ethereum signing: {kty:EC, crv:secp256k1, x:..., y:...}",
+						},
+						"ethereum_address": &schema.StringAttribute{
+							Optional:    true,
+							Description: "0x-prefixed Ethereum address, for type EthereumAddress. Matched only when verifying EIP-712 attestations, by recovering the signer's address from the signature.",
 						},
 						"created": &schema.StringAttribute{
 							Computed:    true,
@@ -351,6 +357,7 @@ func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *P
 			Type:               stringAttr(attrs, "type"),
 			Controller:         stringAttr(attrs, "controller"),
 			PublicKeyMultibase: stringAttr(attrs, "public_key_multibase"),
+			EthereumAddress:    stringAttr(attrs, "ethereum_address"),
 			KeyURI:             stringAttr(attrs, "key_uri"),
 		}
 		if jwk := stringAttr(attrs, "public_key_jwk_json"); jwk != "" {
@@ -436,6 +443,7 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 			"controller":           optionalString(vm.Controller),
 			"public_key_multibase": optionalString(vm.PublicKeyMultibase),
 			"public_key_jwk_json":  publicKeyJwk,
+			"ethereum_address":     optionalString(vm.EthereumAddress),
 			"key_uri":              optionalString(vm.KeyURI),
 			"created":              timeAttr(vm.Created),
 			"expires":              timeAttr(vm.Expires),

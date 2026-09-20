@@ -43,8 +43,9 @@ type PMSPolicyResourceModel struct {
 	Created        types.String `tfsdk:"created"`
 	Updated        types.String `tfsdk:"updated"`
 
-	IdentityListBindings   types.List `tfsdk:"identity_list_binding"`
-	EvidenceSourceBindings types.List `tfsdk:"evidence_source_binding"`
+	IdentityListBindings    types.List `tfsdk:"identity_list_binding"`
+	EvidenceSourceBindings  types.List `tfsdk:"evidence_source_binding"`
+	OutputFormatterBindings types.List `tfsdk:"output_formatter_binding"`
 }
 
 type PMSPolicyAPIModel struct {
@@ -111,7 +112,7 @@ func (r *pms_policyResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"definition_yaml": &schema.StringAttribute{
 				Optional:    true,
-				Description: "The policy definition as YAML, containing components, constants, evidence, decision, output, parameters, parameterValues and summaryTemplate. Omit it to create the policy as an empty container, so that bindings and a kaleido_platform_pms_policy_version resource can be declared separately. Matchers are never part of the definition - they are managed by kaleido_platform_pms_policy_matcher.",
+				Description: "The policy definition as YAML, containing components, constants, evidence, decision, output, parameters, parameterValues and summaryTemplate. An 'output' names one of the policy's output formatter bindings as its 'formatter' and supplies a Rego expression for each of the formatter's parameters in 'values'. Omit it to create the policy as an empty container, so that bindings and a kaleido_platform_pms_policy_version resource can be declared separately. Matchers are never part of the definition - they are managed by kaleido_platform_pms_policy_matcher.",
 			},
 			"version": &schema.StringAttribute{
 				Optional:    true,
@@ -156,6 +157,13 @@ func (r *pms_policyResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					Attributes: policyInlineEvidenceSourceBindingAttributes(),
 				},
 			},
+			"output_formatter_binding": &schema.ListNestedAttribute{
+				Optional:    true,
+				Description: "Output formatter bindings declared inline on the policy, each giving the definition's 'output.formatter' a name that resolves to a kaleido_platform_pms_output_formatter. Written in the same call that creates the policy and its first version, and only the names listed here are managed, so bindings managed by a kaleido_platform_pms_policy_output_formatter_binding resource can safely coexist.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: policyInlineOutputFormatterBindingAttributes(),
+				},
+			},
 		},
 	}
 }
@@ -180,6 +188,10 @@ func (r *pms_policyResource) apiIdentityListBindingPath(data *PMSPolicyResourceM
 
 func (r *pms_policyResource) apiEvidenceSourceBindingPath(data *PMSPolicyResourceModel, policyIdOrName string) string {
 	return r.apiPath(data, policyIdOrName) + "/evidence-source-bindings"
+}
+
+func (r *pms_policyResource) apiOutputFormatterBindingPath(data *PMSPolicyResourceModel, policyIdOrName string) string {
+	return r.apiPath(data, policyIdOrName) + "/output-formatter-bindings"
 }
 
 // definitionFields parses definition_yaml into the fields the API carries at the top
@@ -267,6 +279,18 @@ func (r *pms_policyResource) addBindingMaps(data *PMSPolicyResourceModel, body m
 		}
 		body["evidenceSourceBindings"] = bindings
 	}
+
+	if !data.OutputFormatterBindings.IsNull() && !data.OutputFormatterBindings.IsUnknown() {
+		desired := r.desiredOutputFormatterBindings(data, diagnostics)
+		if diagnostics.HasError() {
+			return
+		}
+		bindings := map[string]interface{}{}
+		for name, binding := range desired {
+			bindings[name] = binding
+		}
+		body["outputFormatterBindings"] = bindings
+	}
 }
 
 // toVersionBody builds the body posted to the versions endpoint, where the version's own
@@ -311,8 +335,12 @@ var policyEvidenceSourceBindingAttrTypes = map[string]attr.Type{
 	"evidence_source_id":     types.StringType,
 	"attesters":              types.StringType,
 	"run_as":                 types.StringType,
-	"payload_jsonata":        types.StringType,
-	"attestation_jsonata":    types.StringType,
+}
+
+var policyOutputFormatterBindingAttrTypes = map[string]attr.Type{
+	"id":                      types.StringType,
+	"policy_output_formatter": types.StringType,
+	"output_formatter_id":     types.StringType,
 }
 
 // policyInlineEvidenceSourceBindingAttributes is the schema of one inline binding block:
@@ -329,6 +357,26 @@ func policyInlineEvidenceSourceBindingAttributes() map[string]schema.Attribute {
 		},
 	}
 	for name, attribute := range evidenceSourceBindingTargetSchema() {
+		attributes[name] = attribute
+	}
+	return attributes
+}
+
+// policyInlineOutputFormatterBindingAttributes is the schema of one inline output
+// formatter binding block: the name plus the same target attributes as the standalone
+// binding resource.
+func policyInlineOutputFormatterBindingAttributes() map[string]schema.Attribute {
+	attributes := map[string]schema.Attribute{
+		"id": &schema.StringAttribute{
+			Computed:    true,
+			Description: "The binding ID assigned by the server",
+		},
+		"policy_output_formatter": &schema.StringAttribute{
+			Required:    true,
+			Description: "The name the policy uses for this binding: the 'output.formatter' field of the policy definition.",
+		},
+	}
+	for name, attribute := range outputFormatterBindingTargetSchema() {
 		attributes[name] = attribute
 	}
 	return attributes
@@ -384,6 +432,31 @@ func (r *pms_policyResource) desiredEvidenceSourceBindings(data *PMSPolicyResour
 	return desired
 }
 
+// desiredOutputFormatterBindings reads the inline blocks, keyed by the name the
+// definition's 'output.formatter' uses.
+func (r *pms_policyResource) desiredOutputFormatterBindings(data *PMSPolicyResourceModel, diagnostics *diag.Diagnostics) map[string]*PMSOutputFormatterBindingTargetAPIModel {
+	desired := map[string]*PMSOutputFormatterBindingTargetAPIModel{}
+	if data.OutputFormatterBindings.IsNull() || data.OutputFormatterBindings.IsUnknown() {
+		return desired
+	}
+	for _, item := range data.OutputFormatterBindings.Elements() {
+		obj, ok := item.(types.Object)
+		if !ok {
+			continue
+		}
+		attrs := obj.Attributes()
+		name := stringAttr(attrs, "policy_output_formatter")
+		if _, duplicate := desired[name]; duplicate {
+			diagnostics.AddError("Duplicate output formatter binding",
+				fmt.Sprintf("policy_output_formatter %q is declared more than once; each is unique within a policy", name))
+			return nil
+		}
+		target := outputFormatterBindingTargetToAPI(attrs)
+		desired[name] = &target
+	}
+	return desired
+}
+
 // listIdentityListBindings returns the policy's bindings keyed by attester label.
 func (r *pms_policyResource) listIdentityListBindings(ctx context.Context, data *PMSPolicyResourceModel, policyID string, diagnostics *diag.Diagnostics) map[string]PMSIdentityListBindingAPIModel {
 	var result struct {
@@ -416,7 +489,23 @@ func (r *pms_policyResource) listEvidenceSourceBindings(ctx context.Context, dat
 	return byName
 }
 
-// bindingsToData refreshes both sets of inline blocks from the server. The write
+// listOutputFormatterBindings returns the policy's bindings keyed by name.
+func (r *pms_policyResource) listOutputFormatterBindings(ctx context.Context, data *PMSPolicyResourceModel, policyID string, diagnostics *diag.Diagnostics) map[string]PMSOutputFormatterBindingAPIModel {
+	var result struct {
+		Items []PMSOutputFormatterBindingAPIModel `json:"items"`
+	}
+	ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiOutputFormatterBindingPath(data, policyID), nil, &result, diagnostics)
+	if !ok {
+		return nil
+	}
+	byName := make(map[string]PMSOutputFormatterBindingAPIModel, len(result.Items))
+	for _, item := range result.Items {
+		byName[item.PolicyOutputFormatter] = item
+	}
+	return byName
+}
+
+// bindingsToData refreshes every set of inline blocks from the server. The write
 // responses do not carry the binding IDs, so the collections are listed to pick them up.
 func (r *pms_policyResource) bindingsToData(ctx context.Context, data *PMSPolicyResourceModel, policyID string, diagnostics *diag.Diagnostics) {
 	r.identityListBindingsToData(ctx, data, policyID, diagnostics)
@@ -424,6 +513,10 @@ func (r *pms_policyResource) bindingsToData(ctx context.Context, data *PMSPolicy
 		return
 	}
 	r.evidenceSourceBindingsToData(ctx, data, policyID, diagnostics)
+	if diagnostics.HasError() {
+		return
+	}
+	r.outputFormatterBindingsToData(ctx, data, policyID, diagnostics)
 }
 
 // identityListBindingsToData refreshes the inline blocks from the server, preserving the
@@ -503,6 +596,44 @@ func (r *pms_policyResource) evidenceSourceBindingsToData(ctx context.Context, d
 	data.EvidenceSourceBindings = types.ListValueMust(listType, elements)
 }
 
+// outputFormatterBindingsToData refreshes the inline blocks from the server, preserving
+// the configured ordering and ignoring bindings this resource does not manage.
+func (r *pms_policyResource) outputFormatterBindingsToData(ctx context.Context, data *PMSPolicyResourceModel, policyID string, diagnostics *diag.Diagnostics) {
+	listType := types.ObjectType{AttrTypes: policyOutputFormatterBindingAttrTypes}
+	if data.OutputFormatterBindings.IsNull() || data.OutputFormatterBindings.IsUnknown() {
+		data.OutputFormatterBindings = types.ListNull(listType)
+		return
+	}
+	existing := r.listOutputFormatterBindings(ctx, data, policyID, diagnostics)
+	if diagnostics.HasError() {
+		return
+	}
+	elements := []attr.Value{}
+	for _, item := range data.OutputFormatterBindings.Elements() {
+		obj, ok := item.(types.Object)
+		if !ok {
+			continue
+		}
+		name := stringAttr(obj.Attributes(), "policy_output_formatter")
+		current, found := existing[name]
+		if !found {
+			// Deleted outside terraform - drop it so the next plan recreates it
+			continue
+		}
+		values := outputFormatterBindingTargetToData(&current.PMSOutputFormatterBindingTargetAPIModel)
+		values["id"] = types.StringValue(current.ID)
+		values["policy_output_formatter"] = types.StringValue(name)
+		value, diags := types.ObjectValue(policyOutputFormatterBindingAttrTypes, values)
+		diagnostics.Append(diags...)
+		elements = append(elements, value)
+	}
+	if len(elements) == 0 {
+		data.OutputFormatterBindings = types.ListNull(listType)
+		return
+	}
+	data.OutputFormatterBindings = types.ListValueMust(listType, elements)
+}
+
 // deleteDroppedBindings removes the bindings this resource previously managed that have
 // since been dropped from the configuration. A binding that was never listed here is
 // left alone, so one managed by its own resource is not destroyed.
@@ -511,11 +642,18 @@ func (r *pms_policyResource) deleteDroppedBindings(ctx context.Context, data, pr
 	desiredLabels := r.desiredIdentityListBindings(data, diagnostics)
 	previousNames := r.desiredEvidenceSourceBindings(priorState, diagnostics)
 	desiredNames := r.desiredEvidenceSourceBindings(data, diagnostics)
+	previousFormatters := r.desiredOutputFormatterBindings(priorState, diagnostics)
+	desiredFormatters := r.desiredOutputFormatterBindings(data, diagnostics)
 	if diagnostics.HasError() {
 		return
 	}
 
-	var droppedLabels, droppedNames []string
+	var droppedLabels, droppedNames, droppedFormatters []string
+	for name := range previousFormatters {
+		if _, stillDesired := desiredFormatters[name]; !stillDesired {
+			droppedFormatters = append(droppedFormatters, name)
+		}
+	}
 	for label := range previousLabels {
 		if _, stillDesired := desiredLabels[label]; !stillDesired {
 			droppedLabels = append(droppedLabels, label)
@@ -551,6 +689,23 @@ func (r *pms_policyResource) deleteDroppedBindings(ctx context.Context, data, pr
 		}
 		basePath := r.apiEvidenceSourceBindingPath(data, policyID)
 		for _, name := range droppedNames {
+			current, found := existing[name]
+			if !found {
+				continue
+			}
+			if ok, _ := r.apiRequest(ctx, http.MethodDelete, fmt.Sprintf("%s/%s", basePath, current.ID), nil, nil, diagnostics, Allow404()); !ok {
+				return
+			}
+		}
+	}
+
+	if len(droppedFormatters) > 0 {
+		existing := r.listOutputFormatterBindings(ctx, data, policyID, diagnostics)
+		if diagnostics.HasError() {
+			return
+		}
+		basePath := r.apiOutputFormatterBindingPath(data, policyID)
+		for _, name := range droppedFormatters {
 			current, found := existing[name]
 			if !found {
 				continue

@@ -235,10 +235,11 @@ func TestPMSPolicyInlineBindingsLeaveOthersAlone(t *testing.T) {
 // absent map leaves that kind of binding alone, a present one is authoritative.
 type pmsPolicyWriteBody struct {
 	PMSPolicyAPIModel
-	Version                string                                             `json:"version,omitempty"`
-	VersionDescription     string                                             `json:"versionDescription,omitempty"`
-	IdentityListBindings   *map[string]pmsInlineIdentityListBinding           `json:"identityListBindings,omitempty"`
-	EvidenceSourceBindings *map[string]PMSEvidenceSourceBindingTargetAPIModel `json:"evidenceSourceBindings,omitempty"`
+	Version                 string                                              `json:"version,omitempty"`
+	VersionDescription      string                                              `json:"versionDescription,omitempty"`
+	IdentityListBindings    *map[string]pmsInlineIdentityListBinding            `json:"identityListBindings,omitempty"`
+	EvidenceSourceBindings  *map[string]PMSEvidenceSourceBindingTargetAPIModel  `json:"evidenceSourceBindings,omitempty"`
+	OutputFormatterBindings *map[string]PMSOutputFormatterBindingTargetAPIModel `json:"outputFormatterBindings,omitempty"`
 }
 
 type pmsInlineIdentityListBinding struct {
@@ -250,7 +251,7 @@ type pmsInlineIdentityListBinding struct {
 var pmsPolicyMetadataFields = map[string]bool{
 	"id": true, "name": true, "description": true, "currentVersion": true,
 	"version": true, "versionDescription": true, "created": true, "updated": true,
-	"identityListBindings": true, "evidenceSourceBindings": true,
+	"identityListBindings": true, "evidenceSourceBindings": true, "outputFormatterBindings": true,
 }
 
 // writeInlinePolicyBindings mirrors the server: bindings are matched on name or attester
@@ -310,6 +311,34 @@ func (mp *mockPlatform) writeInlinePolicyBindings(policyID string, body *pmsPoli
 			for id, binding := range mp.pmsEvidenceSourceBindings {
 				if binding.PolicyID == policyID && !written[binding.PolicyEvidenceSource] {
 					delete(mp.pmsEvidenceSourceBindings, id)
+				}
+			}
+		}
+	}
+
+	if body.OutputFormatterBindings != nil {
+		written := map[string]bool{}
+		for name, incoming := range *body.OutputFormatterBindings {
+			written[name] = true
+			existing := (*PMSOutputFormatterBindingAPIModel)(nil)
+			for _, binding := range mp.pmsOutputFormatterBindings {
+				if binding.PolicyID == policyID && binding.PolicyOutputFormatter == name {
+					existing = binding
+				}
+			}
+			if existing == nil {
+				existing = &PMSOutputFormatterBindingAPIModel{
+					ID: nanoid.New(), PolicyID: policyID, PolicyOutputFormatter: name, Created: &now,
+				}
+				mp.pmsOutputFormatterBindings[existing.ID] = existing
+			}
+			existing.PMSOutputFormatterBindingTargetAPIModel = incoming
+			existing.Updated = &now
+		}
+		if replaceAll {
+			for id, binding := range mp.pmsOutputFormatterBindings {
+				if binding.PolicyID == policyID && !written[binding.PolicyOutputFormatter] {
+					delete(mp.pmsOutputFormatterBindings, id)
 				}
 			}
 		}
@@ -425,6 +454,18 @@ func (mp *mockPlatform) getPMSEvidenceSourceBindings(res http.ResponseWriter, re
 	mp.respond(res, map[string]interface{}{"items": items, "count": len(items)}, http.StatusOK)
 }
 
+// getPMSOutputFormatterBindings serves the binding list for a policy
+func (mp *mockPlatform) getPMSOutputFormatterBindings(res http.ResponseWriter, req *http.Request) {
+	policy := mux.Vars(req)["policy"]
+	items := []*PMSOutputFormatterBindingAPIModel{}
+	for _, binding := range mp.pmsOutputFormatterBindings {
+		if binding.PolicyID == policy {
+			items = append(items, binding)
+		}
+	}
+	mp.respond(res, map[string]interface{}{"items": items, "count": len(items)}, http.StatusOK)
+}
+
 func (mp *mockPlatform) deletePMSPolicy(res http.ResponseWriter, req *http.Request) {
 	nameOrID := mux.Vars(req)["policy"]
 	policy := mp.pmsPolicies[nameOrID]
@@ -470,7 +511,7 @@ func (mp *mockPlatform) postPMSPolicyVersion(res http.ResponseWriter, req *http.
 	mp.respond(res, &version, http.StatusCreated)
 }
 
-// A fully wired policy - both kinds of inline binding and the first version - is created
+// A fully wired policy - every kind of inline binding and the first version - is created
 // by a single call, which is what lets the definition reference a binding on the very
 // first apply.
 var pms_policy_inline_everything = `
@@ -492,17 +533,28 @@ resource "kaleido_platform_pms_policy" "wired" {
     },
     {
       policy_evidence_source = "documents"
-      payload_jsonata = "$.input.document"
+      evidence_source_id = "pes:attachment1"
+    }
+  ]
+  output_formatter_binding = [
+    {
+      policy_output_formatter = "evmOutput"
+      output_formatter_id = "pof:12345abcde"
     }
   ]
   definition_yaml = yamlencode({
     "evidence" = [{ "name" = "approval", "source" = "approvers" }]
     "decision" = { "gate" = { "evidence" = ["approval"] } }
+    "output" = {
+      "formatter" = "evmOutput"
+      "values" = { "to" = { "rego" = "facts.to" } }
+    }
   })
 }
 `
 
-// Dropping one inline evidence source binding leaves the other in place.
+// Dropping one inline evidence source binding and the output formatter binding leaves
+// the others in place.
 var pms_policy_inline_one_esb = `
 resource "kaleido_platform_pms_policy" "wired" {
   environment = "test-env"
@@ -544,15 +596,23 @@ func TestPMSPolicyInlineBindingsAndVersionInOneCall(t *testing.T) {
 					resource.TestCheckResourceAttrSet(policyResource, "evidence_source_binding.0.id"),
 					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.0.policy_evidence_source", "approvers"),
 					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.1.policy_evidence_source", "documents"),
+					resource.TestCheckResourceAttrSet(policyResource, "output_formatter_binding.0.id"),
+					resource.TestCheckResourceAttr(policyResource, "output_formatter_binding.0.policy_output_formatter", "evmOutput"),
+					resource.TestCheckResourceAttr(policyResource, "output_formatter_binding.0.output_formatter_id", "pof:12345abcde"),
 					func(s *terraform.State) error {
 						assert.Len(t, mp.pmsPolicyPutBodies, 1, "the policy, its bindings and its version must be created by one call")
 						body := mp.pmsPolicyPutBodies[0]
 						assert.Contains(t, body, "identityListBindings")
 						assert.Contains(t, body, "evidenceSourceBindings")
+						assert.Contains(t, body, "outputFormatterBindings")
 						assert.Contains(t, body, "decision", "the definition must be sent at the top level")
 						esbs := body["evidenceSourceBindings"].(map[string]interface{})
 						assert.Contains(t, esbs, "approvers")
 						assert.Contains(t, esbs, "documents")
+						documents := esbs["documents"].(map[string]interface{})
+						assert.NotContains(t, documents, "payloadMapping", "mappings belong to the evidence source, not the binding")
+						ofbs := body["outputFormatterBindings"].(map[string]interface{})
+						assert.Equal(t, map[string]interface{}{"outputFormatterId": "pof:12345abcde"}, ofbs["evmOutput"])
 						return nil
 					},
 				),
@@ -561,6 +621,7 @@ func TestPMSPolicyInlineBindingsAndVersionInOneCall(t *testing.T) {
 				Config: providerConfig + pms_policy_inline_one_esb,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.#", "1"),
+					resource.TestCheckNoResourceAttr(policyResource, "output_formatter_binding.#"),
 					func(s *terraform.State) error {
 						names := map[string]bool{}
 						for _, b := range mp.pmsEvidenceSourceBindings {
@@ -568,6 +629,7 @@ func TestPMSPolicyInlineBindingsAndVersionInOneCall(t *testing.T) {
 						}
 						assert.True(t, names["approvers"], "the binding still in the configuration must remain")
 						assert.False(t, names["documents"], "the binding dropped from the configuration must be deleted")
+						assert.Empty(t, mp.pmsOutputFormatterBindings, "the output formatter binding dropped from the configuration must be deleted")
 						return nil
 					},
 				),

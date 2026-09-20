@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_pms_policy_evidence_source_binding Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). A binding with no evidence_source_id is a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound; it may still carry the ingress mappings.
+  Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.
 ---
 
 # kaleido_platform_pms_policy_evidence_source_binding (Resource)
 
-Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). A binding with no evidence_source_id is a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound; it may still carry the ingress mappings.
+Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.
 
 ## Example Usage
 
@@ -45,15 +45,14 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "wallet_mapping" 
   run_as                 = "ap:294hqr959b"
 }
 
-# A slot with no source: its evidence is seeded by a matcher or attached, and the
-# mappings select the payload and attestation out of the message that arrives
-resource "kaleido_platform_pms_policy_evidence_source_binding" "request" {
+# A slot whose evidence is pushed in is bound to an attachment source, which carries the
+# schema and the mappings that select the payload and attestation out of what arrives
+resource "kaleido_platform_pms_policy_evidence_source_binding" "document" {
   environment            = kaleido_platform_environment.env_0.id
   service                = kaleido_platform_service.pms_0.id
   policy                 = kaleido_platform_pms_policy.tiered_approval.id
-  policy_evidence_source = "request"
-  payload_jsonata        = "body.request"
-  attestation_jsonata    = "body.attestation"
+  policy_evidence_source = "document"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.signed_document.id
 }
 ```
 
@@ -63,16 +62,14 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "request" {
 ### Required
 
 - `environment` (String) Environment ID
+- `evidence_source_id` (String) ID of the kaleido_platform_pms_evidence_source that describes this slot's evidence. A slot whose evidence is seeded by a matcher, attached manually or supplied late-bound is bound to a source of type 'attachment'.
 - `policy` (String) Name or ID of the policy this binding belongs to
 - `policy_evidence_source` (String) The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition. Immutable after create.
 - `service` (String) Policy Manager service ID
 
 ### Optional
 
-- `attestation_jsonata` (String) JSONata selecting the attestation out of a message POSTed to the slot's attach endpoint
 - `attesters` (String) The attester label of one of the policy's identity list bindings; its identity list version supplies the identities the source addresses (the approvers of an approval source). Required when bound to an approval source.
-- `evidence_source_id` (String) ID of the kaleido_platform_pms_evidence_source that gathers this slot. Omit for a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound by whatever builds the transaction.
-- `payload_jsonata` (String) JSONata selecting the evidence payload out of a message POSTed to the slot's attach endpoint
 - `run_as` (String) Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.
 
 ### Read-Only

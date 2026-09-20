@@ -279,3 +279,56 @@ func (mp *mockPlatform) deletePolicyIdentity(res http.ResponseWriter, req *http.
 	delete(mp.policyIdentities, mux.Vars(req)["identity"])
 	mp.respond(res, nil, 204)
 }
+
+var pms_identity_ethereum_address = `
+resource "kaleido_platform_pms_identity" "eth_identity" {
+  environment = "test-env"
+  service = "test-service"
+  name = "eth-identity"
+  verification_method = [
+    {
+      name = "primary-signing-key"
+      type = "EthereumAddress"
+      ethereum_address = "0x1234567890AbcdEF1234567890aBcdef12345678"
+      key_uri = "kld:///keystore/ks1/key/signer"
+    }
+  ]
+}
+`
+
+func TestPMSIdentityVerificationMethodEthereumAddress(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v2/identities",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identities/{identity}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identities/{identity}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/identities/{identity}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v2/identities/{identity}",
+		})
+		mp.server.Close()
+	}()
+
+	pms_identity_resource := "kaleido_platform_pms_identity.eth_identity"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + pms_identity_ethereum_address,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(pms_identity_resource, "verification_method.0.type", "EthereumAddress"),
+					resource.TestCheckResourceAttr(pms_identity_resource, "verification_method.0.ethereum_address", "0x1234567890AbcdEF1234567890aBcdef12345678"),
+					resource.TestCheckResourceAttr(pms_identity_resource, "verification_method.0.key_uri", "kld:///keystore/ks1/key/signer"),
+					resource.TestCheckNoResourceAttr(pms_identity_resource, "verification_method.0.public_key_jwk_json"),
+					resource.TestCheckNoResourceAttr(pms_identity_resource, "verification_method.0.public_key_multibase"),
+				),
+			},
+			{
+				Config:             providerConfig + pms_identity_ethereum_address,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}

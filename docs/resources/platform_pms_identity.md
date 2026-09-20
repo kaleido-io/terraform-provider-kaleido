@@ -38,6 +38,7 @@ Manages Policy Manager identities. An identity is a subject that can make attest
 Optional:
 
 - `controller` (String) Optional URI, KID, or DID identifying who controls this specific key (may differ from the identity subject)
+- `ethereum_address` (String) 0x-prefixed Ethereum address, for type EthereumAddress. Matched only when verifying EIP-712 attestations, by recovering the signer's address from the signature.
 - `expires` (String) Expiration timestamp
 - `identity_id` (String) ID of the identity this verification method belongs to
 - `key_uri` (String) URI of the Key Manager key backing this verification method, e.g. 'kld:///keystore/<id>/key/<name>'. Required to route a signing request to the Key Manager, which addresses keys by URI rather than by public key.
@@ -45,7 +46,7 @@ Optional:
 - `public_key_jwk_json` (String) JWK-encoded public key as a JSON string (use jsonencode), for type JsonWebKey (RFC 7517). For Ethereum signing: {kty:EC, crv:secp256k1, x:..., y:...}
 - `public_key_multibase` (String) Multibase-encoded public key, for type Multikey. For secp256k1/Ethereum: 0xe701 varint prefix + 33-byte compressed key, base58btc-encoded with a 'z' header.
 - `revoked` (String) Revocation timestamp
-- `type` (String) The key format: Multikey (use public_key_multibase) or JsonWebKey (use public_key_jwk_json)
+- `type` (String) The key format: Multikey (use public_key_multibase), JsonWebKey (use public_key_jwk_json) or EthereumAddress (use ethereum_address)
 
 Read-Only:
 

@@ -88,20 +88,19 @@ func TestPMSEvidenceSourceBindingSourced(t *testing.T) {
 	})
 }
 
-// A binding with no evidence source is a slot whose evidence is pushed in; only the
-// ingress mappings apply.
-var pms_esb_sourceless = `
+// A slot whose evidence is pushed in is bound to an attachment source, with neither
+// attesters nor run_as: the source itself carries the mappings that select the evidence.
+var pms_esb_attachment = `
 resource "kaleido_platform_pms_policy_evidence_source_binding" "documents" {
   environment = "test-env"
   service = "test-service"
   policy = "test-policy"
   policy_evidence_source = "documents"
-  payload_jsonata = "body.document"
-  attestation_jsonata = "body.signature"
+  evidence_source_id = "pes:attachment1"
 }
 `
 
-func TestPMSEvidenceSourceBindingSourceless(t *testing.T) {
+func TestPMSEvidenceSourceBindingAttachment(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
@@ -119,15 +118,15 @@ func TestPMSEvidenceSourceBindingSourceless(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + pms_esb_sourceless,
+				Config: providerConfig + pms_esb_attachment,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckNoResourceAttr(esbResource, "evidence_source_id"),
-					resource.TestCheckResourceAttr(esbResource, "payload_jsonata", "body.document"),
-					resource.TestCheckResourceAttr(esbResource, "attestation_jsonata", "body.signature"),
+					resource.TestCheckResourceAttr(esbResource, "evidence_source_id", "pes:attachment1"),
+					resource.TestCheckNoResourceAttr(esbResource, "attesters"),
+					resource.TestCheckNoResourceAttr(esbResource, "run_as"),
 				),
 			},
 			{
-				Config:             providerConfig + pms_esb_sourceless,
+				Config:             providerConfig + pms_esb_attachment,
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
@@ -174,12 +173,6 @@ func (mp *mockPlatform) patchPMSEvidenceSourceBinding(res http.ResponseWriter, r
 	}
 	if updates.RunAs != "" {
 		binding.RunAs = updates.RunAs
-	}
-	if updates.PayloadMapping != nil {
-		binding.PayloadMapping = updates.PayloadMapping
-	}
-	if updates.AttestationMapping != nil {
-		binding.AttestationMapping = updates.AttestationMapping
 	}
 	now := time.Now().UTC()
 	binding.Updated = &now

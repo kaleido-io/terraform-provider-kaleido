@@ -38,19 +38,23 @@ const (
 	evidenceSourceTypeApproval       = "approval"
 	evidenceSourceTypeServiceRequest = "serviceRequest"
 	evidenceSourceTypeWorkflow       = "workflow"
+	evidenceSourceTypeAttachment     = "attachment"
 )
 
 type PMSEvidenceSourceResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Environment       types.String `tfsdk:"environment"`
-	Service           types.String `tfsdk:"service"`
-	Name              types.String `tfsdk:"name"`
-	Description       types.String `tfsdk:"description"`
-	RequestSchemaJSON types.String `tfsdk:"request_schema_json"`
-	Type              types.String `tfsdk:"type"`
-	Approval          types.Object `tfsdk:"approval"`
-	ServiceRequest    types.Object `tfsdk:"service_request"`
-	Workflow          types.Object `tfsdk:"workflow"`
+	ID                 types.String `tfsdk:"id"`
+	Environment        types.String `tfsdk:"environment"`
+	Service            types.String `tfsdk:"service"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	SchemaJSON         types.String `tfsdk:"schema_json"`
+	PayloadJSONata     types.String `tfsdk:"payload_jsonata"`
+	AttestationJSONata types.String `tfsdk:"attestation_jsonata"`
+	Parameters         types.List   `tfsdk:"parameter"`
+	Type               types.String `tfsdk:"type"`
+	Approval           types.Object `tfsdk:"approval"`
+	ServiceRequest     types.Object `tfsdk:"service_request"`
+	Workflow           types.Object `tfsdk:"workflow"`
 }
 
 // PMSTypedDataV4ResponseAPIModel describes the EIP-712 document an approver signs for a
@@ -105,26 +109,26 @@ type PMSWorkflowEvidenceSourceAPIModel struct {
 	TransactionTemplate map[string]interface{} `json:"transactionTemplate,omitempty"`
 }
 
+// PMSEvidenceSourceAPIModel is an evidence source on the wire. Schema is the JSON Schema of
+// one item of the evidence the source produces: authored for a serviceRequest, workflow or
+// attachment source, derived by the server from the typed data of an approval source's
+// responses. The two mappings are JSONata over {request, decision, body} that select the
+// evidence payload and attestation out of what the source receives; an approval source
+// has neither.
 type PMSEvidenceSourceAPIModel struct {
-	ID             string                                   `json:"id,omitempty"`
-	Name           string                                   `json:"name,omitempty"`
-	Description    string                                   `json:"description,omitempty"`
-	RequestSchema  map[string]interface{}                   `json:"requestSchema,omitempty"`
-	Type           string                                   `json:"type,omitempty"`
-	Approval       *PMSApprovalEvidenceSourceAPIModel       `json:"approval,omitempty"`
-	ServiceRequest *PMSServiceRequestEvidenceSourceAPIModel `json:"serviceRequest,omitempty"`
-	Workflow       *PMSWorkflowEvidenceSourceAPIModel       `json:"workflow,omitempty"`
-	Created        *time.Time                               `json:"created,omitempty"`
-	Updated        *time.Time                               `json:"updated,omitempty"`
-}
-
-// PMSEvidenceSourcePatchAPIModel is the PATCH body - name and type are immutable after create.
-type PMSEvidenceSourcePatchAPIModel struct {
-	Description    string                                   `json:"description,omitempty"`
-	RequestSchema  map[string]interface{}                   `json:"requestSchema,omitempty"`
-	Approval       *PMSApprovalEvidenceSourceAPIModel       `json:"approval,omitempty"`
-	ServiceRequest *PMSServiceRequestEvidenceSourceAPIModel `json:"serviceRequest,omitempty"`
-	Workflow       *PMSWorkflowEvidenceSourceAPIModel       `json:"workflow,omitempty"`
+	ID                 string                                   `json:"id,omitempty"`
+	Name               string                                   `json:"name,omitempty"`
+	Description        string                                   `json:"description,omitempty"`
+	Schema             map[string]interface{}                   `json:"schema,omitempty"`
+	PayloadMapping     *JSONataMappingAPI                       `json:"payloadMapping,omitempty"`
+	AttestationMapping *JSONataMappingAPI                       `json:"attestationMapping,omitempty"`
+	Parameters         []PMSParameterAPIModel                   `json:"parameters,omitempty"`
+	Type               string                                   `json:"type,omitempty"`
+	Approval           *PMSApprovalEvidenceSourceAPIModel       `json:"approval,omitempty"`
+	ServiceRequest     *PMSServiceRequestEvidenceSourceAPIModel `json:"serviceRequest,omitempty"`
+	Workflow           *PMSWorkflowEvidenceSourceAPIModel       `json:"workflow,omitempty"`
+	Created            *time.Time                               `json:"created,omitempty"`
+	Updated            *time.Time                               `json:"updated,omitempty"`
 }
 
 var esResponseAttrTypes = map[string]attr.Type{
@@ -193,7 +197,7 @@ func approvalResponseSchema(description string) *schema.SingleNestedAttribute {
 
 func (r *pms_evidenceSourceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a Policy Manager evidence source: a reusable, policy-independent definition of where a piece of evidence comes from and how it is requested. A policy uses one through a kaleido_platform_pms_policy_evidence_source_binding. The source's JSONata evaluates against {request, decision}, where 'request' is the object the policy's evidence 'request' block produced for the slot and 'decision' carries {id, policy: {id, name, version}, evidence, idempotencyKey}.",
+		Description: "Manages a Policy Manager evidence source: a reusable, policy-independent definition of where a piece of evidence comes from, how it is requested, and the schema of what it produces. A policy uses one through a kaleido_platform_pms_policy_evidence_source_binding. The source's JSONata evaluates against {request, decision}, where 'request' is the object the policy's evidence 'request' block produced for the slot and 'decision' carries {id, policy: {id, name, version}, evidence, idempotencyKey}.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -219,14 +223,24 @@ func (r *pms_evidenceSourceResource) Schema(_ context.Context, _ resource.Schema
 				Optional:    true,
 				Description: "Description of the evidence source",
 			},
-			"request_schema_json": &schema.StringAttribute{
+			"schema_json": &schema.StringAttribute{
 				Optional:    true,
-				Description: "JSON schema (use jsonencode) describing the request object a policy's evidence 'request' block must produce for this source. Stored for tooling; not validated at runtime.",
+				Computed:    true,
+				Description: "JSON Schema (use jsonencode) of one item of the evidence this source produces, read by the policy composer for the slots bound to it. Set it for a 'serviceRequest' or 'workflow' source, and always for an 'attachment' source. Leave it unset for an 'approval' source: the server derives it from the typed data of the responses, and it is reported here.",
 			},
+			"payload_jsonata": &schema.StringAttribute{
+				Optional:    true,
+				Description: "JSONata selecting the evidence payload out of what the source receives, evaluated against {request, decision, body}. Not permitted on an 'approval' source.",
+			},
+			"attestation_jsonata": &schema.StringAttribute{
+				Optional:    true,
+				Description: "JSONata selecting the attestation out of what the source receives, evaluated against {request, decision, body}. Not permitted on an 'approval' source.",
+			},
+			"parameter": pmsParameterNestedSchema("The parameters the source needs to gather evidence. A policy slot bound to the source supplies a value expression for each in its evidence 'request'; a parameter with a default may be left out. An 'attachment' source requests nothing and so declares no parameters."),
 			"type": &schema.StringAttribute{
 				Required:      true,
-				Description:   "The type of evidence source: 'approval', 'serviceRequest' or 'workflow'. Immutable after create.",
-				Validators:    []validator.String{stringvalidator.OneOf(evidenceSourceTypeApproval, evidenceSourceTypeServiceRequest, evidenceSourceTypeWorkflow)},
+				Description:   "The type of evidence source: 'approval', 'serviceRequest', 'workflow' or 'attachment'. An attachment source requests nothing; it describes evidence that is seeded by a matcher, attached manually or supplied late-bound, and needs only schema_json. Immutable after create.",
+				Validators:    []validator.String{stringvalidator.OneOf(evidenceSourceTypeApproval, evidenceSourceTypeServiceRequest, evidenceSourceTypeWorkflow, evidenceSourceTypeAttachment)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"approval": &schema.SingleNestedAttribute{
@@ -299,13 +313,19 @@ func (r *pms_evidenceSourceResource) instancePath(data *PMSEvidenceSourceResourc
 	return fmt.Sprintf("%s/%s", r.listPath(data), url.PathEscape(data.ID.ValueString()))
 }
 
+func isSet(v attr.Value) bool {
+	return !v.IsNull() && !v.IsUnknown()
+}
+
 // validateEvidenceSourceBlocks checks that the configuration block matching type is the
-// one - and the only one - that is set.
-func validateEvidenceSourceBlocks(sourceType string, approval, serviceRequest, workflow types.Object, diagnostics *diag.Diagnostics) {
+// one - and the only one - that is set, and that the attributes whose meaning depends on
+// the type are consistent with it.
+func validateEvidenceSourceBlocks(data *PMSEvidenceSourceResourceModel, diagnostics *diag.Diagnostics) {
+	sourceType := data.Type.ValueString()
 	set := map[string]bool{
-		evidenceSourceTypeApproval:       !approval.IsNull() && !approval.IsUnknown(),
-		evidenceSourceTypeServiceRequest: !serviceRequest.IsNull() && !serviceRequest.IsUnknown(),
-		evidenceSourceTypeWorkflow:       !workflow.IsNull() && !workflow.IsUnknown(),
+		evidenceSourceTypeApproval:       isSet(data.Approval),
+		evidenceSourceTypeServiceRequest: isSet(data.ServiceRequest),
+		evidenceSourceTypeWorkflow:       isSet(data.Workflow),
 	}
 	blockName := map[string]string{
 		evidenceSourceTypeApproval:       "approval",
@@ -318,8 +338,25 @@ func validateEvidenceSourceBlocks(sourceType string, approval, serviceRequest, w
 			return
 		}
 	}
-	if !set[sourceType] {
+	if sourceType != evidenceSourceTypeAttachment && !set[sourceType] {
 		diagnostics.AddError("Invalid configuration", fmt.Sprintf("the %s block must be set when type is %q", blockName[sourceType], sourceType))
+		return
+	}
+	switch sourceType {
+	case evidenceSourceTypeApproval:
+		if isSet(data.SchemaJSON) {
+			diagnostics.AddError("Invalid configuration", "schema_json must not be set when type is \"approval\": the schema is derived from the typed data of the responses")
+		}
+		if isSet(data.PayloadJSONata) || isSet(data.AttestationJSONata) {
+			diagnostics.AddError("Invalid configuration", "payload_jsonata and attestation_jsonata must not be set when type is \"approval\"")
+		}
+	case evidenceSourceTypeAttachment:
+		if !isSet(data.SchemaJSON) {
+			diagnostics.AddError("Invalid configuration", "schema_json must be set when type is \"attachment\"")
+		}
+		if isSet(data.Parameters) && len(data.Parameters.Elements()) > 0 {
+			diagnostics.AddError("Invalid configuration", "parameter blocks must not be set when type is \"attachment\": an attachment source requests nothing")
+		}
 	}
 }
 
@@ -509,15 +546,23 @@ func esWorkflowToData(wf *PMSWorkflowEvidenceSourceAPIModel, diagnostics *diag.D
 }
 
 func (r *pms_evidenceSourceResource) toAPI(data *PMSEvidenceSourceResourceModel, api *PMSEvidenceSourceAPIModel, diagnostics *diag.Diagnostics) {
-	sourceType := data.Type.ValueString()
-	validateEvidenceSourceBlocks(sourceType, data.Approval, data.ServiceRequest, data.Workflow, diagnostics)
+	validateEvidenceSourceBlocks(data, diagnostics)
 	if diagnostics.HasError() {
 		return
 	}
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
-	api.RequestSchema = jsonAttr(map[string]attr.Value{"request_schema_json": data.RequestSchemaJSON}, "request_schema_json", diagnostics)
-	api.Type = sourceType
+	if isSet(data.SchemaJSON) {
+		api.Schema = jsonAttr(map[string]attr.Value{"schema_json": data.SchemaJSON}, "schema_json", diagnostics)
+	}
+	if jsonata := data.PayloadJSONata.ValueString(); jsonata != "" {
+		api.PayloadMapping = &JSONataMappingAPI{JSONata: jsonata}
+	}
+	if jsonata := data.AttestationJSONata.ValueString(); jsonata != "" {
+		api.AttestationMapping = &JSONataMappingAPI{JSONata: jsonata}
+	}
+	api.Parameters = pmsParametersToAPI(data.Parameters, diagnostics)
+	api.Type = data.Type.ValueString()
 	api.Approval = esApprovalToAPI(data.Approval, diagnostics)
 	api.ServiceRequest = esServiceRequestToAPI(data.ServiceRequest, diagnostics)
 	api.Workflow = esWorkflowToAPI(data.Workflow, diagnostics)
@@ -529,11 +574,10 @@ func (r *pms_evidenceSourceResource) toData(api *PMSEvidenceSourceAPIModel, data
 		data.Name = types.StringValue(api.Name)
 	}
 	data.Description = optionalString(api.Description)
-	// Only re-render the schema when the operator declared one, so the server's canonical
-	// serialisation does not fight the configured jsonencode() output.
-	if !data.RequestSchemaJSON.IsNull() && api.RequestSchema != nil {
-		data.RequestSchemaJSON = jsonToAttr(api.RequestSchema)
-	}
+	data.SchemaJSON = jsonAnyToAttr(data.SchemaJSON, api.Schema)
+	data.PayloadJSONata = jsonataAttr(api.PayloadMapping)
+	data.AttestationJSONata = jsonataAttr(api.AttestationMapping)
+	data.Parameters = pmsParametersToData(api.Parameters, data.Parameters, diagnostics)
 	// The wire value of an FFEnum is lowercased; keep the configured spelling.
 	if data.Type.IsNull() || data.Type.IsUnknown() {
 		data.Type = types.StringValue(api.Type)
@@ -602,21 +646,16 @@ func (r *pms_evidenceSourceResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
+	// A PATCH cannot clear a field, so the whole source is replaced with a PUT: an
+	// attribute removed from the configuration is then removed from the server too.
 	var desired PMSEvidenceSourceAPIModel
 	r.toAPI(&data, &desired, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	patch := PMSEvidenceSourcePatchAPIModel{
-		Description:    desired.Description,
-		RequestSchema:  desired.RequestSchema,
-		Approval:       desired.Approval,
-		ServiceRequest: desired.ServiceRequest,
-		Workflow:       desired.Workflow,
-	}
 
 	var api PMSEvidenceSourceAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPut, r.instancePath(&data), &desired, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}

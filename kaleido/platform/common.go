@@ -432,6 +432,8 @@ func Resources() []func() resource.Resource {
 		PMSPolicyMatcherResourceFactory,
 		PMSEvidenceSourceResourceFactory,
 		PMSPolicyEvidenceSourceBindingResourceFactory,
+		PMSOutputFormatterResourceFactory,
+		PMSPolicyOutputFormatterBindingResourceFactory,
 		PMSPolicyIdentityListBindingResourceFactory,
 		PMSPolicyDeploymentResourceFactory,
 		PMSPolicyAttachmentResourceFactory,

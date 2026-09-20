@@ -3,20 +3,23 @@
 page_title: "kaleido_platform_pms_evidence_source Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages a Policy Manager evidence source: a reusable, policy-independent definition of where a piece of evidence comes from and how it is requested. A policy uses one through a kaleido_platform_pms_policy_evidence_source_binding. The source's JSONata evaluates against {request, decision}, where 'request' is the object the policy's evidence 'request' block produced for the slot and 'decision' carries {id, policy: {id, name, version}, evidence, idempotencyKey}.
+  Manages a Policy Manager evidence source: a reusable, policy-independent definition of where a piece of evidence comes from, how it is requested, and the schema of what it produces. A policy uses one through a kaleido_platform_pms_policy_evidence_source_binding. The source's JSONata evaluates against {request, decision}, where 'request' is the object the policy's evidence 'request' block produced for the slot and 'decision' carries {id, policy: {id, name, version}, evidence, idempotencyKey}.
 ---
 
 # kaleido_platform_pms_evidence_source (Resource)
 
-Manages a Policy Manager evidence source: a reusable, policy-independent definition of where a piece of evidence comes from and how it is requested. A policy uses one through a kaleido_platform_pms_policy_evidence_source_binding. The source's JSONata evaluates against {request, decision}, where 'request' is the object the policy's evidence 'request' block produced for the slot and 'decision' carries {id, policy: {id, name, version}, evidence, idempotencyKey}.
+Manages a Policy Manager evidence source: a reusable, policy-independent definition of where a piece of evidence comes from, how it is requested, and the schema of what it produces. A policy uses one through a kaleido_platform_pms_policy_evidence_source_binding. The source's JSONata evaluates against {request, decision}, where 'request' is the object the policy's evidence 'request' block produced for the slot and 'decision' carries {id, policy: {id, name, version}, evidence, idempotencyKey}.
 
 ## Example Usage
 
 ```terraform
 # An evidence source is defined once, outside any policy, and referenced from a policy's
-# evidence source bindings. Its JSONata evaluates against {request, decision}: 'request'
-# is the object the policy's evidence 'request' block produced for the slot, and
-# 'decision' carries {id, policy: {id, name, version}, evidence, idempotencyKey}.
+# evidence source bindings. It declares the parameters a policy must supply in its
+# evidence 'request' block, and the JSON Schema of one item of the evidence it produces,
+# which the policy composer reads for the slots bound to it. Its JSONata evaluates against
+# {request, decision, body}: 'request' is the object the policy's evidence 'request' block
+# produced for the slot, 'decision' carries {id, policy: {id, name, version}, evidence,
+# idempotencyKey}, and 'body' is what the source received.
 
 # Evidence fetched from a platform service
 resource "kaleido_platform_pms_evidence_source" "wallet_lookup" {
@@ -26,11 +29,24 @@ resource "kaleido_platform_pms_evidence_source" "wallet_lookup" {
   description = "Looks a wallet up by name or ID in the wallet manager"
   type        = "serviceRequest"
 
-  request_schema_json = jsonencode({
-    type       = "object"
-    properties = { walletNameOrId = { type = "string" } }
-    required   = ["walletNameOrId"]
+  parameter = [
+    {
+      name        = "walletNameOrId"
+      type        = "string"
+      description = "The wallet to look up"
+    }
+  ]
+
+  schema_json = jsonencode({
+    type = "object"
+    properties = {
+      id   = { type = "string" }
+      name = { type = "string" }
+    }
   })
+
+  # Select the evidence out of the service response
+  payload_jsonata = "body"
 
   service_request = {
     service      = "myWalletManager"
@@ -43,23 +59,20 @@ resource "kaleido_platform_pms_evidence_source" "wallet_lookup" {
 }
 
 # Evidence gathered by asking identities to approve or reject; who is asked is decided by
-# the binding's 'attesters'
+# the binding's 'attesters'. The schema of an approval source is derived by the server
+# from the typed data of its responses, so schema_json is not set here.
 resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
   environment = kaleido_platform_environment.env_0.id
   service     = kaleido_platform_service.pms_0.id
   name        = "transferApproval"
   type        = "approval"
 
-  request_schema_json = jsonencode({
-    type = "object"
-    properties = {
-      asset  = { type = "string" }
-      to     = { type = "string" }
-      from   = { type = "string" }
-      amount = { type = "integer" }
-    }
-    required = ["asset", "to", "from", "amount"]
-  })
+  parameter = [
+    { name = "asset", type = "string" },
+    { name = "to", type = "string" },
+    { name = "from", type = "string" },
+    { name = "amount", type = "number" },
+  ]
 
   approval = {
     approve = {
@@ -90,6 +103,27 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
     }
   }
 }
+
+# Evidence that is pushed in rather than requested: seeded by a matcher, attached manually
+# or supplied late-bound. An attachment source only describes its shape and how to select
+# the payload and attestation out of what arrives.
+resource "kaleido_platform_pms_evidence_source" "signed_document" {
+  environment = kaleido_platform_environment.env_0.id
+  service     = kaleido_platform_service.pms_0.id
+  name        = "signedDocument"
+  type        = "attachment"
+
+  schema_json = jsonencode({
+    type = "object"
+    properties = {
+      document = { type = "string" }
+    }
+    required = ["document"]
+  })
+
+  payload_jsonata     = "body.document"
+  attestation_jsonata = "body.signature"
+}
 ```
 
 <!-- schema generated by tfplugindocs -->
@@ -100,13 +134,16 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
 - `environment` (String) Environment ID
 - `name` (String) Unique name of the evidence source. Immutable after create.
 - `service` (String) Policy Manager service ID
-- `type` (String) The type of evidence source: 'approval', 'serviceRequest' or 'workflow'. Immutable after create.
+- `type` (String) The type of evidence source: 'approval', 'serviceRequest', 'workflow' or 'attachment'. An attachment source requests nothing; it describes evidence that is seeded by a matcher, attached manually or supplied late-bound, and needs only schema_json. Immutable after create.
 
 ### Optional
 
 - `approval` (Attributes) Configuration for a source of type 'approval': the responses an approver may give, and the document each one signs. Who is asked comes from the binding's 'attesters'. (see [below for nested schema](#nestedatt--approval))
+- `attestation_jsonata` (String) JSONata selecting the attestation out of what the source receives, evaluated against {request, decision, body}. Not permitted on an 'approval' source.
 - `description` (String) Description of the evidence source
-- `request_schema_json` (String) JSON schema (use jsonencode) describing the request object a policy's evidence 'request' block must produce for this source. Stored for tooling; not validated at runtime.
+- `parameter` (Attributes List) The parameters the source needs to gather evidence. A policy slot bound to the source supplies a value expression for each in its evidence 'request'; a parameter with a default may be left out. An 'attachment' source requests nothing and so declares no parameters. (see [below for nested schema](#nestedatt--parameter))
+- `payload_jsonata` (String) JSONata selecting the evidence payload out of what the source receives, evaluated against {request, decision, body}. Not permitted on an 'approval' source.
+- `schema_json` (String) JSON Schema (use jsonencode) of one item of the evidence this source produces, read by the policy composer for the slots bound to it. Set it for a 'serviceRequest' or 'workflow' source, and always for an 'attachment' source. Leave it unset for an 'approval' source: the server derives it from the typed data of the responses, and it is reported here.
 - `service_request` (Attributes) Configuration for a source of type 'serviceRequest': evidence is fetched by calling a platform service, acting as the binding's 'run_as' application. (see [below for nested schema](#nestedatt--service_request))
 - `workflow` (Attributes) Configuration for a source of type 'workflow': evidence is gathered by submitting a workflow transaction, acting as the binding's 'run_as' application. (see [below for nested schema](#nestedatt--workflow))
 
@@ -147,6 +184,22 @@ Optional:
 
 - `message_jsonata` (String) JSONata building the message from the evaluation context {request, decision}
 
+
+
+<a id="nestedatt--parameter"></a>
+### Nested Schema for `parameter`
+
+Required:
+
+- `name` (String) The name of the parameter, as expressions refer to it
+
+Optional:
+
+- `default_json` (String) The default value of the parameter, as JSON (use jsonencode). A parameter with a default may be left out by a policy bound to the source or formatter.
+- `description` (String) A description of the parameter
+- `display_name` (String) The display name of the parameter, used for user interfaces
+- `enum_json` (String) The permitted values of the parameter, as a JSON array (use jsonencode)
+- `type` (String) The type of the parameter, e.g. 'string', 'number', 'boolean', 'object'
 
 
 <a id="nestedatt--service_request"></a>

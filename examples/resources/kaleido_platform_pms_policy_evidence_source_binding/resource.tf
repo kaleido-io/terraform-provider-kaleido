@@ -30,13 +30,12 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "wallet_mapping" 
   run_as                 = "ap:294hqr959b"
 }
 
-# A slot with no source: its evidence is seeded by a matcher or attached, and the
-# mappings select the payload and attestation out of the message that arrives
-resource "kaleido_platform_pms_policy_evidence_source_binding" "request" {
+# A slot whose evidence is pushed in is bound to an attachment source, which carries the
+# schema and the mappings that select the payload and attestation out of what arrives
+resource "kaleido_platform_pms_policy_evidence_source_binding" "document" {
   environment            = kaleido_platform_environment.env_0.id
   service                = kaleido_platform_service.pms_0.id
   policy                 = kaleido_platform_pms_policy.tiered_approval.id
-  policy_evidence_source = "request"
-  payload_jsonata        = "body.request"
-  attestation_jsonata    = "body.attestation"
+  policy_evidence_source = "document"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.signed_document.id
 }

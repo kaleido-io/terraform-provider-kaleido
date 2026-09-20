@@ -39,19 +39,15 @@ type PMSEvidenceSourceBindingResourceModel struct {
 	EvidenceSourceID     types.String `tfsdk:"evidence_source_id"`
 	Attesters            types.String `tfsdk:"attesters"`
 	RunAs                types.String `tfsdk:"run_as"`
-	PayloadJSONata       types.String `tfsdk:"payload_jsonata"`
-	AttestationJSONata   types.String `tfsdk:"attestation_jsonata"`
 }
 
 // PMSEvidenceSourceBindingTargetAPIModel is what a policy evidence slot is bound to: the
-// evidence source that gathers it (none for a sourceless slot) plus the per-policy inputs
-// that source needs.
+// evidence source that gathers it plus the per-policy inputs that source needs. How the
+// evidence is selected out of what arrives is the source's concern, not the binding's.
 type PMSEvidenceSourceBindingTargetAPIModel struct {
-	EvidenceSourceID   string             `json:"evidenceSourceId,omitempty"`
-	Attesters          string             `json:"attesters,omitempty"`
-	RunAs              string             `json:"runAs,omitempty"`
-	PayloadMapping     *JSONataMappingAPI `json:"payloadMapping,omitempty"`
-	AttestationMapping *JSONataMappingAPI `json:"attestationMapping,omitempty"`
+	EvidenceSourceID string `json:"evidenceSourceId,omitempty"`
+	Attesters        string `json:"attesters,omitempty"`
+	RunAs            string `json:"runAs,omitempty"`
 }
 
 type PMSEvidenceSourceBindingAPIModel struct {
@@ -81,8 +77,8 @@ func (r *pms_evidenceSourceBindingResource) Metadata(_ context.Context, _ resour
 func evidenceSourceBindingTargetSchema() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"evidence_source_id": &schema.StringAttribute{
-			Optional:    true,
-			Description: "ID of the kaleido_platform_pms_evidence_source that gathers this slot. Omit for a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound by whatever builds the transaction.",
+			Required:    true,
+			Description: "ID of the kaleido_platform_pms_evidence_source that describes this slot's evidence. A slot whose evidence is seeded by a matcher, attached manually or supplied late-bound is bound to a source of type 'attachment'.",
 		},
 		"attesters": &schema.StringAttribute{
 			Optional:    true,
@@ -91,14 +87,6 @@ func evidenceSourceBindingTargetSchema() map[string]schema.Attribute {
 		"run_as": &schema.StringAttribute{
 			Optional:    true,
 			Description: "Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.",
-		},
-		"payload_jsonata": &schema.StringAttribute{
-			Optional:    true,
-			Description: "JSONata selecting the evidence payload out of a message POSTed to the slot's attach endpoint",
-		},
-		"attestation_jsonata": &schema.StringAttribute{
-			Optional:    true,
-			Description: "JSONata selecting the attestation out of a message POSTed to the slot's attach endpoint",
 		},
 	}
 }
@@ -135,7 +123,7 @@ func (r *pms_evidenceSourceBindingResource) Schema(_ context.Context, _ resource
 		attributes[name] = attribute
 	}
 	resp.Schema = schema.Schema{
-		Description: "Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). A binding with no evidence_source_id is a slot with no source, whose evidence is seeded by a matcher, attached manually, or supplied late-bound; it may still carry the ingress mappings.",
+		Description: "Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.",
 		Attributes:  attributes,
 	}
 }
@@ -156,39 +144,28 @@ func (r *pms_evidenceSourceBindingResource) instancePath(data *PMSEvidenceSource
 // evidenceSourceBindingTargetToAPI builds the wire target from the target attributes,
 // whether they sit on the standalone binding resource or inline on the policy.
 func evidenceSourceBindingTargetToAPI(attrs map[string]attr.Value) PMSEvidenceSourceBindingTargetAPIModel {
-	target := PMSEvidenceSourceBindingTargetAPIModel{
+	return PMSEvidenceSourceBindingTargetAPIModel{
 		EvidenceSourceID: stringAttr(attrs, "evidence_source_id"),
 		Attesters:        stringAttr(attrs, "attesters"),
 		RunAs:            stringAttr(attrs, "run_as"),
 	}
-	if jsonata := stringAttr(attrs, "payload_jsonata"); jsonata != "" {
-		target.PayloadMapping = &JSONataMappingAPI{JSONata: jsonata}
-	}
-	if jsonata := stringAttr(attrs, "attestation_jsonata"); jsonata != "" {
-		target.AttestationMapping = &JSONataMappingAPI{JSONata: jsonata}
-	}
-	return target
 }
 
 // evidenceSourceBindingTargetToData renders the wire target as terraform attribute
 // values, keyed as the schema names them.
 func evidenceSourceBindingTargetToData(target *PMSEvidenceSourceBindingTargetAPIModel) map[string]attr.Value {
 	return map[string]attr.Value{
-		"evidence_source_id":  optionalString(target.EvidenceSourceID),
-		"attesters":           optionalString(target.Attesters),
-		"run_as":              optionalString(target.RunAs),
-		"payload_jsonata":     jsonataAttr(target.PayloadMapping),
-		"attestation_jsonata": jsonataAttr(target.AttestationMapping),
+		"evidence_source_id": optionalString(target.EvidenceSourceID),
+		"attesters":          optionalString(target.Attesters),
+		"run_as":             optionalString(target.RunAs),
 	}
 }
 
 func (r *pms_evidenceSourceBindingResource) targetAttrs(data *PMSEvidenceSourceBindingResourceModel) map[string]attr.Value {
 	return map[string]attr.Value{
-		"evidence_source_id":  data.EvidenceSourceID,
-		"attesters":           data.Attesters,
-		"run_as":              data.RunAs,
-		"payload_jsonata":     data.PayloadJSONata,
-		"attestation_jsonata": data.AttestationJSONata,
+		"evidence_source_id": data.EvidenceSourceID,
+		"attesters":          data.Attesters,
+		"run_as":             data.RunAs,
 	}
 }
 
@@ -206,8 +183,6 @@ func (r *pms_evidenceSourceBindingResource) toData(api *PMSEvidenceSourceBinding
 	data.EvidenceSourceID = values["evidence_source_id"].(types.String)
 	data.Attesters = values["attesters"].(types.String)
 	data.RunAs = values["run_as"].(types.String)
-	data.PayloadJSONata = values["payload_jsonata"].(types.String)
-	data.AttestationJSONata = values["attestation_jsonata"].(types.String)
 }
 
 func (r *pms_evidenceSourceBindingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
