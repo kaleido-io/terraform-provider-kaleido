@@ -47,6 +47,8 @@ type KMSKeyResourceModel struct {
 
 type KMSKeyAPIModel struct {
 	ID                    string            `json:"id,omitempty"`
+	KeystoreName          string            `json:"keystoreName,omitempty"`
+	Spec                  string            `json:"spec,omitempty"`
 	Created               *time.Time        `json:"created,omitempty"`
 	Updated               *time.Time        `json:"updated,omitempty"`
 	Name                  string            `json:"name"`
@@ -222,25 +224,47 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 	plannedPublicIdentifierTypes := data.PublicIdentifierTypes
 	// Preserve planned attributes: the server merges the wallet's
 	// default_key_attributes into the response, so writing the API value straight
-	// into state would break plan-consistency (config set fewer entries than the
-	// server returns). When the user set attributes explicitly, keep exactly what
-	// they asked for; when they didn't, take whatever the server returned.
+	// into state would break plan-consistency.
 	plannedAttributes := data.Attributes
 
 	var api KMSKeyAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
-	apiPath, walletName, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
-	if ok {
-		// If the user specified a folder_path, build the URI so the API auto-creates
-		// the folder hierarchy and places the key within it.
+
+	_, walletName, ok := r.apiPath(ctx, &data, &resp.Diagnostics)
+	if !ok {
+		return
+	}
+
+	// First, try to adopt an existing key by wallet + name via v1 GET.
+	// This preserves state-loss recovery that the resource previously got from
+	// v1 PUT's UpsertKey semantics — a re-apply after state loss re-discovers
+	// the existing key rather than 409-ing on POST.
+	lookupPath := fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/wallets/%s/keys/%s",
+		data.Environment.ValueString(), data.Service.ValueString(), walletName, data.Name.ValueString())
+	ok, status := r.apiRequest(ctx, http.MethodGet, lookupPath, nil, &api, &resp.Diagnostics, Allow404())
+	if !ok {
+		return
+	}
+	if status == 404 {
+		// No existing key — create via v2 POST /keys, which accepts a `spec` field
+		// and correctly honours publicIdentifierTypes. The v1 PUT /wallets/<name>/keys
+		// endpoint used previously was name-idempotent but silently discarded the
+		// requested identifier types — its handler routes into a legacy branch
+		// (key-manager key_mapping_mgr.go:539-546, 888-914) that always creates
+		// exactly one address_ethereum identifier when no spec is provided.
+		api.KeystoreName = walletName
+		if api.Spec == "" {
+			api.Spec = "secp256k1"
+		}
 		if data.hasFolderPath() {
 			path := strings.TrimPrefix(data.FolderPath.ValueString(), "/")
 			api.URI = fmt.Sprintf("kld:///keystore/%s/key/%s/%s", walletName, path, data.Name.ValueString())
 		}
-		ok, _ = r.apiRequest(ctx, http.MethodPut /* note different to wallets */, apiPath, api, &api, &resp.Diagnostics)
-	}
-	if !ok {
-		return
+		createPath := fmt.Sprintf("/endpoint/%s/%s/rest/api/v2/keys",
+			data.Environment.ValueString(), data.Service.ValueString())
+		if ok, _ = r.apiRequest(ctx, http.MethodPost, createPath, api, &api, &resp.Diagnostics); !ok {
+			return
+		}
 	}
 
 	api.toData(ctx, &data, &resp.Diagnostics)
