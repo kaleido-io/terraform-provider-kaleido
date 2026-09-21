@@ -126,8 +126,8 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"public_identifier_types": &schema.ListAttribute{
 				Optional:      true,
 				ElementType:   types.StringType,
-				PlanModifiers: []planmodifier.List{planmodifiers.RequireRecreateList(typeName)},
-				Description:   "Optional public identifier types to create for the key. Applied only at create — immutable after create; changing this value is not supported; create a new, separate key instead.",
+				PlanModifiers: []planmodifier.List{planmodifiers.AllowListAdditionsOnly(typeName)},
+				Description:   "Public identifier types on the key. New types can be added after create; removing a type is not supported and requires destroying and recreating the key.",
 			},
 		},
 	}
@@ -286,6 +286,25 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	// Reconcile additions to public_identifier_types. The v1 PATCH above cannot
+	// touch identifiers; new entries are created one-by-one against the v2
+	// /public-identifiers endpoint. Removals are already rejected by the
+	// AllowListAdditionsOnly plan modifier on the schema, so anything reaching
+	// here is a pure superset of state.
+	var statePITypes types.List
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("public_identifier_types"), &statePITypes)...)
+	if !resp.Diagnostics.HasError() {
+		added := diffAddedStrings(ctx, statePITypes, plannedPublicIdentifierTypes, &resp.Diagnostics)
+		for _, piType := range added {
+			if ok := r.createPublicIdentifier(ctx, &data, api.ID, piType, &resp.Diagnostics); !ok {
+				return
+			}
+		}
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	api.toData(ctx, &data, &resp.Diagnostics)
 	// Restore planned values that the API does not echo back
 	if !plannedPublicIdentifierTypes.IsNull() && !plannedPublicIdentifierTypes.IsUnknown() {
@@ -361,4 +380,49 @@ func (r *kms_keyResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 
 	r.waitForRemoval(ctx, deletePath, &resp.Diagnostics)
+}
+
+
+// diffAddedStrings returns the elements present in plan but not in state.
+// Both inputs are treated as sets — order and duplicates are ignored.
+func diffAddedStrings(ctx context.Context, state, plan types.List, diagnostics *diag.Diagnostics) []string {
+	var stateSlice, planSlice []string
+	if !state.IsNull() && !state.IsUnknown() {
+		diagnostics.Append(state.ElementsAs(ctx, &stateSlice, false)...)
+	}
+	if !plan.IsNull() && !plan.IsUnknown() {
+		diagnostics.Append(plan.ElementsAs(ctx, &planSlice, false)...)
+	}
+	if diagnostics.HasError() {
+		return nil
+	}
+	have := make(map[string]struct{}, len(stateSlice))
+	for _, v := range stateSlice {
+		have[v] = struct{}{}
+	}
+	added := make([]string, 0)
+	for _, v := range planSlice {
+		if _, ok := have[v]; !ok {
+			added = append(added, v)
+		}
+	}
+	return added
+}
+
+// publicIdentifierCreatePayload matches the v2 POST /public-identifiers request body.
+type publicIdentifierCreatePayload struct {
+	KeyID string `json:"keyId"`
+	Type  string `json:"type"`
+}
+
+// createPublicIdentifier calls the v2 endpoint that adds a single public identifier
+// of the given type to an existing key. The endpoint is only exposed on the v2 API
+// (v1 has no /public-identifiers route), so this is the one path in this resource
+// that leaves the /rest/api/v1/ prefix behind.
+func (r *kms_keyResource) createPublicIdentifier(ctx context.Context, data *KMSKeyResourceModel, keyID, piType string, diagnostics *diag.Diagnostics) bool {
+	url := fmt.Sprintf("/endpoint/%s/%s/rest/api/v2/public-identifiers", data.Environment.ValueString(), data.Service.ValueString())
+	payload := publicIdentifierCreatePayload{KeyID: keyID, Type: piType}
+	var out publicIdentifierCreatePayload
+	ok, _ := r.apiRequest(ctx, http.MethodPost, url, payload, &out, diagnostics)
+	return ok
 }
