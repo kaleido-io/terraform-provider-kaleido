@@ -420,6 +420,7 @@ func Resources() []func() resource.Resource {
 		WFEWorkflowResourceFactory,
 		WFEStreamResourceFactory,
 		WFEStreamFactoryResourceFactory,
+		CantonPartyResourceFactory,
 	}
 }
 
