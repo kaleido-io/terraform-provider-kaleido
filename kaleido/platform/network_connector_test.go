@@ -90,6 +90,7 @@ func TestConnectorPermitted(t *testing.T) {
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}", // re-read after readiness check completes
 			"DELETE /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",
 		})
@@ -169,6 +170,7 @@ func TestConnectorPlatform(t *testing.T) {
 			"POST /api/v1/environments/{env}/networks/{net}/connectors",               // create acceptor
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // check acceptor
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // confirm acceptor is ready
+			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // re-read acceptor after readiness check completes
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // check requestor
 			"GET /api/v1/environments/{env}/networks/{net}/connectors/{connector}",    // TODO dont understand why the acceptor is checked a final time - maybe this is to detect final state ?
 			"DELETE /api/v1/environments/{env}/networks/{net}/connectors/{connector}", // delete acceptor and ensure its gone

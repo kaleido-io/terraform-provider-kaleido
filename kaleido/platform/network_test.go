@@ -62,10 +62,12 @@ func TestNetwork1(t *testing.T) {
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
+			"GET /api/v1/environments/{env}/networks/{network}", // re-read after Create's readiness check completes
 			"PUT /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
+			"GET /api/v1/environments/{env}/networks/{network}", // re-read after Update's readiness check completes
 			"DELETE /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 		})
