@@ -88,8 +88,16 @@ type mockPlatform struct {
 	fireflySubscriptions        map[string]*FireFlySubscriptionAPIModel
 	connectorFlowConfigBindings map[string]*ConnectorFlowConfigBindingAPIModel
 	connectorFlows              map[string]*ConnectorFlowAPIModel
-	// The template version the mock service "embeds" — deploy/upgrade always land here.
+	// The latest stored template version; every catalogue version at or below it is stored
+	// and deployable. See connectorFlowCatalogue in connector_flow_test.go.
 	connectorFlowTemplateVersion string
+	// Simulates a connector runtime that predates version-aware deploy/upgrade: it ignores
+	// `version`, drops bindings on a same-version /upgrade, and fails on a null binding.
+	connectorFlowLegacyRuntime bool
+	// Raw JSON bodies of every /deploy and /upgrade, in order, for asserting what was sent.
+	connectorFlowRequests []map[string]interface{}
+	// Stored versions below this are reported supported: false. Empty means no floor.
+	connectorFlowMinimumSupportedVersion string
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
@@ -384,8 +392,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	// See connector_flow_test.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/deploy", http.MethodPost, mp.deployConnectorFlow)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/upgrade", http.MethodPost, mp.upgradeConnectorFlow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}", http.MethodGet, mp.getConnectorFlowTemplate)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/versions/{version}", http.MethodGet, mp.getConnectorFlowTemplate)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/versions", http.MethodGet, mp.listConnectorFlowVersions)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}", http.MethodGet, mp.getConnectorFlow)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}", http.MethodDelete, mp.deleteConnectorFlow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}", http.MethodPatch, mp.patchConnectorFlow)
 
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings", http.MethodGet, mp.listConnectorFlowConfigBindings)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}", http.MethodGet, mp.getConnectorFlowConfigBinding)
