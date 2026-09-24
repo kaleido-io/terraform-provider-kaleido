@@ -97,25 +97,23 @@ func TestKMSKey1(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
+			// Create (v1 default path)
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"PUT /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			"PATCH /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			// ExpectError steps refresh then fail during plan (immutable attrs)
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
+			// Post-create refresh, pre-step2-plan refresh, Update's own pre-PATCH
+			// fetch — each a single v2 call now, no separate wallet lookup needed
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			// Post-update refresh, pre-step3-plan refresh, pre-step4-plan refresh
+			// (both ExpectError steps refresh then fail during plan)
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			// Destroy
+			"DELETE /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
 		})
 		mp.server.Close()
 	}()
@@ -147,7 +145,7 @@ func TestKMSKey1(t *testing.T) {
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "id"),
 					resource.TestCheckResourceAttr(kms_key1Resource, "name", `kms_key1_renamed`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "path", `some/path`),
-					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1`),
+					resource.TestCheckResourceAttr(kms_key1Resource, "uri", `uri/for/kms_key1_renamed`),
 					resource.TestCheckResourceAttrSet(kms_key1Resource, "address"),
 					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute1", `value1`),
 					resource.TestCheckResourceAttr(kms_key1Resource, "attributes.attribute2", `value2`),
@@ -164,11 +162,14 @@ func TestKMSKey1(t *testing.T) {
 							"name": "kms_key1_renamed",
 							"path": "some/path",
 							"address": "%[4]s",
-							"uri": "uri/for/kms_key1",
+							"uri": "uri/for/kms_key1_renamed",
 							"attributes": {
 								"attribute1": "value1",
 								"attribute2": "value2"
-							}
+							},
+							"publicIdentifiers": [
+								{"type": "address_ethereum", "value": "%[4]s"}
+							]
 						}
 						`,
 							// generated fields that vary per test run
@@ -193,24 +194,10 @@ func TestKMSKey1(t *testing.T) {
 	})
 }
 
-func (mp *mockPlatform) getKMSKey(res http.ResponseWriter, req *http.Request) {
-	obj := mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]]
-	if obj == nil {
-		mp.respond(res, nil, 404)
-	} else {
-		mp.respond(res, obj, 200)
-	}
-}
-
-func (mp *mockPlatform) getKMSKeyByID(res http.ResponseWriter, req *http.Request) {
-	obj := mp.kmsKeysByID[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"]]
-	if obj == nil {
-		mp.respond(res, nil, 404)
-	} else {
-		mp.respond(res, obj, 200)
-	}
-}
-
+// putKMSKey mirrors this resource's v1 create behavior: it creates a real,
+// persisted address_ethereum identifier (findable later via v2's
+// fetchDetail) and nothing else, regardless of what publicIdentifierTypes
+// requested.
 func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 	var obj KMSKeyAPIModel
 	mp.getBody(req, &obj)
@@ -223,6 +210,7 @@ func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 		obj.URI = "uri/for/" + obj.Name
 	}
 	obj.PublicIdentifierTypes = nil
+	obj.PublicIdentifiers = []PublicIdentifierWire{{Type: "address_ethereum", Value: obj.Address}}
 	// Mirror the real API: merge the wallet's default_key_attributes into the
 	// key's attributes. Per-key values take precedence; every default the key
 	// didn't explicitly set is added.
@@ -251,74 +239,106 @@ func (mp *mockPlatform) putKMSKey(res http.ResponseWriter, req *http.Request) {
 	mp.respond(res, &obj, 201)
 }
 
-func (mp *mockPlatform) patchKMSKey(res http.ResponseWriter, req *http.Request) {
-	obj := mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]] // expected behavior of provider is PUT only on exists
-	assert.NotNil(mp.t, obj)
-	var newObj KMSKeyAPIModel
-	mp.getBody(req, &newObj)
-	assert.Equal(mp.t, obj.ID, newObj.ID)            // expected behavior of provider
-	assert.Equal(mp.t, obj.ID, mux.Vars(req)["key"]) // expected behavior of provider
-	assert.Empty(mp.t, newObj.URI, "PATCH must not echo URI; KM rejects name/URI mismatch (KA053006)")
+// postKMSKeyV2 mirrors the real v2 POST /keys behavior: unlike putKMSKey, it
+// honours publicIdentifierTypes and, when returnPublicIdentifiers is set,
+// returns them inline. Its response has no address/path — v2 calls the
+// derivation path keyHandle and has no address field, only publicIdentifiers
+// entries.
+func (mp *mockPlatform) postKMSKeyV2(res http.ResponseWriter, req *http.Request) {
+	var obj KMSKeyAPIModel
+	mp.getBody(req, &obj)
+	obj.ID = nanoid.New()
 	now := time.Now().UTC()
-	newObj.Created = obj.Created
-	newObj.Updated = &now
-	newObj.Address = obj.Address
-	newObj.URI = obj.URI // server regenerates; mock keeps prior URI for simplicity
-	if newObj.Path == "" {
-		newObj.Path = obj.Path
+	obj.Created = &now
+	obj.Updated = &now
+	if obj.URI == "" {
+		obj.URI = "uri/for/" + obj.Name
 	}
-	if newObj.Attributes == nil {
-		newObj.Attributes = obj.Attributes
+	obj.KeyHandle = "m/44'/60'/0'/0/0"
+
+	// Mirror the real API: merge the wallet's default_key_attributes into the
+	// key's attributes. Per-key values take precedence; every default the key
+	// didn't explicitly set is added.
+	walletName := obj.KeystoreName
+	envSvcPrefix := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/"
+	for k, w := range mp.kmsWallets {
+		if !strings.HasPrefix(k, envSvcPrefix) || w.Name != walletName {
+			continue
+		}
+		if len(w.DefaultKeyAttributes) > 0 {
+			if obj.Attributes == nil {
+				obj.Attributes = map[string]string{}
+			}
+			for ak, av := range w.DefaultKeyAttributes {
+				if _, set := obj.Attributes[ak]; !set {
+					obj.Attributes[ak] = av
+				}
+			}
+		}
+		break
 	}
-	if newObj.PublicIdentifierTypes == nil {
-		newObj.PublicIdentifierTypes = obj.PublicIdentifierTypes
+
+	if obj.ReturnPublicIdentifiers {
+		for _, piType := range obj.PublicIdentifierTypes {
+			obj.PublicIdentifiers = append(obj.PublicIdentifiers, PublicIdentifierWire{Type: piType, Value: "0x" + nanoid.New()})
+		}
 	}
-	mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]] = &newObj
-	mp.kmsKeysByID[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"]] = &newObj
-	mp.respond(res, &newObj, 200)
+
+	walletKey := envSvcPrefix + walletName + "/" + obj.ID
+	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + obj.ID
+	mp.kmsKeys[walletKey] = &obj
+	mp.kmsKeysByID[idKey] = &obj
+	mp.respond(res, &obj, 201)
 }
 
-func (mp *mockPlatform) patchKMSKeyByID(res http.ResponseWriter, req *http.Request) {
+// getKMSKeyByIDV2 mirrors v2 GET /keys/{id}: never returns address (v2 has no
+// such field, regardless of how the key was created), and only includes
+// publicIdentifiers when fetchDetail=true is requested, same as the real API.
+func (mp *mockPlatform) getKMSKeyByIDV2(res http.ResponseWriter, req *http.Request) {
+	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["key"]
+	obj := mp.kmsKeysByID[idKey]
+	if obj == nil {
+		mp.respond(res, nil, 404)
+		return
+	}
+	out := *obj
+	out.Address = ""
+	if req.URL.Query().Get("fetchDetail") != "true" {
+		out.PublicIdentifiers = nil
+	}
+	mp.respond(res, &out, 200)
+}
+
+// patchKMSKeyByIDV2 mirrors v2 PATCH /keys/{id}: name/labels only (no
+// attributes/uri input, unlike v1's PATCH), and its response carries no
+// address/publicIdentifiers detail — PATCH has no fetchDetail option at all.
+func (mp *mockPlatform) patchKMSKeyByIDV2(res http.ResponseWriter, req *http.Request) {
 	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["key"]
 	obj := mp.kmsKeysByID[idKey]
 	assert.NotNil(mp.t, obj)
-	var newObj KMSKeyAPIModel
-	mp.getBody(req, &newObj)
-	assert.Equal(mp.t, obj.ID, newObj.ID)
-	assert.Equal(mp.t, obj.ID, mux.Vars(req)["key"])
-	assert.Empty(mp.t, newObj.URI, "PATCH must not echo URI; KM rejects name/URI mismatch (KA053006)")
+	var in KMSKeyAPIModel
+	mp.getBody(req, &in)
+	assert.NotEmpty(mp.t, in.Name, "v2 PATCH must send name")
+
+	updated := *obj
+	updated.Name = in.Name
+	updated.URI = "uri/for/" + in.Name // server regenerates URI on rename
 	now := time.Now().UTC()
-	newObj.Created = obj.Created
-	newObj.Updated = &now
-	newObj.Address = obj.Address
-	newObj.URI = obj.URI
-	if newObj.Path == "" {
-		newObj.Path = obj.Path
-	}
-	if newObj.Attributes == nil {
-		newObj.Attributes = obj.Attributes
-	}
-	if newObj.PublicIdentifierTypes == nil {
-		newObj.PublicIdentifierTypes = obj.PublicIdentifierTypes
-	}
-	mp.kmsKeysByID[idKey] = &newObj
+	updated.Updated = &now
+	mp.kmsKeysByID[idKey] = &updated
 	for k, v := range mp.kmsKeys {
 		if v.ID == obj.ID {
-			mp.kmsKeys[k] = &newObj
+			mp.kmsKeys[k] = &updated
 		}
 	}
-	mp.respond(res, &newObj, 200)
+
+	out := updated
+	out.Address = ""
+	out.PublicIdentifiers = nil
+	mp.respond(res, &out, 200)
 }
 
-func (mp *mockPlatform) deleteKMSKey(res http.ResponseWriter, req *http.Request) {
-	obj := mp.kmsKeys[mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"]]
-	assert.NotNil(mp.t, obj)
-	delete(mp.kmsKeys, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["wallet"]+"/"+mux.Vars(req)["key"])
-	delete(mp.kmsKeysByID, mux.Vars(req)["env"]+"/"+mux.Vars(req)["service"]+"/"+mux.Vars(req)["key"])
-	mp.respond(res, nil, 204)
-}
-
-func (mp *mockPlatform) deleteKMSKeyByID(res http.ResponseWriter, req *http.Request) {
+func (mp *mockPlatform) deleteKMSKeyByIDV2(res http.ResponseWriter, req *http.Request) {
 	idKey := mux.Vars(req)["env"] + "/" + mux.Vars(req)["service"] + "/" + mux.Vars(req)["key"]
 	obj := mp.kmsKeysByID[idKey]
 	assert.NotNil(mp.t, obj)
@@ -357,24 +377,21 @@ func TestKMSKeyFolderUpdateAndDelete(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
-			// Create
+			// Create (v1 default path)
 			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
 			"PUT /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys",
-			// Read refresh after create (wallet-scoped — 404 preserved for folder keys)
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			// Plan refresh before update
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			// Update via global by-ID path
-			"GET /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
-			"PATCH /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
-			// Read refresh after update
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}",
-			// Delete via global by-ID path + waitForRemoval on same path
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
-			"GET /endpoint/{env}/{service}/rest/api/v1/keys/{key}",
+			// Post-create refresh, pre-update-plan refresh, Update's own pre-PATCH
+			// fetch — v2's by-ID route is folder-agnostic, so unlike the old v1
+			// wallet-scoped route there's no 404-preserve special case needed here.
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			// Post-update refresh
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			// Destroy
+			"DELETE /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
 		})
 		mp.server.Close()
 	}()
@@ -583,6 +600,111 @@ func TestKMSKeyMergesWalletDefaultAttributes(t *testing.T) {
 				// not leak back into state and re-plan must be a no-op.
 				Config:   providerConfig + kms_keyMergedAttributesStep,
 				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// kms_keyV2Step opts into v2 create (via spec) with two identifier types — v1
+// PUT can only ever produce address_ethereum, so this only passes if Create
+// actually took the v2 path.
+var kms_keyV2Step = `
+resource "kaleido_platform_kms_key" "kms_key_v2" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "kms_key_v2"
+	spec = "secp256k1"
+	public_identifier_types = ["address_ethereum", "address_ethereum_checksum"]
+}
+`
+
+func TestKMSKeyV2CreateHonoursAllIdentifierTypes(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			// Create: no adopt-check on the v2 path, straight to POST
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+			"POST /endpoint/{env}/{service}/rest/api/v2/keys",
+			// Post-apply refresh: Read always uses the v2 global by-ID route,
+			// regardless of which API created the key — no wallet lookup needed.
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			// Destroy
+			"DELETE /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/keys/{key}",
+		})
+		mp.server.Close()
+	}()
+
+	mp.kmsWallets["env1/service1/wallet1_id"] = &KMSWalletAPIModel{Name: "wallet1"}
+
+	resourceName := "kaleido_platform_kms_key.kms_key_v2"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + kms_keyV2Step,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "address"),
+					resource.TestCheckResourceAttr(resourceName, "spec", "secp256k1"),
+					resource.TestCheckResourceAttr(resourceName, "public_identifier_types.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "public_identifier_types.0", "address_ethereum"),
+					resource.TestCheckResourceAttr(resourceName, "public_identifier_types.1", "address_ethereum_checksum"),
+					resource.TestCheckResourceAttr(resourceName, "public_identifiers.%", "2"),
+					resource.TestCheckResourceAttrSet(resourceName, "public_identifiers.address_ethereum"),
+					resource.TestCheckResourceAttrSet(resourceName, "public_identifiers.address_ethereum_checksum"),
+					func(s *terraform.State) error {
+						// Compare against the mock's server-side record: this is what
+						// actually got sent to v2, not just what's restored into state.
+						id := s.RootModule().Resources[resourceName].Primary.Attributes["id"]
+						obj := mp.kmsKeysByID[fmt.Sprintf("env1/service1/%s", id)]
+						assert.NotNil(t, obj)
+						assert.Equal(t, []string{"address_ethereum", "address_ethereum_checksum"}, obj.PublicIdentifierTypes,
+							"v2 must receive and honour every requested identifier type, unlike v1 PUT")
+						assert.Len(t, obj.PublicIdentifiers, 2, "returnPublicIdentifiers should have produced one entry per requested type")
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
+// kms_keyV2PathConflictStep sets both spec (a v2 trigger) and path (a v1-only
+// field with no v2 equivalent) — Create must reject this combination rather
+// than silently drop path.
+var kms_keyV2PathConflictStep = `
+resource "kaleido_platform_kms_key" "kms_key_v2_conflict" {
+    environment = "env1"
+	service = "service1"
+	wallet = "wallet1_id"
+    name = "kms_key_v2_conflict"
+	spec = "secp256k1"
+	path = "m/44'/60'/0'/0/1"
+}
+`
+
+func TestKMSKeyV2RejectsPath(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			// Create fails validation after resolving the wallet name, before any create call
+			"GET /endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}",
+		})
+		mp.server.Close()
+	}()
+
+	mp.kmsWallets["env1/service1/wallet1_id"] = &KMSWalletAPIModel{Name: "wallet1"}
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:      providerConfig + kms_keyV2PathConflictStep,
+				ExpectError: regexp.MustCompile(`path is not supported with keystore_name/spec`),
 			},
 		},
 	})

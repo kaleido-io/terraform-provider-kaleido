@@ -192,15 +192,14 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodGet, mp.getARSNamespace)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodDelete, mp.deleteARSNamespace)
 
-	// See kms_key.go
+	// See kms_key.go. Create can go via v1 PUT (default) or v2 POST (opt-in via
+	// keystore_name/spec); Read/Update/Delete always use the v2 global by-ID
+	// routes regardless of which API created the key.
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys", http.MethodPut, mp.putKMSKey)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodGet, mp.getKMSKey)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodPatch, mp.patchKMSKey)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys/{key}", http.MethodDelete, mp.deleteKMSKey)
-	// Global by-ID routes used for folder-key delete confirmation
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodGet, mp.getKMSKeyByID)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodPatch, mp.patchKMSKeyByID)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/keys/{key}", http.MethodDelete, mp.deleteKMSKeyByID)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/keys", http.MethodPost, mp.postKMSKeyV2)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/keys/{key}", http.MethodGet, mp.getKMSKeyByIDV2)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/keys/{key}", http.MethodPatch, mp.patchKMSKeyByIDV2)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/keys/{key}", http.MethodDelete, mp.deleteKMSKeyByIDV2)
 
 	// See cms_build.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/builds", http.MethodPost, mp.postCMSBuild)
