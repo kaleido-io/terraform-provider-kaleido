@@ -17,6 +17,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -27,10 +28,12 @@ type kaleidoProvider struct {
 	commit      string
 	resources   []func() resource.Resource
 	datasources []func() datasource.DataSource
+	functions   []func() function.Function
 }
 
 var (
-	_ provider.Provider = &kaleidoProvider{}
+	_ provider.Provider              = &kaleidoProvider{}
+	_ provider.ProviderWithFunctions = &kaleidoProvider{}
 )
 
 // Metadata returns the provider type name.
@@ -92,11 +95,17 @@ func (p *kaleidoProvider) Resources(_ context.Context) []func() resource.Resourc
 	return p.resources
 }
 
-func New(version, commit string, resources []func() resource.Resource, datasources []func() datasource.DataSource) provider.Provider {
+// Functions defines the provider-defined functions implemented in the provider.
+func (p *kaleidoProvider) Functions(_ context.Context) []func() function.Function {
+	return p.functions
+}
+
+func New(version, commit string, resources []func() resource.Resource, datasources []func() datasource.DataSource, functions []func() function.Function) provider.Provider {
 	return &kaleidoProvider{
 		version:     version,
 		commit:      commit,
 		resources:   resources,
 		datasources: datasources,
+		functions:   functions,
 	}
 }
