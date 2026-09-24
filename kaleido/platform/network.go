@@ -385,6 +385,10 @@ func (r *networkResource) Create(ctx context.Context, req resource.CreateRequest
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	//re-read from api
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
 	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
@@ -410,6 +414,10 @@ func (r *networkResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	//re-read from api
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
 	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

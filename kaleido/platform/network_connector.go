@@ -254,6 +254,10 @@ func (r *connectorResource) Create(ctx context.Context, req resource.CreateReque
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	if data.PlatformRequestor == nil {   // requestors will not go into ready w/o being accepted
 		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+		//re-read from api
+		if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+			return
+		}
 		api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
@@ -279,6 +283,10 @@ func (r *connectorResource) Update(ctx context.Context, req resource.UpdateReque
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	//re-read from api
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics); !ok {
+		return
+	}
 	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

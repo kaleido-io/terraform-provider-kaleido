@@ -62,10 +62,12 @@ func TestNetwork1(t *testing.T) {
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
+			"GET /api/v1/environments/{env}/networks/{network}", // re-read after Create's readiness check completes
 			"PUT /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
+			"GET /api/v1/environments/{env}/networks/{network}", // re-read after Update's readiness check completes
 			"DELETE /api/v1/environments/{env}/networks/{network}",
 			"GET /api/v1/environments/{env}/networks/{network}",
 		})
@@ -84,6 +86,12 @@ func TestNetwork1(t *testing.T) {
 					resource.TestCheckResourceAttr(network1Resource, "name", `network1`),
 					resource.TestCheckResourceAttr(network1Resource, "type", `BesuNetwork`),
 					resource.TestCheckResourceAttr(network1Resource, "config_json", `{"setting1":"value1"}`),
+					// genesis.json is only generated once the network is ready, and a
+					// fresh value each time (see getNetwork) — this must match the
+					// mock's current truth, proving Create re-read after
+					// waitForReadyStatus instead of keeping the stale, pre-readiness
+					// POST response (which would be missing it entirely).
+					checkStatusInitFilesMatchesMock(network1Resource, "env1", mp),
 				),
 			},
 			{
@@ -95,6 +103,11 @@ func TestNetwork1(t *testing.T) {
 					resource.TestCheckResourceAttr(network1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
 					resource.TestCheckResourceAttr(network1Resource, "info.setting1", `value1`),
 					resource.TestCheckResourceAttr(network1Resource, "info.setting2", `value2`),
+					// Same as above, but proving Update's re-read: genesis.json is
+					// regenerated to a new value on every ready-flip, so a provider
+					// reusing the stale PUT response would show step1's old value
+					// here instead of this step's new one.
+					checkStatusInitFilesMatchesMock(network1Resource, "env1", mp),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[network1Resource].Primary.Attributes["id"]
@@ -111,7 +124,12 @@ func TestNetwork1(t *testing.T) {
 								"setting2": "value2"
 							},
 							"environmentMemberId": "%[4]s",
-							"status": "ready"
+							"status": "ready",
+							"statusDetails": {
+								"initFiles": {
+									"genesis.json": "%[5]s"
+								}
+							}
 						}
 						`,
 							// generated fields that vary per test run
@@ -119,6 +137,7 @@ func TestNetwork1(t *testing.T) {
 							rt.Created.UTC().Format(time.RFC3339Nano),
 							rt.Updated.UTC().Format(time.RFC3339Nano),
 							rt.EnvironmentMemberID,
+							rt.StatusDetails["initFiles"].(map[string]interface{})["genesis.json"],
 						))
 						return nil
 					},
@@ -128,14 +147,44 @@ func TestNetwork1(t *testing.T) {
 	})
 }
 
+// checkStatusInitFilesMatchesMock asserts Terraform's state for
+// status_init_files.genesis.json equals the mock's current stored value —
+// not just that it's set. genesis.json is regenerated on every ready-flip
+// (see getNetwork), so this only passes if the provider actually re-read
+// after the readiness check, rather than reusing a stale API response.
+func checkStatusInitFilesMatchesMock(resourceName, envPrefix string, mp *mockPlatform) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		id := s.RootModule().Resources[resourceName].Primary.Attributes["id"]
+		rt := mp.networks[fmt.Sprintf("%s/%s", envPrefix, id)]
+		if rt == nil || rt.StatusDetails == nil {
+			return fmt.Errorf("no mock network found for %s/%s", envPrefix, id)
+		}
+		initFiles, _ := rt.StatusDetails["initFiles"].(map[string]interface{})
+		want, _ := initFiles["genesis.json"].(string)
+		return resource.TestCheckResourceAttr(resourceName, "status_init_files.genesis.json", want)(s)
+	}
+}
+
 func (mp *mockPlatform) getNetwork(res http.ResponseWriter, req *http.Request) {
 	rt := mp.networks[mux.Vars(req)["env"]+"/"+mux.Vars(req)["network"]]
 	if rt == nil {
 		mp.respond(res, nil, 404)
-	} else {
-		mp.respond(res, rt, 200)
-		// Next time will return ready
+		return
+	}
+	mp.respond(res, rt, 200)
+	// Next time will return ready, with a freshly generated genesis file —
+	// mirrors the real API, where initFiles only exist once the network
+	// finishes initializing, not at creation/update time. Regenerated (not
+	// just set once) so Update's flip produces a different value than
+	// Create's: a provider reusing stale, pre-readiness data would show the
+	// old value instead of this new one, not just a missing one.
+	if rt.Status != "ready" {
 		rt.Status = "ready"
+		rt.StatusDetails = NetworkStatusDetails{
+			"initFiles": map[string]interface{}{
+				"genesis.json": fmt.Sprintf("genesis-%s-for-%s", nanoid.New(), rt.ID),
+			},
+		}
 	}
 }
 
