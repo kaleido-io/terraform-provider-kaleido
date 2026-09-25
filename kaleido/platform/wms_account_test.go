@@ -33,14 +33,15 @@ resource "kaleido_platform_wms_account" "account1" {
   environment             = "env1"
   service                 = "service1"
   asset                   = "asset1"
-  wallet                  = "wallet1"  
+  wallet                  = "wallet1"
 }
 
 resource "kaleido_platform_wms_account" "account2" {
   environment             = "env1"
   service                 = "service1"
   asset                   = "asset2"
-  wallet                  = "wallet2"  
+  wallet                  = "wallet2"
+  depends_on              = [kaleido_platform_wms_account.account1]
 }
 `
 var wms_accountStep2 = `
@@ -48,14 +49,15 @@ resource "kaleido_platform_wms_account" "account1" {
   environment             = "env1"
   service                 = "service1"
   asset                   = "asset1"
-  wallet                  = "wallet2"  
+  wallet                  = "wallet2"
 }
 
 resource "kaleido_platform_wms_account" "account2" {
   environment             = "env1"
   service                 = "service1"
   asset                   = "asset2"
-  wallet                  = "wallet1"  
+  wallet                  = "wallet1"
+  depends_on              = [kaleido_platform_wms_account.account1]
 }
 `
 
@@ -72,16 +74,16 @@ func TestWMSAccount(t *testing.T) {
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"POST /endpoint/{env}/{service}/rest/api/v1/assets/{asset}/connect/{wallet}",
 			"POST /endpoint/{env}/{service}/rest/api/v1/assets/{asset}/connect/{wallet}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
-			"DELETE /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 			"GET /endpoint/{env}/{service}/rest/api/v1/accounts/{account}",
 		})
 		mp.server.Close()
