@@ -90,7 +90,7 @@ type ConnectorFlowAPIModel struct {
 	ConfigProfileBindings map[string]ConfigProfileBindingTargetAPIModel `json:"configProfileBindings,omitempty"`
 }
 
-// ConnectorFlowTemplateAPIModel is the part of GET /metadata/connector-flows/{name}[/versions/{v}]
+// ConnectorFlowTemplateAPIModel is the part of GET /metadata/connector-flows/{name}[/versions/{v}/definition]
 // this resource needs: which binding names each config type fans out to, and which are optional.
 type ConnectorFlowTemplateAPIModel struct {
 	Version                string            `json:"version,omitempty"`
@@ -401,7 +401,7 @@ func removedConfigTypes(plan, state *ConnectorFlowResourceModel) []string {
 func (r *connectorFlowResource) templateConfigTypes(ctx context.Context, data *ConnectorFlowResourceModel, templateVersion string, diagnostics *diag.Diagnostics) (required, optional map[string]bool, ok bool) {
 	suffix := ""
 	if templateVersion != "" {
-		suffix = "/versions/" + templateVersion
+		suffix = "/versions/" + templateVersion + "/definition"
 	}
 	var tmpl ConnectorFlowTemplateAPIModel
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.metadataPath(data, suffix), nil, &tmpl, diagnostics, Allow404())
@@ -726,7 +726,7 @@ func (r *connectorFlowResource) reconcileConfigProfiles(ctx context.Context, dat
 	}
 	var tmpl ConnectorFlowTemplateAPIModel
 	var lookup diag.Diagnostics
-	ok, status := r.apiRequest(ctx, http.MethodGet, r.metadataPath(data, "/versions/"+deployed), nil, &tmpl, &lookup, Allow404())
+	ok, status := r.apiRequest(ctx, http.MethodGet, r.metadataPath(data, "/versions/"+deployed+"/definition"), nil, &tmpl, &lookup, Allow404())
 	if !ok || status == 404 {
 		if lookup.HasError() {
 			diagnostics.AddWarning("Connector flow bindings not checked for drift",

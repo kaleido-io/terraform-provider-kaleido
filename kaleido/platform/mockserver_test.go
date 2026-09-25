@@ -393,7 +393,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/deploy", http.MethodPost, mp.deployConnectorFlow)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/upgrade", http.MethodPost, mp.upgradeConnectorFlow)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}", http.MethodGet, mp.getConnectorFlowTemplate)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/versions/{version}", http.MethodGet, mp.getConnectorFlowTemplate)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/versions/{version}/definition", http.MethodGet, mp.getConnectorFlowTemplate)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/versions", http.MethodGet, mp.listConnectorFlowVersions)
 	mp.register("/api/v1/catalog/web3ecosystems/{ecosystem}/defaults", http.MethodGet, mp.getCatalogWeb3EcosystemDefaults)
 	mp.register("/api/v1/catalog/web3ecosystems/{ecosystem}/networks", http.MethodGet, mp.getCatalogWeb3EcosystemNetworks)
