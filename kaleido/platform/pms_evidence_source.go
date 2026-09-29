@@ -81,8 +81,12 @@ type PMSApprovalResponsesAPIModel struct {
 	Reject  *PMSApprovalResponseAPIModel `json:"reject,omitempty"`
 }
 
+// PMSApprovalEvidenceSourceAPIModel configures an approval source: the responses an
+// approver may give, and an optional JSONata over {request, decision} producing the
+// string labels attached to each approval task.
 type PMSApprovalEvidenceSourceAPIModel struct {
-	Responses *PMSApprovalResponsesAPIModel `json:"responses,omitempty"`
+	Responses    *PMSApprovalResponsesAPIModel `json:"responses,omitempty"`
+	LabelMapping *JSONataMappingAPI            `json:"labelMapping,omitempty"`
 }
 
 type PMSServiceRequestDynamicOptionsAPIModel struct {
@@ -138,8 +142,9 @@ var esResponseAttrTypes = map[string]attr.Type{
 }
 
 var esApprovalAttrTypes = map[string]attr.Type{
-	"approve": types.ObjectType{AttrTypes: esResponseAttrTypes},
-	"reject":  types.ObjectType{AttrTypes: esResponseAttrTypes},
+	"approve":       types.ObjectType{AttrTypes: esResponseAttrTypes},
+	"reject":        types.ObjectType{AttrTypes: esResponseAttrTypes},
+	"label_jsonata": types.StringType,
 }
 
 var esDynamicOptionsAttrTypes = map[string]attr.Type{
@@ -249,6 +254,10 @@ func (r *pms_evidenceSourceResource) Schema(_ context.Context, _ resource.Schema
 				Attributes: map[string]schema.Attribute{
 					"approve": approvalResponseSchema("The response that approves the request."),
 					"reject":  approvalResponseSchema("The response that rejects the request."),
+					"label_jsonata": &schema.StringAttribute{
+						Optional:    true,
+						Description: "JSONata producing the labels attached to each approval task, evaluated against {request, decision}. Must evaluate to an object whose values are strings, e.g. {\"transactionId\": request.transactionId}.",
+					},
 				},
 			},
 			"service_request": &schema.SingleNestedAttribute{
@@ -440,10 +449,14 @@ func esApprovalToAPI(approval types.Object, diagnostics *diag.Diagnostics) *PMSA
 		return nil
 	}
 	attrs := approval.Attributes()
-	return &PMSApprovalEvidenceSourceAPIModel{Responses: &PMSApprovalResponsesAPIModel{
+	result := &PMSApprovalEvidenceSourceAPIModel{Responses: &PMSApprovalResponsesAPIModel{
 		Approve: approvalResponseToAPI(attrs["approve"], diagnostics),
 		Reject:  approvalResponseToAPI(attrs["reject"], diagnostics),
 	}}
+	if jsonata := stringAttr(attrs, "label_jsonata"); jsonata != "" {
+		result.LabelMapping = &JSONataMappingAPI{JSONata: jsonata}
+	}
+	return result
 }
 
 func esApprovalToData(approval *PMSApprovalEvidenceSourceAPIModel, diagnostics *diag.Diagnostics) types.Object {
@@ -451,8 +464,9 @@ func esApprovalToData(approval *PMSApprovalEvidenceSourceAPIModel, diagnostics *
 		return types.ObjectNull(esApprovalAttrTypes)
 	}
 	obj, diags := types.ObjectValue(esApprovalAttrTypes, map[string]attr.Value{
-		"approve": approvalResponseToData(approval.Responses.Approve, diagnostics),
-		"reject":  approvalResponseToData(approval.Responses.Reject, diagnostics),
+		"approve":       approvalResponseToData(approval.Responses.Approve, diagnostics),
+		"reject":        approvalResponseToData(approval.Responses.Reject, diagnostics),
+		"label_jsonata": jsonataAttr(approval.LabelMapping),
 	})
 	diagnostics.Append(diags...)
 	return obj

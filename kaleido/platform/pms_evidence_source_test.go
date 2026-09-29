@@ -60,6 +60,7 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
     { name = "amount", type = "number", description = "The amount to approve" }
   ]
   approval = {
+    label_jsonata = "{\"amount\": $string(request.amount)}"
     approve = {
       primary_type = "Approval"
       types_json = jsonencode({
@@ -108,6 +109,7 @@ func TestPMSEvidenceSourceApproval(t *testing.T) {
 					resource.TestCheckNoResourceAttr(esResource, "approval.reject.%"),
 					resource.TestCheckNoResourceAttr(esResource, "service_request.%"),
 					resource.TestCheckResourceAttr(esResource, "parameter.0.name", "amount"),
+					resource.TestCheckNoResourceAttr(esResource, "approval.label_jsonata"),
 					// The schema of an approval source is derived by the server from the typed data
 					resource.TestCheckResourceAttr(esResource, "schema_json", `{"properties":{"amount":{"type":"string"}},"type":"object"}`),
 				),
@@ -117,6 +119,7 @@ func TestPMSEvidenceSourceApproval(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(esResource, "description", "asks the attesters to approve or reject a transfer"),
 					resource.TestCheckResourceAttr(esResource, "approval.reject.primary_type", "Rejection"),
+					resource.TestCheckResourceAttr(esResource, "approval.label_jsonata", `{"amount": $string(request.amount)}`),
 				),
 			},
 		},

@@ -75,6 +75,9 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
   ]
 
   approval = {
+    # Labels attached to each approval task, so approvers can find and filter them
+    label_jsonata = "{\"asset\": request.asset, \"from\": request.from}"
+
     approve = {
       primary_type = "Approval"
       types_json = jsonencode({
@@ -157,6 +160,7 @@ resource "kaleido_platform_pms_evidence_source" "signed_document" {
 Optional:
 
 - `approve` (Attributes) The response that approves the request. The approver signs an EIP-712 (TypedDataV4) document built from these attributes; a 'decisionId' string member is added to the primary type. (see [below for nested schema](#nestedatt--approval--approve))
+- `label_jsonata` (String) JSONata producing the labels attached to each approval task, evaluated against {request, decision}. Must evaluate to an object whose values are strings, e.g. {"transactionId": request.transactionId}.
 - `reject` (Attributes) The response that rejects the request. The approver signs an EIP-712 (TypedDataV4) document built from these attributes; a 'decisionId' string member is added to the primary type. (see [below for nested schema](#nestedatt--approval--reject))
 
 <a id="nestedatt--approval--approve"></a>

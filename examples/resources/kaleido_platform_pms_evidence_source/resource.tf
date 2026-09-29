@@ -60,6 +60,9 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
   ]
 
   approval = {
+    # Labels attached to each approval task, so approvers can find and filter them
+    label_jsonata = "{\"asset\": request.asset, \"from\": request.from}"
+
     approve = {
       primary_type = "Approval"
       types_json = jsonencode({
