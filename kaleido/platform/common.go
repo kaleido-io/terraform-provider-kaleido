@@ -357,6 +357,7 @@ func DataSources() []func() datasource.DataSource {
 		PaladinEVMRegistryDatasourceModelFactory,
 		EnvironmentVersionsDatasourceModelFactory,
 		ConnectorTemplateVersionsDatasourceModelFactory,
+		CatalogWeb3EcosystemDefaultsDatasourceModelFactory,
 	}
 }
 
