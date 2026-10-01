@@ -356,6 +356,7 @@ func DataSources() []func() datasource.DataSource {
 		AccountDatasourceModelFactory,
 		PaladinEVMRegistryDatasourceModelFactory,
 		EnvironmentVersionsDatasourceModelFactory,
+		ConnectorTemplateVersionsDatasourceModelFactory,
 	}
 }
 

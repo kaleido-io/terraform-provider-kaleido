@@ -65,10 +65,11 @@ func (r *connectorConfigProfileResource) Metadata(_ context.Context, _ resource.
 
 func (r *connectorConfigProfileResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A config profile on a connector service. Bound to a config type, validated against that type's JSON Schema by the server. The value is supplied as a JSON-encoded string.",
+		Description: "A config profile on a connector service: a named instance of a config type - a set of values that the server validates against that type's JSON Schema. The value is supplied as a JSON-encoded string.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
+				Description:   "The config profile's ID (fcp:…). Reference this from a connector flow's config_profiles profile_id.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"environment": &schema.StringAttribute{
@@ -83,12 +84,12 @@ func (r *connectorConfigProfileResource) Schema(_ context.Context, _ resource.Sc
 			},
 			"name": &schema.StringAttribute{
 				Required:      true,
-				Description:   "Name of the config profile. By convention matches the config type name (e.g. evm.confirmations).",
+				Description:   "Name of the config profile, unique within the connector service (e.g. default-confirmations, gas-fast). A connector flow's JSONata selection finds profiles by this name; a flow binds a fixed profile by its id.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"config_type": &schema.StringAttribute{
 				Required:    true,
-				Description: "Name of the config type this profile binds to (e.g. evm.confirmations).",
+				Description: "Name of the config type this profile is an instance of (e.g. evm.confirmations).",
 			},
 			"description": &schema.StringAttribute{
 				Optional:    true,
@@ -97,11 +98,11 @@ func (r *connectorConfigProfileResource) Schema(_ context.Context, _ resource.Sc
 			"value_json": &schema.StringAttribute{
 				Required:    true,
 				CustomType:  jsonNullStrippedStringType{},
-				Description: "JSON-encoded profile value. Must validate against the bound config type's JSON Schema. Null fields are stripped before submission (upstream schemas treat absence as 'use default'; explicit null fails validation); a custom-type semantic equality compares values as null-stripped JSON so jsonencode() of typed objects doesn't show spurious drift.",
+				Description: "JSON-encoded profile value. Must validate against the config type's JSON Schema. Null fields are stripped before submission (upstream schemas treat absence as 'use default'; explicit null fails validation); a custom-type semantic equality compares values as null-stripped JSON so jsonencode() of typed objects doesn't show spurious drift.",
 			},
 			"config_type_id": &schema.StringAttribute{
 				Computed:    true,
-				Description: "Resolved config type ID after the profile is created.",
+				Description: "The ID (fct:…) of the config type this profile is an instance of - not the profile's own ID, which is `id`.",
 			},
 		},
 	}

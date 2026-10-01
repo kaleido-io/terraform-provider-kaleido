@@ -87,59 +87,72 @@ type mockPlatform struct {
 	fireflyContractListeners    map[string]*FireFlyContractListenerAPIModel
 	fireflySubscriptions        map[string]*FireFlySubscriptionAPIModel
 	connectorFlowConfigBindings map[string]*ConnectorFlowConfigBindingAPIModel
+	connectorFlows              map[string]*ConnectorFlowAPIModel
+	// The latest stored template version; every catalogue version at or below it is stored
+	// and deployable. See connectorFlowCatalogue in connector_flow_test.go.
+	connectorFlowTemplateVersion string
+	// Simulates a connector runtime that predates version-aware deploy/upgrade: it ignores
+	// `version`, drops bindings on a same-version /upgrade, and fails on a null binding.
+	connectorFlowLegacyRuntime bool
+	// Raw JSON bodies of every /deploy and /upgrade, in order, for asserting what was sent.
+	connectorFlowRequests []map[string]interface{}
+	// Stored versions below this are reported supported: false. Empty means no floor.
+	connectorFlowMinimumSupportedVersion string
 }
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:                           t,
-		environments:                make(map[string]*EnvironmentAPIModel),
-		runtimes:                    make(map[string]*RuntimeAPIModel),
-		services:                    make(map[string]*ServiceAPIModel),
-		networks:                    make(map[string]*NetworkAPIModel),
-		stacks:                      make(map[string]*StacksAPIModel),
-		connectors:                  make(map[string]*ConnectorAPIModel),
-		networkinitdatas:            make(map[string]*NetworkInitData),
-		kmsWallets:                  make(map[string]*KMSWalletAPIModel),
-		arsNamespaces:               make(map[string]*ARSNamespaceAPIModel),
-		kmsKeys:                     make(map[string]*KMSKeyAPIModel),
-		kmsKeysByID:                 make(map[string]*KMSKeyAPIModel),
-		cmsBuilds:                   make(map[string]*CMSBuildAPIModel),
-		cmsActions:                  make(map[string]CMSActionAPIBaseAccessor),
-		amsTasks:                    make(map[string]*AMSTaskAPIModel),
-		amsTaskVersions:             make(map[string]map[string]interface{}),
-		amsPolicies:                 make(map[string]*AMSPolicyAPIModel),
-		amsPolicyVersions:           make(map[string]*AMSPolicyVersionAPIModel),
-		amsDMUpserts:                make(map[string]map[string]interface{}),
-		amsFFListeners:              make(map[string]*AMSFFListenerAPIModel),
-		amsDMListeners:              make(map[string]*AMSDMListenerAPIModel),
-		amsVariableSets:             make(map[string]*AMSVariableSetAPIModel),
-		amsCollections:              make(map[string]*AMSCollectionAPIModel),
-		groups:                      make(map[string]*GroupAPIModel),
-		users:                       make(map[string]*UserAPIModel),
-		groupMembers:                make(map[string][]*GroupMembershipAPIModel),
-		applications:                make(map[string]*ApplicationAPIModel),
-		serviceAccess:               make(map[string]*ServiceAccessAPIModel),
-		serviceAccessPolicies:       make(map[string]*ServiceAccessPolicyAPIModel),
-		accountAccessPolicies:       make(map[string]*AccountAccessPolicyAPIModel),
-		stackAccess:                 make(map[string]*StackAccessAPIModel),
-		apiKeys:                     make(map[string]*APIKeyAPIModel),
-		wmsWallets:                  make(map[string]*WMSWalletAPIModel),
-		wmsAssets:                   make(map[string]*WMSAssetAPIModel),
-		wmsAssetIcons:               make(map[string]*struct{}),
-		wmsAccounts:                 make(map[string]*WMSAccountAPIModel),
-		policyIdentities:            make(map[string]*PolicyIdentityAPIModel),
-		pmsIdentityLists:            make(map[string]*PMSIdentityListAPIModel),
-		pmsIdentityListVersions:     make(map[string]map[string]*PMSIdentityListVersionAPIModel),
-		pmsPolicyDeployments:        make(map[string]*PMSPolicyDeploymentAPIModel),
-		pmsPolicyDeploymentVersions: make(map[string]map[string]*PMSPolicyDeploymentVersionAPIModel),
-		wfeWorkflows:                make(map[string]*WFEWorkflowAPIModel),
-		wfeWorkflowVersions:         make(map[string]map[string]*WFEWorkflowVersionAPIModel),
-		wfeStreams:                  make(map[string]*WFEStreamAPIModel),
-		wfeStreamFactories:          make(map[string]*WFEStreamFactoryAPIModel),
-		fireflyContractListeners:    make(map[string]*FireFlyContractListenerAPIModel),
-		fireflySubscriptions:        make(map[string]*FireFlySubscriptionAPIModel),
-		router:                      mux.NewRouter(),
-		calls:                       []string{},
+		t:                            t,
+		environments:                 make(map[string]*EnvironmentAPIModel),
+		runtimes:                     make(map[string]*RuntimeAPIModel),
+		services:                     make(map[string]*ServiceAPIModel),
+		networks:                     make(map[string]*NetworkAPIModel),
+		stacks:                       make(map[string]*StacksAPIModel),
+		connectors:                   make(map[string]*ConnectorAPIModel),
+		networkinitdatas:             make(map[string]*NetworkInitData),
+		kmsWallets:                   make(map[string]*KMSWalletAPIModel),
+		arsNamespaces:                make(map[string]*ARSNamespaceAPIModel),
+		kmsKeys:                      make(map[string]*KMSKeyAPIModel),
+		kmsKeysByID:                  make(map[string]*KMSKeyAPIModel),
+		cmsBuilds:                    make(map[string]*CMSBuildAPIModel),
+		cmsActions:                   make(map[string]CMSActionAPIBaseAccessor),
+		amsTasks:                     make(map[string]*AMSTaskAPIModel),
+		amsTaskVersions:              make(map[string]map[string]interface{}),
+		amsPolicies:                  make(map[string]*AMSPolicyAPIModel),
+		amsPolicyVersions:            make(map[string]*AMSPolicyVersionAPIModel),
+		amsDMUpserts:                 make(map[string]map[string]interface{}),
+		amsFFListeners:               make(map[string]*AMSFFListenerAPIModel),
+		amsDMListeners:               make(map[string]*AMSDMListenerAPIModel),
+		amsVariableSets:              make(map[string]*AMSVariableSetAPIModel),
+		amsCollections:               make(map[string]*AMSCollectionAPIModel),
+		groups:                       make(map[string]*GroupAPIModel),
+		users:                        make(map[string]*UserAPIModel),
+		groupMembers:                 make(map[string][]*GroupMembershipAPIModel),
+		applications:                 make(map[string]*ApplicationAPIModel),
+		serviceAccess:                make(map[string]*ServiceAccessAPIModel),
+		serviceAccessPolicies:        make(map[string]*ServiceAccessPolicyAPIModel),
+		accountAccessPolicies:        make(map[string]*AccountAccessPolicyAPIModel),
+		stackAccess:                  make(map[string]*StackAccessAPIModel),
+		apiKeys:                      make(map[string]*APIKeyAPIModel),
+		wmsWallets:                   make(map[string]*WMSWalletAPIModel),
+		wmsAssets:                    make(map[string]*WMSAssetAPIModel),
+		wmsAssetIcons:                make(map[string]*struct{}),
+		wmsAccounts:                  make(map[string]*WMSAccountAPIModel),
+		policyIdentities:             make(map[string]*PolicyIdentityAPIModel),
+		pmsIdentityLists:             make(map[string]*PMSIdentityListAPIModel),
+		pmsIdentityListVersions:      make(map[string]map[string]*PMSIdentityListVersionAPIModel),
+		pmsPolicyDeployments:         make(map[string]*PMSPolicyDeploymentAPIModel),
+		pmsPolicyDeploymentVersions:  make(map[string]map[string]*PMSPolicyDeploymentVersionAPIModel),
+		wfeWorkflows:                 make(map[string]*WFEWorkflowAPIModel),
+		wfeWorkflowVersions:          make(map[string]map[string]*WFEWorkflowVersionAPIModel),
+		wfeStreams:                   make(map[string]*WFEStreamAPIModel),
+		wfeStreamFactories:           make(map[string]*WFEStreamFactoryAPIModel),
+		fireflyContractListeners:     make(map[string]*FireFlyContractListenerAPIModel),
+		fireflySubscriptions:         make(map[string]*FireFlySubscriptionAPIModel),
+		connectorFlows:               make(map[string]*ConnectorFlowAPIModel),
+		connectorFlowTemplateVersion: "2026.03.0",
+		router:                       mux.NewRouter(),
+		calls:                        []string{},
 	}
 
 	// See account_test.go
@@ -376,6 +389,16 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodDelete, mp.deleteAccountAccessPolicy)
 
 	// See connector_flow_config_binding_test.go
+	// See connector_flow_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/deploy", http.MethodPost, mp.deployConnectorFlow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/upgrade", http.MethodPost, mp.upgradeConnectorFlow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}", http.MethodGet, mp.getConnectorFlowTemplate)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/versions/{version}", http.MethodGet, mp.getConnectorFlowTemplate)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/metadata/connector-flows/{flow}/versions", http.MethodGet, mp.listConnectorFlowVersions)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}", http.MethodGet, mp.getConnectorFlow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}", http.MethodDelete, mp.deleteConnectorFlow)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}", http.MethodPatch, mp.patchConnectorFlow)
+
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings", http.MethodGet, mp.listConnectorFlowConfigBindings)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}", http.MethodGet, mp.getConnectorFlowConfigBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/connector-flows/{flow}/config-profile-bindings/{binding}", http.MethodPatch, mp.patchConnectorFlowConfigBinding)

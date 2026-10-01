@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_connector_config_profile Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  A config profile on a connector service. Bound to a config type, validated against that type's JSON Schema by the server. The value is supplied as a JSON-encoded string.
+  A config profile on a connector service: a named instance of a config type - a set of values that the server validates against that type's JSON Schema. The value is supplied as a JSON-encoded string.
 ---
 
 # kaleido_platform_connector_config_profile (Resource)
 
-A config profile on a connector service. Bound to a config type, validated against that type's JSON Schema by the server. The value is supplied as a JSON-encoded string.
+A config profile on a connector service: a named instance of a config type - a set of values that the server validates against that type's JSON Schema. The value is supplied as a JSON-encoded string.
 
 
 
@@ -17,11 +17,11 @@ A config profile on a connector service. Bound to a config type, validated again
 
 ### Required
 
-- `config_type` (String) Name of the config type this profile binds to (e.g. evm.confirmations).
+- `config_type` (String) Name of the config type this profile is an instance of (e.g. evm.confirmations).
 - `environment` (String) Environment ID
-- `name` (String) Name of the config profile. By convention matches the config type name (e.g. evm.confirmations).
+- `name` (String) Name of the config profile, unique within the connector service (e.g. default-confirmations, gas-fast). A connector flow's JSONata selection finds profiles by this name; a flow binds a fixed profile by its id.
 - `service` (String) Connector service ID
-- `value_json` (String) JSON-encoded profile value. Must validate against the bound config type's JSON Schema. Null fields are stripped before submission (upstream schemas treat absence as 'use default'; explicit null fails validation); a custom-type semantic equality compares values as null-stripped JSON so jsonencode() of typed objects doesn't show spurious drift.
+- `value_json` (String) JSON-encoded profile value. Must validate against the config type's JSON Schema. Null fields are stripped before submission (upstream schemas treat absence as 'use default'; explicit null fails validation); a custom-type semantic equality compares values as null-stripped JSON so jsonencode() of typed objects doesn't show spurious drift.
 
 ### Optional
 
@@ -29,5 +29,5 @@ A config profile on a connector service. Bound to a config type, validated again
 
 ### Read-Only
 
-- `config_type_id` (String) Resolved config type ID after the profile is created.
-- `id` (String) The ID of this resource.
+- `config_type_id` (String) The ID (fct:…) of the config type this profile is an instance of - not the profile's own ID, which is `id`.
+- `id` (String) The config profile's ID (fcp:…). Reference this from a connector flow's config_profiles profile_id.
