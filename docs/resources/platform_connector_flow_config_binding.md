@@ -3,10 +3,13 @@
 page_title: "kaleido_platform_connector_flow_config_binding Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
+  Deprecated: use the config_profiles attribute of kaleido_platform_connector_flow, which binds each config type to a profile by ID (profile_id) or selects one per transaction (jsonata). Do not manage the same config type with both this resource and the connector flow's config_profiles: each overwrites the other on every apply. To migrate, move each binding into the connector flow's config_profiles, then stop managing this resource without destroying it, using a removed block with lifecycle { destroy = false } or terraform state rm. Destroying this resource clears the binding.
   Manages a config profile binding within a deployed connector flow. Binds a config type slot to either a specific profile (config_profile_id) or a JSONata expression that selects the profile dynamically at runtime (dynamic_mapping). Exactly one of config_profile_id or dynamic_mapping must be set.
 ---
 
 # kaleido_platform_connector_flow_config_binding (Resource)
+
+Deprecated: use the config_profiles attribute of kaleido_platform_connector_flow, which binds each config type to a profile by ID (profile_id) or selects one per transaction (jsonata). Do not manage the same config type with both this resource and the connector flow's config_profiles: each overwrites the other on every apply. To migrate, move each binding into the connector flow's config_profiles, then stop managing this resource without destroying it, using a removed block with lifecycle { destroy = false } or terraform state rm. Destroying this resource clears the binding.
 
 Manages a config profile binding within a deployed connector flow. Binds a config type slot to either a specific profile (config_profile_id) or a JSONata expression that selects the profile dynamically at runtime (dynamic_mapping). Exactly one of config_profile_id or dynamic_mapping must be set.
 
