@@ -24,6 +24,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -358,6 +359,12 @@ func DataSources() []func() datasource.DataSource {
 		EnvironmentVersionsDatasourceModelFactory,
 		ConnectorTemplateVersionsDatasourceModelFactory,
 		CatalogWeb3EcosystemDefaultsDatasourceModelFactory,
+	}
+}
+
+func Functions() []func() function.Function {
+	return []func() function.Function{
+		MergeJSONFunctionFactory,
 	}
 }
 

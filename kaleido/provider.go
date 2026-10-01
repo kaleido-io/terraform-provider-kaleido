@@ -64,6 +64,7 @@ func New(version, commit string) func() provider.Provider {
 			append([]func() datasource.DataSource{
 				DatasourcePrivateStackBridgeFactory,
 			}, platform.DataSources()...),
+			platform.Functions(),
 		)
 	}
 }

@@ -44,6 +44,7 @@ func init() {
 		"",
 		Resources(),
 		DataSources(),
+		Functions(),
 	)
 	testAccProviders = map[string]func() (tfprotov6.ProviderServer, error){
 		"kaleido": providerserver.NewProtocol6WithError(kaleidoProvider),
