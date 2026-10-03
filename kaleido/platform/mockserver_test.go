@@ -37,6 +37,7 @@ type mockPlatform struct {
 	router                      *mux.Router
 	server                      *httptest.Server
 	environments                map[string]*EnvironmentAPIModel
+	environmentVersions         *EnvironmentVersionsAPIModel // served for every environment
 	runtimes                    map[string]*RuntimeAPIModel
 	services                    map[string]*ServiceAPIModel
 	networks                    map[string]*NetworkAPIModel
@@ -60,6 +61,8 @@ type mockPlatform struct {
 	amsVariableSets             map[string]*AMSVariableSetAPIModel
 	amsCollections              map[string]*AMSCollectionAPIModel
 	groups                      map[string]*GroupAPIModel
+	users                       map[string]*UserAPIModel
+	groupMembers                map[string][]*GroupMembershipAPIModel
 	ffsNode                     *FireFlyStatusNodeAPIModel
 	ffsOrg                      *FireFlyStatusOrgAPIModel
 	calls                       []string
@@ -114,6 +117,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		amsVariableSets:             make(map[string]*AMSVariableSetAPIModel),
 		amsCollections:              make(map[string]*AMSCollectionAPIModel),
 		groups:                      make(map[string]*GroupAPIModel),
+		users:                       make(map[string]*UserAPIModel),
+		groupMembers:                make(map[string][]*GroupMembershipAPIModel),
 		applications:                make(map[string]*ApplicationAPIModel),
 		serviceAccess:               make(map[string]*ServiceAccessAPIModel),
 		serviceAccessPolicies:       make(map[string]*ServiceAccessPolicyAPIModel),
@@ -147,6 +152,9 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/environments/{env}", http.MethodGet, mp.getEnvironment)
 	mp.register("/api/v1/environments/{env}", http.MethodPut, mp.putEnvironment)
 	mp.register("/api/v1/environments/{env}", http.MethodDelete, mp.deleteEnvironment)
+
+	// See environment_versions_datasource_test.go
+	mp.register("/api/v1/environments/{env}/versions", http.MethodGet, mp.getEnvironmentVersions)
 
 	// See runtime_test.go
 	mp.register("/api/v1/environments/{env}/runtimes", http.MethodPost, mp.postRuntime)
@@ -311,6 +319,15 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/groups/{group}", http.MethodGet, mp.getGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodPatch, mp.patchGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodDelete, mp.deleteGroup)
+
+	// See group_membership_test.go
+	mp.register("/api/v1/users", http.MethodPost, mp.postUser)
+	mp.register("/api/v1/users/{user}", http.MethodGet, mp.getUser)
+	mp.register("/api/v1/users/{user}", http.MethodPatch, mp.patchUser)
+	mp.register("/api/v1/users/{user}", http.MethodDelete, mp.deleteUser)
+	mp.register("/api/v1/groups/{group}/members", http.MethodGet, mp.listGroupMembers)
+	mp.register("/api/v1/groups/{group}/members", http.MethodPost, mp.postGroupMember)
+	mp.register("/api/v1/groups/{group}/members/{member}", http.MethodDelete, mp.deleteGroupMember)
 
 	// See stacks_test.go
 	mp.register("/api/v1/environments/{env}/stacks", http.MethodPost, mp.postStacks)

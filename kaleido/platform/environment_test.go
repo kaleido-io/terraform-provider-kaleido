@@ -21,6 +21,7 @@ import (
 
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,9 @@ func TestEnvironment1(t *testing.T) {
 			"GET /api/v1/environments/{env}",
 			"GET /api/v1/environments/{env}",
 			"PUT /api/v1/environments/{env}",
+			"GET /api/v1/environments/{env}/versions",
 			"GET /api/v1/environments/{env}",
+			"GET /api/v1/environments/{env}/versions",
 			"DELETE /api/v1/environments/{env}",
 			"GET /api/v1/environments/{env}",
 		})
@@ -103,6 +106,37 @@ func TestEnvironment1(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestEnvironmentUpgradeAvailableDetail(t *testing.T) {
+	state := &EnvironmentResourceModel{
+		Name:    types.StringValue("environment1"),
+		Version: types.StringValue("26.1.0"),
+	}
+
+	detail := upgradeAvailableDetail(state, &VersionIdentifierAPIModel{Version: "26.2.0"})
+	assert.Contains(t, detail, `Environment "environment1" is running version 26.1.0, and version 26.2.0 is available`)
+	assert.Contains(t, detail, `Set version = "26.2.0" to upgrade it`)
+	assert.NotContains(t, detail, "migrations")
+
+	// Migrations apply, so the warning must not imply that moving the version
+	// here is enough - the platform rejects the update either way
+	detail = upgradeAvailableDetail(state, &VersionIdentifierAPIModel{
+		Version: "26.2.0",
+		Migrations: []VersionMigrationAPIModel{
+			{Summary: "besu fast sync resync", Required: true},
+			{Summary: "chain data reindex", Required: true},
+		},
+	})
+	assert.Contains(t, detail, `Setting version = "26.2.0" is rejected while migrations apply to this environment (besu fast sync resync; chain data reindex)`)
+	assert.NotContains(t, detail, "to upgrade it")
+
+	// An environment created before versions were tracked has no version in state
+	detail = upgradeAvailableDetail(&EnvironmentResourceModel{
+		Name:    types.StringValue("environment1"),
+		Version: types.StringNull(),
+	}, &VersionIdentifierAPIModel{Version: "26.1.0"})
+	assert.Contains(t, detail, "is running an unrecorded version, and version 26.1.0 is available")
 }
 
 func (mp *mockPlatform) getEnvironment(res http.ResponseWriter, req *http.Request) {

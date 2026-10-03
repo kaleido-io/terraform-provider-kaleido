@@ -30,6 +30,10 @@ func init() {
 }
 
 func testAccPreCheck(t *testing.T) {
+	// Allow platform-only ACC runs (TF_ACC_PLATFORM) without requiring KALEIDO_API.
+	if os.Getenv("TF_ACC_PLATFORM") != "" && os.Getenv("KALEIDO_API") == "" {
+		t.Skip("skipping acceptance tests that require KALEIDO_API during TF_ACC_PLATFORM run")
+	}
 	if v := os.Getenv("KALEIDO_API"); v == "" {
 		t.Fatal("KALEIDO_API must be set for acceptance tests")
 	}

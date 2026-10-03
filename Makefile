@@ -23,7 +23,7 @@ $(LOCALBIN):
 TFPLUGIN_DOCS ?= $(LOCALBIN)/tfplugindocs
 
 
-.PHONY: all test
+.PHONY: all test test-acc test-acc-platform test-acc-all
 
 all: deps build test vulncheck
 build:
@@ -31,6 +31,18 @@ build:
 package: build-linux build-mac build-win
 test:
 	$(GOTEST)  ./... -cover -coverprofile=coverage.txt -covermode=atomic
+
+# Live acceptance tests (require credentials; not run by default `make test`).
+# Platform ACC: TF_ACC=1 TF_ACC_PLATFORM=1 KALEIDO_PLATFORM_* 
+# Other ACC (./kaleido): TF_ACC=1 KALEIDO_API KALEIDO_API_KEY
+test-acc:
+	TF_ACC=1 $(GOTEST) ./kaleido -count=1 -timeout 60m -v -run 'TestKaleido'
+
+test-acc-platform:
+	TF_ACC=1 TF_ACC_PLATFORM=1 $(GOTEST) ./kaleido/platform -count=1 -timeout 120m -v -run 'TestAccPlatform'
+
+test-acc-all: test-acc test-acc-platform
+
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)-$(BUILD_VERSION)*

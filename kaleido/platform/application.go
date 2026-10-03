@@ -56,6 +56,7 @@ type ApplicationOAuthAPIModel struct {
 	AuthorizedParty string `json:"azp,omitempty"`
 	OIDCConfigURL   string `json:"oidcConfigURL,omitempty"`
 	CACertificate   string `json:"caCertificate,omitempty"`
+	EnableBasicAuth *bool  `json:"enableBasicAuth,omitempty"`
 }
 
 type ApplicationOAuthResourceModel struct {
@@ -66,6 +67,7 @@ type ApplicationOAuthResourceModel struct {
 	AuthorizedParty types.String `tfsdk:"azp"`
 	OIDCConfigURL   types.String `tfsdk:"oidc_config_url"`
 	CACertificate   types.String `tfsdk:"ca_certificate"`
+	EnableBasicAuth types.Bool   `tfsdk:"enable_basic_auth"`
 }
 
 func ApplicationResourceFactory() resource.Resource {
@@ -101,7 +103,7 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:      true,
 				Default:       booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplaceIfConfigured()},
-				Description:   "Default true. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.",
+				Description:   "Default false. An Identity Provider can be bound to an application to allow it to federate its own OAuth 2.0 authentication realm into the APIs of the platform.",
 			},
 			"oauth": &schema.SingleNestedAttribute{
 				Optional: true,
@@ -135,17 +137,21 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 						Optional:      true,
 						PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
+					"enable_basic_auth": &schema.BoolAttribute{
+						Optional: true,
+					},
 				},
 				Default: objectdefault.StaticValue(
 					types.ObjectNull(
 						map[string]attr.Type{
-							"aud":             types.StringType,
-							"azp":             types.StringType,
-							"ca_certificate":  types.StringType,
-							"issuer":          types.StringType,
-							"jwks":            types.StringType,
-							"jwks_endpoint":   types.StringType,
-							"oidc_config_url": types.StringType,
+							"aud":               types.StringType,
+							"azp":               types.StringType,
+							"ca_certificate":    types.StringType,
+							"issuer":            types.StringType,
+							"jwks":              types.StringType,
+							"jwks_endpoint":     types.StringType,
+							"oidc_config_url":   types.StringType,
+							"enable_basic_auth": types.BoolType,
 						},
 					),
 				),
@@ -160,6 +166,9 @@ func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
 	if data.OAuth != nil {
 		api.OAuth = &ApplicationOAuthAPIModel{}
+		if !data.OAuth.EnableBasicAuth.IsNull() {
+			api.OAuth.EnableBasicAuth = data.OAuth.EnableBasicAuth.ValueBoolPointer()
+		}
 		if !data.OAuth.OIDCConfigURL.IsNull() {
 			api.OAuth.OIDCConfigURL = data.OAuth.OIDCConfigURL.ValueString()
 		} else {
@@ -195,6 +204,9 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	}
 	if api.OAuth != nil {
 		data.OAuth = &ApplicationOAuthResourceModel{}
+		if api.OAuth.EnableBasicAuth != nil {
+			data.OAuth.EnableBasicAuth = types.BoolValue(*api.OAuth.EnableBasicAuth)
+		}
 		if api.OAuth.OIDCConfigURL != "" {
 			data.OAuth.OIDCConfigURL = types.StringValue(api.OAuth.OIDCConfigURL)
 		} else {

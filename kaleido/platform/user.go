@@ -17,14 +17,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -64,6 +67,8 @@ type userResource struct {
 	commonResource
 }
 
+var _ resource.ResourceWithModifyPlan = &userResource{}
+
 func (r *userResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "kaleido_platform_user"
 }
@@ -77,20 +82,30 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"account": &schema.StringAttribute{
-				Computed:    true,
-				Description: "ID of the account this user belongs to",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description:   "ID of the account this user belongs to",
 			},
 			"name": &schema.StringAttribute{
-				Required:    true,
-				Description: "The username",
+				Required: true,
+				Description: "The username. For users who authenticate via OIDC, the platform syncs name from the IdP token " +
+					"(email, preferred_username, or upn) on login. Prefer setting name to that IdP identifier to avoid recurring Terraform drift.",
 			},
 			"email": &schema.StringAttribute{
 				Optional:    true,
-				Description: "Email address of the user",
+				Description: "Email address of the user. Required to be lowercase",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[^A-Z]*$`),
+						"Email is required to be lowercase",
+					),
+				},
 			},
 			"sub": &schema.StringAttribute{
-				Optional:    true,
-				Description: "OAuth subject identifier of the user",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description:   "OAuth subject identifier of the user. Optional on create; if omitted, the platform may bind it on first login and Terraform will retain that value.",
 			},
 			"is_admin": &schema.BoolAttribute{
 				Optional:    true,
@@ -100,6 +115,39 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			},
 		},
 	}
+}
+
+// ModifyPlan warns when an existing user's name is changing, because OIDC login
+// overwrites name from the IdP token so Terraform will need to update to match
+func (r *userResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return // create or destroy
+	}
+
+	var stateName, planName types.String
+	if diags := req.State.GetAttribute(ctx, path.Root("name"), &stateName); diags.HasError() {
+		return
+	}
+	if diags := req.Plan.GetAttribute(ctx, path.Root("name"), &planName); diags.HasError() {
+		return
+	}
+	if stateName.IsNull() || planName.IsNull() || planName.IsUnknown() {
+		return
+	}
+	if stateName.ValueString() == planName.ValueString() {
+		return
+	}
+
+	resp.Diagnostics.AddAttributeWarning(
+		path.Root("name"),
+		"User name drift after platform login sync",
+		fmt.Sprintf(
+			"Terraform is planning to change name from %q (current platform value) to %q (your configuration) because they differ. After OIDC login the platform overwrites name from the IdP token (email, preferred_username, or upn), so the live value often no longer matches what you set in Terraform. Apply will push %q again, but the next login can reset it and recreate this drift. Set name in configuration to the user's IdP identifier to keep plans stable.",
+			stateName.ValueString(),
+			planName.ValueString(),
+			planName.ValueString(),
+		),
+	)
 }
 
 func (data *UserResourceModel) toCreateUpdateRequest(req *UserCreateUpdateRequestModel) {
@@ -124,6 +172,8 @@ func (api *UserAPIModel) toData(data *UserResourceModel) {
 	}
 	if api.Sub != "" {
 		data.Sub = types.StringValue(api.Sub)
+	} else {
+		data.Sub = types.StringNull()
 	}
 	if api.IsAdmin != nil {
 		data.IsAdmin = types.BoolPointerValue(api.IsAdmin)
