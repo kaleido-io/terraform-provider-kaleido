@@ -103,7 +103,7 @@ Required:
 Optional:
 
 - `data` (Attributes, Sensitive) (see [below for nested schema](#nestedatt--file_sets--files--data))
-- `registry_file_ref` (String) Artifact registry reference for the file in the form namespace/repository:tag. Exactly one of 'data' or 'registry_file_ref' must be set.
+- `registry_file_ref` (String) Artifact Registry reference for the file in the form '{name}:{tag}', relative to the service's `registry_namespace`, such as the `registry_file_ref` of a `kaleido_platform_ars_file_artifact`. Exactly one of 'data' or 'registry_file_ref' must be set.
 
 <a id="nestedatt--file_sets--files--data"></a>
 ### Nested Schema for `file_sets.files.data`

@@ -189,7 +189,7 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 									},
 									"registry_file_ref": &schema.StringAttribute{
 										Optional:    true,
-										Description: "Artifact registry reference for the file in the form namespace/repository:tag. Exactly one of 'data' or 'registry_file_ref' must be set.",
+										Description: "Artifact Registry reference for the file in the form '{name}:{tag}', relative to the service's `registry_namespace`, such as the `registry_file_ref` of a `kaleido_platform_ars_file_artifact`. Exactly one of 'data' or 'registry_file_ref' must be set.",
 									},
 									"data": &schema.SingleNestedAttribute{
 										Optional:  true,
