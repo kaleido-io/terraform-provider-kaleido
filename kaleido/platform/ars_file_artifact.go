@@ -41,28 +41,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// File types understood by the Artifact Registry server
-// (artifact-registry/pkg/oci/filetypes.go).
-var SupportedFileArtifactTypes = []string{
-	"typescript",
-	"javascript",
-	"json",
-	"yaml",
-	"xml",
-	"xsd",
-	"text",
-	"jsonschema",
-	"binary",
-	"png",
-	"jpeg",
-	"gif",
-	"webp",
-	"svg",
-	"dar",
-	"abi",
-	"bytecode",
-}
-
 // Mirrors the server-side validation in the Artifact Registry: slash-separated
 // lowercase OCI remoteName components, max 200 chars, with "content" reserved
 // as a path component (it would collide with the /content route suffix).
@@ -184,8 +162,7 @@ func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaReq
 			"type": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    []validator.String{stringvalidator.OneOf(SupportedFileArtifactTypes...)},
-				Description:   fmt.Sprintf("The file type (one of: %s)", strings.Join(SupportedFileArtifactTypes, ", ")),
+				Description:   "The file type, such as typescript, json, yaml or binary. Validated by the Artifact Registry.",
 			},
 			"version": &schema.StringAttribute{
 				Optional: true,

@@ -61,7 +61,7 @@ resource "kaleido_platform_ars_file_artifact" "release_notes" {
 - `name` (String) Path-style artifact name in the registry, e.g. 'path/to/myfilename.ext'. Slash-separated lowercase components; 'content' is reserved.
 - `namespace` (String) Namespace name (the namespace must use a file-capable artifact family, e.g. 'file')
 - `service` (String) Artifact Registry service ID
-- `type` (String) The file type (one of: typescript, javascript, json, yaml, xml, xsd, text, jsonschema, binary, png, jpeg, gif, webp, svg, dar, abi, bytecode)
+- `type` (String) The file type, such as typescript, json, yaml or binary. Validated by the Artifact Registry.
 
 ### Optional
 

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,23 +25,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
-
-// Artifact families understood by the Artifact Registry server
-// (artifact-registry/internal/namespace/types.go). "provider" is the legacy
-// alias of "custom-providers".
-var SupportedArtifactFamilies = []string{
-	"provider",
-	"custom-providers",
-	"file",
-	"evmcontracts",
-	"dar",
-	"typescript-handlers",
-	"iso-message-schemas",
-	"business-hub-packs",
-}
 
 type ARSNamespaceResourceModel struct {
 	ID              types.String `tfsdk:"id"`
@@ -107,9 +91,8 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 			"artifact_family": &schema.StringAttribute{
 				Optional:      false,
 				Required:      true,
-				Validators:    []validator.String{stringvalidator.OneOf(SupportedArtifactFamilies...)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The artifact family for the namespace (one of: provider, file, evmcontracts, dar).",
+				Description:   "The artifact family for the namespace, such as provider or file. Validated by the Artifact Registry.",
 			},
 			"description": &schema.StringAttribute{
 				Optional:      true,
