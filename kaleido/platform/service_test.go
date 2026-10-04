@@ -53,6 +53,7 @@ resource "kaleido_platform_service" "service1" {
         "setting1": "value1",
         "setting2": "value2",
     })
+	registry_namespace = "ns1"
 	hostnames = {
 		"host1": [ "api", "ws" ]
 	}
@@ -142,6 +143,7 @@ func TestService1(t *testing.T) {
 					resource.TestCheckResourceAttr(service1Resource, "stack_id", `stack1`),
 					resource.TestCheckResourceAttr(service1Resource, "type", `besu`),
 					resource.TestCheckResourceAttr(service1Resource, "config_json", `{"setting1":"value1","setting2":"value2"}`),
+					resource.TestCheckResourceAttr(service1Resource, "registry_namespace", `ns1`),
 					func(s *terraform.State) error {
 						// Compare the final result on the mock-server side
 						id := s.RootModule().Resources[service1Resource].Primary.Attributes["id"]
@@ -182,6 +184,9 @@ func TestService1(t *testing.T) {
 									"api",
 									"ws"
 								]
+							},
+							"registry": {
+								"namespace": "ns1"
 							},
 							"fileSets": {
 								"fs1": {

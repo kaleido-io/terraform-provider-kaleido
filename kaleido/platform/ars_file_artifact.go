@@ -41,11 +41,23 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
+// File types understood by the Artifact Registry server
+// (artifact-registry/pkg/oci/filetypes.go).
 var SupportedFileArtifactTypes = []string{
 	"typescript",
+	"javascript",
 	"json",
 	"yaml",
-	"blob",
+	"xml",
+	"xsd",
+	"text",
+	"jsonschema",
+	"binary",
+	"png",
+	"jpeg",
+	"gif",
+	"webp",
+	"svg",
 	"dar",
 	"abi",
 	"bytecode",
@@ -75,6 +87,7 @@ type ARSFileArtifactResourceModel struct {
 	RemoveOldVersions types.Bool   `tfsdk:"remove_old_versions"`
 	ContentSHA256     types.String `tfsdk:"content_sha256"`
 	Size              types.Int64  `tfsdk:"size"`
+	RegistryFileRef   types.String `tfsdk:"registry_file_ref"`
 }
 
 // FileVersion (POST response) / FileMetadata (GET response) from the Artifact Registry
@@ -203,6 +216,10 @@ func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaReq
 				Computed:    true,
 				Description: "Size of the uploaded content in bytes",
 			},
+			"registry_file_ref": &schema.StringAttribute{
+				Computed:    true,
+				Description: "The '{name}:{tag}' reference of this artifact relative to its namespace, in the form a service `file_sets` entry's `registry_file_ref` expects when the service's `registry_namespace` is this namespace.",
+			},
 		},
 	}
 }
@@ -220,6 +237,7 @@ func (api *ARSFileArtifactAPIModel) toData(data *ARSFileArtifactResourceModel) {
 	}
 	data.ContentSHA256 = types.StringValue(api.LayerDigest)
 	data.Size = types.Int64Value(api.Size)
+	data.RegistryFileRef = types.StringValue(fmt.Sprintf("%s:%s", data.Name.ValueString(), data.Tag.ValueString()))
 	data.ID = types.StringValue(fmt.Sprintf("%s/%s/%s/%s:%s",
 		data.Environment.ValueString(),
 		data.Service.ValueString(),
@@ -271,6 +289,7 @@ func (r *arsFileArtifactResource) ModifyPlan(ctx context.Context, req resource.M
 			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("content_sha256"), types.StringUnknown())...)
 			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("size"), types.Int64Unknown())...)
 			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("id"), types.StringUnknown())...)
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("registry_file_ref"), types.StringUnknown())...)
 			return
 		}
 
@@ -293,6 +312,14 @@ func (r *arsFileArtifactResource) ModifyPlan(ctx context.Context, req resource.M
 		// so the content attributes cannot be known until then
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("content_sha256"), types.StringUnknown())...)
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("size"), types.Int64Unknown())...)
+	}
+
+	// The namespace-relative reference is derivable as soon as name and tag are known
+	if !plan.Name.IsUnknown() && !plan.Tag.IsUnknown() && !plan.Tag.IsNull() {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("registry_file_ref"),
+			fmt.Sprintf("%s:%s", plan.Name.ValueString(), plan.Tag.ValueString()))...)
+	} else {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("registry_file_ref"), types.StringUnknown())...)
 	}
 
 	// Composite ID is derivable at plan time once all its parts are known
@@ -501,6 +528,7 @@ func (r *arsFileArtifactResource) ImportState(ctx context.Context, req resource.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("namespace"), parts[2])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), parts[3][:colonIdx])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("tag"), parts[3][colonIdx+1:])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("registry_file_ref"), parts[3])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("remove_old_versions"), false)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }

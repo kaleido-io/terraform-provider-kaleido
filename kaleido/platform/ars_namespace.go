@@ -30,11 +30,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// Artifact families understood by the Artifact Registry server
+// (artifact-registry/internal/namespace/types.go). "provider" is the legacy
+// alias of "custom-providers".
 var SupportedArtifactFamilies = []string{
 	"provider",
+	"custom-providers",
 	"file",
 	"evmcontracts",
 	"dar",
+	"typescript-handlers",
+	"iso-message-schemas",
+	"business-hub-packs",
 }
 
 type ARSNamespaceResourceModel struct {

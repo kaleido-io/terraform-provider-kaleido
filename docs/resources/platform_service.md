@@ -45,6 +45,7 @@ resource "kaleido_platform_service" "bns" {
 - `file_sets` (Attributes Map) Some services require binary files as part of their configuration, such as x509 certificates, or large JSON/YAML configuration files to be passed directly down to the service for verification. The files are individually encrypted. (see [below for nested schema](#nestedatt--file_sets))
 - `force_delete` (Boolean) Set to `true` when you plan to delete a protected service like a Besu validator node. You must apply the value before you can successfully `terraform destroy` the protected service.
 - `hostnames` (Map of List of String)
+- `registry_namespace` (String) Artifact Registry namespace this service is granted access to (the `registry.namespace` grant). Required by service types that load files from the registry, such as TypeScriptProviderService, ISOMessageAdapterService and BusinessHubService; `registry_file_ref` values in `file_sets` are relative to it.
 - `stack_id` (String)
 - `wait_for_ready` (Boolean) Set to `false` to ignore the service's readiness status before proceeding. Defaults to `true`.
 
