@@ -45,6 +45,7 @@ type ServiceResourceModel struct {
 	Filesets            types.Map    `tfsdk:"file_sets"`
 	Credsets            types.Map    `tfsdk:"cred_sets"`
 	ConnectivityJSON    types.String `tfsdk:"connectivity_json"`
+	RegistryNamespace   types.String `tfsdk:"registry_namespace"`
 	ForceDelete         types.Bool   `tfsdk:"force_delete"`
 	WaitForReady        types.Bool   `tfsdk:"wait_for_ready"`
 }
@@ -66,8 +67,13 @@ type ServiceAPIModel struct {
 	Hostnames           map[string][]string           `json:"hostnames,omitempty"`
 	Filesets            map[string]*FileSetAPI        `json:"fileSets,omitempty"`
 	Credsets            map[string]*CredSetAPI        `json:"credSets,omitempty"`
+	Registry            *ServiceRegistryConfig        `json:"registry,omitempty"`
 	Status              string                        `json:"status,omitempty"`
 	StatusDetails       ServiceStatusDetails          `json:"statusDetails,omitempty"`
+}
+
+type ServiceRegistryConfig struct {
+	Namespace string `json:"namespace"`
 }
 
 type ServiceAPIRuntimeRef struct {
@@ -241,6 +247,10 @@ func (r *serviceResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"connectivity_json": &schema.StringAttribute{
 				Computed: true,
 			},
+			"registry_namespace": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Artifact Registry namespace this service is granted access to (the `registry.namespace` grant). Required by service types that load files from the registry, such as TypeScriptProviderService, ISOMessageAdapterService and BusinessHubService; `registry_file_ref` values in `file_sets` are relative to it.",
+			},
 			"force_delete": &schema.BoolAttribute{
 				Optional:    true,
 				Description: "Set to `true` when you plan to delete a protected service like a Besu validator node. You must apply the value before you can successfully `terraform destroy` the protected service.",
@@ -261,6 +271,9 @@ func (data *ServiceResourceModel) toAPI(ctx context.Context, api *ServiceAPIMode
 	api.Runtime.ID = data.Runtime.ValueString()
 	if !data.DatabaseName.IsNull() && !data.DatabaseName.IsUnknown() {
 		api.DatabaseName = data.DatabaseName.ValueString()
+	}
+	if !data.RegistryNamespace.IsNull() && !data.RegistryNamespace.IsUnknown() && data.RegistryNamespace.ValueString() != "" {
+		api.Registry = &ServiceRegistryConfig{Namespace: data.RegistryNamespace.ValueString()}
 	}
 	api.Config = map[string]interface{}{}
 	if !data.ConfigJSON.IsNull() {
@@ -394,6 +407,9 @@ func (api *ServiceAPIModel) toData(data *ServiceResourceModel, diagnostics *diag
 	data.EnvironmentMemberID = types.StringValue(api.EnvironmentMemberID)
 	if api.DatabaseName != "" {
 		data.DatabaseName = types.StringValue(api.DatabaseName)
+	}
+	if api.Registry != nil && api.Registry.Namespace != "" {
+		data.RegistryNamespace = types.StringValue(api.Registry.Namespace)
 	}
 	endpoints := map[string]attr.Value{}
 	endpointAttrTypes := map[string]attr.Type{

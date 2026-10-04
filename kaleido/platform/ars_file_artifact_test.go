@@ -95,6 +95,7 @@ func TestARSFileArtifactAutoTag(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(fileResource, "id", "env1/svc1/ns1/path/to/myfilename.ext:"+tag1),
 					resource.TestCheckResourceAttr(fileResource, "tag", tag1),
+					resource.TestCheckResourceAttr(fileResource, "registry_file_ref", "path/to/myfilename.ext:"+tag1),
 					resource.TestCheckResourceAttr(fileResource, "content_sha256", "sha256:"+sha256Hex(content1)),
 					resource.TestCheckResourceAttr(fileResource, "size", fmt.Sprintf("%d", len(content1))),
 					func(s *terraform.State) error {
@@ -185,6 +186,7 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(fileResource, "id", "env1/svc1/ns1/path/to/myfilename.ext:rel1"),
 					resource.TestCheckResourceAttr(fileResource, "tag", "rel1"),
+					resource.TestCheckResourceAttr(fileResource, "registry_file_ref", "path/to/myfilename.ext:rel1"),
 					resource.TestCheckResourceAttr(fileResource, "content_sha256", "sha256:"+sha256Hex(content1)),
 					func(s *terraform.State) error {
 						assert.NotNil(t, mp.arsFiles[key1])

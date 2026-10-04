@@ -61,7 +61,7 @@ resource "kaleido_platform_ars_file_artifact" "release_notes" {
 - `name` (String) Path-style artifact name in the registry, e.g. 'path/to/myfilename.ext'. Slash-separated lowercase components; 'content' is reserved.
 - `namespace` (String) Namespace name (the namespace must use a file-capable artifact family, e.g. 'file')
 - `service` (String) Artifact Registry service ID
-- `type` (String) The file type (one of: typescript, json, yaml, blob, dar, abi, bytecode)
+- `type` (String) The file type (one of: typescript, javascript, json, yaml, xml, xsd, text, jsonschema, binary, png, jpeg, gif, webp, svg, dar, abi, bytecode)
 
 ### Optional
 
@@ -73,4 +73,5 @@ resource "kaleido_platform_ars_file_artifact" "release_notes" {
 
 - `content_sha256` (String) SHA-256 digest of the uploaded content in 'sha256:<hex>' form (matches the server layerDigest)
 - `id` (String) Composite ID: environment/service/namespace/name:tag
+- `registry_file_ref` (String) The '{name}:{tag}' reference of this artifact relative to its namespace, in the form a service `file_sets` entry's `registry_file_ref` expects when the service's `registry_namespace` is this namespace.
 - `size` (Number) Size of the uploaded content in bytes
