@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_pms_policy_evidence_source_binding Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.
+  Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the application that source acts as (run_as) when it calls out. Who an approval source asks is not part of the binding: it is the slot's attestation.attesters in the policy definition. An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.
 ---
 
 # kaleido_platform_pms_policy_evidence_source_binding (Resource)
 
-Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.
+Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the application that source acts as (run_as) when it calls out. Who an approval source asks is not part of the binding: it is the slot's attestation.attesters in the policy definition. An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.
 
 ## Example Usage
 
@@ -16,14 +16,14 @@ Manages an evidence source binding on a Policy Manager policy. A binding ties on
 # A binding ties one of the policy's evidence slots (evidence[].source) to an evidence
 # source, plus the inputs that source needs from this policy.
 
-# Approvals: both slots share one source and differ only in who is asked
+# Approvals: both slots share one source. Who each asks is the slot's
+# attestation.attesters in the policy definition, not part of the binding.
 resource "kaleido_platform_pms_policy_evidence_source_binding" "treasury_approval" {
   environment            = kaleido_platform_environment.env_0.id
   service                = kaleido_platform_service.pms_0.id
   policy                 = kaleido_platform_pms_policy.tiered_approval.id
   policy_evidence_source = "treasuryApproval"
   evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
-  attesters              = "treasuryOperations" # an identity list binding label on this policy
 }
 
 resource "kaleido_platform_pms_policy_evidence_source_binding" "executive_approval" {
@@ -32,7 +32,6 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "executive_approv
   policy                 = kaleido_platform_pms_policy.tiered_approval.id
   policy_evidence_source = "executiveApproval"
   evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
-  attesters              = "treasuryExecutives"
 }
 
 # A service request source acts as an application
@@ -69,7 +68,7 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "document" {
 
 ### Optional
 
-- `attesters` (String) The attester label of one of the policy's identity list bindings; its identity list version supplies the identities the source addresses (the approvers of an approval source). Required when bound to an approval source.
+- `attesters` (String, Deprecated) Deprecated and ignored. attesters is no longer part of an evidence source binding. Who an approval source asks is the policy definition's evidence attestation.attesters, a path into the version's constants. Remove this attribute; it is ignored.
 - `run_as` (String) Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.
 
 ### Read-Only

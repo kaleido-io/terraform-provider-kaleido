@@ -582,7 +582,7 @@ func (r *pms_policyResource) evidenceSourceBindingsToData(ctx context.Context, d
 			// Deleted outside terraform - drop it so the next plan recreates it
 			continue
 		}
-		values := evidenceSourceBindingTargetToData(&current.PMSEvidenceSourceBindingTargetAPIModel)
+		values := evidenceSourceBindingTargetToData(&current.PMSEvidenceSourceBindingTargetAPIModel, obj.Attributes()["attesters"])
 		values["id"] = types.StringValue(current.ID)
 		values["policy_evidence_source"] = types.StringValue(name)
 		value, diags := types.ObjectValue(policyEvidenceSourceBindingAttrTypes, values)

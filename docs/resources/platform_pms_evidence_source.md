@@ -58,8 +58,8 @@ resource "kaleido_platform_pms_evidence_source" "wallet_lookup" {
   }
 }
 
-# Evidence gathered by asking identities to approve or reject; who is asked is decided by
-# the binding's 'attesters'. The schema of an approval source is derived by the server
+# Evidence gathered by asking identities to approve or reject; who is asked is the slot's
+# attestation.attesters in the policy definition. The schema of an approval source is derived by the server
 # from the typed data of its responses, so schema_json is not set here.
 resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
   environment = kaleido_platform_environment.env_0.id
@@ -77,6 +77,9 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
   approval = {
     # Labels attached to each approval task, so approvers can find and filter them
     label_jsonata = "{\"asset\": request.asset, \"from\": request.from}"
+
+    # The summary shown to approvers on each task
+    summary_jsonata = "\"Approve the transfer of \" & $string(request.amount) & \" of \" & request.asset & \" to \" & request.to"
 
     approve = {
       primary_type = "Approval"
@@ -141,7 +144,7 @@ resource "kaleido_platform_pms_evidence_source" "signed_document" {
 
 ### Optional
 
-- `approval` (Attributes) Configuration for a source of type 'approval': the responses an approver may give, and the document each one signs. Who is asked comes from the binding's 'attesters'. (see [below for nested schema](#nestedatt--approval))
+- `approval` (Attributes) Configuration for a source of type 'approval': the responses an approver may give, and the document each one signs. Who is asked is the policy definition's evidence attestation.attesters. (see [below for nested schema](#nestedatt--approval))
 - `attestation_jsonata` (String) JSONata selecting the attestation out of what the source receives, evaluated against {request, decision, body}. Not permitted on an 'approval' source.
 - `description` (String) Description of the evidence source
 - `parameter` (Attributes List) The parameters the source needs to gather evidence. A policy slot bound to the source supplies a value expression for each in its evidence 'request'; a parameter with a default may be left out. An 'attachment' source requests nothing and so declares no parameters. (see [below for nested schema](#nestedatt--parameter))
@@ -162,6 +165,7 @@ Optional:
 - `approve` (Attributes) The response that approves the request. The approver signs an EIP-712 (TypedDataV4) document built from these attributes; a 'decisionId' string member is added to the primary type. (see [below for nested schema](#nestedatt--approval--approve))
 - `label_jsonata` (String) JSONata producing the labels attached to each approval task, evaluated against {request, decision}. Must evaluate to an object whose values are strings, e.g. {"transactionId": request.transactionId}.
 - `reject` (Attributes) The response that rejects the request. The approver signs an EIP-712 (TypedDataV4) document built from these attributes; a 'decisionId' string member is added to the primary type. (see [below for nested schema](#nestedatt--approval--reject))
+- `summary_jsonata` (String) JSONata producing the human-readable summary shown on each approval task, evaluated against {request, decision}. Must evaluate to a string, e.g. "Approve the transfer of " & request.amount & " to " & request.to. Without it the task has no summary.
 
 <a id="nestedatt--approval--approve"></a>
 ### Nested Schema for `approval.approve`

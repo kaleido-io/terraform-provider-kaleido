@@ -22,7 +22,6 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
     {
       policy_evidence_source = "approvers"
       evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
-      attesters              = "treasuryOperations"
     }
   ]
 
@@ -35,6 +34,14 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
   ]
 
   definition_yaml = yamlencode({
+    # The approvers of a slot are a path into the version's constants, which are
+    # initialized from the identity list binding labels above
+    constants = [
+      {
+        name        = "treasuryApprovers"
+        initializer = { identityList = "treasuryOperations" }
+      }
+    ]
     parameters = [
       {
         name        = "minApprovals"
@@ -49,7 +56,7 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
         source = "approvers"
         attestation = {
           type      = "eip712"
-          attesters = "treasuryOperations"
+          attesters = "constants.treasuryApprovers.members"
         }
       }
     ]

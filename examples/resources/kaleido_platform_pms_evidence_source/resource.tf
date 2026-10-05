@@ -43,8 +43,8 @@ resource "kaleido_platform_pms_evidence_source" "wallet_lookup" {
   }
 }
 
-# Evidence gathered by asking identities to approve or reject; who is asked is decided by
-# the binding's 'attesters'. The schema of an approval source is derived by the server
+# Evidence gathered by asking identities to approve or reject; who is asked is the slot's
+# attestation.attesters in the policy definition. The schema of an approval source is derived by the server
 # from the typed data of its responses, so schema_json is not set here.
 resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
   environment = kaleido_platform_environment.env_0.id
@@ -62,6 +62,9 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
   approval = {
     # Labels attached to each approval task, so approvers can find and filter them
     label_jsonata = "{\"asset\": request.asset, \"from\": request.from}"
+
+    # The summary shown to approvers on each task
+    summary_jsonata = "\"Approve the transfer of \" & $string(request.amount) & \" of \" & request.asset & \" to \" & request.to"
 
     approve = {
       primary_type = "Approval"

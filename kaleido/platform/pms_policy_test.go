@@ -292,16 +292,15 @@ func (mp *mockPlatform) writeInlinePolicyBindings(policyID string, body *pmsPoli
 		written := map[string]bool{}
 		for name, incoming := range *body.EvidenceSourceBindings {
 			written[name] = true
-			existing := (*PMSEvidenceSourceBindingAPIModel)(nil)
+			existing := (*mockEvidenceSourceBinding)(nil)
 			for _, binding := range mp.pmsEvidenceSourceBindings {
 				if binding.PolicyID == policyID && binding.PolicyEvidenceSource == name {
 					existing = binding
 				}
 			}
 			if existing == nil {
-				existing = &PMSEvidenceSourceBindingAPIModel{
-					ID: nanoid.New(), PolicyID: policyID, PolicyEvidenceSource: name, Created: &now,
-				}
+				existing = &mockEvidenceSourceBinding{}
+				existing.ID, existing.PolicyID, existing.PolicyEvidenceSource, existing.Created = nanoid.New(), policyID, name, &now
 				mp.pmsEvidenceSourceBindings[existing.ID] = existing
 			}
 			existing.PMSEvidenceSourceBindingTargetAPIModel = incoming
@@ -445,7 +444,7 @@ func (mp *mockPlatform) patchPMSPolicy(res http.ResponseWriter, req *http.Reques
 // resource uses to pick up the IDs of the bindings it declares inline
 func (mp *mockPlatform) getPMSEvidenceSourceBindings(res http.ResponseWriter, req *http.Request) {
 	policy := mux.Vars(req)["policy"]
-	items := []*PMSEvidenceSourceBindingAPIModel{}
+	items := []*mockEvidenceSourceBinding{}
 	for _, binding := range mp.pmsEvidenceSourceBindings {
 		if binding.PolicyID == policy {
 			items = append(items, binding)
@@ -570,7 +569,6 @@ resource "kaleido_platform_pms_policy" "wired" {
     {
       policy_evidence_source = "approvers"
       evidence_source_id = "pes:12345abcde"
-      attesters = "treasuryOperations"
     }
   ]
   definition_yaml = yamlencode({
@@ -595,6 +593,7 @@ func TestPMSPolicyInlineBindingsAndVersionInOneCall(t *testing.T) {
 					resource.TestCheckResourceAttrSet(policyResource, "applied_version"),
 					resource.TestCheckResourceAttrSet(policyResource, "evidence_source_binding.0.id"),
 					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.0.policy_evidence_source", "approvers"),
+					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.0.attesters", "treasuryOperations"),
 					resource.TestCheckResourceAttr(policyResource, "evidence_source_binding.1.policy_evidence_source", "documents"),
 					resource.TestCheckResourceAttrSet(policyResource, "output_formatter_binding.0.id"),
 					resource.TestCheckResourceAttr(policyResource, "output_formatter_binding.0.policy_output_formatter", "evmOutput"),
@@ -611,6 +610,8 @@ func TestPMSPolicyInlineBindingsAndVersionInOneCall(t *testing.T) {
 						assert.Contains(t, esbs, "documents")
 						documents := esbs["documents"].(map[string]interface{})
 						assert.NotContains(t, documents, "payloadMapping", "mappings belong to the evidence source, not the binding")
+						approvers := esbs["approvers"].(map[string]interface{})
+						assert.NotContains(t, approvers, "attesters", "the deprecated attesters attribute must not be sent")
 						ofbs := body["outputFormatterBindings"].(map[string]interface{})
 						assert.Equal(t, map[string]interface{}{"outputFormatterId": "pof:12345abcde"}, ofbs["evmOutput"])
 						return nil

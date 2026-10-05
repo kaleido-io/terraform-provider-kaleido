@@ -82,11 +82,12 @@ type PMSApprovalResponsesAPIModel struct {
 }
 
 // PMSApprovalEvidenceSourceAPIModel configures an approval source: the responses an
-// approver may give, and an optional JSONata over {request, decision} producing the
-// string labels attached to each approval task.
+// approver may give, and optional JSONata over {request, decision} producing the string
+// labels attached to each approval task and the human-readable summary shown on it.
 type PMSApprovalEvidenceSourceAPIModel struct {
-	Responses    *PMSApprovalResponsesAPIModel `json:"responses,omitempty"`
-	LabelMapping *JSONataMappingAPI            `json:"labelMapping,omitempty"`
+	Responses       *PMSApprovalResponsesAPIModel `json:"responses,omitempty"`
+	LabelMapping    *JSONataMappingAPI            `json:"labelMapping,omitempty"`
+	SummaryTemplate *JSONataMappingAPI            `json:"summaryTemplate,omitempty"`
 }
 
 type PMSServiceRequestDynamicOptionsAPIModel struct {
@@ -142,9 +143,10 @@ var esResponseAttrTypes = map[string]attr.Type{
 }
 
 var esApprovalAttrTypes = map[string]attr.Type{
-	"approve":       types.ObjectType{AttrTypes: esResponseAttrTypes},
-	"reject":        types.ObjectType{AttrTypes: esResponseAttrTypes},
-	"label_jsonata": types.StringType,
+	"approve":         types.ObjectType{AttrTypes: esResponseAttrTypes},
+	"reject":          types.ObjectType{AttrTypes: esResponseAttrTypes},
+	"label_jsonata":   types.StringType,
+	"summary_jsonata": types.StringType,
 }
 
 var esDynamicOptionsAttrTypes = map[string]attr.Type{
@@ -250,13 +252,17 @@ func (r *pms_evidenceSourceResource) Schema(_ context.Context, _ resource.Schema
 			},
 			"approval": &schema.SingleNestedAttribute{
 				Optional:    true,
-				Description: "Configuration for a source of type 'approval': the responses an approver may give, and the document each one signs. Who is asked comes from the binding's 'attesters'.",
+				Description: "Configuration for a source of type 'approval': the responses an approver may give, and the document each one signs. Who is asked is the policy definition's evidence attestation.attesters.",
 				Attributes: map[string]schema.Attribute{
 					"approve": approvalResponseSchema("The response that approves the request."),
 					"reject":  approvalResponseSchema("The response that rejects the request."),
 					"label_jsonata": &schema.StringAttribute{
 						Optional:    true,
 						Description: "JSONata producing the labels attached to each approval task, evaluated against {request, decision}. Must evaluate to an object whose values are strings, e.g. {\"transactionId\": request.transactionId}.",
+					},
+					"summary_jsonata": &schema.StringAttribute{
+						Optional:    true,
+						Description: "JSONata producing the human-readable summary shown on each approval task, evaluated against {request, decision}. Must evaluate to a string, e.g. \"Approve the transfer of \" & request.amount & \" to \" & request.to. Without it the task has no summary.",
 					},
 				},
 			},
@@ -456,6 +462,9 @@ func esApprovalToAPI(approval types.Object, diagnostics *diag.Diagnostics) *PMSA
 	if jsonata := stringAttr(attrs, "label_jsonata"); jsonata != "" {
 		result.LabelMapping = &JSONataMappingAPI{JSONata: jsonata}
 	}
+	if jsonata := stringAttr(attrs, "summary_jsonata"); jsonata != "" {
+		result.SummaryTemplate = &JSONataMappingAPI{JSONata: jsonata}
+	}
 	return result
 }
 
@@ -464,9 +473,10 @@ func esApprovalToData(approval *PMSApprovalEvidenceSourceAPIModel, diagnostics *
 		return types.ObjectNull(esApprovalAttrTypes)
 	}
 	obj, diags := types.ObjectValue(esApprovalAttrTypes, map[string]attr.Value{
-		"approve":       approvalResponseToData(approval.Responses.Approve, diagnostics),
-		"reject":        approvalResponseToData(approval.Responses.Reject, diagnostics),
-		"label_jsonata": jsonataAttr(approval.LabelMapping),
+		"approve":         approvalResponseToData(approval.Responses.Approve, diagnostics),
+		"reject":          approvalResponseToData(approval.Responses.Reject, diagnostics),
+		"label_jsonata":   jsonataAttr(approval.LabelMapping),
+		"summary_jsonata": jsonataAttr(approval.SummaryTemplate),
 	})
 	diagnostics.Append(diags...)
 	return obj

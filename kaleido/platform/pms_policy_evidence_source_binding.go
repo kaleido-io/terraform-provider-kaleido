@@ -42,13 +42,17 @@ type PMSEvidenceSourceBindingResourceModel struct {
 }
 
 // PMSEvidenceSourceBindingTargetAPIModel is what a policy evidence slot is bound to: the
-// evidence source that gathers it plus the per-policy inputs that source needs. How the
-// evidence is selected out of what arrives is the source's concern, not the binding's.
+// evidence source that gathers it plus the application that source acts as. How the
+// evidence is selected out of what arrives is the source's concern, and who an approval
+// source asks is the policy definition's concern, so neither is on the binding.
 type PMSEvidenceSourceBindingTargetAPIModel struct {
 	EvidenceSourceID string `json:"evidenceSourceId,omitempty"`
-	Attesters        string `json:"attesters,omitempty"`
 	RunAs            string `json:"runAs,omitempty"`
 }
+
+// attestersDeprecation explains the attribute that remains in the schema only so that
+// configurations and states written against the earlier binding model keep working.
+const attestersDeprecation = "attesters is no longer part of an evidence source binding. Who an approval source asks is the policy definition's evidence attestation.attesters, a path into the version's constants. Remove this attribute; it is ignored."
 
 type PMSEvidenceSourceBindingAPIModel struct {
 	ID                   string     `json:"id,omitempty"`
@@ -81,8 +85,11 @@ func evidenceSourceBindingTargetSchema() map[string]schema.Attribute {
 			Description: "ID of the kaleido_platform_pms_evidence_source that describes this slot's evidence. A slot whose evidence is seeded by a matcher, attached manually or supplied late-bound is bound to a source of type 'attachment'.",
 		},
 		"attesters": &schema.StringAttribute{
-			Optional:    true,
-			Description: "The attester label of one of the policy's identity list bindings; its identity list version supplies the identities the source addresses (the approvers of an approval source). Required when bound to an approval source.",
+			Optional:           true,
+			Computed:           true,
+			DeprecationMessage: attestersDeprecation,
+			Description:        "Deprecated and ignored. " + attestersDeprecation,
+			PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 		},
 		"run_as": &schema.StringAttribute{
 			Optional:    true,
@@ -123,7 +130,7 @@ func (r *pms_evidenceSourceBindingResource) Schema(_ context.Context, _ resource
 		attributes[name] = attribute
 	}
 	resp.Schema = schema.Schema{
-		Description: "Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the inputs that source needs from this policy: who it acts as (run_as) and whose attestations it seeks (attesters). An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.",
+		Description: "Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the application that source acts as (run_as) when it calls out. Who an approval source asks is not part of the binding: it is the slot's attestation.attesters in the policy definition. An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.",
 		Attributes:  attributes,
 	}
 }
@@ -146,17 +153,22 @@ func (r *pms_evidenceSourceBindingResource) instancePath(data *PMSEvidenceSource
 func evidenceSourceBindingTargetToAPI(attrs map[string]attr.Value) PMSEvidenceSourceBindingTargetAPIModel {
 	return PMSEvidenceSourceBindingTargetAPIModel{
 		EvidenceSourceID: stringAttr(attrs, "evidence_source_id"),
-		Attesters:        stringAttr(attrs, "attesters"),
 		RunAs:            stringAttr(attrs, "run_as"),
 	}
 }
 
 // evidenceSourceBindingTargetToData renders the wire target as terraform attribute
-// values, keyed as the schema names them.
-func evidenceSourceBindingTargetToData(target *PMSEvidenceSourceBindingTargetAPIModel) map[string]attr.Value {
+// values, keyed as the schema names them. The deprecated attesters attribute is not on
+// the wire: its state is whatever the configuration or prior state held, carried through
+// from the planned value, so a server that still stores a legacy value cannot disturb it.
+func evidenceSourceBindingTargetToData(target *PMSEvidenceSourceBindingTargetAPIModel, plannedAttesters attr.Value) map[string]attr.Value {
+	attesters := types.StringNull()
+	if s, ok := plannedAttesters.(types.String); ok && !s.IsUnknown() {
+		attesters = s
+	}
 	return map[string]attr.Value{
 		"evidence_source_id": optionalString(target.EvidenceSourceID),
-		"attesters":          optionalString(target.Attesters),
+		"attesters":          attesters,
 		"run_as":             optionalString(target.RunAs),
 	}
 }
@@ -179,7 +191,7 @@ func (r *pms_evidenceSourceBindingResource) toData(api *PMSEvidenceSourceBinding
 	if api.PolicyEvidenceSource != "" {
 		data.PolicyEvidenceSource = types.StringValue(api.PolicyEvidenceSource)
 	}
-	values := evidenceSourceBindingTargetToData(&api.PMSEvidenceSourceBindingTargetAPIModel)
+	values := evidenceSourceBindingTargetToData(&api.PMSEvidenceSourceBindingTargetAPIModel, data.Attesters)
 	data.EvidenceSourceID = values["evidence_source_id"].(types.String)
 	data.Attesters = values["attesters"].(types.String)
 	data.RunAs = values["run_as"].(types.String)

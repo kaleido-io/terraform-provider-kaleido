@@ -37,7 +37,6 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
     {
       policy_evidence_source = "approvers"
       evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
-      attesters              = "treasuryOperations"
     }
   ]
 
@@ -50,6 +49,14 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
   ]
 
   definition_yaml = yamlencode({
+    # The approvers of a slot are a path into the version's constants, which are
+    # initialized from the identity list binding labels above
+    constants = [
+      {
+        name        = "treasuryApprovers"
+        initializer = { identityList = "treasuryOperations" }
+      }
+    ]
     parameters = [
       {
         name        = "minApprovals"
@@ -64,7 +71,7 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
         source = "approvers"
         attestation = {
           type      = "eip712"
-          attesters = "treasuryOperations"
+          attesters = "constants.treasuryApprovers.members"
         }
       }
     ]
@@ -121,7 +128,7 @@ Required:
 
 Optional:
 
-- `attesters` (String) The attester label of one of the policy's identity list bindings; its identity list version supplies the identities the source addresses (the approvers of an approval source). Required when bound to an approval source.
+- `attesters` (String, Deprecated) Deprecated and ignored. attesters is no longer part of an evidence source binding. Who an approval source asks is the policy definition's evidence attestation.attesters, a path into the version's constants. Remove this attribute; it is ignored.
 - `run_as` (String) Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.
 
 Read-Only:
