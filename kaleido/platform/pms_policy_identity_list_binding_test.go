@@ -131,16 +131,3 @@ func (mp *mockPlatform) deletePMSIdentityListBinding(res http.ResponseWriter, re
 	delete(mp.pmsIdentityListBindings, id)
 	mp.respond(res, nil, http.StatusNoContent)
 }
-
-// getPMSIdentityListBindings serves the binding list for a policy, which the policy
-// resource uses to reconcile its inline bindings
-func (mp *mockPlatform) getPMSIdentityListBindings(res http.ResponseWriter, req *http.Request) {
-	policy := mux.Vars(req)["policy"]
-	items := []*PMSIdentityListBindingAPIModel{}
-	for _, binding := range mp.pmsIdentityListBindings {
-		if binding.PolicyID == policy {
-			items = append(items, binding)
-		}
-	}
-	mp.respond(res, map[string]interface{}{"items": items, "count": len(items)}, http.StatusOK)
-}

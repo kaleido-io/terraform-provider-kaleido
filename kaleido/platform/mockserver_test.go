@@ -84,9 +84,6 @@ type mockPlatform struct {
 	pmsOutputFormatters        map[string]*PMSOutputFormatterAPIModel
 	pmsOutputFormatterBindings map[string]*PMSOutputFormatterBindingAPIModel
 	pmsIdentityListBindings    map[string]*PMSIdentityListBindingAPIModel
-	// pmsPolicyPutBodies records the raw body of each policy PUT, so a test can assert
-	// what was carried in the single call that creates a policy
-	pmsPolicyPutBodies []map[string]interface{}
 	// pmsPatchBodies records the raw body of each Policy Manager PATCH, so a test can
 	// assert that only the attributes that changed were sent
 	pmsPatchBodies []map[string]interface{}
@@ -338,21 +335,18 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 
 	// See pms_policy_output_formatter_binding.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/output-formatter-bindings", http.MethodPost, mp.postPMSOutputFormatterBinding)
-	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/output-formatter-bindings", http.MethodGet, mp.getPMSOutputFormatterBindings)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/output-formatter-bindings/{binding}", http.MethodGet, mp.getPMSOutputFormatterBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/output-formatter-bindings/{binding}", http.MethodPatch, mp.patchPMSOutputFormatterBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/output-formatter-bindings/{binding}", http.MethodDelete, mp.deletePMSOutputFormatterBinding)
 
 	// See pms_policy_evidence_source_binding.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings", http.MethodPost, mp.postPMSEvidenceSourceBinding)
-	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings", http.MethodGet, mp.getPMSEvidenceSourceBindings)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}", http.MethodGet, mp.getPMSEvidenceSourceBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}", http.MethodPatch, mp.patchPMSEvidenceSourceBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}", http.MethodDelete, mp.deletePMSEvidenceSourceBinding)
 
 	// See pms_policy_identity_list_binding.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings", http.MethodPost, mp.postPMSIdentityListBinding)
-	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings", http.MethodGet, mp.getPMSIdentityListBindings)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodGet, mp.getPMSIdentityListBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodPatch, mp.patchPMSIdentityListBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodDelete, mp.deletePMSIdentityListBinding)

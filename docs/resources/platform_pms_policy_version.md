@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_pms_policy_version Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages a version of a Policy Manager policy, and activates it as the policy's current version. Use this with a kaleido_platform_pms_policy that has no definition_yaml, when the bindings a definition depends on are declared as their own resources: terraform then orders the bindings ahead of the version. For the simpler case, set definition_yaml on the policy itself instead.
+  Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version.
 ---
 
 # kaleido_platform_pms_policy_version (Resource)
 
-Manages a version of a Policy Manager policy, and activates it as the policy's current version. Use this with a kaleido_platform_pms_policy that has no definition_yaml, when the bindings a definition depends on are declared as their own resources: terraform then orders the bindings ahead of the version. For the simpler case, set definition_yaml on the policy itself instead.
+Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version.
 
 ## Example Usage
 

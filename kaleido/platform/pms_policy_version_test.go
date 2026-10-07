@@ -62,7 +62,6 @@ func TestPMSPolicyVersion1(t *testing.T) {
 		mp.checkClearCalls([]string{
 			// create
 			"PUT /endpoint/{env}/{service}/rest/api/v2/policies/{policy}",
-			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}",
 			"POST /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings",
 			"POST /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/versions",
 			// refresh before destroy

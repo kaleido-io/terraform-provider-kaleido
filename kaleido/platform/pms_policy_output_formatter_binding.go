@@ -66,8 +66,7 @@ func (r *pms_outputFormatterBindingResource) Metadata(_ context.Context, _ resou
 }
 
 // outputFormatterBindingTargetSchema is the set of attributes describing what a binding
-// resolves to, shared by the standalone binding resource and the inline blocks on
-// kaleido_platform_pms_policy.
+// resolves to.
 func outputFormatterBindingTargetSchema() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"output_formatter_id": &schema.StringAttribute{
@@ -127,8 +126,7 @@ func (r *pms_outputFormatterBindingResource) instancePath(data *PMSOutputFormatt
 	return fmt.Sprintf("%s/%s", r.listPath(data), data.ID.ValueString())
 }
 
-// outputFormatterBindingTargetToAPI builds the wire target from the target attributes,
-// whether they sit on the standalone binding resource or inline on the policy.
+// outputFormatterBindingTargetToAPI builds the wire target from the target attributes.
 func outputFormatterBindingTargetToAPI(attrs map[string]attr.Value) PMSOutputFormatterBindingTargetAPIModel {
 	return PMSOutputFormatterBindingTargetAPIModel{
 		OutputFormatterID: stringAttr(attrs, "output_formatter_id"),

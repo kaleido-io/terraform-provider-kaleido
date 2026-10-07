@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -42,6 +43,20 @@ type PMSPolicyVersionResourceModel struct {
 	Updated        types.String `tfsdk:"updated"`
 }
 
+// PMSPolicyVersionAPIModel is a policy version. The definition fields (components,
+// constants, evidence, decision, output, parameters, parameterValues, summaryTemplate)
+// sit alongside the metadata at the top level of the object, and are passed through
+// opaquely from definition_yaml.
+type PMSPolicyVersionAPIModel struct {
+	ID          string     `json:"id,omitempty"`
+	Name        string     `json:"name,omitempty"`
+	PolicyID    string     `json:"policyId,omitempty"`
+	Description string     `json:"description,omitempty"`
+	Hash        string     `json:"hash,omitempty"`
+	Created     *time.Time `json:"created,omitempty"`
+	Updated     *time.Time `json:"updated,omitempty"`
+}
+
 // PMSPolicyVersionPatchAPIModel is the sparse PATCH body - a version's definition is
 // immutable, only its description can be changed.
 type PMSPolicyVersionPatchAPIModel struct {
@@ -62,7 +77,7 @@ func (r *pms_policyVersionResource) Metadata(_ context.Context, _ resource.Metad
 
 func (r *pms_policyVersionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a version of a Policy Manager policy, and activates it as the policy's current version. Use this with a kaleido_platform_pms_policy that has no definition_yaml, when the bindings a definition depends on are declared as their own resources: terraform then orders the bindings ahead of the version. For the simpler case, set definition_yaml on the policy itself instead.",
+		Description: "Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,

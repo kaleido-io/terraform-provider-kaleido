@@ -3,93 +3,26 @@
 page_title: "kaleido_platform_pms_policy Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages a policy in the Policy Manager. A policy owns a set of immutable versions - each apply that changes definition_yaml creates and activates a new version. definition_yaml is optional, so a policy can be created as an empty container to hold bindings before its first version exists.
+  Manages a policy in the Policy Manager. A policy is a container: its immutable versions are created and activated with kaleido_platform_pms_policy_version, and the bindings its definition resolves against are declared with kaleido_platform_pms_policy_identity_list_binding, kaleido_platform_pms_policy_evidence_source_binding and kaleido_platform_pms_policy_output_formatter_binding. Matchers are managed by kaleido_platform_pms_policy_matcher.
 ---
 
 # kaleido_platform_pms_policy (Resource)
 
-Manages a policy in the Policy Manager. A policy owns a set of immutable versions - each apply that changes definition_yaml creates and activates a new version. definition_yaml is optional, so a policy can be created as an empty container to hold bindings before its first version exists.
+Manages a policy in the Policy Manager. A policy is a container: its immutable versions are created and activated with kaleido_platform_pms_policy_version, and the bindings its definition resolves against are declared with kaleido_platform_pms_policy_identity_list_binding, kaleido_platform_pms_policy_evidence_source_binding and kaleido_platform_pms_policy_output_formatter_binding. Matchers are managed by kaleido_platform_pms_policy_matcher.
 
 ## Example Usage
 
 ```terraform
+# A policy is a container. Its versions are created with kaleido_platform_pms_policy_version,
+# and the bindings a version's definition resolves against are declared with the
+# kaleido_platform_pms_policy_identity_list_binding,
+# kaleido_platform_pms_policy_evidence_source_binding and
+# kaleido_platform_pms_policy_output_formatter_binding resources.
 resource "kaleido_platform_pms_policy" "dual_approval" {
   environment = kaleido_platform_environment.env_0.id
   service     = kaleido_platform_service.pms_0.id
   name        = "dual_approval"
   description = "Requires two approvals from the treasury operations list"
-
-  # Bindings may be declared inline, in which case they are written in the same call
-  # that creates the policy and its first version - so the definition below can already
-  # reference them. Only the labels and names listed here are managed: a binding created
-  # by a kaleido_platform_pms_policy_identity_list_binding,
-  # kaleido_platform_pms_policy_evidence_source_binding or
-  # kaleido_platform_pms_policy_output_formatter_binding resource, or by hand, is left
-  # untouched.
-  identity_list_binding = [
-    {
-      attester_label           = "treasuryOperations"
-      identity_list_version_id = kaleido_platform_pms_identity_list.treasury_ops.applied_version_id
-    }
-  ]
-
-  evidence_source_binding = [
-    {
-      policy_evidence_source = "approvers"
-      evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
-    }
-  ]
-
-  # The definition's output names this binding as its formatter
-  output_formatter_binding = [
-    {
-      policy_output_formatter = "evmTransfer"
-      output_formatter_id     = kaleido_platform_pms_output_formatter.evm_transfer.id
-    }
-  ]
-
-  definition_yaml = yamlencode({
-    # The approvers of a slot are a path into the version's constants, which are
-    # initialized from the identity list binding labels above
-    constants = [
-      {
-        name        = "treasuryApprovers"
-        initializer = { identityList = "treasuryOperations" }
-      }
-    ]
-    parameters = [
-      {
-        name        = "minApprovals"
-        type        = "number"
-        default     = 2
-        description = "How many approvals are required"
-      }
-    ]
-    evidence = [
-      {
-        name   = "approvals"
-        source = "approvers"
-        attestation = {
-          type      = "eip712"
-          attesters = "constants.treasuryApprovers.members"
-        }
-      }
-    ]
-    decision = {
-      gate = {
-        evidence = ["approvals"]
-      }
-    }
-    # The bound formatter supplies the output type and the Rego that shapes the value;
-    # the policy supplies a Rego expression for each of the formatter's parameters
-    output = {
-      formatter = "evmTransfer"
-      values = {
-        to     = { rego = "facts.to" }
-        amount = { rego = "facts.amount" }
-      }
-    }
-  })
 }
 ```
 
@@ -104,12 +37,7 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
 
 ### Optional
 
-- `definition_yaml` (String) The policy definition as YAML, containing components, constants, evidence, decision, output, parameters, parameterValues and summaryTemplate. An 'output' names one of the policy's output formatter bindings as its 'formatter' and supplies a Rego expression for each of the formatter's parameters in 'values'. Omit it to create the policy as an empty container, so that bindings and a kaleido_platform_pms_policy_version resource can be declared separately. Matchers are never part of the definition - they are managed by kaleido_platform_pms_policy_matcher.
 - `description` (String) Description of the policy
-- `evidence_source_binding` (Attributes List) Evidence source bindings declared inline on the policy, each tying an evidence slot to a kaleido_platform_pms_evidence_source (or marking it sourceless). As with identity list bindings these are written in the same call that creates the policy and its first version, and only the names listed here are managed, so bindings managed by a kaleido_platform_pms_policy_evidence_source_binding resource can safely coexist. (see [below for nested schema](#nestedatt--evidence_source_binding))
-- `identity_list_binding` (Attributes List) Identity list bindings declared inline on the policy, each resolving an attester label used by the policy definition to a version of an identity list. They are written in the same call that creates the policy and its first version, which is what lets a definition reference a label on the very first apply. Only the labels listed here are managed - any other binding on the policy is left untouched, so bindings managed by a kaleido_platform_pms_policy_identity_list_binding resource can safely coexist. (see [below for nested schema](#nestedatt--identity_list_binding))
-- `output_formatter_binding` (Attributes List) Output formatter bindings declared inline on the policy, each giving the definition's 'output.formatter' a name that resolves to a kaleido_platform_pms_output_formatter. Written in the same call that creates the policy and its first version, and only the names listed here are managed, so bindings managed by a kaleido_platform_pms_policy_output_formatter_binding resource can safely coexist. (see [below for nested schema](#nestedatt--output_formatter_binding))
-- `version` (String) Name to give the policy version created by this resource. If omitted the server assigns a name based on the previous version.
 
 ### Read-Only
 
@@ -117,46 +45,3 @@ resource "kaleido_platform_pms_policy" "dual_approval" {
 - `created` (String) Creation timestamp
 - `id` (String) The ID of this resource.
 - `updated` (String) Last update timestamp
-
-<a id="nestedatt--evidence_source_binding"></a>
-### Nested Schema for `evidence_source_binding`
-
-Required:
-
-- `evidence_source_id` (String) ID of the kaleido_platform_pms_evidence_source that describes this slot's evidence. A slot whose evidence is seeded by a matcher, attached manually or supplied late-bound is bound to a source of type 'attachment'.
-- `policy_evidence_source` (String) The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition.
-
-Optional:
-
-- `attesters` (String, Deprecated) Deprecated and ignored. attesters is no longer part of an evidence source binding. Who an approval source asks is the policy definition's evidence attestation.attesters, a path into the version's constants. Remove this attribute; it is ignored.
-- `run_as` (String) Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.
-
-Read-Only:
-
-- `id` (String) The binding ID assigned by the server
-
-
-<a id="nestedatt--identity_list_binding"></a>
-### Nested Schema for `identity_list_binding`
-
-Required:
-
-- `attester_label` (String) The attester label declared in a policy evidence attestation slot, e.g. 'treasuryOperations'
-- `identity_list_version_id` (String) ID of the identity list version whose members may attest under this label. This is a version ID, not a version name - use the applied_version_id attribute of a kaleido_platform_pms_identity_list.
-
-Read-Only:
-
-- `id` (String) The binding ID assigned by the server
-
-
-<a id="nestedatt--output_formatter_binding"></a>
-### Nested Schema for `output_formatter_binding`
-
-Required:
-
-- `output_formatter_id` (String) ID of the kaleido_platform_pms_output_formatter the policy emits its output through
-- `policy_output_formatter` (String) The name the policy uses for this binding: the 'output.formatter' field of the policy definition.
-
-Read-Only:
-
-- `id` (String) The binding ID assigned by the server

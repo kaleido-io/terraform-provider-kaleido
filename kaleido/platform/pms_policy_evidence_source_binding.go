@@ -83,8 +83,7 @@ func (r *pms_evidenceSourceBindingResource) Metadata(_ context.Context, _ resour
 }
 
 // evidenceSourceBindingTargetSchema is the set of attributes describing what a slot is
-// bound to, shared by the standalone binding resource and the inline blocks on
-// kaleido_platform_pms_policy.
+// bound to.
 func evidenceSourceBindingTargetSchema() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"evidence_source_id": &schema.StringAttribute{
@@ -155,8 +154,7 @@ func (r *pms_evidenceSourceBindingResource) instancePath(data *PMSEvidenceSource
 	return fmt.Sprintf("%s/%s", r.listPath(data), data.ID.ValueString())
 }
 
-// evidenceSourceBindingTargetToAPI builds the wire target from the target attributes,
-// whether they sit on the standalone binding resource or inline on the policy.
+// evidenceSourceBindingTargetToAPI builds the wire target from the target attributes.
 func evidenceSourceBindingTargetToAPI(attrs map[string]attr.Value) PMSEvidenceSourceBindingTargetAPIModel {
 	return PMSEvidenceSourceBindingTargetAPIModel{
 		EvidenceSourceID: stringAttr(attrs, "evidence_source_id"),
