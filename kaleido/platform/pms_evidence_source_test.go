@@ -429,6 +429,59 @@ func TestPMSEvidenceSourceTypeMismatch(t *testing.T) {
 	})
 }
 
+// pms_es_workflow_retyped changes the type of the screening source to approval but
+// forgets to swap its workflow block for an approval block
+var pms_es_workflow_retyped = `
+resource "kaleido_platform_pms_evidence_source" "screening" {
+  environment = "test-env"
+  service = "test-service"
+  name = "screeningScore"
+  type = "approval"
+  workflow = {
+    transaction_template_json = jsonencode({
+      workflow = "flw:9kxviy9izf"
+      operation = "getScore"
+      jsonata = "{\"input\": {\"ethAddress\": request.ethAddress}}"
+    })
+  }
+}
+`
+
+// type forces replacement, so a configuration that does not match the new type must be
+// refused when the plan is made, before the existing source is destroyed.
+func TestPMSEvidenceSourceTypeChangeRejectedBeforeReplace(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v2/evidence-sources",
+			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			// the refused change makes no calls at all; this is the refresh of the last step
+			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+		})
+		mp.server.Close()
+	}()
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + pms_es_workflow,
+			},
+			{
+				Config:      providerConfig + pms_es_workflow_retyped,
+				ExpectError: regexp.MustCompile(`the workflow block must not be set when type is "approval"`),
+			},
+			{
+				// The source survives the refused change
+				Config:   providerConfig + pms_es_workflow,
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
 // An attachment source requests nothing: it only describes the shape of evidence that is
 // pushed in, so it needs no configuration block and only a schema.
 var pms_es_attachment = `

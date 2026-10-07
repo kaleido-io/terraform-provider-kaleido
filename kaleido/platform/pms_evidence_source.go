@@ -178,6 +178,9 @@ var esWorkflowAttrTypes = map[string]attr.Type{
 	"transaction_template_json": jsonStringType{},
 }
 
+// force a build time check that we have correctly spelled the ValidateConfig function
+var _ resource.ResourceWithValidateConfig = &pms_evidenceSourceResource{}
+
 func PMSEvidenceSourceResourceFactory() resource.Resource {
 	return &pms_evidenceSourceResource{}
 }
@@ -345,45 +348,63 @@ func isSet(v attr.Value) bool {
 	return !v.IsNull() && !v.IsUnknown()
 }
 
-// validateEvidenceSourceBlocks checks that the configuration block matching type is the
-// one - and the only one - that is set, and that the attributes whose meaning depends on
-// the type are consistent with it.
+// ValidateConfig checks that the configuration block matching type is the one - and the
+// only one - that is set, and that the attributes whose meaning depends on the type are
+// consistent with it. It runs when the plan is made: type forces replacement, so a check
+// left until apply would destroy the existing source before refusing its replacement. A
+// value not yet known is not judged: it counts as set where a value is required, and as
+// unset where one is forbidden.
+func (r *pms_evidenceSourceResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var data PMSEvidenceSourceResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() || data.Type.IsUnknown() || data.Type.IsNull() {
+		return
+	}
+	validateEvidenceSourceBlocks(&data, &resp.Diagnostics)
+}
+
 func validateEvidenceSourceBlocks(data *PMSEvidenceSourceResourceModel, diagnostics *diag.Diagnostics) {
 	sourceType := data.Type.ValueString()
-	set := map[string]bool{
-		evidenceSourceTypeApproval:       isSet(data.Approval),
-		evidenceSourceTypeServiceRequest: isSet(data.ServiceRequest),
-		evidenceSourceTypeWorkflow:       isSet(data.Workflow),
+	blocks := map[string]attr.Value{
+		evidenceSourceTypeApproval:       data.Approval,
+		evidenceSourceTypeServiceRequest: data.ServiceRequest,
+		evidenceSourceTypeWorkflow:       data.Workflow,
 	}
 	blockName := map[string]string{
 		evidenceSourceTypeApproval:       "approval",
 		evidenceSourceTypeServiceRequest: "service_request",
 		evidenceSourceTypeWorkflow:       "workflow",
 	}
-	for t, isSet := range set {
-		if isSet && t != sourceType {
-			diagnostics.AddError("Invalid configuration", fmt.Sprintf("the %s block must not be set when type is %q; set only the block matching type", blockName[t], sourceType))
+	for t, block := range blocks {
+		if isSet(block) && t != sourceType {
+			diagnostics.AddAttributeError(path.Root(blockName[t]), "Invalid configuration",
+				fmt.Sprintf("the %s block must not be set when type is %q; set only the block matching type", blockName[t], sourceType))
 			return
 		}
 	}
-	if sourceType != evidenceSourceTypeAttachment && !set[sourceType] {
-		diagnostics.AddError("Invalid configuration", fmt.Sprintf("the %s block must be set when type is %q", blockName[sourceType], sourceType))
+	if block, typed := blocks[sourceType]; typed && block.IsNull() {
+		diagnostics.AddAttributeError(path.Root(blockName[sourceType]), "Invalid configuration",
+			fmt.Sprintf("the %s block must be set when type is %q", blockName[sourceType], sourceType))
 		return
 	}
 	switch sourceType {
 	case evidenceSourceTypeApproval:
 		if isSet(data.SchemaJSON) {
-			diagnostics.AddError("Invalid configuration", "schema_json must not be set when type is \"approval\": the schema is derived from the typed data of the responses")
+			diagnostics.AddAttributeError(path.Root("schema_json"), "Invalid configuration",
+				"schema_json must not be set when type is \"approval\": the schema is derived from the typed data of the responses")
 		}
 		if isSet(data.PayloadJSONata) || isSet(data.AttestationJSONata) {
-			diagnostics.AddError("Invalid configuration", "payload_jsonata and attestation_jsonata must not be set when type is \"approval\"")
+			diagnostics.AddAttributeError(path.Root("payload_jsonata"), "Invalid configuration",
+				"payload_jsonata and attestation_jsonata must not be set when type is \"approval\"")
 		}
 	case evidenceSourceTypeAttachment:
-		if !isSet(data.SchemaJSON) {
-			diagnostics.AddError("Invalid configuration", "schema_json must be set when type is \"attachment\"")
+		if data.SchemaJSON.IsNull() {
+			diagnostics.AddAttributeError(path.Root("schema_json"), "Invalid configuration",
+				"schema_json must be set when type is \"attachment\"")
 		}
 		if isSet(data.Parameters) && len(data.Parameters.Elements()) > 0 {
-			diagnostics.AddError("Invalid configuration", "parameter blocks must not be set when type is \"attachment\": an attachment source requests nothing")
+			diagnostics.AddAttributeError(path.Root("parameter"), "Invalid configuration",
+				"parameter blocks must not be set when type is \"attachment\": an attachment source requests nothing")
 		}
 	}
 }
@@ -550,10 +571,6 @@ func esWorkflowToData(wf *PMSWorkflowEvidenceSourceAPIModel, diagnostics *diag.D
 }
 
 func (r *pms_evidenceSourceResource) toAPI(data *PMSEvidenceSourceResourceModel, api *PMSEvidenceSourceAPIModel, diagnostics *diag.Diagnostics) {
-	validateEvidenceSourceBlocks(data, diagnostics)
-	if diagnostics.HasError() {
-		return
-	}
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
 	api.Schema = jsonToAPI(data.SchemaJSON)
@@ -683,7 +700,6 @@ func (r *pms_evidenceSourceResource) Update(ctx context.Context, req resource.Up
 
 	var state PMSEvidenceSourceResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	validateEvidenceSourceBlocks(&data, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}

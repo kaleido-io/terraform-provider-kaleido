@@ -190,6 +190,57 @@ func TestApplicationServicePrincipalCannotBeAdmin(t *testing.T) {
 	})
 }
 
+// applicationBecomesServicePrincipal turns the OAuth application of applicationStep1 into
+// a service principal while leaving its OAuth configuration in place
+var applicationBecomesServicePrincipal = `
+resource "kaleido_platform_application" "application1" {
+    name = "application1"
+	service_principal = true
+	oauth_enabled = true
+	oauth = {
+		oidc_config_url = "https://oidc_domain/.well-known/openid-configuration"
+	}
+}
+`
+
+// service_principal forces replacement, so an invalid change must be refused when the
+// plan is made, before the existing application is destroyed.
+func TestApplicationServicePrincipalRejectedBeforeReplace(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /api/v1/applications",
+			"GET /api/v1/applications/{application}",
+			// the refused change makes no calls at all; this is the refresh of the last step
+			"GET /api/v1/applications/{application}",
+			"DELETE /api/v1/applications/{application}",
+			"GET /api/v1/applications/{application}",
+		})
+		mp.server.Close()
+	}()
+
+	appResource := "kaleido_platform_application.application1"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + applicationStep1,
+			},
+			{
+				Config:      providerConfig + applicationBecomesServicePrincipal,
+				ExpectError: regexp.MustCompile(`(?s)oauth_enabled must not be true.*service_principal`),
+			},
+			{
+				// The application survives the refused change
+				Config:   providerConfig + applicationStep1,
+				PlanOnly: true,
+				Check:    resource.TestCheckResourceAttrSet(appResource, "id"),
+			},
+		},
+	})
+}
+
 func (mp *mockPlatform) getApplication(res http.ResponseWriter, req *http.Request) {
 	rt := mp.applications[mux.Vars(req)["application"]]
 	if rt == nil {

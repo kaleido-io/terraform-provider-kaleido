@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -73,6 +72,9 @@ type ApplicationOAuthResourceModel struct {
 	OIDCConfigURL   types.String `tfsdk:"oidc_config_url"`
 	CACertificate   types.String `tfsdk:"ca_certificate"`
 }
+
+// force a build time check that we have correctly spelled the ValidateConfig function
+var _ resource.ResourceWithValidateConfig = &applicationResource{}
 
 func ApplicationResourceFactory() resource.Resource {
 	return &applicationResource{}
@@ -167,17 +169,32 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 	}
 }
 
-// validateServicePrincipal rejects at plan time the combinations the server refuses: a
-// service principal has no way to authenticate itself and cannot be an administrator.
-func (data *ApplicationResourceModel) validateServicePrincipal(diagnostics *diag.Diagnostics) {
-	if !data.ServicePrincipal.ValueBool() {
+// ValidateConfig rejects at plan time the combinations the server refuses: a service
+// principal has no way to authenticate itself and cannot be an administrator. Checking
+// the configuration rather than waiting for apply matters because service_principal
+// forces replacement, which would otherwise destroy the existing application before the
+// server refused its replacement. A value not yet known is not judged.
+func (r *applicationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var servicePrincipal, adminEnabled, oauthEnabled types.Bool
+	var oauth types.Object
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("service_principal"), &servicePrincipal)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("admin_enabled"), &adminEnabled)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("oauth_enabled"), &oauthEnabled)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("oauth"), &oauth)...)
+	if resp.Diagnostics.HasError() || !servicePrincipal.ValueBool() {
 		return
 	}
-	if data.AdminEnabled.ValueBool() {
-		diagnostics.AddError("Invalid configuration", "admin_enabled must not be true when service_principal is true: a service principal cannot be an administrator")
+	if adminEnabled.ValueBool() {
+		resp.Diagnostics.AddAttributeError(path.Root("admin_enabled"), "Invalid configuration",
+			"admin_enabled must not be true when service_principal is true: a service principal cannot be an administrator")
 	}
-	if data.OAuthEnabled.ValueBool() || data.OAuth != nil {
-		diagnostics.AddError("Invalid configuration", "oauth_enabled and oauth must not be set when service_principal is true: a service principal cannot authenticate itself")
+	if oauthEnabled.ValueBool() {
+		resp.Diagnostics.AddAttributeError(path.Root("oauth_enabled"), "Invalid configuration",
+			"oauth_enabled must not be true when service_principal is true: a service principal cannot authenticate itself")
+	}
+	if !oauth.IsNull() && !oauth.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(path.Root("oauth"), "Invalid configuration",
+			"oauth must not be set when service_principal is true: a service principal cannot authenticate itself")
 	}
 }
 
@@ -264,7 +281,6 @@ func (r *applicationResource) Create(ctx context.Context, req resource.CreateReq
 
 	var data ApplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	data.validateServicePrincipal(&resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -286,7 +302,6 @@ func (r *applicationResource) Update(ctx context.Context, req resource.UpdateReq
 	var data ApplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
-	data.validateServicePrincipal(&resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
