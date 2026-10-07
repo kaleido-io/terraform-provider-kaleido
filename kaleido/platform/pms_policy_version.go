@@ -77,7 +77,7 @@ func (r *pms_policyVersionResource) Metadata(_ context.Context, _ resource.Metad
 
 func (r *pms_policyVersionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version.",
+		Description: "Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version. Deleting the current version leaves the policy with no current version until another is activated. Changing definition_yaml replaces the version, which by default deletes the old one first; to switch versions without that gap, give each version a new name and set lifecycle { create_before_destroy = true }.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:      true,
@@ -259,13 +259,5 @@ func (r *pms_policyVersionResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
-	// The server refuses to delete the version a policy is currently on. That is the
-	// normal state for the most recently applied version, so it is reported as a warning
-	// and the version is left in place rather than failing the destroy.
-	_, status := r.apiRequest(ctx, http.MethodDelete, r.instancePath(&data), nil, nil, &resp.Diagnostics, Allow404(), AllowStatus(http.StatusConflict))
-	if status == http.StatusConflict {
-		resp.Diagnostics.AddWarning("Policy version not deleted",
-			fmt.Sprintf("Version %s is the current version of policy %s and cannot be deleted. It has been removed from terraform state but remains on the policy.",
-				data.Name.ValueString(), data.Policy.ValueString()))
-	}
+	_, _ = r.apiRequest(ctx, http.MethodDelete, r.instancePath(&data), nil, nil, &resp.Diagnostics, Allow404())
 }

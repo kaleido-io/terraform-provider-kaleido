@@ -20,6 +20,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/stretchr/testify/assert"
 )
 
 // A policy created as an empty container, with its version and the binding that version
@@ -95,6 +97,67 @@ func TestPMSPolicyVersion1(t *testing.T) {
 	})
 }
 
+var pms_policy_version_current = `
+resource "kaleido_platform_pms_policy" "container" {
+	environment = "env1"
+	service     = "pms1"
+	name        = "single_version"
+}
+
+resource "kaleido_platform_pms_policy_version" "v1" {
+	environment     = "env1"
+	service         = "pms1"
+	policy          = kaleido_platform_pms_policy.container.id
+	name            = "v1"
+	definition_yaml = yamlencode({
+		evidence = [{ name = "request" }]
+		decision = { cases = [{ allow = { rego = "true" } }] }
+	})
+}
+`
+
+var pms_policy_version_removed = `
+resource "kaleido_platform_pms_policy" "container" {
+	environment = "env1"
+	service     = "pms1"
+	name        = "single_version"
+}
+`
+
+// Destroying the version a policy is currently on deletes it, rather than leaving it
+// behind on the server, and the policy is left with no current version.
+func TestPMSPolicyVersionDeleteCurrent(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer mp.server.Close()
+
+	policyResource := "kaleido_platform_pms_policy.container"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + pms_policy_version_current,
+			},
+			{
+				Config: providerConfig + pms_policy_version_removed,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					func(s *terraform.State) error {
+						policyID := s.RootModule().Resources[policyResource].Primary.Attributes["id"]
+						assert.Empty(t, mp.pmsPolicyVersions[policyID], "the current version must be deleted")
+						assert.Empty(t, mp.pmsPolicies[policyID].CurrentVersion)
+						return nil
+					},
+				),
+			},
+			{
+				Config:   providerConfig + pms_policy_version_removed,
+				PlanOnly: true,
+				Check:    resource.TestCheckResourceAttr(policyResource, "applied_version", ""),
+			},
+		},
+	})
+}
+
 // resolvePMSPolicyVersion looks a version up by name or ID within a policy, as the API does
 func (mp *mockPlatform) resolvePMSPolicyVersion(req *http.Request) *PMSPolicyVersionAPIModel {
 	policy := mp.pmsPolicies[mux.Vars(req)["policy"]]
@@ -145,11 +208,9 @@ func (mp *mockPlatform) deletePMSPolicyVersion(res http.ResponseWriter, req *htt
 		mp.respond(res, nil, 404)
 		return
 	}
-	policy := mp.pmsPolicies[mux.Vars(req)["policy"]]
-	if policy != nil && policy.CurrentVersion == version.Name {
-		// The server refuses to delete the version the policy is currently on
-		mp.respond(res, map[string]interface{}{"error": "cannot delete the current version"}, http.StatusConflict)
-		return
+	// Deleting the version a policy is currently on leaves the policy with no current version
+	if policy := mp.pmsPolicies[mux.Vars(req)["policy"]]; policy != nil && policy.CurrentVersion == version.Name {
+		policy.CurrentVersion = ""
 	}
 	delete(mp.pmsPolicyVersions[version.PolicyID], version.Name)
 	mp.respond(res, nil, http.StatusNoContent)

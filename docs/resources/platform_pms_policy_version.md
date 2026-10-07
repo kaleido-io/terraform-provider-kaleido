@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_pms_policy_version Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version.
+  Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version. Deleting the current version leaves the policy with no current version until another is activated. Changing definition_yaml replaces the version, which by default deletes the old one first; to switch versions without that gap, give each version a new name and set lifecycle { create_before_destroy = true }.
 ---
 
 # kaleido_platform_pms_policy_version (Resource)
 
-Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version.
+Manages a version of a Policy Manager policy, and activates it as the policy's current version. A version's definition resolves against the policy's bindings when it is created, so declare the kaleido_platform_pms_policy_*_binding resources it references through references or depends_on: terraform then creates them ahead of the version. Deleting the current version leaves the policy with no current version until another is activated. Changing definition_yaml replaces the version, which by default deletes the old one first; to switch versions without that gap, give each version a new name and set lifecycle { create_before_destroy = true }.
 
 ## Example Usage
 
