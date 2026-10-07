@@ -162,10 +162,10 @@ func (mp *mockPlatform) patchPMSIdentityList(res http.ResponseWriter, req *http.
 		mp.respond(res, nil, http.StatusNotFound)
 		return
 	}
-	var updates PMSIdentityListAPIModel
-	mp.getBody(req, &updates)
-	if updates.Description != "" {
-		identityList.Description = updates.Description
+	var updates PMSIdentityListPatchAPIModel
+	mp.recordPMSPatchBody(req, &updates)
+	if updates.Description != nil {
+		identityList.Description = *updates.Description
 	}
 	now := time.Now().UTC()
 	identityList.Updated = &now

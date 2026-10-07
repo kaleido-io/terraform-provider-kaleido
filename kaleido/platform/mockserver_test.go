@@ -87,11 +87,12 @@ type mockPlatform struct {
 	// pmsPolicyPutBodies records the raw body of each policy PUT, so a test can assert
 	// what was carried in the single call that creates a policy
 	pmsPolicyPutBodies []map[string]interface{}
+	// pmsPatchBodies records the raw body of each Policy Manager PATCH, so a test can
+	// assert that only the attributes that changed were sent
+	pmsPatchBodies []map[string]interface{}
 	// expectIdentityController / expectKeyURI assert the values sent on identity create
 	expectIdentityController    string
 	expectKeyURI                string
-	pmsPolicyDeployments        map[string]*PMSPolicyDeploymentAPIModel
-	pmsPolicyDeploymentVersions map[string]map[string]*PMSPolicyDeploymentVersionAPIModel
 	wfeWorkflows                map[string]*WFEWorkflowAPIModel
 	wfeWorkflowVersions         map[string]map[string]*WFEWorkflowVersionAPIModel
 	wfeStreams                  map[string]*WFEStreamAPIModel
@@ -103,61 +104,59 @@ type mockPlatform struct {
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:                           t,
-		environments:                make(map[string]*EnvironmentAPIModel),
-		runtimes:                    make(map[string]*RuntimeAPIModel),
-		services:                    make(map[string]*ServiceAPIModel),
-		networks:                    make(map[string]*NetworkAPIModel),
-		stacks:                      make(map[string]*StacksAPIModel),
-		connectors:                  make(map[string]*ConnectorAPIModel),
-		networkinitdatas:            make(map[string]*NetworkInitData),
-		kmsWallets:                  make(map[string]*KMSWalletAPIModel),
-		arsNamespaces:               make(map[string]*ARSNamespaceAPIModel),
-		kmsKeys:                     make(map[string]*KMSKeyAPIModel),
-		kmsKeysByID:                 make(map[string]*KMSKeyAPIModel),
-		cmsBuilds:                   make(map[string]*CMSBuildAPIModel),
-		cmsActions:                  make(map[string]CMSActionAPIBaseAccessor),
-		amsTasks:                    make(map[string]*AMSTaskAPIModel),
-		amsTaskVersions:             make(map[string]map[string]interface{}),
-		amsPolicies:                 make(map[string]*AMSPolicyAPIModel),
-		amsPolicyVersions:           make(map[string]*AMSPolicyVersionAPIModel),
-		amsDMUpserts:                make(map[string]map[string]interface{}),
-		amsFFListeners:              make(map[string]*AMSFFListenerAPIModel),
-		amsDMListeners:              make(map[string]*AMSDMListenerAPIModel),
-		amsVariableSets:             make(map[string]*AMSVariableSetAPIModel),
-		amsCollections:              make(map[string]*AMSCollectionAPIModel),
-		groups:                      make(map[string]*GroupAPIModel),
-		applications:                make(map[string]*ApplicationAPIModel),
-		serviceAccess:               make(map[string]*ServiceAccessAPIModel),
-		serviceAccessPolicies:       make(map[string]*ServiceAccessPolicyAPIModel),
-		accountAccessPolicies:       make(map[string]*AccountAccessPolicyAPIModel),
-		stackAccess:                 make(map[string]*StackAccessAPIModel),
-		apiKeys:                     make(map[string]*APIKeyAPIModel),
-		wmsWallets:                  make(map[string]*WMSWalletAPIModel),
-		wmsAssets:                   make(map[string]*WMSAssetAPIModel),
-		wmsAssetIcons:               make(map[string]*struct{}),
-		wmsAccounts:                 make(map[string]*WMSAccountAPIModel),
-		policyIdentities:            make(map[string]*PolicyIdentityAPIModel),
-		pmsIdentityLists:            make(map[string]*PMSIdentityListAPIModel),
-		pmsIdentityListVersions:     make(map[string]map[string]*PMSIdentityListVersionAPIModel),
-		pmsPolicies:                 make(map[string]*PMSPolicyAPIModel),
-		pmsPolicyVersions:           make(map[string]map[string]*PMSPolicyVersionAPIModel),
-		pmsPolicyMatchers:           make(map[string]*PMSPolicyMatcherAPIModel),
-		pmsEvidenceSourceBindings:   make(map[string]*mockEvidenceSourceBinding),
-		pmsEvidenceSources:          make(map[string]*PMSEvidenceSourceAPIModel),
-		pmsOutputFormatters:         make(map[string]*PMSOutputFormatterAPIModel),
-		pmsOutputFormatterBindings:  make(map[string]*PMSOutputFormatterBindingAPIModel),
-		pmsIdentityListBindings:     make(map[string]*PMSIdentityListBindingAPIModel),
-		pmsPolicyDeployments:        make(map[string]*PMSPolicyDeploymentAPIModel),
-		pmsPolicyDeploymentVersions: make(map[string]map[string]*PMSPolicyDeploymentVersionAPIModel),
-		wfeWorkflows:                make(map[string]*WFEWorkflowAPIModel),
-		wfeWorkflowVersions:         make(map[string]map[string]*WFEWorkflowVersionAPIModel),
-		wfeStreams:                  make(map[string]*WFEStreamAPIModel),
-		wfeStreamFactories:          make(map[string]*WFEStreamFactoryAPIModel),
-		fireflyContractListeners:    make(map[string]*FireFlyContractListenerAPIModel),
-		fireflySubscriptions:        make(map[string]*FireFlySubscriptionAPIModel),
-		router:                      mux.NewRouter(),
-		calls:                       []string{},
+		t:                          t,
+		environments:               make(map[string]*EnvironmentAPIModel),
+		runtimes:                   make(map[string]*RuntimeAPIModel),
+		services:                   make(map[string]*ServiceAPIModel),
+		networks:                   make(map[string]*NetworkAPIModel),
+		stacks:                     make(map[string]*StacksAPIModel),
+		connectors:                 make(map[string]*ConnectorAPIModel),
+		networkinitdatas:           make(map[string]*NetworkInitData),
+		kmsWallets:                 make(map[string]*KMSWalletAPIModel),
+		arsNamespaces:              make(map[string]*ARSNamespaceAPIModel),
+		kmsKeys:                    make(map[string]*KMSKeyAPIModel),
+		kmsKeysByID:                make(map[string]*KMSKeyAPIModel),
+		cmsBuilds:                  make(map[string]*CMSBuildAPIModel),
+		cmsActions:                 make(map[string]CMSActionAPIBaseAccessor),
+		amsTasks:                   make(map[string]*AMSTaskAPIModel),
+		amsTaskVersions:            make(map[string]map[string]interface{}),
+		amsPolicies:                make(map[string]*AMSPolicyAPIModel),
+		amsPolicyVersions:          make(map[string]*AMSPolicyVersionAPIModel),
+		amsDMUpserts:               make(map[string]map[string]interface{}),
+		amsFFListeners:             make(map[string]*AMSFFListenerAPIModel),
+		amsDMListeners:             make(map[string]*AMSDMListenerAPIModel),
+		amsVariableSets:            make(map[string]*AMSVariableSetAPIModel),
+		amsCollections:             make(map[string]*AMSCollectionAPIModel),
+		groups:                     make(map[string]*GroupAPIModel),
+		applications:               make(map[string]*ApplicationAPIModel),
+		serviceAccess:              make(map[string]*ServiceAccessAPIModel),
+		serviceAccessPolicies:      make(map[string]*ServiceAccessPolicyAPIModel),
+		accountAccessPolicies:      make(map[string]*AccountAccessPolicyAPIModel),
+		stackAccess:                make(map[string]*StackAccessAPIModel),
+		apiKeys:                    make(map[string]*APIKeyAPIModel),
+		wmsWallets:                 make(map[string]*WMSWalletAPIModel),
+		wmsAssets:                  make(map[string]*WMSAssetAPIModel),
+		wmsAssetIcons:              make(map[string]*struct{}),
+		wmsAccounts:                make(map[string]*WMSAccountAPIModel),
+		policyIdentities:           make(map[string]*PolicyIdentityAPIModel),
+		pmsIdentityLists:           make(map[string]*PMSIdentityListAPIModel),
+		pmsIdentityListVersions:    make(map[string]map[string]*PMSIdentityListVersionAPIModel),
+		pmsPolicies:                make(map[string]*PMSPolicyAPIModel),
+		pmsPolicyVersions:          make(map[string]map[string]*PMSPolicyVersionAPIModel),
+		pmsPolicyMatchers:          make(map[string]*PMSPolicyMatcherAPIModel),
+		pmsEvidenceSourceBindings:  make(map[string]*mockEvidenceSourceBinding),
+		pmsEvidenceSources:         make(map[string]*PMSEvidenceSourceAPIModel),
+		pmsOutputFormatters:        make(map[string]*PMSOutputFormatterAPIModel),
+		pmsOutputFormatterBindings: make(map[string]*PMSOutputFormatterBindingAPIModel),
+		pmsIdentityListBindings:    make(map[string]*PMSIdentityListBindingAPIModel),
+		wfeWorkflows:               make(map[string]*WFEWorkflowAPIModel),
+		wfeWorkflowVersions:        make(map[string]map[string]*WFEWorkflowVersionAPIModel),
+		wfeStreams:                 make(map[string]*WFEStreamAPIModel),
+		wfeStreamFactories:         make(map[string]*WFEStreamFactoryAPIModel),
+		fireflyContractListeners:   make(map[string]*FireFlyContractListenerAPIModel),
+		fireflySubscriptions:       make(map[string]*FireFlySubscriptionAPIModel),
+		router:                     mux.NewRouter(),
+		calls:                      []string{},
 	}
 
 	// See account_test.go
@@ -328,13 +327,13 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	// See pms_evidence_source.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources", http.MethodPost, mp.postPMSEvidenceSource)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}", http.MethodGet, mp.getPMSEvidenceSource)
-	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}", http.MethodPut, mp.putPMSEvidenceSource)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}", http.MethodPatch, mp.patchPMSEvidenceSource)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}", http.MethodDelete, mp.deletePMSEvidenceSource)
 
 	// See pms_output_formatter.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/output-formatters", http.MethodPost, mp.postPMSOutputFormatter)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}", http.MethodGet, mp.getPMSOutputFormatter)
-	mp.register("/endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}", http.MethodPut, mp.putPMSOutputFormatter)
+	mp.register("/endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}", http.MethodPatch, mp.patchPMSOutputFormatter)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}", http.MethodDelete, mp.deletePMSOutputFormatter)
 
 	// See pms_policy_output_formatter_binding.go
@@ -357,13 +356,6 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodGet, mp.getPMSIdentityListBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodPatch, mp.patchPMSIdentityListBinding)
 	mp.register("/endpoint/{env}/{service}/rest/api/v2/policies/{policy}/identity-list-bindings/{binding}", http.MethodDelete, mp.deletePMSIdentityListBinding)
-
-	// See pms_policy_deployment.go
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}", http.MethodPut, mp.putPMSPolicyDeployment)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}", http.MethodGet, mp.getPMSPolicyDeployment)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}", http.MethodPatch, mp.patchPMSPolicyDeployment)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}", http.MethodDelete, mp.deletePMSPolicyDeployment)
-	mp.register("/endpoint/{env}/{service}/rest/api/v1/policy-deployments/{policyDeployment}/versions", http.MethodPost, mp.postPMSPolicyDeploymentVersion)
 
 	// See firefly_contract_listener_test.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/contracts/listeners", http.MethodPost, mp.postFireFlyContractListener)
@@ -553,6 +545,26 @@ func (mp *mockPlatform) getBody(req *http.Request, body interface{}) {
 		err := json.NewDecoder(req.Body).Decode(body)
 		assert.NoError(mp.t, err)
 	}
+}
+
+// recordPMSPatchBody decodes a Policy Manager PATCH body into the typed update, and
+// records the raw body. Decoding into pointer, slice and map fields gives the server's
+// sparse semantics: a field that is absent or null stays nil and leaves the stored value
+// alone, while an empty value is non-nil and replaces it.
+func (mp *mockPlatform) recordPMSPatchBody(req *http.Request, updates interface{}) []byte {
+	rawBody := mp.peekBody(req, updates)
+	var wire map[string]interface{}
+	assert.NoError(mp.t, json.Unmarshal(rawBody, &wire))
+	mp.pmsPatchBodies = append(mp.pmsPatchBodies, wire)
+	return rawBody
+}
+
+// lastPMSPatchBody is the most recent Policy Manager PATCH body, or nil if there was none.
+func (mp *mockPlatform) lastPMSPatchBody() map[string]interface{} {
+	if len(mp.pmsPatchBodies) == 0 {
+		return nil
+	}
+	return mp.pmsPatchBodies[len(mp.pmsPatchBodies)-1]
 }
 
 func (mp *mockPlatform) peekBody(req *http.Request, body interface{}) []byte {

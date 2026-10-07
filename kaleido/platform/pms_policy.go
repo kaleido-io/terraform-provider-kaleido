@@ -244,7 +244,7 @@ func (r *pms_policyResource) toUpsertBody(data *PMSPolicyResourceModel, diagnost
 		}
 	}
 
-	r.addBindingMaps(data, body, diagnostics)
+	r.addBindingMaps(data, nil, body, diagnostics)
 	if diagnostics.HasError() {
 		return nil
 	}
@@ -255,41 +255,69 @@ func (r *pms_policyResource) toUpsertBody(data *PMSPolicyResourceModel, diagnost
 // added for a kind the configuration declares: the API leaves a kind alone entirely
 // when its key is absent from the body, which is what keeps separately managed bindings
 // of that kind intact.
-func (r *pms_policyResource) addBindingMaps(data *PMSPolicyResourceModel, body map[string]interface{}, diagnostics *diag.Diagnostics) {
+//
+// With no prior state the maps are complete, as a PUT needs. With prior state they hold
+// only the bindings that were added or changed, as a sparse PATCH merges them by name;
+// bindings dropped from the configuration are deleted separately.
+func (r *pms_policyResource) addBindingMaps(data, prior *PMSPolicyResourceModel, body map[string]interface{}, diagnostics *diag.Diagnostics) {
 	if !data.IdentityListBindings.IsNull() && !data.IdentityListBindings.IsUnknown() {
 		desired := r.desiredIdentityListBindings(data, diagnostics)
+		var previous map[string]string
+		if prior != nil {
+			previous = r.desiredIdentityListBindings(prior, diagnostics)
+		}
 		if diagnostics.HasError() {
 			return
 		}
 		bindings := map[string]interface{}{}
 		for label, versionID := range desired {
-			bindings[label] = map[string]interface{}{"identityListVersionId": versionID}
+			if existing, found := previous[label]; prior == nil || !found || existing != versionID {
+				bindings[label] = map[string]interface{}{"identityListVersionId": versionID}
+			}
 		}
-		body["identityListBindings"] = bindings
+		if prior == nil || len(bindings) > 0 {
+			body["identityListBindings"] = bindings
+		}
 	}
 
 	if !data.EvidenceSourceBindings.IsNull() && !data.EvidenceSourceBindings.IsUnknown() {
 		desired := r.desiredEvidenceSourceBindings(data, diagnostics)
+		var previous map[string]*PMSEvidenceSourceBindingTargetAPIModel
+		if prior != nil {
+			previous = r.desiredEvidenceSourceBindings(prior, diagnostics)
+		}
 		if diagnostics.HasError() {
 			return
 		}
 		bindings := map[string]interface{}{}
 		for name, binding := range desired {
-			bindings[name] = binding
+			if existing, found := previous[name]; prior == nil || !found || *existing != *binding {
+				bindings[name] = binding
+			}
 		}
-		body["evidenceSourceBindings"] = bindings
+		if prior == nil || len(bindings) > 0 {
+			body["evidenceSourceBindings"] = bindings
+		}
 	}
 
 	if !data.OutputFormatterBindings.IsNull() && !data.OutputFormatterBindings.IsUnknown() {
 		desired := r.desiredOutputFormatterBindings(data, diagnostics)
+		var previous map[string]*PMSOutputFormatterBindingTargetAPIModel
+		if prior != nil {
+			previous = r.desiredOutputFormatterBindings(prior, diagnostics)
+		}
 		if diagnostics.HasError() {
 			return
 		}
 		bindings := map[string]interface{}{}
 		for name, binding := range desired {
-			bindings[name] = binding
+			if existing, found := previous[name]; prior == nil || !found || *existing != *binding {
+				bindings[name] = binding
+			}
 		}
-		body["outputFormatterBindings"] = bindings
+		if prior == nil || len(bindings) > 0 {
+			body["outputFormatterBindings"] = bindings
+		}
 	}
 }
 
@@ -796,16 +824,20 @@ func (r *pms_policyResource) Update(ctx context.Context, req resource.UpdateRequ
 	policyID := data.ID.ValueString()
 
 	// A PATCH merges the binding maps rather than treating them as the policy's complete
-	// set, so bindings managed elsewhere survive. It cannot carry a version, which is
-	// posted separately below.
-	patch := map[string]interface{}{"description": data.Description.ValueString()}
-	r.addBindingMaps(&data, patch, &resp.Diagnostics)
+	// set, so bindings managed elsewhere survive. It carries only what changed, and cannot
+	// carry a version, which is posted separately below.
+	patch := map[string]interface{}{}
+	if description := patchString(data.Description, priorState.Description); description != nil {
+		patch["description"] = *description
+	}
+	r.addBindingMaps(&data, &priorState, patch, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, policyID), patch, nil, &resp.Diagnostics)
-	if !ok {
-		return
+	if len(patch) > 0 {
+		if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, policyID), patch, nil, &resp.Diagnostics); !ok {
+			return
+		}
 	}
 
 	// Versions are immutable, so a new one is cut only when the definition or the name
@@ -829,8 +861,7 @@ func (r *pms_policyResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	var updatedAPI PMSPolicyAPIModel
-	ok, _ = r.apiRequest(ctx, http.MethodGet, r.apiPath(&data, policyID), nil, &updatedAPI, &resp.Diagnostics)
-	if !ok {
+	if ok, _ := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data, policyID), nil, &updatedAPI, &resp.Diagnostics); !ok {
 		return
 	}
 

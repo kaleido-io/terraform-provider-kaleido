@@ -22,6 +22,7 @@ import (
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
 
@@ -51,11 +52,26 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "approvers" {
 }
 `
 
+// pms_esb_sourced_step3 drops run_as, which clears it in place
+var pms_esb_sourced_step3 = `
+resource "kaleido_platform_pms_policy_evidence_source_binding" "approvers" {
+  environment = "test-env"
+  service = "test-service"
+  policy = "test-policy"
+  policy_evidence_source = "treasuryApproval"
+  evidence_source_id = "pes:12345abcde"
+  attesters = "treasuryExecutives"
+}
+`
+
 func TestPMSEvidenceSourceBindingSourced(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
 			"POST /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings",
+			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}",
 			"PATCH /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/evidence-source-bindings/{binding}",
@@ -86,6 +102,25 @@ func TestPMSEvidenceSourceBindingSourced(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(esbResource, "attesters", "treasuryExecutives"),
 					resource.TestCheckResourceAttr(esbResource, "run_as", "ap:12345abcde"),
+					func(s *terraform.State) error {
+						body := mp.lastPMSPatchBody()
+						assert.Equal(t, map[string]interface{}{"runAs": "ap:12345abcde"}, body, "only the changed run_as is sent")
+						return nil
+					},
+				),
+			},
+			{
+				Config: providerConfig + pms_esb_sourced_step3,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(esbResource, plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(esbResource, "run_as"),
+					func(s *terraform.State) error {
+						body := mp.lastPMSPatchBody()
+						assert.Equal(t, map[string]interface{}{"runAs": ""}, body, "a removed run_as is cleared by sending it empty")
+						return nil
+					},
 				),
 			},
 		},
@@ -181,20 +216,20 @@ func (mp *mockPlatform) getPMSEvidenceSourceBinding(res http.ResponseWriter, req
 }
 
 // patchPMSEvidenceSourceBinding mirrors the server: a field the patch carries replaces
-// the stored one; a field it omits is left alone.
+// the stored one, a field it omits is left alone, and an empty runAs clears it.
 func (mp *mockPlatform) patchPMSEvidenceSourceBinding(res http.ResponseWriter, req *http.Request) {
 	binding := mp.pmsEvidenceSourceBindings[mux.Vars(req)["binding"]]
 	if binding == nil {
 		mp.respond(res, nil, 404)
 		return
 	}
-	var updates PMSEvidenceSourceBindingTargetAPIModel
-	mp.assertNoAttesters(mp.peekBody(req, &updates))
-	if updates.EvidenceSourceID != "" {
-		binding.EvidenceSourceID = updates.EvidenceSourceID
+	var updates PMSEvidenceSourceBindingPatchAPIModel
+	mp.assertNoAttesters(mp.recordPMSPatchBody(req, &updates))
+	if updates.EvidenceSourceID != nil {
+		binding.EvidenceSourceID = *updates.EvidenceSourceID
 	}
-	if updates.RunAs != "" {
-		binding.RunAs = updates.RunAs
+	if updates.RunAs != nil {
+		binding.RunAs = *updates.RunAs
 	}
 	now := time.Now().UTC()
 	binding.Updated = &now

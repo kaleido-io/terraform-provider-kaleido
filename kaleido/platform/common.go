@@ -22,10 +22,12 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"gopkg.in/yaml.v3"
 
@@ -202,6 +204,24 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 		}
 	}
 	return ok, statusCode
+}
+
+// patchString gives the value to send for a string field of a sparse PATCH body, built
+// from the difference between the planned and prior state. It is nil - leave the field
+// out - when the value is unchanged or not yet known, and "" when the attribute has been
+// removed, which is how a sparse PATCH clears a string field.
+func patchString(plan, state types.String) *string {
+	if !patchChanged(plan, state) {
+		return nil
+	}
+	value := plan.ValueString()
+	return &value
+}
+
+// patchChanged reports whether an attribute belongs in a sparse PATCH body: its planned
+// value is known and differs from the prior state, including when it has been removed.
+func patchChanged(plan, state attr.Value) bool {
+	return !plan.IsUnknown() && !plan.Equal(state)
 }
 
 func (r *commonResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -435,8 +455,6 @@ func Resources() []func() resource.Resource {
 		PMSOutputFormatterResourceFactory,
 		PMSPolicyOutputFormatterBindingResourceFactory,
 		PMSPolicyIdentityListBindingResourceFactory,
-		PMSPolicyDeploymentResourceFactory,
-		PMSPolicyAttachmentResourceFactory,
 		WFEWorkflowResourceFactory,
 		WFEStreamResourceFactory,
 		WFEStreamFactoryResourceFactory,

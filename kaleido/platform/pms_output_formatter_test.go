@@ -22,6 +22,9 @@ import (
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/stretchr/testify/assert"
 
 	_ "embed"
 )
@@ -54,6 +57,21 @@ resource "kaleido_platform_pms_output_formatter" "evm" {
 }
 `
 
+// pms_of_step3 only adds back a description, so the PATCH must carry nothing else
+var pms_of_step3 = `
+resource "kaleido_platform_pms_output_formatter" "evm" {
+  environment = "test-env"
+  service = "test-service"
+  name = "evmTransfer"
+  description = "Shapes an EVM transfer"
+  type = "kaleido.policy.evm.v1"
+  mapping_rego = "{\"to\": parameters.to}"
+  parameter = [
+    { name = "to", type = "string", description = "Recipient address" },
+  ]
+}
+`
+
 func TestPMSOutputFormatter1(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
@@ -61,8 +79,10 @@ func TestPMSOutputFormatter1(t *testing.T) {
 			"POST /endpoint/{env}/{service}/rest/api/v2/output-formatters",
 			"GET /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
-			// update replaces the whole formatter, so the dropped description and parameter go away
-			"PUT /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v2/output-formatters/{outputFormatter}",
 		})
@@ -93,6 +113,30 @@ func TestPMSOutputFormatter1(t *testing.T) {
 					resource.TestCheckNoResourceAttr(ofResource, "description"),
 					resource.TestCheckResourceAttr(ofResource, "parameter.#", "1"),
 					resource.TestCheckResourceAttr(ofResource, "mapping_rego", `{"to": parameters.to}`),
+					func(s *terraform.State) error {
+						body := mp.lastPMSPatchBody()
+						assert.Equal(t, "", body["description"], "a removed description is cleared by sending it empty")
+						assert.Len(t, body["parameters"], 1)
+						assert.Contains(t, body, "mapping")
+						return nil
+					},
+				),
+			},
+			{
+				Config: providerConfig + pms_of_step3,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(ofResource, plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(ofResource, "description", "Shapes an EVM transfer"),
+					resource.TestCheckResourceAttr(ofResource, "parameter.#", "1"),
+					func(s *terraform.State) error {
+						body := mp.lastPMSPatchBody()
+						assert.Equal(t, "Shapes an EVM transfer", body["description"])
+						assert.Nil(t, body["parameters"], "unchanged parameters must not be sent")
+						assert.NotContains(t, body, "mapping", "an unchanged mapping must not be sent")
+						return nil
+					},
 				),
 			},
 		},
@@ -166,21 +210,26 @@ func (mp *mockPlatform) getPMSOutputFormatter(res http.ResponseWriter, req *http
 
 // putPMSOutputFormatter mirrors the server: the body replaces the whole formatter,
 // keeping its ID, immutable type and timestamps.
-func (mp *mockPlatform) putPMSOutputFormatter(res http.ResponseWriter, req *http.Request) {
-	existing := mp.lookupPMSOutputFormatter(mux.Vars(req)["outputFormatter"])
-	if existing == nil {
+func (mp *mockPlatform) patchPMSOutputFormatter(res http.ResponseWriter, req *http.Request) {
+	formatter := mp.lookupPMSOutputFormatter(mux.Vars(req)["outputFormatter"])
+	if formatter == nil {
 		mp.respond(res, nil, 404)
 		return
 	}
-	var formatter PMSOutputFormatterAPIModel
-	mp.getBody(req, &formatter)
-	formatter.ID = existing.ID
-	formatter.Type = existing.Type
-	formatter.Created = existing.Created
+	var updates PMSOutputFormatterPatchAPIModel
+	mp.recordPMSPatchBody(req, &updates)
+	if updates.Description != nil {
+		formatter.Description = *updates.Description
+	}
+	if updates.Parameters != nil {
+		formatter.Parameters = updates.Parameters
+	}
+	if updates.Mapping != nil {
+		formatter.Mapping = updates.Mapping
+	}
 	now := time.Now().UTC()
 	formatter.Updated = &now
-	mp.pmsOutputFormatters[formatter.ID] = &formatter
-	mp.respond(res, &formatter, http.StatusOK)
+	mp.respond(res, formatter, http.StatusOK)
 }
 
 func (mp *mockPlatform) deletePMSOutputFormatter(res http.ResponseWriter, req *http.Request) {

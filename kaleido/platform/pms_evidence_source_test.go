@@ -23,6 +23,9 @@ import (
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/stretchr/testify/assert"
 
 	_ "embed"
 )
@@ -87,7 +90,7 @@ func TestPMSEvidenceSourceApproval(t *testing.T) {
 			"POST /endpoint/{env}/{service}/rest/api/v2/evidence-sources",
 			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
-			"PUT /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
 		})
@@ -123,6 +126,14 @@ func TestPMSEvidenceSourceApproval(t *testing.T) {
 					resource.TestCheckResourceAttr(esResource, "approval.reject.primary_type", "Rejection"),
 					resource.TestCheckResourceAttr(esResource, "approval.label_jsonata", `{"amount": $string(request.amount)}`),
 					resource.TestCheckResourceAttr(esResource, "approval.summary_jsonata", `"Approve a transfer of " & $string(request.amount)`),
+					func(s *terraform.State) error {
+						body := mp.lastPMSPatchBody()
+						assert.Contains(t, body, "description")
+						assert.Contains(t, body, "approval")
+						assert.Nil(t, body["parameters"], "unchanged parameters must not be sent")
+						assert.Nil(t, body["schema"], "the derived schema must not be sent")
+						return nil
+					},
 				),
 			},
 		},
@@ -163,6 +174,9 @@ func TestPMSEvidenceSourceServiceRequest(t *testing.T) {
 			"POST /endpoint/{env}/{service}/rest/api/v2/evidence-sources",
 			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
 			"DELETE /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
 		})
 		mp.server.Close()
@@ -195,9 +209,51 @@ func TestPMSEvidenceSourceServiceRequest(t *testing.T) {
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
+			{
+				Config: providerConfig + pms_es_service_request_cleared,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(esResource, plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(esResource, "payload_jsonata"),
+					resource.TestCheckNoResourceAttr(esResource, "attestation_jsonata"),
+					resource.TestCheckNoResourceAttr(esResource, "parameter.#"),
+					func(s *terraform.State) error {
+						body := mp.lastPMSPatchBody()
+						assert.Equal(t, map[string]interface{}{}, body["payloadMapping"], "a removed mapping is cleared by sending it empty")
+						assert.Equal(t, map[string]interface{}{}, body["attestationMapping"], "a removed mapping is cleared by sending it empty")
+						assert.Equal(t, []interface{}{}, body["parameters"], "removed parameters are cleared by sending an empty list")
+						assert.NotContains(t, body, "serviceRequest", "an unchanged type block must not be sent")
+						return nil
+					},
+				),
+			},
 		},
 	})
 }
+
+// pms_es_service_request_cleared drops the mappings and parameters of wallet_lookup, which
+// clears them in place.
+var pms_es_service_request_cleared = `
+resource "kaleido_platform_pms_evidence_source" "wallet_lookup" {
+  environment = "test-env"
+  service = "test-service"
+  name = "walletLookup"
+  type = "serviceRequest"
+  schema_json = jsonencode({
+    type = "object"
+    properties = { id = { type = "string" }, name = { type = "string" } }
+  })
+  service_request = {
+    service = "myWalletManager"
+    type = "WalletManagerService"
+    options_json = jsonencode({ method = "GET", endpoint = "rest" })
+    dynamic_options = {
+      path_jsonata = "\"/wallets/\" & request.walletNameOrId"
+    }
+  }
+}
+`
 
 // A source declared without the optional JSON blobs must read them back as absent, not as
 // the string "null".
@@ -484,22 +540,49 @@ func (mp *mockPlatform) getPMSEvidenceSource(res http.ResponseWriter, req *http.
 
 // putPMSEvidenceSource mirrors the server: the body replaces the whole source, keeping
 // its ID, immutable type and timestamps.
-func (mp *mockPlatform) putPMSEvidenceSource(res http.ResponseWriter, req *http.Request) {
-	existing := mp.lookupPMSEvidenceSource(mux.Vars(req)["evidenceSource"])
-	if existing == nil {
+func (mp *mockPlatform) patchPMSEvidenceSource(res http.ResponseWriter, req *http.Request) {
+	source := mp.lookupPMSEvidenceSource(mux.Vars(req)["evidenceSource"])
+	if source == nil {
 		mp.respond(res, nil, 404)
 		return
 	}
-	var source PMSEvidenceSourceAPIModel
-	mp.getBody(req, &source)
-	source.ID = existing.ID
-	source.Type = existing.Type
-	source.Created = existing.Created
-	deriveApprovalSchema(&source)
+	var updates PMSEvidenceSourcePatchAPIModel
+	mp.recordPMSPatchBody(req, &updates)
+	if updates.Description != nil {
+		source.Description = *updates.Description
+	}
+	if updates.Schema != nil {
+		source.Schema = updates.Schema
+	}
+	// A mapping with no expression clears the stored one
+	if updates.PayloadMapping != nil {
+		source.PayloadMapping = updates.PayloadMapping
+		if updates.PayloadMapping.JSONata == "" {
+			source.PayloadMapping = nil
+		}
+	}
+	if updates.AttestationMapping != nil {
+		source.AttestationMapping = updates.AttestationMapping
+		if updates.AttestationMapping.JSONata == "" {
+			source.AttestationMapping = nil
+		}
+	}
+	if updates.Parameters != nil {
+		source.Parameters = updates.Parameters
+	}
+	if updates.Approval != nil {
+		source.Approval = updates.Approval
+		deriveApprovalSchema(source)
+	}
+	if updates.ServiceRequest != nil {
+		source.ServiceRequest = updates.ServiceRequest
+	}
+	if updates.Workflow != nil {
+		source.Workflow = updates.Workflow
+	}
 	now := time.Now().UTC()
 	source.Updated = &now
-	mp.pmsEvidenceSources[source.ID] = &source
-	mp.respond(res, &source, http.StatusOK)
+	mp.respond(res, source, http.StatusOK)
 }
 
 func (mp *mockPlatform) deletePMSEvidenceSource(res http.ResponseWriter, req *http.Request) {

@@ -53,6 +53,12 @@ type PMSIdentityListAPIModel struct {
 	Identities     []string   `json:"identities,omitempty"`
 }
 
+// PMSIdentityListPatchAPIModel is the sparse PATCH body for the identity list itself: a
+// field that is left out is kept as stored.
+type PMSIdentityListPatchAPIModel struct {
+	Description *string `json:"description,omitempty"`
+}
+
 type PMSIdentityListVersionAPIModel struct {
 	ID             string     `json:"id,omitempty"`
 	Name           string     `json:"name,omitempty"`
@@ -278,19 +284,25 @@ func (r *pms_identity_listResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	var api PMSIdentityListAPIModel
-	r.toAPI(&data, &api)
+	var state PMSIdentityListResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	identityListID := data.ID.ValueString()
 
-	// Update the identity list metadata
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, identityListID), &api, &api, &resp.Diagnostics)
-	if !ok {
-		return
+	// Update the identity list metadata. The name is immutable, so the description is the
+	// only field a sparse PATCH carries, and only when it changed.
+	if description := patchString(data.Description, state.Description); description != nil {
+		patch := PMSIdentityListPatchAPIModel{Description: description}
+		if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, identityListID), &patch, nil, &resp.Diagnostics); !ok {
+			return
+		}
 	}
 
 	// Create a new version with updated identities
 	var versionAPI PMSIdentityListVersionAPIModel
-	ok = r.toVersionAPI(&data, &versionAPI, &resp.Diagnostics)
+	ok := r.toVersionAPI(&data, &versionAPI, &resp.Diagnostics)
 	if !ok {
 		return
 	}

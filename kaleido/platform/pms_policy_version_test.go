@@ -131,8 +131,10 @@ func (mp *mockPlatform) patchPMSPolicyVersion(res http.ResponseWriter, req *http
 		return
 	}
 	var updates PMSPolicyVersionPatchAPIModel
-	mp.getBody(req, &updates)
-	version.Description = updates.Description
+	mp.recordPMSPatchBody(req, &updates)
+	if updates.Description != nil {
+		version.Description = *updates.Description
+	}
 	now := time.Now().UTC()
 	version.Updated = &now
 	mp.respond(res, version, http.StatusOK)

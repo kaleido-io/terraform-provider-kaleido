@@ -429,9 +429,9 @@ func (mp *mockPlatform) patchPMSPolicy(res http.ResponseWriter, req *http.Reques
 		return
 	}
 	var updates pmsPolicyWriteBody
-	mp.getBody(req, &updates)
-	if updates.Description != "" {
-		policy.Description = updates.Description
+	mp.recordPMSPatchBody(req, &updates)
+	if description, present := mp.lastPMSPatchBody()["description"].(string); present {
+		policy.Description = description
 	}
 	// A PATCH merges the binding maps rather than replacing the set
 	mp.writeInlinePolicyBindings(policy.ID, &updates, false)

@@ -51,13 +51,13 @@ resource "kaleido_platform_pms_policy_matcher" "bond_transfers" {
 
 - `enforcement_point` (String) The enforcement point the matcher applies at. 'wfe-hook' matches against a workflow engine transaction. Immutable after create.
 - `environment` (String) Environment ID
+- `match_json` (String) A JSON query expression (use jsonencode) evaluated against the fields and 'label.<name>' labels of the object at the enforcement point
 - `policy` (String) Name or ID of the policy this matcher belongs to
 - `service` (String) Policy Manager service ID
 
 ### Optional
 
 - `evidence` (Attributes List) Mappings that seed evidence slots from the matched object when the matcher fires. Immutable after create. (see [below for nested schema](#nestedatt--evidence))
-- `match_json` (String) A JSON query expression (use jsonencode) evaluated against the fields and 'label.<name>' labels of the object at the enforcement point
 - `parameters_json` (String) Values (use jsonencode) for the parameters declared by the policy definition
 
 ### Read-Only

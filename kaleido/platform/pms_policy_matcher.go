@@ -68,11 +68,12 @@ type PMSPolicyMatcherAPIModel struct {
 	Updated          *time.Time                          `json:"updated,omitempty"`
 }
 
-// PMSPolicyMatcherPatchAPIModel is the PATCH body - enforcementPoint and evidence
-// are immutable after create.
+// PMSPolicyMatcherPatchAPIModel is the sparse PATCH body - enforcementPoint and evidence
+// are immutable after create. A field that is null is kept as stored, so neither carries
+// omitempty: an empty parameters map is sent to clear the parameters.
 type PMSPolicyMatcherPatchAPIModel struct {
-	Match      map[string]interface{} `json:"match,omitempty"`
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	Match      map[string]interface{} `json:"match"`
+	Parameters map[string]interface{} `json:"parameters"`
 }
 
 var matcherEvidenceAttrTypes = map[string]attr.Type{
@@ -124,7 +125,7 @@ func (r *pms_policy_matcherResource) Schema(_ context.Context, _ resource.Schema
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"match_json": &schema.StringAttribute{
-				Optional:    true,
+				Required:    true,
 				Description: "A JSON query expression (use jsonencode) evaluated against the fields and 'label.<name>' labels of the object at the enforcement point",
 			},
 			"parameters_json": &schema.StringAttribute{
@@ -309,9 +310,22 @@ func (r *pms_policy_matcherResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	patch := PMSPolicyMatcherPatchAPIModel{
-		Match:      jsonObjectFromString(data.MatchJSON, "match_json", &resp.Diagnostics),
-		Parameters: jsonObjectFromString(data.ParametersJSON, "parameters_json", &resp.Diagnostics),
+	var state PMSPolicyMatcherResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Only what changed is sent. Removed parameters are cleared by sending an empty map.
+	var patch PMSPolicyMatcherPatchAPIModel
+	if patchChanged(data.MatchJSON, state.MatchJSON) {
+		patch.Match = jsonObjectFromString(data.MatchJSON, "match_json", &resp.Diagnostics)
+	}
+	if patchChanged(data.ParametersJSON, state.ParametersJSON) {
+		patch.Parameters = jsonObjectFromString(data.ParametersJSON, "parameters_json", &resp.Diagnostics)
+		if patch.Parameters == nil {
+			patch.Parameters = map[string]interface{}{}
+		}
 	}
 	if resp.Diagnostics.HasError() {
 		return

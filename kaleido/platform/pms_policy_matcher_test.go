@@ -21,6 +21,9 @@ import (
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/stretchr/testify/assert"
 
 	_ "embed"
 )
@@ -79,11 +82,39 @@ resource "kaleido_platform_pms_policy_matcher" "test_matcher" {
 }
 `
 
+// pms_policy_matcher_step3 drops parameters_json, which clears it in place
+var pms_policy_matcher_step3 = `
+resource "kaleido_platform_pms_policy_matcher" "test_matcher" {
+  environment = "test-env"
+  service = "test-service"
+  policy = "test-policy"
+  enforcement_point = "wfe-hook"
+  match_json = jsonencode({
+    equal = [
+      {
+        field = "label.assetType"
+        value = "equity"
+      }
+    ]
+  })
+  evidence = [
+    {
+      slot = "documents"
+      payload_jsonata = "$.input.document"
+      attestation_jsonata = "$.input.signature"
+    }
+  ]
+}
+`
+
 func TestPMSPolicyMatcher1(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.checkClearCalls([]string{
 			"POST /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers",
+			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}",
+			"PATCH /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}",
 			"GET /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}",
 			"PATCH /endpoint/{env}/{service}/rest/api/v2/policies/{policy}/matchers/{matcher}",
@@ -114,6 +145,21 @@ func TestPMSPolicyMatcher1(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(matcherResource, "id"),
 					resource.TestCheckResourceAttr(matcherResource, "enforcement_point", "wfe-hook"),
+				),
+			},
+			{
+				Config: providerConfig + pms_policy_matcher_step3,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction(matcherResource, plancheck.ResourceActionUpdate)},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(matcherResource, "parameters_json"),
+					func(s *terraform.State) error {
+						body := mp.lastPMSPatchBody()
+						assert.Equal(t, map[string]interface{}{}, body["parameters"], "removed parameters are cleared by sending an empty map")
+						assert.Nil(t, body["match"], "an unchanged match must not be sent")
+						return nil
+					},
 				),
 			},
 		},
@@ -148,9 +194,13 @@ func (mp *mockPlatform) patchPMSPolicyMatcher(res http.ResponseWriter, req *http
 		return
 	}
 	var updates PMSPolicyMatcherPatchAPIModel
-	mp.getBody(req, &updates)
-	matcher.Match = updates.Match
-	matcher.Parameters = updates.Parameters
+	mp.recordPMSPatchBody(req, &updates)
+	if updates.Match != nil {
+		matcher.Match = updates.Match
+	}
+	if updates.Parameters != nil {
+		matcher.Parameters = updates.Parameters
+	}
 	now := time.Now().UTC()
 	matcher.Updated = &now
 	mp.respond(res, matcher, http.StatusOK)

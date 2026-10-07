@@ -136,6 +136,21 @@ type PMSEvidenceSourceAPIModel struct {
 	Updated            *time.Time                               `json:"updated,omitempty"`
 }
 
+// PMSEvidenceSourcePatchAPIModel is the sparse PATCH body: a field that is left out or
+// null is kept as stored, and a field that is present replaces the stored value. name and
+// type are immutable. Schema and Parameters carry no omitempty so that an empty value is
+// sent, which is how parameters are cleared; nil marshals as null, which leaves them alone.
+type PMSEvidenceSourcePatchAPIModel struct {
+	Description        *string                                  `json:"description,omitempty"`
+	Schema             map[string]interface{}                   `json:"schema"`
+	PayloadMapping     *JSONataMappingAPI                       `json:"payloadMapping,omitempty"`
+	AttestationMapping *JSONataMappingAPI                       `json:"attestationMapping,omitempty"`
+	Parameters         []PMSParameterAPIModel                   `json:"parameters"`
+	Approval           *PMSApprovalEvidenceSourceAPIModel       `json:"approval,omitempty"`
+	ServiceRequest     *PMSServiceRequestEvidenceSourceAPIModel `json:"serviceRequest,omitempty"`
+	Workflow           *PMSWorkflowEvidenceSourceAPIModel       `json:"workflow,omitempty"`
+}
+
 var esResponseAttrTypes = map[string]attr.Type{
 	"types_json":      types.StringType,
 	"primary_type":    types.StringType,
@@ -592,6 +607,39 @@ func (r *pms_evidenceSourceResource) toAPI(data *PMSEvidenceSourceResourceModel,
 	api.Workflow = esWorkflowToAPI(data.Workflow, diagnostics)
 }
 
+// toPatchAPI builds a sparse PATCH body holding only the attributes that differ from the
+// prior state. A removed description, mapping or parameter list is sent empty, which
+// clears it. The type block cannot be removed without changing type, which replaces the
+// source.
+func (r *pms_evidenceSourceResource) toPatchAPI(data, state *PMSEvidenceSourceResourceModel, diagnostics *diag.Diagnostics) *PMSEvidenceSourcePatchAPIModel {
+	patch := &PMSEvidenceSourcePatchAPIModel{Description: patchString(data.Description, state.Description)}
+	if patchChanged(data.SchemaJSON, state.SchemaJSON) && isSet(data.SchemaJSON) {
+		patch.Schema = jsonAttr(map[string]attr.Value{"schema_json": data.SchemaJSON}, "schema_json", diagnostics)
+	}
+	if patchChanged(data.PayloadJSONata, state.PayloadJSONata) {
+		patch.PayloadMapping = &JSONataMappingAPI{JSONata: data.PayloadJSONata.ValueString()}
+	}
+	if patchChanged(data.AttestationJSONata, state.AttestationJSONata) {
+		patch.AttestationMapping = &JSONataMappingAPI{JSONata: data.AttestationJSONata.ValueString()}
+	}
+	if patchChanged(data.Parameters, state.Parameters) {
+		patch.Parameters = pmsParametersToAPI(data.Parameters, diagnostics)
+		if patch.Parameters == nil {
+			patch.Parameters = []PMSParameterAPIModel{}
+		}
+	}
+	if patchChanged(data.Approval, state.Approval) {
+		patch.Approval = esApprovalToAPI(data.Approval, diagnostics)
+	}
+	if patchChanged(data.ServiceRequest, state.ServiceRequest) {
+		patch.ServiceRequest = esServiceRequestToAPI(data.ServiceRequest, diagnostics)
+	}
+	if patchChanged(data.Workflow, state.Workflow) {
+		patch.Workflow = esWorkflowToAPI(data.Workflow, diagnostics)
+	}
+	return patch
+}
+
 func (r *pms_evidenceSourceResource) toData(api *PMSEvidenceSourceAPIModel, data *PMSEvidenceSourceResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	if api.Name != "" {
@@ -670,16 +718,20 @@ func (r *pms_evidenceSourceResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	// A PATCH cannot clear a field, so the whole source is replaced with a PUT: an
-	// attribute removed from the configuration is then removed from the server too.
-	var desired PMSEvidenceSourceAPIModel
-	r.toAPI(&data, &desired, &resp.Diagnostics)
+	var state PMSEvidenceSourceResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	validateEvidenceSourceBlocks(&data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	patch := r.toPatchAPI(&data, &state, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	var api PMSEvidenceSourceAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPut, r.instancePath(&data), &desired, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), patch, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}

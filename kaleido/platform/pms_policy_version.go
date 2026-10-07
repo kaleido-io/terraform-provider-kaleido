@@ -42,10 +42,10 @@ type PMSPolicyVersionResourceModel struct {
 	Updated        types.String `tfsdk:"updated"`
 }
 
-// PMSPolicyVersionPatchAPIModel is the PATCH body - a version's definition is immutable,
-// only its description can be changed.
+// PMSPolicyVersionPatchAPIModel is the sparse PATCH body - a version's definition is
+// immutable, only its description can be changed.
 type PMSPolicyVersionPatchAPIModel struct {
-	Description string `json:"description,omitempty"`
+	Description *string `json:"description,omitempty"`
 }
 
 func PMSPolicyVersionResourceFactory() resource.Resource {
@@ -217,8 +217,16 @@ func (r *pms_policyVersionResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	// Everything except the description forces replacement, because a version is immutable
-	patch := PMSPolicyVersionPatchAPIModel{Description: data.Description.ValueString()}
+	var state PMSPolicyVersionResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Everything except the description forces replacement, because a version is
+	// immutable. A description removed from the configuration is planned as unknown, so it
+	// is left out and the server's value is kept.
+	patch := PMSPolicyVersionPatchAPIModel{Description: patchString(data.Description, state.Description)}
 	var api PMSPolicyVersionAPIModel
 	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
 	if !ok {

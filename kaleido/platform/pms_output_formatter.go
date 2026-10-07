@@ -62,6 +62,16 @@ type PMSOutputFormatterAPIModel struct {
 	Updated     *time.Time                         `json:"updated,omitempty"`
 }
 
+// PMSOutputFormatterPatchAPIModel is the sparse PATCH body: a field that is left out or
+// null is kept as stored, and a field that is present replaces the stored value. name and
+// type are immutable. Parameters carries no omitempty so that an empty list is sent to
+// clear it; nil marshals as null, which leaves it alone.
+type PMSOutputFormatterPatchAPIModel struct {
+	Description *string                            `json:"description,omitempty"`
+	Parameters  []PMSParameterAPIModel             `json:"parameters"`
+	Mapping     *PMSOutputFormatterMappingAPIModel `json:"mapping,omitempty"`
+}
+
 func PMSOutputFormatterResourceFactory() resource.Resource {
 	return &pms_outputFormatterResource{}
 }
@@ -212,16 +222,30 @@ func (r *pms_outputFormatterResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	// A PATCH cannot clear a field, so the whole formatter is replaced with a PUT: an
-	// attribute removed from the configuration is then removed from the server too.
-	var desired PMSOutputFormatterAPIModel
-	r.toAPI(&data, &desired, &resp.Diagnostics)
+	var state PMSOutputFormatterResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Only what changed is sent: any PATCH carrying parameters or mapping makes the server
+	// re-validate every policy bound to the formatter.
+	patch := PMSOutputFormatterPatchAPIModel{Description: patchString(data.Description, state.Description)}
+	if patchChanged(data.MappingRego, state.MappingRego) {
+		patch.Mapping = &PMSOutputFormatterMappingAPIModel{Rego: data.MappingRego.ValueString()}
+	}
+	if patchChanged(data.Parameters, state.Parameters) {
+		patch.Parameters = pmsParametersToAPI(data.Parameters, &resp.Diagnostics)
+		if patch.Parameters == nil {
+			patch.Parameters = []PMSParameterAPIModel{}
+		}
+	}
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	var api PMSOutputFormatterAPIModel
-	ok, _ := r.apiRequest(ctx, http.MethodPut, r.instancePath(&data), &desired, &api, &resp.Diagnostics)
+	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}

@@ -54,6 +54,13 @@ type PMSEvidenceSourceBindingTargetAPIModel struct {
 // configurations and states written against the earlier binding model keep working.
 const attestersDeprecation = "attesters is no longer part of an evidence source binding. Who an approval source asks is the policy definition's evidence attestation.attesters, a path into the version's constants. Remove this attribute; it is ignored."
 
+// PMSEvidenceSourceBindingPatchAPIModel is the sparse PATCH body: a field that is left
+// out is kept as stored, and an empty runAs clears it.
+type PMSEvidenceSourceBindingPatchAPIModel struct {
+	EvidenceSourceID *string `json:"evidenceSourceId,omitempty"`
+	RunAs            *string `json:"runAs,omitempty"`
+}
+
 type PMSEvidenceSourceBindingAPIModel struct {
 	ID                   string     `json:"id,omitempty"`
 	PolicyID             string     `json:"policyId,omitempty"`
@@ -245,9 +252,25 @@ func (r *pms_evidenceSourceBindingResource) Update(ctx context.Context, req reso
 		return
 	}
 
-	// PATCH replaces each field it carries and cannot clear one, so a field removed from
-	// the configuration is left as the server has it.
-	patch := evidenceSourceBindingTargetToAPI(r.targetAttrs(&data))
+	var state PMSEvidenceSourceBindingResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Only what changed is sent; a removed run_as is sent empty, which clears it
+	patch := PMSEvidenceSourceBindingPatchAPIModel{
+		EvidenceSourceID: patchString(data.EvidenceSourceID, state.EvidenceSourceID),
+		RunAs:            patchString(data.RunAs, state.RunAs),
+	}
+	if patch == (PMSEvidenceSourceBindingPatchAPIModel{}) {
+		// Only the deprecated attesters attribute changed, and it is not on the wire
+		if data.Attesters.IsUnknown() {
+			data.Attesters = types.StringNull()
+		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+		return
+	}
 
 	var api PMSEvidenceSourceBindingAPIModel
 	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)

@@ -177,6 +177,8 @@ func (r *pms_identityListBindingResource) Update(ctx context.Context, req resour
 		return
 	}
 
+	// Not diff-built: the server requires identityListVersionId on every PATCH, and it is
+	// the only attribute that can change in place.
 	patch := PMSIdentityListBindingPatchAPIModel{IdentityListVersionID: data.IdentityListVersionID.ValueString()}
 	var api PMSIdentityListBindingAPIModel
 	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
