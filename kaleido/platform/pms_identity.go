@@ -103,6 +103,8 @@ var notificationMethodAttrTypes = map[string]attr.Type{
 	"value_json": jsonStringType{},
 }
 
+var _ resource.ResourceWithUpgradeState = &policyIdentityResource{}
+
 func PMSIdentityResourceFactory() resource.Resource {
 	return &policyIdentityResource{}
 }
@@ -117,6 +119,7 @@ func (r *policyIdentityResource) Metadata(_ context.Context, _ resource.Metadata
 
 func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages Policy Manager identities. An identity is a subject that can make attestations, and carries the verification methods (public keys) used to prove those attestations.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
@@ -474,4 +477,151 @@ func timeAttr(t *time.Time) types.String {
 		return types.StringNull()
 	}
 	return types.StringValue(t.Format(time.RFC3339))
+}
+
+// policyIdentityStateV0 is the state of schema version 0 as stored. Two shapes carry that
+// version: state written against the v1 Policy Manager API (owner, assertion_method,
+// preferred_assertion_method), and state written against the v2 API before the schema
+// was versioned (controller, verification_method). Every value in either is a string or
+// null.
+type policyIdentityStateV0 struct {
+	ID                 *string              `json:"id"`
+	Environment        *string              `json:"environment"`
+	Service            *string              `json:"service"`
+	Name               *string              `json:"name"`
+	Description        *string              `json:"description"`
+	Owner              *string              `json:"owner"`
+	Controller         *string              `json:"controller"`
+	AssertionMethod    []map[string]*string `json:"assertion_method"`
+	VerificationMethod []map[string]*string `json:"verification_method"`
+	NotificationMethod []map[string]*string `json:"notification_method"`
+}
+
+// UpgradeState migrates state of schema version 0 to version 1. The v1 and v2 Policy
+// Manager APIs read and write the same identities and verification methods, so the
+// identity keeps its ID either way, and the refresh that follows the upgrade fills in
+// anything the old state did not hold. There is no prior schema: the raw state is read
+// directly, because a prior schema can describe only one of the two shapes and would
+// silently drop the attributes of the other.
+func (r *policyIdentityResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {StateUpgrader: upgradePolicyIdentityStateV0},
+	}
+}
+
+// upgradePolicyIdentityStateV0 carries v2 attributes across unchanged, keeping the stored
+// JSON text so the next plan compares equal to the configuration, and maps v1 attributes
+// onto their v2 equivalents:
+//   - owner is the identity's controller (the same stored value, renamed on the v2 API)
+//   - each assertion_method is a verification_method, its verification_material the
+//     ethereum_address of an EthereumAddress method (the only type that ever had one)
+//   - preferred_assertion_method and signing_method have no v2 equivalent and are dropped
+//   - notification_method, now read-only, keeps its values until the refresh adds IDs
+func upgradePolicyIdentityStateV0(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+	if req.RawState == nil {
+		resp.Diagnostics.AddError("Unable to upgrade state", "no prior state was supplied")
+		return
+	}
+	var old policyIdentityStateV0
+	if err := json.Unmarshal(req.RawState.JSON, &old); err != nil {
+		resp.Diagnostics.AddError("Unable to upgrade state", fmt.Sprintf("the stored state of the identity could not be read: %s", err))
+		return
+	}
+
+	controller := old.Controller
+	if controller == nil {
+		controller = old.Owner
+	}
+
+	var verificationMethods []map[string]attr.Value
+	if old.VerificationMethod != nil {
+		for _, vm := range old.VerificationMethod {
+			verificationMethods = append(verificationMethods, map[string]attr.Value{
+				"id":                   types.StringPointerValue(vm["id"]),
+				"identity_id":          types.StringPointerValue(vm["identity_id"]),
+				"name":                 types.StringPointerValue(vm["name"]),
+				"type":                 types.StringPointerValue(vm["type"]),
+				"controller":           types.StringPointerValue(vm["controller"]),
+				"public_key_multibase": types.StringPointerValue(vm["public_key_multibase"]),
+				"public_key_jwk_json":  jsonStringPointer(vm["public_key_jwk_json"]),
+				"ethereum_address":     types.StringPointerValue(vm["ethereum_address"]),
+				"created":              types.StringPointerValue(vm["created"]),
+				"expires":              types.StringPointerValue(vm["expires"]),
+				"revoked":              types.StringPointerValue(vm["revoked"]),
+				"key_uri":              types.StringPointerValue(vm["key_uri"]),
+			})
+		}
+	} else if old.AssertionMethod != nil {
+		for _, am := range old.AssertionMethod {
+			ethereumAddress := types.StringNull()
+			if am["type"] != nil && *am["type"] == "EthereumAddress" {
+				ethereumAddress = types.StringPointerValue(am["verification_material"])
+			}
+			verificationMethods = append(verificationMethods, map[string]attr.Value{
+				"id":                   types.StringPointerValue(am["id"]),
+				"identity_id":          types.StringPointerValue(am["identity_id"]),
+				"name":                 types.StringPointerValue(am["name"]),
+				"type":                 types.StringPointerValue(am["type"]),
+				"controller":           types.StringNull(),
+				"public_key_multibase": types.StringNull(),
+				"public_key_jwk_json":  jsonStringNull(),
+				"ethereum_address":     ethereumAddress,
+				"created":              types.StringPointerValue(am["created"]),
+				"expires":              types.StringPointerValue(am["expires"]),
+				"revoked":              types.StringPointerValue(am["revoked"]),
+				"key_uri":              types.StringNull(),
+			})
+		}
+	}
+
+	var notificationMethods []map[string]attr.Value
+	for _, nm := range old.NotificationMethod {
+		notificationMethods = append(notificationMethods, map[string]attr.Value{
+			"id":         types.StringPointerValue(nm["id"]),
+			"name":       types.StringPointerValue(nm["name"]),
+			"type":       types.StringPointerValue(nm["type"]),
+			"value_json": jsonStringPointer(nm["value_json"]),
+		})
+	}
+
+	data := PolicyIdentityResourceModel{
+		ID:                  types.StringPointerValue(old.ID),
+		Environment:         types.StringPointerValue(old.Environment),
+		Service:             types.StringPointerValue(old.Service),
+		Name:                types.StringPointerValue(old.Name),
+		Description:         types.StringPointerValue(old.Description),
+		Controller:          types.StringPointerValue(controller),
+		VerificationMethods: objectListOrNull(verificationMethodAttrTypes, verificationMethods, old.VerificationMethod != nil || old.AssertionMethod != nil, &resp.Diagnostics),
+		NotificationMethods: objectListOrNull(notificationMethodAttrTypes, notificationMethods, old.NotificationMethod != nil, &resp.Diagnostics),
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// jsonStringPointer is a *_json attribute holding exactly the stored text, or null.
+func jsonStringPointer(s *string) jsonStringValue {
+	if s == nil {
+		return jsonStringNull()
+	}
+	return jsonStringOf(*s)
+}
+
+// objectListOrNull builds a list of objects, or a null list when the stored state held
+// no list at all.
+func objectListOrNull(attrTypes map[string]attr.Type, elements []map[string]attr.Value, present bool, diagnostics *diag.Diagnostics) types.List {
+	elemType := types.ObjectType{AttrTypes: attrTypes}
+	if !present {
+		return types.ListNull(elemType)
+	}
+	values := make([]attr.Value, 0, len(elements))
+	for _, element := range elements {
+		obj, diags := types.ObjectValue(attrTypes, element)
+		diagnostics.Append(diags...)
+		values = append(values, obj)
+	}
+	list, diags := types.ListValue(elemType, values)
+	diagnostics.Append(diags...)
+	return list
 }

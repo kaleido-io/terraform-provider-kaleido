@@ -14,6 +14,7 @@
 package platform
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -21,6 +22,10 @@ import (
 
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
+	fwresource "github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/stretchr/testify/assert"
@@ -331,4 +336,161 @@ func TestPMSIdentityVerificationMethodEthereumAddress(t *testing.T) {
 			},
 		},
 	})
+}
+
+// pmsIdentityStateV0 is the state of an identity as written by a provider release built
+// against the v1 Policy Manager API (schema version 0).
+const pmsIdentityStateV0 = `{
+	"id": "id:12345abcde",
+	"environment": "test-env",
+	"service": "test-service",
+	"name": "treasury-signer",
+	"description": "Treasury signer",
+	"owner": "ap:owner12345",
+	"preferred_assertion_method": "primary",
+	"assertion_method": [
+		{
+			"id": "vm:eth12345",
+			"identity_id": "id:12345abcde",
+			"name": "primary",
+			"type": "EthereumAddress",
+			"signing_method": "offline",
+			"verification_material": "0x12F62772C4652280d06E64CfBC9033d409559aD4",
+			"created": "2026-01-02T03:04:05Z",
+			"expires": null,
+			"revoked": null
+		},
+		{
+			"id": "vm:multi12345",
+			"identity_id": "id:12345abcde",
+			"name": "backup",
+			"type": "Multikey",
+			"signing_method": null,
+			"verification_material": "zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme",
+			"created": "2026-01-02T03:04:05Z",
+			"expires": null,
+			"revoked": null
+		}
+	],
+	"notification_method": [
+		{ "name": "approvals", "type": "workflow", "value_json": "{\"workflow\":\"flw:1\"}" }
+	]
+}`
+
+// State written against the v1 API must upgrade to the v2 attributes, as terraform does
+// before the first refresh after a provider upgrade.
+func TestPMSIdentityUpgradeStateV0(t *testing.T) {
+	ctx := context.Background()
+	server, err := testAccProviders["kaleido"]()
+	assert.NoError(t, err)
+
+	upgraded, err := server.UpgradeResourceState(ctx, &tfprotov6.UpgradeResourceStateRequest{
+		TypeName: "kaleido_platform_pms_identity",
+		Version:  0,
+		RawState: &tfprotov6.RawState{JSON: []byte(pmsIdentityStateV0)},
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, upgraded.Diagnostics)
+
+	var schemaResp fwresource.SchemaResponse
+	(&policyIdentityResource{}).Schema(ctx, fwresource.SchemaRequest{}, &schemaResp)
+	raw, err := upgraded.UpgradedState.Unmarshal(schemaResp.Schema.Type().TerraformType(ctx))
+	assert.NoError(t, err)
+	var data PolicyIdentityResourceModel
+	assert.False(t, tfsdk.State{Schema: schemaResp.Schema, Raw: raw}.Get(ctx, &data).HasError())
+
+	assert.Equal(t, "id:12345abcde", data.ID.ValueString(), "the identity keeps its ID, so nothing is replaced")
+	assert.Equal(t, "Treasury signer", data.Description.ValueString())
+	assert.Equal(t, "ap:owner12345", data.Controller.ValueString(), "owner is the v2 controller")
+
+	methods := data.VerificationMethods.Elements()
+	if assert.Len(t, methods, 2) {
+		eth := methods[0].(types.Object).Attributes()
+		assert.Equal(t, "vm:eth12345", eth["id"].(types.String).ValueString())
+		assert.Equal(t, "EthereumAddress", eth["type"].(types.String).ValueString())
+		assert.Equal(t, "0x12F62772C4652280d06E64CfBC9033d409559aD4", eth["ethereum_address"].(types.String).ValueString(),
+			"the verification material of an EthereumAddress method is its ethereum_address")
+		assert.Equal(t, "2026-01-02T03:04:05Z", eth["created"].(types.String).ValueString())
+
+		multi := methods[1].(types.Object).Attributes()
+		assert.Equal(t, "Multikey", multi["type"].(types.String).ValueString())
+		assert.True(t, multi["ethereum_address"].IsNull(), "only an EthereumAddress method carries an ethereum_address")
+	}
+
+	notifications := data.NotificationMethods.Elements()
+	if assert.Len(t, notifications, 1) {
+		nm := notifications[0].(types.Object).Attributes()
+		assert.Equal(t, "approvals", nm["name"].(types.String).ValueString())
+		assert.Equal(t, `{"workflow":"flw:1"}`, nm["value_json"].(jsonStringValue).ValueString())
+		assert.True(t, nm["id"].IsNull(), "the refresh after the upgrade supplies the ID")
+	}
+}
+
+// pmsIdentityStateV0FromV2 is the state of an identity written against the v2 API by a
+// provider build from before the schema was versioned: it also carries schema version 0.
+const pmsIdentityStateV0FromV2 = `{
+	"id": "id:67890fghij",
+	"environment": "test-env",
+	"service": "test-service",
+	"name": "alice",
+	"description": null,
+	"controller": "ap:alice12345",
+	"verification_method": [
+		{
+			"id": "vm:jwk12345",
+			"identity_id": "id:67890fghij",
+			"name": "signing-key",
+			"type": "JsonWebKey",
+			"controller": null,
+			"public_key_multibase": null,
+			"public_key_jwk_json": "{\"kty\":\"EC\",\"crv\":\"secp256k1\",\"x\":\"abc\",\"y\":\"def\"}",
+			"ethereum_address": null,
+			"created": "2026-09-29T10:00:00Z",
+			"expires": null,
+			"revoked": null,
+			"key_uri": "kld:///keystore/ks1/key/alice"
+		}
+	],
+	"notification_method": null
+}`
+
+// State already written against the v2 API must come through the upgrade unchanged. In
+// particular the JWK must keep its stored text: the configuration's jsonencode() matches
+// that text, and a different spelling would plan a replacement of the identity.
+func TestPMSIdentityUpgradeStateV0FromV2(t *testing.T) {
+	ctx := context.Background()
+	server, err := testAccProviders["kaleido"]()
+	assert.NoError(t, err)
+
+	upgraded, err := server.UpgradeResourceState(ctx, &tfprotov6.UpgradeResourceStateRequest{
+		TypeName: "kaleido_platform_pms_identity",
+		Version:  0,
+		RawState: &tfprotov6.RawState{JSON: []byte(pmsIdentityStateV0FromV2)},
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, upgraded.Diagnostics)
+
+	var schemaResp fwresource.SchemaResponse
+	(&policyIdentityResource{}).Schema(ctx, fwresource.SchemaRequest{}, &schemaResp)
+	raw, err := upgraded.UpgradedState.Unmarshal(schemaResp.Schema.Type().TerraformType(ctx))
+	assert.NoError(t, err)
+	var data PolicyIdentityResourceModel
+	assert.False(t, tfsdk.State{Schema: schemaResp.Schema, Raw: raw}.Get(ctx, &data).HasError())
+
+	assert.Equal(t, "id:67890fghij", data.ID.ValueString())
+	assert.Equal(t, "ap:alice12345", data.Controller.ValueString())
+	assert.True(t, data.Description.IsNull())
+	assert.True(t, data.NotificationMethods.IsNull())
+
+	methods := data.VerificationMethods.Elements()
+	if assert.Len(t, methods, 1) {
+		vm := methods[0].(types.Object).Attributes()
+		assert.Equal(t, "vm:jwk12345", vm["id"].(types.String).ValueString())
+		assert.Equal(t, "JsonWebKey", vm["type"].(types.String).ValueString())
+		assert.Equal(t, `{"kty":"EC","crv":"secp256k1","x":"abc","y":"def"}`, vm["public_key_jwk_json"].(jsonStringValue).ValueString(),
+			"the stored JWK text is kept byte for byte")
+		assert.Equal(t, "kld:///keystore/ks1/key/alice", vm["key_uri"].(types.String).ValueString())
+		assert.Equal(t, "2026-09-29T10:00:00Z", vm["created"].(types.String).ValueString())
+		assert.True(t, vm["controller"].IsNull())
+	}
 }
