@@ -108,12 +108,6 @@ type PMSWorkflowEvidenceSourceAPIModel struct {
 	TransactionTemplate json.RawMessage `json:"transactionTemplate,omitempty"`
 }
 
-// PMSEvidenceSourceAPIModel is an evidence source on the wire. Schema is the JSON Schema of
-// one item of the evidence the source produces: authored for a serviceRequest, workflow or
-// attachment source, derived by the server from the typed data of an approval source's
-// responses. The two mappings are JSONata over {request, decision, body} that select the
-// evidence payload and attestation out of what the source receives; an approval source
-// has neither.
 type PMSEvidenceSourceAPIModel struct {
 	ID                 string                                   `json:"id,omitempty"`
 	Name               string                                   `json:"name,omitempty"`
@@ -130,10 +124,6 @@ type PMSEvidenceSourceAPIModel struct {
 	Updated            *time.Time                               `json:"updated,omitempty"`
 }
 
-// PMSEvidenceSourcePatchAPIModel is the sparse PATCH body: a field that is left out or
-// null is kept as stored, and a field that is present replaces the stored value. name and
-// type are immutable. Schema and Parameters carry no omitempty so that an empty value is
-// sent, which is how parameters are cleared; nil marshals as null, which leaves them alone.
 type PMSEvidenceSourcePatchAPIModel struct {
 	Description        *string                                  `json:"description,omitempty"`
 	Schema             json.RawMessage                          `json:"schema"`

@@ -53,8 +53,6 @@ type PolicyIdentityAPIModel struct {
 	NotificationMethods []NotificationMethod `json:"notificationMethods,omitempty"`
 }
 
-// NotificationMethod is read-only on the v2 API - identities return their notification
-// methods but there is no v2 write path for them.
 type NotificationMethod struct {
 	ID         string          `json:"id,omitempty"`
 	IdentityID string          `json:"identityId,omitempty"`

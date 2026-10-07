@@ -23,9 +23,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// PMSParameterAPIModel is a parameter declared by an evidence source or an output
-// formatter: a named, typed input that a policy bound to it supplies a value expression
-// for. Enum and Default are free-form JSON values, carried as the configured text.
 type PMSParameterAPIModel struct {
 	Name        string          `json:"name"`
 	Type        string          `json:"type,omitempty"`
@@ -46,8 +43,6 @@ var pmsParameterAttrTypes = map[string]attr.Type{
 
 var pmsParameterListType = types.ListType{ElemType: types.ObjectType{AttrTypes: pmsParameterAttrTypes}}
 
-// pmsParameterNestedSchema is the schema of the 'parameter' blocks shared by
-// kaleido_platform_pms_evidence_source and kaleido_platform_pms_output_formatter.
 func pmsParameterNestedSchema(description string) *schema.ListNestedAttribute {
 	return &schema.ListNestedAttribute{
 		Optional:    true,
@@ -85,8 +80,6 @@ func pmsParameterNestedSchema(description string) *schema.ListNestedAttribute {
 	}
 }
 
-// pmsParametersToAPI reads the 'parameter' blocks into the wire form, rejecting duplicate
-// names up front as the server would.
 func pmsParametersToAPI(list types.List, diagnostics *diag.Diagnostics) []PMSParameterAPIModel {
 	if list.IsNull() || list.IsUnknown() {
 		return nil
@@ -117,7 +110,6 @@ func pmsParametersToAPI(list types.List, diagnostics *diag.Diagnostics) []PMSPar
 	return params
 }
 
-// pmsParametersToData renders the server's parameters as 'parameter' blocks.
 func pmsParametersToData(params []PMSParameterAPIModel, diagnostics *diag.Diagnostics) types.List {
 	if len(params) == 0 {
 		return types.ListNull(pmsParameterListType.ElemType)

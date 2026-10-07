@@ -40,17 +40,14 @@ type ApplicationResourceModel struct {
 }
 
 type ApplicationAPIModel struct {
-	ID          string                    `json:"id,omitempty"`
-	Created     *time.Time                `json:"created,omitempty"`
-	Updated     *time.Time                `json:"updated,omitempty"`
-	Name        string                    `json:"name"`
-	OAuth       *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
-	IsAdmin     *bool                     `json:"isAdmin,omitempty"`
-	EnableOAuth *bool                     `json:"enableOAuth,omitempty"`
-	// ServicePrincipal marks an application that exists only to be acted as through a
-	// run-as binding (for example by a Policy Manager evidence source). It cannot
-	// authenticate itself: no OAuth, no API keys, and never an administrator.
-	ServicePrincipal *bool `json:"servicePrincipal,omitempty"`
+	ID               string                    `json:"id,omitempty"`
+	Created          *time.Time                `json:"created,omitempty"`
+	Updated          *time.Time                `json:"updated,omitempty"`
+	Name             string                    `json:"name"`
+	OAuth            *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
+	IsAdmin          *bool                     `json:"isAdmin,omitempty"`
+	EnableOAuth      *bool                     `json:"enableOAuth,omitempty"`
+	ServicePrincipal *bool                     `json:"servicePrincipal,omitempty"`
 }
 
 type ApplicationOAuthAPIModel struct {

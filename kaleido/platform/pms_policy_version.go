@@ -43,10 +43,6 @@ type PMSPolicyVersionResourceModel struct {
 	Updated        types.String `tfsdk:"updated"`
 }
 
-// PMSPolicyVersionAPIModel is a policy version. The definition fields (components,
-// constants, evidence, decision, output, parameters, parameterValues, summaryTemplate)
-// sit alongside the metadata at the top level of the object, and are passed through
-// opaquely from definition_yaml.
 type PMSPolicyVersionAPIModel struct {
 	ID          string     `json:"id,omitempty"`
 	Name        string     `json:"name,omitempty"`
@@ -57,8 +53,6 @@ type PMSPolicyVersionAPIModel struct {
 	Updated     *time.Time `json:"updated,omitempty"`
 }
 
-// PMSPolicyVersionPatchAPIModel is the sparse PATCH body - a version's definition is
-// immutable, only its description can be changed.
 type PMSPolicyVersionPatchAPIModel struct {
 	Description *string `json:"description,omitempty"`
 }
@@ -106,11 +100,8 @@ func (r *pms_policyVersionResource) Schema(_ context.Context, _ resource.SchemaR
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace(), stringplanmodifier.UseStateForUnknown()},
 			},
 			"description": &schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				// A definition_yaml carrying its own top level 'description' sets the
-				// version's description, so the server may return one that was never set
-				// as an attribute here
+				Optional:      true,
+				Computed:      true,
 				Description:   "Description of this version. Defaults to the 'description' field of definition_yaml, if it has one.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
@@ -148,10 +139,6 @@ func (r *pms_policyVersionResource) instancePath(data *PMSPolicyVersionResourceM
 	return fmt.Sprintf("%s/%s", r.listPath(data), url.PathEscape(data.ID.ValueString()))
 }
 
-// toAPI parses definition_yaml into the version body. The definition fields sit at the
-// top level of the request alongside the version metadata, which is what the API
-// expects. It is sent as JSON so the request does not depend on the server accepting a
-// YAML content type.
 func (r *pms_policyVersionResource) toAPI(data *PMSPolicyVersionResourceModel, diagnostics *diag.Diagnostics) map[string]interface{} {
 	body := map[string]interface{}{}
 	if err := yaml.Unmarshal([]byte(data.DefinitionYAML.ValueString()), &body); err != nil {

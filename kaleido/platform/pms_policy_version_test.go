@@ -25,9 +25,7 @@ import (
 )
 
 // A policy created as an empty container, with its version and the binding that version
-// depends on declared as their own resources. Terraform orders the binding ahead of the
-// version, which is what the API requires of a definition whose constants initialize
-// from an identity list binding.
+// depends on declared as their own resources.
 var pms_policy_version_step1 = `
 resource "kaleido_platform_pms_policy" "container" {
 	environment = "env1"
