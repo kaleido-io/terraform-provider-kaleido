@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -117,9 +118,10 @@ func (r *kms_keyResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"attributes": &schema.MapAttribute{
 				Optional:      true,
+				Computed:      true,
 				ElementType:   types.StringType,
-				PlanModifiers: []planmodifier.Map{planmodifiers.RequireRecreateMap(typeName)},
-				Description:   "Optional attributes of the key for key creation. Immutable after create — changing this value is not supported; create a new, separate key instead.",
+				PlanModifiers: []planmodifier.Map{mapplanmodifier.UseStateForUnknown(), planmodifiers.RequireRecreateMap(typeName)},
+				Description:   "Optional attributes of the key for key creation. Merged server-side with the wallet's default_key_attributes (per-key values take precedence), so the value read back may include additional entries even when none are set here. Immutable after create — changing this value is not supported; create a new, separate key instead.",
 			},
 			"public_identifier_types": &schema.ListAttribute{
 				Optional:      true,
@@ -135,7 +137,7 @@ func (data *KMSKeyResourceModel) toAPI(ctx context.Context, api *KMSKeyAPIModel,
 	api.Name = data.Name.ValueString()
 	api.Path = data.Path.ValueString()
 
-	if !data.Attributes.IsNull() {
+	if !data.Attributes.IsNull() && !data.Attributes.IsUnknown() {
 		attrs := map[string]string{}
 		d := data.Attributes.ElementsAs(ctx, &attrs, false)
 		diagnostics.Append(d...)
@@ -218,6 +220,12 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// Preserve planned publicIdentifierTypes, as API does not return them on GET
 	plannedPublicIdentifierTypes := data.PublicIdentifierTypes
+	// Preserve planned attributes: the server merges the wallet's
+	// default_key_attributes into the response, so writing the API value straight
+	// into state would break plan-consistency (config set fewer entries than the
+	// server returns). When the user set attributes explicitly, keep exactly what
+	// they asked for; when they didn't, take whatever the server returned.
+	plannedAttributes := data.Attributes
 
 	var api KMSKeyAPIModel
 	data.toAPI(ctx, &api, &resp.Diagnostics)
@@ -240,6 +248,9 @@ func (r *kms_keyResource) Create(ctx context.Context, req resource.CreateRequest
 	if !plannedPublicIdentifierTypes.IsNull() && !plannedPublicIdentifierTypes.IsUnknown() {
 		data.PublicIdentifierTypes = plannedPublicIdentifierTypes
 	}
+	if !plannedAttributes.IsNull() && !plannedAttributes.IsUnknown() {
+		data.Attributes = plannedAttributes
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
 }
@@ -252,6 +263,8 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	// Preserve planned publicIdentifierTypes, as API does not return them on GET
 	plannedPublicIdentifierTypes := data.PublicIdentifierTypes
+	// Preserve planned attributes for the same reason as in Create.
+	plannedAttributes := data.Attributes
 
 	keyPath, ok := r.keyMutationPath(ctx, &data, &resp.Diagnostics)
 	if !ok {
@@ -278,6 +291,9 @@ func (r *kms_keyResource) Update(ctx context.Context, req resource.UpdateRequest
 	if !plannedPublicIdentifierTypes.IsNull() && !plannedPublicIdentifierTypes.IsUnknown() {
 		data.PublicIdentifierTypes = plannedPublicIdentifierTypes
 	}
+	if !plannedAttributes.IsNull() && !plannedAttributes.IsUnknown() {
+		data.Attributes = plannedAttributes
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
@@ -288,6 +304,10 @@ func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 	// Preserve fields that the API does not return on GET
 	currentFolderPath := data.FolderPath
 	currentPublicIdentifierTypes := data.PublicIdentifierTypes
+	// Preserve state.Attributes if it's non-null: the API merges wallet defaults
+	// into the read-back value, and we don't want to overwrite the user's config
+	// value with the wider merged set.
+	currentAttributes := data.Attributes
 
 	var api KMSKeyAPIModel
 	api.ID = data.ID.ValueString()
@@ -318,6 +338,9 @@ func (r *kms_keyResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 	if !currentPublicIdentifierTypes.IsNull() && !currentPublicIdentifierTypes.IsUnknown() {
 		data.PublicIdentifierTypes = currentPublicIdentifierTypes
+	}
+	if !currentAttributes.IsNull() {
+		data.Attributes = currentAttributes
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

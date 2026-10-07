@@ -32,62 +32,62 @@ import (
 )
 
 type mockPlatform struct {
-	t                          *testing.T
-	lock                       sync.Mutex
-	router                     *mux.Router
-	server                     *httptest.Server
-	environments               map[string]*EnvironmentAPIModel
-	environmentVersions        *EnvironmentVersionsAPIModel // served for every environment
-	runtimes                   map[string]*RuntimeAPIModel
-	services                   map[string]*ServiceAPIModel
-	networks                   map[string]*NetworkAPIModel
-	stacks                     map[string]*StacksAPIModel
-	connectors                 map[string]*ConnectorAPIModel
-	networkinitdatas           map[string]*NetworkInitData
-	kmsWallets                 map[string]*KMSWalletAPIModel
-	arsNamespaces              map[string]*ARSNamespaceAPIModel
-	kmsKeys                    map[string]*KMSKeyAPIModel
-	kmsKeysByID                map[string]*KMSKeyAPIModel // env/service/id for global /keys/{id}
-	cmsBuilds                  map[string]*CMSBuildAPIModel
-	cmsActions                 map[string]CMSActionAPIBaseAccessor
-	amsTasks                   map[string]*AMSTaskAPIModel
-	amsTaskVersions            map[string]map[string]interface{}
-	amsPolicies                map[string]*AMSPolicyAPIModel
-	amsPolicyVersions          map[string]*AMSPolicyVersionAPIModel
-	amsDMUpserts               map[string]map[string]interface{}
-	amsFFListeners             map[string]*AMSFFListenerAPIModel
-	amsDMListeners             map[string]*AMSDMListenerAPIModel
-	amsVariableSets            map[string]*AMSVariableSetAPIModel
-	amsCollections             map[string]*AMSCollectionAPIModel
-	groups                     map[string]*GroupAPIModel
-	ffsNode                    *FireFlyStatusNodeAPIModel
-	ffsOrg                     *FireFlyStatusOrgAPIModel
-	calls                      []string
-	applications               map[string]*ApplicationAPIModel
-	apiKeys                    map[string]*APIKeyAPIModel
-	serviceAccess              map[string]*ServiceAccessAPIModel
-	serviceAccessPolicies      map[string]*ServiceAccessPolicyAPIModel
-	accountAccessPolicies      map[string]*AccountAccessPolicyAPIModel
-	stackAccess                map[string]*StackAccessAPIModel
-	wmsWallets                 map[string]*WMSWalletAPIModel
-	wmsAssets                  map[string]*WMSAssetAPIModel
-	wmsAssetIcons              map[string]*struct{}
-	wmsAccounts                map[string]*WMSAccountAPIModel
-	policyIdentities           map[string]*PolicyIdentityAPIModel
-	pmsIdentityLists           map[string]*PMSIdentityListAPIModel
-	pmsIdentityListVersions    map[string]map[string]*PMSIdentityListVersionAPIModel
-	pmsPolicies                map[string]*PMSPolicyAPIModel
-	pmsPolicyVersions          map[string]map[string]*PMSPolicyVersionAPIModel
-	pmsPolicyMatchers          map[string]*PMSPolicyMatcherAPIModel
-	pmsEvidenceSourceBindings  map[string]*PMSEvidenceSourceBindingAPIModel
-	pmsEvidenceSources         map[string]*PMSEvidenceSourceAPIModel
-	pmsOutputFormatters        map[string]*PMSOutputFormatterAPIModel
-	pmsOutputFormatterBindings map[string]*PMSOutputFormatterBindingAPIModel
-	pmsIdentityListBindings    map[string]*PMSIdentityListBindingAPIModel
-	// pmsPatchBodies records the raw body of each Policy Manager PATCH, so a test can
-	// assert that only the attributes that changed were sent
-	pmsPatchBodies []map[string]interface{}
-	// expectIdentityController / expectKeyURI assert the values sent on identity create
+	t                           *testing.T
+	lock                        sync.Mutex
+	router                      *mux.Router
+	server                      *httptest.Server
+	environments                map[string]*EnvironmentAPIModel
+	environmentVersions         *EnvironmentVersionsAPIModel // served for every environment
+	runtimes                    map[string]*RuntimeAPIModel
+	services                    map[string]*ServiceAPIModel
+	networks                    map[string]*NetworkAPIModel
+	stacks                      map[string]*StacksAPIModel
+	connectors                  map[string]*ConnectorAPIModel
+	networkinitdatas            map[string]*NetworkInitData
+	kmsWallets                  map[string]*KMSWalletAPIModel
+	arsNamespaces               map[string]*ARSNamespaceAPIModel
+	arsFiles                    map[string]*ARSFileArtifactAPIModel
+	kmsKeys                     map[string]*KMSKeyAPIModel
+	kmsKeysByID                 map[string]*KMSKeyAPIModel // env/service/id for global /keys/{id}
+	cmsBuilds                   map[string]*CMSBuildAPIModel
+	cmsActions                  map[string]CMSActionAPIBaseAccessor
+	amsTasks                    map[string]*AMSTaskAPIModel
+	amsTaskVersions             map[string]map[string]interface{}
+	amsPolicies                 map[string]*AMSPolicyAPIModel
+	amsPolicyVersions           map[string]*AMSPolicyVersionAPIModel
+	amsDMUpserts                map[string]map[string]interface{}
+	amsFFListeners              map[string]*AMSFFListenerAPIModel
+	amsDMListeners              map[string]*AMSDMListenerAPIModel
+	amsVariableSets             map[string]*AMSVariableSetAPIModel
+	amsCollections              map[string]*AMSCollectionAPIModel
+	groups                      map[string]*GroupAPIModel
+	users                       map[string]*UserAPIModel
+	groupMembers                map[string][]*GroupMembershipAPIModel
+	ffsNode                     *FireFlyStatusNodeAPIModel
+	ffsOrg                      *FireFlyStatusOrgAPIModel
+	calls                       []string
+	applications                map[string]*ApplicationAPIModel
+	apiKeys                     map[string]*APIKeyAPIModel
+	serviceAccess               map[string]*ServiceAccessAPIModel
+	serviceAccessPolicies       map[string]*ServiceAccessPolicyAPIModel
+	accountAccessPolicies       map[string]*AccountAccessPolicyAPIModel
+	stackAccess                 map[string]*StackAccessAPIModel
+	wmsWallets                  map[string]*WMSWalletAPIModel
+	wmsAssets                   map[string]*WMSAssetAPIModel
+	wmsAssetIcons               map[string]*struct{}
+	wmsAccounts                 map[string]*WMSAccountAPIModel
+	policyIdentities            map[string]*PolicyIdentityAPIModel
+	pmsIdentityLists            map[string]*PMSIdentityListAPIModel
+	pmsIdentityListVersions     map[string]map[string]*PMSIdentityListVersionAPIModel
+	pmsPolicies                 map[string]*PMSPolicyAPIModel
+	pmsPolicyVersions           map[string]map[string]*PMSPolicyVersionAPIModel
+	pmsPolicyMatchers           map[string]*PMSPolicyMatcherAPIModel
+	pmsEvidenceSourceBindings   map[string]*PMSEvidenceSourceBindingAPIModel
+	pmsEvidenceSources          map[string]*PMSEvidenceSourceAPIModel
+	pmsOutputFormatters         map[string]*PMSOutputFormatterAPIModel
+	pmsOutputFormatterBindings  map[string]*PMSOutputFormatterBindingAPIModel
+	pmsIdentityListBindings     map[string]*PMSIdentityListBindingAPIModel
+	pmsPatchBodies              []map[string]interface{}
 	expectIdentityController    string
 	expectKeyURI                string
 	wfeWorkflows                map[string]*WFEWorkflowAPIModel
@@ -101,59 +101,51 @@ type mockPlatform struct {
 
 func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp := &mockPlatform{
-		t:                          t,
-		environments:               make(map[string]*EnvironmentAPIModel),
-		runtimes:                   make(map[string]*RuntimeAPIModel),
-		services:                   make(map[string]*ServiceAPIModel),
-		networks:                   make(map[string]*NetworkAPIModel),
-		stacks:                     make(map[string]*StacksAPIModel),
-		connectors:                 make(map[string]*ConnectorAPIModel),
-		networkinitdatas:           make(map[string]*NetworkInitData),
-		kmsWallets:                 make(map[string]*KMSWalletAPIModel),
-		arsNamespaces:              make(map[string]*ARSNamespaceAPIModel),
-		kmsKeys:                    make(map[string]*KMSKeyAPIModel),
-		kmsKeysByID:                make(map[string]*KMSKeyAPIModel),
-		cmsBuilds:                  make(map[string]*CMSBuildAPIModel),
-		cmsActions:                 make(map[string]CMSActionAPIBaseAccessor),
-		amsTasks:                   make(map[string]*AMSTaskAPIModel),
-		amsTaskVersions:            make(map[string]map[string]interface{}),
-		amsPolicies:                make(map[string]*AMSPolicyAPIModel),
-		amsPolicyVersions:          make(map[string]*AMSPolicyVersionAPIModel),
-		amsDMUpserts:               make(map[string]map[string]interface{}),
-		amsFFListeners:             make(map[string]*AMSFFListenerAPIModel),
-		amsDMListeners:             make(map[string]*AMSDMListenerAPIModel),
-		amsVariableSets:            make(map[string]*AMSVariableSetAPIModel),
-		amsCollections:             make(map[string]*AMSCollectionAPIModel),
-		groups:                     make(map[string]*GroupAPIModel),
-		applications:               make(map[string]*ApplicationAPIModel),
-		serviceAccess:              make(map[string]*ServiceAccessAPIModel),
-		serviceAccessPolicies:      make(map[string]*ServiceAccessPolicyAPIModel),
-		accountAccessPolicies:      make(map[string]*AccountAccessPolicyAPIModel),
-		stackAccess:                make(map[string]*StackAccessAPIModel),
-		apiKeys:                    make(map[string]*APIKeyAPIModel),
-		wmsWallets:                 make(map[string]*WMSWalletAPIModel),
-		wmsAssets:                  make(map[string]*WMSAssetAPIModel),
-		wmsAssetIcons:              make(map[string]*struct{}),
-		wmsAccounts:                make(map[string]*WMSAccountAPIModel),
-		policyIdentities:           make(map[string]*PolicyIdentityAPIModel),
-		pmsIdentityLists:           make(map[string]*PMSIdentityListAPIModel),
-		pmsIdentityListVersions:    make(map[string]map[string]*PMSIdentityListVersionAPIModel),
-		pmsPolicies:                make(map[string]*PMSPolicyAPIModel),
-		pmsPolicyVersions:          make(map[string]map[string]*PMSPolicyVersionAPIModel),
-		pmsPolicyMatchers:          make(map[string]*PMSPolicyMatcherAPIModel),
-		pmsEvidenceSourceBindings:  make(map[string]*PMSEvidenceSourceBindingAPIModel),
-		pmsEvidenceSources:         make(map[string]*PMSEvidenceSourceAPIModel),
-		pmsOutputFormatters:        make(map[string]*PMSOutputFormatterAPIModel),
-		pmsOutputFormatterBindings: make(map[string]*PMSOutputFormatterBindingAPIModel),
-		pmsIdentityListBindings:    make(map[string]*PMSIdentityListBindingAPIModel),
-		wfeWorkflows:               make(map[string]*WFEWorkflowAPIModel),
-		wfeWorkflowVersions:        make(map[string]map[string]*WFEWorkflowVersionAPIModel),
-		wfeStreams:                 make(map[string]*WFEStreamAPIModel),
-		wfeStreamFactories:         make(map[string]*WFEStreamFactoryAPIModel),
-		fireflyContractListeners:   make(map[string]*FireFlyContractListenerAPIModel),
-		fireflySubscriptions:       make(map[string]*FireFlySubscriptionAPIModel),
-		router:                     mux.NewRouter(),
-		calls:                      []string{},
+		t:                        t,
+		environments:             make(map[string]*EnvironmentAPIModel),
+		runtimes:                 make(map[string]*RuntimeAPIModel),
+		services:                 make(map[string]*ServiceAPIModel),
+		networks:                 make(map[string]*NetworkAPIModel),
+		stacks:                   make(map[string]*StacksAPIModel),
+		connectors:               make(map[string]*ConnectorAPIModel),
+		networkinitdatas:         make(map[string]*NetworkInitData),
+		kmsWallets:               make(map[string]*KMSWalletAPIModel),
+		arsNamespaces:            make(map[string]*ARSNamespaceAPIModel),
+		kmsKeys:                  make(map[string]*KMSKeyAPIModel),
+		kmsKeysByID:              make(map[string]*KMSKeyAPIModel),
+		cmsBuilds:                make(map[string]*CMSBuildAPIModel),
+		cmsActions:               make(map[string]CMSActionAPIBaseAccessor),
+		amsTasks:                 make(map[string]*AMSTaskAPIModel),
+		amsTaskVersions:          make(map[string]map[string]interface{}),
+		amsPolicies:              make(map[string]*AMSPolicyAPIModel),
+		amsPolicyVersions:        make(map[string]*AMSPolicyVersionAPIModel),
+		amsDMUpserts:             make(map[string]map[string]interface{}),
+		amsFFListeners:           make(map[string]*AMSFFListenerAPIModel),
+		amsDMListeners:           make(map[string]*AMSDMListenerAPIModel),
+		amsVariableSets:          make(map[string]*AMSVariableSetAPIModel),
+		amsCollections:           make(map[string]*AMSCollectionAPIModel),
+		groups:                   make(map[string]*GroupAPIModel),
+		applications:             make(map[string]*ApplicationAPIModel),
+		serviceAccess:            make(map[string]*ServiceAccessAPIModel),
+		serviceAccessPolicies:    make(map[string]*ServiceAccessPolicyAPIModel),
+		accountAccessPolicies:    make(map[string]*AccountAccessPolicyAPIModel),
+		stackAccess:              make(map[string]*StackAccessAPIModel),
+		apiKeys:                  make(map[string]*APIKeyAPIModel),
+		wmsWallets:               make(map[string]*WMSWalletAPIModel),
+		wmsAssets:                make(map[string]*WMSAssetAPIModel),
+		wmsAssetIcons:            make(map[string]*struct{}),
+		wmsAccounts:              make(map[string]*WMSAccountAPIModel),
+		policyIdentities:         make(map[string]*PolicyIdentityAPIModel),
+		pmsIdentityLists:         make(map[string]*PMSIdentityListAPIModel),
+		pmsIdentityListVersions:  make(map[string]map[string]*PMSIdentityListVersionAPIModel),
+		wfeWorkflows:             make(map[string]*WFEWorkflowAPIModel),
+		wfeWorkflowVersions:      make(map[string]map[string]*WFEWorkflowVersionAPIModel),
+		wfeStreams:               make(map[string]*WFEStreamAPIModel),
+		wfeStreamFactories:       make(map[string]*WFEStreamFactoryAPIModel),
+		fireflyContractListeners: make(map[string]*FireFlyContractListenerAPIModel),
+		fireflySubscriptions:     make(map[string]*FireFlySubscriptionAPIModel),
+		router:                   mux.NewRouter(),
+		calls:                    []string{},
 	}
 
 	// See account_test.go
@@ -205,6 +197,12 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces", http.MethodPost, mp.postARSNamespace)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodGet, mp.getARSNamespace)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodDelete, mp.deleteARSNamespace)
+
+	// See ars_file_artifact_test.go - greedy {name:.+} backtracks to the last colon,
+	// matching the route shape of the real Artifact Registry API
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodPost, mp.postARSFile)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodGet, mp.getARSFile)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodDelete, mp.deleteARSFile)
 
 	// See kms_key.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys", http.MethodPut, mp.putKMSKey)
@@ -366,6 +364,15 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/groups/{group}", http.MethodGet, mp.getGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodPatch, mp.patchGroup)
 	mp.register("/api/v1/groups/{group}", http.MethodDelete, mp.deleteGroup)
+
+	// See group_membership_test.go
+	mp.register("/api/v1/users", http.MethodPost, mp.postUser)
+	mp.register("/api/v1/users/{user}", http.MethodGet, mp.getUser)
+	mp.register("/api/v1/users/{user}", http.MethodPatch, mp.patchUser)
+	mp.register("/api/v1/users/{user}", http.MethodDelete, mp.deleteUser)
+	mp.register("/api/v1/groups/{group}/members", http.MethodGet, mp.listGroupMembers)
+	mp.register("/api/v1/groups/{group}/members", http.MethodPost, mp.postGroupMember)
+	mp.register("/api/v1/groups/{group}/members/{member}", http.MethodDelete, mp.deleteGroupMember)
 
 	// See stacks_test.go
 	mp.register("/api/v1/environments/{env}/stacks", http.MethodPost, mp.postStacks)

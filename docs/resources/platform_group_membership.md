@@ -34,3 +34,12 @@ resource "kaleido_platform_group_membership" "user_group_membership" {
 - `group_name` (String) Name of the group
 - `id` (String) The ID of this resource.
 - `user_name` (String) Name of the user
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+# Import using group_id/user_id 
+tofu import kaleido_platform_group_membership.example 'g:abcd1234/u:1234abcd'
+```

@@ -252,8 +252,19 @@ func (r *connectorResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
-	if data.PlatformRequestor == nil {   // requestors will not go into ready w/o being accepted
+
+	// Persist state before the ready-wait so a failed/interrupted wait leaves
+	// the resource tainted (replaced on next apply) rather than orphaned
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if data.PlatformRequestor == nil { // requestors will not go into ready w/o being accepted
 		r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 		api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
