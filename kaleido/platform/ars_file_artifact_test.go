@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
@@ -155,10 +156,11 @@ func TestARSFileArtifactAutoTag(t *testing.T) {
 			},
 		},
 	})
-	// Final destroy only untags the currently tracked version; tag1 was
-	// retained by the first (default) upgrade
+	// Destroy only untags the tracked version; tag1 was retained by the first
+	// (default) upgrade, so it and the auto-created repository are left (with a warning)
 	assert.Nil(t, mp.arsFiles[key3])
 	assert.NotNil(t, mp.arsFiles[key1])
+	assert.NotNil(t, mp.arsRepos["env1/svc1/ns1/path/to/myfilename.ext"])
 	delete(mp.arsFiles, key1)
 	assert.Empty(t, mp.arsFiles)
 }
@@ -228,6 +230,176 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 						return nil
 					},
 				),
+			},
+		},
+	})
+	assert.Empty(t, mp.arsFiles)
+	assert.Empty(t, mp.arsRepos)
+}
+
+func TestARSFileArtifactDestroyKeepsUntrackedVersions(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.server.Close()
+	}()
+
+	filePath := filepath.Join(t.TempDir(), "artifact.json")
+	assert.NoError(t, os.WriteFile(filePath, []byte(`{"rev": 1}`), 0644))
+	repoKey := "env1/svc1/ns1/path/to/myfilename.ext"
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+			},
+			{
+				PreConfig: func() {
+					mp.arsFiles[repoKey+":manual"] = &ARSFileArtifactAPIModel{Repository: "path/to/myfilename.ext", Tag: "manual"}
+				},
+				Config: providerConfig,
+			},
+		},
+	})
+	assert.Nil(t, mp.arsFiles[repoKey+":rel1"])
+	assert.NotNil(t, mp.arsFiles[repoKey+":manual"])
+	assert.NotNil(t, mp.arsRepos[repoKey])
+}
+
+func arsManagedRepositoryConfig(filePath string, includeArtifact bool) string {
+	config := `
+resource "kaleido_platform_ars_namespace" "files" {
+  environment       = "env1"
+  service           = "svc1"
+  name              = "files"
+  artifact_family   = "file"
+  auto_create_repos = false
+}
+
+resource "kaleido_platform_ars_repository" "repo1" {
+  environment = "env1"
+  service     = "svc1"
+  namespace   = kaleido_platform_ars_namespace.files.name
+  name        = "config/app.json"
+}
+`
+	if includeArtifact {
+		config += `
+resource "kaleido_platform_ars_file_artifact" "file1" {
+  environment = "env1"
+  service     = "svc1"
+  namespace   = kaleido_platform_ars_namespace.files.name
+  name        = kaleido_platform_ars_repository.repo1.name
+  file_path   = "` + filePath + `"
+  type        = "json"
+  tag         = "rel1"
+}
+`
+	}
+	return config
+}
+
+func TestARSFileArtifactManagedRepository(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.server.Close()
+	}()
+
+	filePath := filepath.Join(t.TempDir(), "artifact.json")
+	assert.NoError(t, os.WriteFile(filePath, []byte(`{"rev": 1}`), 0644))
+	repoKey := "env1/svc1/files/config/app.json"
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + arsManagedRepositoryConfig(filePath, true),
+				Check: func(s *terraform.State) error {
+					assert.NotNil(t, mp.arsFiles[repoKey+":rel1"])
+					return nil
+				},
+			},
+			{
+				Config: providerConfig + arsManagedRepositoryConfig(filePath, false),
+				Check: func(s *terraform.State) error {
+					assert.Nil(t, mp.arsFiles[repoKey+":rel1"])
+					assert.Nil(t, mp.arsRepos[repoKey])
+					return nil
+				},
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+	assert.Empty(t, mp.arsRepos)
+	assert.Empty(t, mp.arsNamespaces)
+}
+
+func TestARSFileArtifactMissingRepository(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.server.Close()
+	}()
+
+	filePath := filepath.Join(t.TempDir(), "artifact.json")
+	assert.NoError(t, os.WriteFile(filePath, []byte(`{"rev": 1}`), 0644))
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				// Without auto_create_repos the push needs a repository created first
+				Config: providerConfig + `
+resource "kaleido_platform_ars_namespace" "files" {
+  environment       = "env1"
+  service           = "svc1"
+  name              = "files"
+  artifact_family   = "file"
+  auto_create_repos = false
+}
+
+resource "kaleido_platform_ars_file_artifact" "file1" {
+  environment = "env1"
+  service     = "svc1"
+  namespace   = kaleido_platform_ars_namespace.files.name
+  name        = "config/app.json"
+  file_path   = "` + filePath + `"
+  type        = "json"
+  tag         = "rel1"
+}
+`,
+				ExpectError: regexp.MustCompile(`(?s)Repository or namespace not found.*kaleido_platform_ars_repository`),
+			},
+		},
+	})
+	assert.Empty(t, mp.arsFiles)
+	assert.Empty(t, mp.arsNamespaces)
+}
+
+func TestARSFileArtifactDestroyAlreadyDeleted(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.server.Close()
+	}()
+
+	filePath := filepath.Join(t.TempDir(), "artifact.json")
+	assert.NoError(t, os.WriteFile(filePath, []byte(`{"rev": 1}`), 0644))
+	repoKey := "env1/svc1/ns1/path/to/myfilename.ext"
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+			},
+			{
+				PreConfig: func() {
+					delete(mp.arsRepos, repoKey)
+				},
+				Config: providerConfig,
 			},
 		},
 	})
@@ -313,9 +485,16 @@ func (mp *mockPlatform) postARSFile(res http.ResponseWriter, req *http.Request) 
 	digest := "sha256:" + sha256Hex(body)
 
 	key := mp.arsFileKey(vars)
+	repoKey := mp.arsRepoKey(vars)
+	if mp.arsRepos[repoKey] == nil {
+		if ns := mp.arsNamespaceByName(vars); ns != nil && !ns.AutoCreateRepos {
+			mp.respond(res, map[string]string{"error": "repository not found"}, 500)
+			return
+		}
+		mp.arsRepos[repoKey] = &ARSRepositoryAPIModel{ID: nanoid.New(), NamespaceName: vars["ns"], Name: vars["name"]}
+	}
 	if existing := mp.arsFiles[key]; existing != nil {
 		if existing.LayerDigest != digest {
-			// Tags are immutable server-side; identical re-push is idempotent-OK
 			mp.respond(res, map[string]string{
 				"code":    "TAG_IMMUTABLE",
 				"message": "tag is immutable and already references a different manifest",
@@ -356,4 +535,42 @@ func (mp *mockPlatform) deleteARSFile(res http.ResponseWriter, req *http.Request
 		delete(mp.arsFiles, key)
 		mp.respond(res, nil, 204)
 	}
+}
+
+func (mp *mockPlatform) arsNamespaceByName(vars map[string]string) *ARSNamespaceAPIModel {
+	for key, ns := range mp.arsNamespaces {
+		if strings.HasPrefix(key, vars["env"]+"/"+vars["service"]+"/") && ns.Name == vars["ns"] {
+			return ns
+		}
+	}
+	return nil
+}
+
+func (mp *mockPlatform) arsRepoKey(vars map[string]string) string {
+	return vars["env"] + "/" + vars["service"] + "/" + vars["ns"] + "/" + vars["name"]
+}
+
+func (mp *mockPlatform) arsRepoTags(repoKey string) []*ARSFileArtifactAPIModel {
+	tags := []*ARSFileArtifactAPIModel{}
+	for key, obj := range mp.arsFiles {
+		if strings.HasPrefix(key, repoKey+":") {
+			tags = append(tags, obj)
+		}
+	}
+	return tags
+}
+
+func (mp *mockPlatform) deleteARSRepository(res http.ResponseWriter, req *http.Request) {
+	repoKey := mp.arsRepoKey(mux.Vars(req))
+	if mp.arsRepos[repoKey] == nil {
+		mp.respond(res, map[string]string{"error": "repository not found"}, 500)
+		return
+	}
+	assert.Empty(mp.t, req.URL.Query().Get("force"))
+	if tags := mp.arsRepoTags(repoKey); len(tags) > 0 {
+		mp.respond(res, map[string]string{"error": fmt.Sprintf("it has %d tagged version(s); pass ?force=true", len(tags))}, 500)
+		return
+	}
+	delete(mp.arsRepos, repoKey)
+	mp.respond(res, nil, 204)
 }

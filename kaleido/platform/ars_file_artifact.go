@@ -128,7 +128,8 @@ func (r *arsFileArtifactResource) Metadata(_ context.Context, _ resource.Metadat
 
 func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum.",
+		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_repository first with the same name. " +
+			"Destroying the artifact deletes the tracked version, then the repository if no other versions remain.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:    true,
@@ -183,7 +184,7 @@ func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
-				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade.",
+				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade, and are not deleted on destroy - they keep the repository, and so the namespace, from being deleted unless the namespace sets force_destroy.",
 			},
 			"content_sha256": &schema.StringAttribute{
 				Computed:    true,
@@ -375,6 +376,12 @@ func (r *arsFileArtifactResource) uploadFile(ctx context.Context, data *ARSFileA
 				"Push under a new tag, or use 'version' instead of 'tag' to derive content-addressed tags automatically.", apiPath, body))
 		return false
 	}
+	if !res.IsSuccess() && arsAlreadyDeleted(string(body)) {
+		diagnostics.AddError("Repository or namespace not found",
+			fmt.Sprintf("POST %s returned status code %d: %s. Create the repository with a kaleido_platform_ars_repository of the same name, "+
+				"or set auto_create_repos = true on the namespace so pushes create it.", apiPath, res.StatusCode(), body))
+		return false
+	}
 	if !res.IsSuccess() {
 		diagnostics.AddError("POST failed", fmt.Sprintf("POST %s returned status code %d: %s", apiPath, res.StatusCode(), body))
 		return false
@@ -431,7 +438,6 @@ func (r *arsFileArtifactResource) Update(ctx context.Context, req resource.Updat
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	// A known planned tag equal to the current one means no new version is being
 	// pushed - the update only touches attributes with no server-side effect (e.g.
 	// 'file_path' in explicit-tag mode, or 'remove_old_versions'). Read and re-set state.
@@ -478,11 +484,43 @@ func (r *arsFileArtifactResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	// Idempotent delete: Allow404 treats an already-removed tag as success.
-	ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
-	if !ok {
-		return
+	var untagDiags diag.Diagnostics
+	if ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &untagDiags, Allow404()); !ok {
+		for _, d := range untagDiags.Errors() {
+			// The registry reports an already-deleted file or namespace as a plain (non-404) error
+			if !arsAlreadyDeleted(d.Detail()) {
+				resp.Diagnostics.Append(d)
+			}
+		}
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
+
+	// Untagging never removes the repository record, which blocks namespace deletion. Without
+	// force the files route only deletes the repository once no versions remain
+	filePath := fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/namespaces/%s/files/%s",
+		data.Environment.ValueString(), data.Service.ValueString(), data.Namespace.ValueString(), data.Name.ValueString())
+	var repoDiags diag.Diagnostics
+	if ok, _ := r.apiRequest(ctx, http.MethodDelete, filePath, nil, nil, &repoDiags, Allow404()); !ok {
+		for _, d := range repoDiags.Errors() {
+			switch {
+			case arsAlreadyDeleted(d.Detail()):
+			case arsHasTaggedVersions(d.Detail()):
+				resp.Diagnostics.AddWarning(
+					fmt.Sprintf("Repository '%s' still contains versions", data.Name.ValueString()),
+					"The artifact's version was deleted, but its repository was left in the Artifact Registry because it "+
+						"holds other versions (for example retained by remove_old_versions = false). It blocks destroying the namespace "+
+						"unless the namespace sets force_destroy = true. "+d.Detail())
+			default:
+				resp.Diagnostics.Append(d)
+			}
+		}
+	}
+}
+
+func arsAlreadyDeleted(errorDetail string) bool {
+	return strings.Contains(errorDetail, "repository not found") || strings.Contains(errorDetail, "namespace not found")
 }
 
 func (r *arsFileArtifactResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
