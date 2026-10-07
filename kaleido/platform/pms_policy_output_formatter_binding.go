@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -38,19 +37,19 @@ type PMSOutputFormatterBindingResourceModel struct {
 	OutputFormatterID     types.String `tfsdk:"output_formatter_id"`
 }
 
-// PMSOutputFormatterBindingTargetAPIModel is what a policy's output formatter binding
-// resolves to.
-type PMSOutputFormatterBindingTargetAPIModel struct {
-	OutputFormatterID string `json:"outputFormatterId,omitempty"`
-}
-
 type PMSOutputFormatterBindingAPIModel struct {
 	ID                    string     `json:"id,omitempty"`
 	PolicyID              string     `json:"policyId,omitempty"`
 	PolicyOutputFormatter string     `json:"policyOutputFormatter,omitempty"`
+	OutputFormatterID     string     `json:"outputFormatterId,omitempty"`
 	Created               *time.Time `json:"created,omitempty"`
 	Updated               *time.Time `json:"updated,omitempty"`
-	PMSOutputFormatterBindingTargetAPIModel
+}
+
+// PMSOutputFormatterBindingPatchAPIModel is the PATCH body: the formatter a binding
+// resolves to is the only thing about it that changes in place.
+type PMSOutputFormatterBindingPatchAPIModel struct {
+	OutputFormatterID string `json:"outputFormatterId,omitempty"`
 }
 
 func PMSPolicyOutputFormatterBindingResourceFactory() resource.Resource {
@@ -63,17 +62,6 @@ type pms_outputFormatterBindingResource struct {
 
 func (r *pms_outputFormatterBindingResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "kaleido_platform_pms_policy_output_formatter_binding"
-}
-
-// outputFormatterBindingTargetSchema is the set of attributes describing what a binding
-// resolves to.
-func outputFormatterBindingTargetSchema() map[string]schema.Attribute {
-	return map[string]schema.Attribute{
-		"output_formatter_id": &schema.StringAttribute{
-			Required:    true,
-			Description: "ID of the kaleido_platform_pms_output_formatter the policy emits its output through",
-		},
-	}
 }
 
 func (r *pms_outputFormatterBindingResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -103,9 +91,10 @@ func (r *pms_outputFormatterBindingResource) Schema(_ context.Context, _ resourc
 			Description:   "The name the policy uses for this binding: the 'output.formatter' field of the policy definition. Immutable after create.",
 			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 		},
-	}
-	for name, attribute := range outputFormatterBindingTargetSchema() {
-		attributes[name] = attribute
+		"output_formatter_id": &schema.StringAttribute{
+			Required:    true,
+			Description: "ID of the kaleido_platform_pms_output_formatter the policy emits its output through",
+		},
 	}
 	resp.Schema = schema.Schema{
 		Description: "Manages an output formatter binding on a Policy Manager policy. A binding gives the policy definition's 'output.formatter' a name that resolves to a kaleido_platform_pms_output_formatter, so the formatter can be swapped without editing the definition. An output formatter cannot be deleted while a binding refers to it.",
@@ -126,26 +115,9 @@ func (r *pms_outputFormatterBindingResource) instancePath(data *PMSOutputFormatt
 	return fmt.Sprintf("%s/%s", r.listPath(data), data.ID.ValueString())
 }
 
-// outputFormatterBindingTargetToAPI builds the wire target from the target attributes.
-func outputFormatterBindingTargetToAPI(attrs map[string]attr.Value) PMSOutputFormatterBindingTargetAPIModel {
-	return PMSOutputFormatterBindingTargetAPIModel{
-		OutputFormatterID: stringAttr(attrs, "output_formatter_id"),
-	}
-}
-
-// outputFormatterBindingTargetToData renders the wire target as terraform attribute
-// values, keyed as the schema names them.
-func outputFormatterBindingTargetToData(target *PMSOutputFormatterBindingTargetAPIModel) map[string]attr.Value {
-	return map[string]attr.Value{
-		"output_formatter_id": optionalString(target.OutputFormatterID),
-	}
-}
-
 func (r *pms_outputFormatterBindingResource) toAPI(data *PMSOutputFormatterBindingResourceModel, api *PMSOutputFormatterBindingAPIModel) {
 	api.PolicyOutputFormatter = data.PolicyOutputFormatter.ValueString()
-	api.PMSOutputFormatterBindingTargetAPIModel = outputFormatterBindingTargetToAPI(map[string]attr.Value{
-		"output_formatter_id": data.OutputFormatterID,
-	})
+	api.OutputFormatterID = data.OutputFormatterID.ValueString()
 }
 
 func (r *pms_outputFormatterBindingResource) toData(api *PMSOutputFormatterBindingAPIModel, data *PMSOutputFormatterBindingResourceModel) {
@@ -153,8 +125,7 @@ func (r *pms_outputFormatterBindingResource) toData(api *PMSOutputFormatterBindi
 	if api.PolicyOutputFormatter != "" {
 		data.PolicyOutputFormatter = types.StringValue(api.PolicyOutputFormatter)
 	}
-	values := outputFormatterBindingTargetToData(&api.PMSOutputFormatterBindingTargetAPIModel)
-	data.OutputFormatterID = values["output_formatter_id"].(types.String)
+	data.OutputFormatterID = optionalString(api.OutputFormatterID)
 }
 
 func (r *pms_outputFormatterBindingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -205,9 +176,7 @@ func (r *pms_outputFormatterBindingResource) Update(ctx context.Context, req res
 		return
 	}
 
-	patch := outputFormatterBindingTargetToAPI(map[string]attr.Value{
-		"output_formatter_id": data.OutputFormatterID,
-	})
+	patch := PMSOutputFormatterBindingPatchAPIModel{OutputFormatterID: data.OutputFormatterID.ValueString()}
 
 	var api PMSOutputFormatterBindingAPIModel
 	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)

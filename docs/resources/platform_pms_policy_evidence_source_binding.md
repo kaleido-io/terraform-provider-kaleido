@@ -68,7 +68,6 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "document" {
 
 ### Optional
 
-- `attesters` (String, Deprecated) Deprecated and ignored. attesters is no longer part of an evidence source binding. Who an approval source asks is the policy definition's evidence attestation.attesters, a path into the version's constants. Remove this attribute; it is ignored.
 - `run_as` (String) Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.
 
 ### Read-Only

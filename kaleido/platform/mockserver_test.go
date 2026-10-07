@@ -79,7 +79,7 @@ type mockPlatform struct {
 	pmsPolicies                map[string]*PMSPolicyAPIModel
 	pmsPolicyVersions          map[string]map[string]*PMSPolicyVersionAPIModel
 	pmsPolicyMatchers          map[string]*PMSPolicyMatcherAPIModel
-	pmsEvidenceSourceBindings  map[string]*mockEvidenceSourceBinding
+	pmsEvidenceSourceBindings  map[string]*PMSEvidenceSourceBindingAPIModel
 	pmsEvidenceSources         map[string]*PMSEvidenceSourceAPIModel
 	pmsOutputFormatters        map[string]*PMSOutputFormatterAPIModel
 	pmsOutputFormatterBindings map[string]*PMSOutputFormatterBindingAPIModel
@@ -141,7 +141,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		pmsPolicies:                make(map[string]*PMSPolicyAPIModel),
 		pmsPolicyVersions:          make(map[string]map[string]*PMSPolicyVersionAPIModel),
 		pmsPolicyMatchers:          make(map[string]*PMSPolicyMatcherAPIModel),
-		pmsEvidenceSourceBindings:  make(map[string]*mockEvidenceSourceBinding),
+		pmsEvidenceSourceBindings:  make(map[string]*PMSEvidenceSourceBindingAPIModel),
 		pmsEvidenceSources:         make(map[string]*PMSEvidenceSourceAPIModel),
 		pmsOutputFormatters:        make(map[string]*PMSOutputFormatterAPIModel),
 		pmsOutputFormatterBindings: make(map[string]*PMSOutputFormatterBindingAPIModel),

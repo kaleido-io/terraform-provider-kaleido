@@ -14,7 +14,6 @@
 package platform
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -36,7 +35,6 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "approvers" {
   policy = "test-policy"
   policy_evidence_source = "treasuryApproval"
   evidence_source_id = "pes:12345abcde"
-  attesters = "treasuryOperations"
 }
 `
 
@@ -47,7 +45,6 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "approvers" {
   policy = "test-policy"
   policy_evidence_source = "treasuryApproval"
   evidence_source_id = "pes:12345abcde"
-  attesters = "treasuryExecutives"
   run_as = "ap:12345abcde"
 }
 `
@@ -60,7 +57,6 @@ resource "kaleido_platform_pms_policy_evidence_source_binding" "approvers" {
   policy = "test-policy"
   policy_evidence_source = "treasuryApproval"
   evidence_source_id = "pes:12345abcde"
-  attesters = "treasuryExecutives"
 }
 `
 
@@ -92,15 +88,12 @@ func TestPMSEvidenceSourceBindingSourced(t *testing.T) {
 					resource.TestCheckResourceAttrSet(esbResource, "id"),
 					resource.TestCheckResourceAttr(esbResource, "policy_evidence_source", "treasuryApproval"),
 					resource.TestCheckResourceAttr(esbResource, "evidence_source_id", "pes:12345abcde"),
-					// Deprecated: kept in state as configured, never sent (the mock asserts that)
-					resource.TestCheckResourceAttr(esbResource, "attesters", "treasuryOperations"),
 					resource.TestCheckNoResourceAttr(esbResource, "run_as"),
 				),
 			},
 			{
 				Config: providerConfig + pms_esb_sourced_step2,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(esbResource, "attesters", "treasuryExecutives"),
 					resource.TestCheckResourceAttr(esbResource, "run_as", "ap:12345abcde"),
 					func(s *terraform.State) error {
 						body := mp.lastPMSPatchBody()
@@ -160,15 +153,7 @@ func TestPMSEvidenceSourceBindingAttachment(t *testing.T) {
 				Config: providerConfig + pms_esb_attachment,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(esbResource, "evidence_source_id", "pes:attachment1"),
-					resource.TestCheckNoResourceAttr(esbResource, "attesters"),
 					resource.TestCheckNoResourceAttr(esbResource, "run_as"),
-					func(s *terraform.State) error {
-						// A server from before attesters was dropped still stores and echoes a
-						// value for a binding written back then. It must not disturb the plan.
-						id := s.RootModule().Resources[esbResource].Primary.Attributes["id"]
-						mp.pmsEvidenceSourceBindings[id].LegacyAttesters = "treasuryOperations"
-						return nil
-					},
 				),
 			},
 			{
@@ -180,23 +165,9 @@ func TestPMSEvidenceSourceBindingAttachment(t *testing.T) {
 	})
 }
 
-// mockEvidenceSourceBinding is the server's record of a binding. LegacyAttesters stands in
-// for the column a server from before the field was dropped still holds and echoes.
-type mockEvidenceSourceBinding struct {
-	PMSEvidenceSourceBindingAPIModel
-	LegacyAttesters string `json:"attesters,omitempty"`
-}
-
-// assertNoAttesters checks that the provider never sends the dropped field.
-func (mp *mockPlatform) assertNoAttesters(rawBody []byte) {
-	var wire map[string]interface{}
-	assert.NoError(mp.t, json.Unmarshal(rawBody, &wire))
-	assert.NotContains(mp.t, wire, "attesters", "attesters is no longer part of a binding and must not be sent")
-}
-
 func (mp *mockPlatform) postPMSEvidenceSourceBinding(res http.ResponseWriter, req *http.Request) {
-	var binding mockEvidenceSourceBinding
-	mp.assertNoAttesters(mp.peekBody(req, &binding))
+	var binding PMSEvidenceSourceBindingAPIModel
+	mp.getBody(req, &binding)
 	now := time.Now().UTC()
 	binding.ID = nanoid.New()
 	binding.PolicyID = mux.Vars(req)["policy"]
@@ -224,7 +195,7 @@ func (mp *mockPlatform) patchPMSEvidenceSourceBinding(res http.ResponseWriter, r
 		return
 	}
 	var updates PMSEvidenceSourceBindingPatchAPIModel
-	mp.assertNoAttesters(mp.recordPMSPatchBody(req, &updates))
+	mp.recordPMSPatchBody(req, &updates)
 	if updates.EvidenceSourceID != nil {
 		binding.EvidenceSourceID = *updates.EvidenceSourceID
 	}

@@ -109,7 +109,7 @@ func (mp *mockPlatform) patchPMSOutputFormatterBinding(res http.ResponseWriter, 
 		mp.respond(res, nil, 404)
 		return
 	}
-	var updates PMSOutputFormatterBindingTargetAPIModel
+	var updates PMSOutputFormatterBindingPatchAPIModel
 	mp.getBody(req, &updates)
 	if updates.OutputFormatterID != "" {
 		binding.OutputFormatterID = updates.OutputFormatterID

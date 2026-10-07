@@ -20,8 +20,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -37,37 +35,28 @@ type PMSEvidenceSourceBindingResourceModel struct {
 	Policy               types.String `tfsdk:"policy"`
 	PolicyEvidenceSource types.String `tfsdk:"policy_evidence_source"`
 	EvidenceSourceID     types.String `tfsdk:"evidence_source_id"`
-	Attesters            types.String `tfsdk:"attesters"`
 	RunAs                types.String `tfsdk:"run_as"`
 }
 
-// PMSEvidenceSourceBindingTargetAPIModel is what a policy evidence slot is bound to: the
-// evidence source that gathers it plus the application that source acts as. How the
-// evidence is selected out of what arrives is the source's concern, and who an approval
-// source asks is the policy definition's concern, so neither is on the binding.
-type PMSEvidenceSourceBindingTargetAPIModel struct {
-	EvidenceSourceID string `json:"evidenceSourceId,omitempty"`
-	RunAs            string `json:"runAs,omitempty"`
+// PMSEvidenceSourceBindingAPIModel ties a policy evidence slot to the evidence source that
+// gathers it, plus the application that source acts as. How the evidence is selected out
+// of what arrives is the source's concern, and who an approval source asks is the policy
+// definition's concern, so neither is on the binding.
+type PMSEvidenceSourceBindingAPIModel struct {
+	ID                   string     `json:"id,omitempty"`
+	PolicyID             string     `json:"policyId,omitempty"`
+	PolicyEvidenceSource string     `json:"policyEvidenceSource,omitempty"`
+	EvidenceSourceID     string     `json:"evidenceSourceId,omitempty"`
+	RunAs                string     `json:"runAs,omitempty"`
+	Created              *time.Time `json:"created,omitempty"`
+	Updated              *time.Time `json:"updated,omitempty"`
 }
-
-// attestersDeprecation explains the attribute that remains in the schema only so that
-// configurations and states written against the earlier binding model keep working.
-const attestersDeprecation = "attesters is no longer part of an evidence source binding. Who an approval source asks is the policy definition's evidence attestation.attesters, a path into the version's constants. Remove this attribute; it is ignored."
 
 // PMSEvidenceSourceBindingPatchAPIModel is the sparse PATCH body: a field that is left
 // out is kept as stored, and an empty runAs clears it.
 type PMSEvidenceSourceBindingPatchAPIModel struct {
 	EvidenceSourceID *string `json:"evidenceSourceId,omitempty"`
 	RunAs            *string `json:"runAs,omitempty"`
-}
-
-type PMSEvidenceSourceBindingAPIModel struct {
-	ID                   string     `json:"id,omitempty"`
-	PolicyID             string     `json:"policyId,omitempty"`
-	PolicyEvidenceSource string     `json:"policyEvidenceSource,omitempty"`
-	Created              *time.Time `json:"created,omitempty"`
-	Updated              *time.Time `json:"updated,omitempty"`
-	PMSEvidenceSourceBindingTargetAPIModel
 }
 
 func PMSPolicyEvidenceSourceBindingResourceFactory() resource.Resource {
@@ -82,62 +71,44 @@ func (r *pms_evidenceSourceBindingResource) Metadata(_ context.Context, _ resour
 	resp.TypeName = "kaleido_platform_pms_policy_evidence_source_binding"
 }
 
-// evidenceSourceBindingTargetSchema is the set of attributes describing what a slot is
-// bound to.
-func evidenceSourceBindingTargetSchema() map[string]schema.Attribute {
-	return map[string]schema.Attribute{
-		"evidence_source_id": &schema.StringAttribute{
-			Required:    true,
-			Description: "ID of the kaleido_platform_pms_evidence_source that describes this slot's evidence. A slot whose evidence is seeded by a matcher, attached manually or supplied late-bound is bound to a source of type 'attachment'.",
-		},
-		"attesters": &schema.StringAttribute{
-			Optional:           true,
-			Computed:           true,
-			DeprecationMessage: attestersDeprecation,
-			Description:        "Deprecated and ignored. " + attestersDeprecation,
-			PlanModifiers:      []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-		},
-		"run_as": &schema.StringAttribute{
-			Optional:    true,
-			Description: "Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.",
-		},
-	}
-}
-
 func (r *pms_evidenceSourceBindingResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	attributes := map[string]schema.Attribute{
-		"id": &schema.StringAttribute{
-			Computed:      true,
-			Description:   "The binding ID assigned by the server",
-			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-		},
-		"environment": &schema.StringAttribute{
-			Required:      true,
-			Description:   "Environment ID",
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-		},
-		"service": &schema.StringAttribute{
-			Required:      true,
-			Description:   "Policy Manager service ID",
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-		},
-		"policy": &schema.StringAttribute{
-			Required:      true,
-			Description:   "Name or ID of the policy this binding belongs to",
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-		},
-		"policy_evidence_source": &schema.StringAttribute{
-			Required:      true,
-			Description:   "The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition. Immutable after create.",
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-		},
-	}
-	for name, attribute := range evidenceSourceBindingTargetSchema() {
-		attributes[name] = attribute
-	}
 	resp.Schema = schema.Schema{
 		Description: "Manages an evidence source binding on a Policy Manager policy. A binding ties one of the policy's evidence slots to a kaleido_platform_pms_evidence_source, plus the application that source acts as (run_as) when it calls out. Who an approval source asks is not part of the binding: it is the slot's attestation.attesters in the policy definition. An evidence source or policy version cannot be deleted while a binding refers to it, so declare bindings with depends_on or references that order them after both.",
-		Attributes:  attributes,
+		Attributes: map[string]schema.Attribute{
+			"id": &schema.StringAttribute{
+				Computed:      true,
+				Description:   "The binding ID assigned by the server",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"environment": &schema.StringAttribute{
+				Required:      true,
+				Description:   "Environment ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"service": &schema.StringAttribute{
+				Required:      true,
+				Description:   "Policy Manager service ID",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"policy": &schema.StringAttribute{
+				Required:      true,
+				Description:   "Name or ID of the policy this binding belongs to",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"policy_evidence_source": &schema.StringAttribute{
+				Required:      true,
+				Description:   "The name the policy uses for this binding: the 'source' field of an evidence slot in the policy definition. Immutable after create.",
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"evidence_source_id": &schema.StringAttribute{
+				Required:    true,
+				Description: "ID of the kaleido_platform_pms_evidence_source that describes this slot's evidence. A slot whose evidence is seeded by a matcher, attached manually or supplied late-bound is bound to a source of type 'attachment'.",
+			},
+			"run_as": &schema.StringAttribute{
+				Optional:    true,
+				Description: "Application ID the source acts as when it calls out. Required when bound to a serviceRequest or workflow source.",
+			},
+		},
 	}
 }
 
@@ -154,52 +125,19 @@ func (r *pms_evidenceSourceBindingResource) instancePath(data *PMSEvidenceSource
 	return fmt.Sprintf("%s/%s", r.listPath(data), data.ID.ValueString())
 }
 
-// evidenceSourceBindingTargetToAPI builds the wire target from the target attributes.
-func evidenceSourceBindingTargetToAPI(attrs map[string]attr.Value) PMSEvidenceSourceBindingTargetAPIModel {
-	return PMSEvidenceSourceBindingTargetAPIModel{
-		EvidenceSourceID: stringAttr(attrs, "evidence_source_id"),
-		RunAs:            stringAttr(attrs, "run_as"),
-	}
-}
-
-// evidenceSourceBindingTargetToData renders the wire target as terraform attribute
-// values, keyed as the schema names them. The deprecated attesters attribute is not on
-// the wire: its state is whatever the configuration or prior state held, carried through
-// from the planned value, so a server that still stores a legacy value cannot disturb it.
-func evidenceSourceBindingTargetToData(target *PMSEvidenceSourceBindingTargetAPIModel, plannedAttesters attr.Value) map[string]attr.Value {
-	attesters := types.StringNull()
-	if s, ok := plannedAttesters.(types.String); ok && !s.IsUnknown() {
-		attesters = s
-	}
-	return map[string]attr.Value{
-		"evidence_source_id": optionalString(target.EvidenceSourceID),
-		"attesters":          attesters,
-		"run_as":             optionalString(target.RunAs),
-	}
-}
-
-func (r *pms_evidenceSourceBindingResource) targetAttrs(data *PMSEvidenceSourceBindingResourceModel) map[string]attr.Value {
-	return map[string]attr.Value{
-		"evidence_source_id": data.EvidenceSourceID,
-		"attesters":          data.Attesters,
-		"run_as":             data.RunAs,
-	}
-}
-
 func (r *pms_evidenceSourceBindingResource) toAPI(data *PMSEvidenceSourceBindingResourceModel, api *PMSEvidenceSourceBindingAPIModel) {
 	api.PolicyEvidenceSource = data.PolicyEvidenceSource.ValueString()
-	api.PMSEvidenceSourceBindingTargetAPIModel = evidenceSourceBindingTargetToAPI(r.targetAttrs(data))
+	api.EvidenceSourceID = data.EvidenceSourceID.ValueString()
+	api.RunAs = data.RunAs.ValueString()
 }
 
-func (r *pms_evidenceSourceBindingResource) toData(api *PMSEvidenceSourceBindingAPIModel, data *PMSEvidenceSourceBindingResourceModel, _ *diag.Diagnostics) {
+func (r *pms_evidenceSourceBindingResource) toData(api *PMSEvidenceSourceBindingAPIModel, data *PMSEvidenceSourceBindingResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	if api.PolicyEvidenceSource != "" {
 		data.PolicyEvidenceSource = types.StringValue(api.PolicyEvidenceSource)
 	}
-	values := evidenceSourceBindingTargetToData(&api.PMSEvidenceSourceBindingTargetAPIModel, data.Attesters)
-	data.EvidenceSourceID = values["evidence_source_id"].(types.String)
-	data.Attesters = values["attesters"].(types.String)
-	data.RunAs = values["run_as"].(types.String)
+	data.EvidenceSourceID = optionalString(api.EvidenceSourceID)
+	data.RunAs = optionalString(api.RunAs)
 }
 
 func (r *pms_evidenceSourceBindingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -217,7 +155,7 @@ func (r *pms_evidenceSourceBindingResource) Create(ctx context.Context, req reso
 		return
 	}
 
-	r.toData(&api, &data, &resp.Diagnostics)
+	r.toData(&api, &data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -238,7 +176,7 @@ func (r *pms_evidenceSourceBindingResource) Read(ctx context.Context, req resour
 		return
 	}
 
-	r.toData(&api, &data, &resp.Diagnostics)
+	r.toData(&api, &data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -261,22 +199,13 @@ func (r *pms_evidenceSourceBindingResource) Update(ctx context.Context, req reso
 		EvidenceSourceID: patchString(data.EvidenceSourceID, state.EvidenceSourceID),
 		RunAs:            patchString(data.RunAs, state.RunAs),
 	}
-	if patch == (PMSEvidenceSourceBindingPatchAPIModel{}) {
-		// Only the deprecated attesters attribute changed, and it is not on the wire
-		if data.Attesters.IsUnknown() {
-			data.Attesters = types.StringNull()
-		}
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-		return
-	}
-
 	var api PMSEvidenceSourceBindingAPIModel
 	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.instancePath(&data), &patch, &api, &resp.Diagnostics)
 	if !ok {
 		return
 	}
 
-	r.toData(&api, &data, &resp.Diagnostics)
+	r.toData(&api, &data)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
