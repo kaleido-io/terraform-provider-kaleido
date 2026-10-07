@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -88,7 +87,7 @@ var verificationMethodAttrTypes = map[string]attr.Type{
 	"type":                 types.StringType,
 	"controller":           types.StringType,
 	"public_key_multibase": types.StringType,
-	"public_key_jwk_json":  types.StringType,
+	"public_key_jwk_json":  jsonStringType{},
 	"ethereum_address":     types.StringType,
 	"created":              types.StringType,
 	"expires":              types.StringType,
@@ -101,7 +100,7 @@ var notificationMethodAttrTypes = map[string]attr.Type{
 	"id":         types.StringType,
 	"name":       types.StringType,
 	"type":       types.StringType,
-	"value_json": types.StringType,
+	"value_json": jsonStringType{},
 }
 
 func PMSIdentityResourceFactory() resource.Resource {
@@ -182,6 +181,7 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 							Description: "Multibase-encoded public key, for type Multikey. For secp256k1/Ethereum: 0xe701 varint prefix + 33-byte compressed key, base58btc-encoded with a 'z' header.",
 						},
 						"public_key_jwk_json": &schema.StringAttribute{
+							CustomType:  jsonStringType{},
 							Optional:    true,
 							Description: "JWK-encoded public key as a JSON string (use jsonencode), for type JsonWebKey (RFC 7517). For Ethereum signing: {kty:EC, crv:secp256k1, x:..., y:...}",
 						},
@@ -227,6 +227,7 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 							Description: "Type of the notification method, e.g. 'workflow' or 'email'",
 						},
 						"value_json": &schema.StringAttribute{
+							CustomType:  jsonStringType{},
 							Computed:    true,
 							Description: "The type-specific configuration of the notification method, as a JSON string",
 						},
@@ -360,13 +361,7 @@ func (r *policyIdentityResource) toAPI(data *PolicyIdentityResourceModel, api *P
 			EthereumAddress:    stringAttr(attrs, "ethereum_address"),
 			KeyURI:             stringAttr(attrs, "key_uri"),
 		}
-		if jwk := stringAttr(attrs, "public_key_jwk_json"); jwk != "" {
-			if !json.Valid([]byte(jwk)) {
-				diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse verification method public_key_jwk_json: %s", jwk))
-				return
-			}
-			vm.PublicKeyJwk = json.RawMessage(jwk)
-		}
+		vm.PublicKeyJwk = jsonAttrToAPI(attrs, "public_key_jwk_json")
 		if expires := stringAttr(attrs, "expires"); expires != "" {
 			t, err := time.Parse(time.RFC3339, expires)
 			if err != nil {
@@ -421,20 +416,8 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 		return
 	}
 
-	priorVMs := data.VerificationMethods.Elements()
 	verificationMethods := make([]attr.Value, len(api.VerificationMethods))
 	for i, vm := range api.VerificationMethods {
-		var priorJwk types.String
-		if i < len(priorVMs) {
-			if obj, ok := priorVMs[i].(types.Object); ok {
-				if val, ok := obj.Attributes()["public_key_jwk_json"]; ok {
-					if str, ok := val.(types.String); ok {
-						priorJwk = str
-					}
-				}
-			}
-		}
-		publicKeyJwk := preserveJSONFormatting(priorJwk, vm.PublicKeyJwk)
 		attrs := map[string]attr.Value{
 			"id":                   types.StringValue(vm.ID),
 			"identity_id":          types.StringValue(vm.IdentityID),
@@ -442,7 +425,7 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 			"type":                 optionalString(vm.Type),
 			"controller":           optionalString(vm.Controller),
 			"public_key_multibase": optionalString(vm.PublicKeyMultibase),
-			"public_key_jwk_json":  publicKeyJwk,
+			"public_key_jwk_json":  jsonFromAPI(vm.PublicKeyJwk),
 			"ethereum_address":     optionalString(vm.EthereumAddress),
 			"key_uri":              optionalString(vm.KeyURI),
 			"created":              timeAttr(vm.Created),
@@ -464,45 +447,16 @@ func (r *policyIdentityResource) notificationMethodsToData(api *PolicyIdentityAP
 	}
 	notificationMethods := make([]attr.Value, len(api.NotificationMethods))
 	for i, nm := range api.NotificationMethods {
-		valueJSON := types.StringNull()
-		if nm.Value != nil {
-			valueJSON = types.StringValue(string(nm.Value))
-		}
 		obj, diags := types.ObjectValue(notificationMethodAttrTypes, map[string]attr.Value{
 			"id":         types.StringValue(nm.ID),
 			"name":       optionalString(nm.Name),
 			"type":       optionalString(nm.Type),
-			"value_json": valueJSON,
+			"value_json": jsonFromAPI(nm.Value),
 		})
 		diagnostics.Append(diags...)
 		notificationMethods[i] = obj
 	}
 	data.NotificationMethods = types.ListValueMust(types.ObjectType{AttrTypes: notificationMethodAttrTypes}, notificationMethods)
-}
-
-// preserveJSONFormatting keeps the configured JSON string when the API returns the same
-// value formatted differently. The server re-serializes a JWK with its keys sorted, so a
-// byte comparison against the configured string would otherwise report a change that is
-// not one.
-func preserveJSONFormatting(configured types.String, apiValue json.RawMessage) types.String {
-	if len(apiValue) == 0 {
-		return types.StringNull()
-	}
-	if !configured.IsNull() && !configured.IsUnknown() &&
-		jsonSemanticallyEqual([]byte(configured.ValueString()), apiValue) {
-		return configured
-	}
-	return types.StringValue(string(apiValue))
-}
-
-// jsonSemanticallyEqual reports whether two JSON documents differ only in key order or
-// whitespace.
-func jsonSemanticallyEqual(a, b []byte) bool {
-	var aVal, bVal interface{}
-	if json.Unmarshal(a, &aVal) != nil || json.Unmarshal(b, &bVal) != nil {
-		return false
-	}
-	return reflect.DeepEqual(aVal, bVal)
 }
 
 // optionalString renders an API string as a terraform string, mapping empty to null

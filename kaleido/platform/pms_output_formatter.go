@@ -166,7 +166,7 @@ func (r *pms_outputFormatterResource) toData(api *PMSOutputFormatterAPIModel, da
 	if api.Mapping != nil {
 		data.MappingRego = types.StringValue(api.Mapping.Rego)
 	}
-	data.Parameters = pmsParametersToData(api.Parameters, data.Parameters, diagnostics)
+	data.Parameters = pmsParametersToData(api.Parameters, diagnostics)
 	data.Created = timeAttr(api.Created)
 	data.Updated = timeAttr(api.Updated)
 }

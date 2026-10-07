@@ -14,6 +14,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"strings"
@@ -336,6 +337,67 @@ func TestPMSEvidenceSourceWorkflow(t *testing.T) {
 	})
 }
 
+// pms_es_workflow_handwritten writes its JSON by hand, in a key order and layout the
+// server does not keep, with an amount too large for a float64
+var pms_es_workflow_handwritten = `
+resource "kaleido_platform_pms_evidence_source" "transfer" {
+  environment = "test-env"
+  service = "test-service"
+  name = "transfer"
+  type = "workflow"
+  workflow = {
+    transaction_template_json = <<-EOT
+      {
+        "workflow": "flw:9kxviy9izf",
+        "operation": "transfer",
+        "amount": 1000000000000000000001
+      }
+    EOT
+  }
+}
+`
+
+func TestPMSEvidenceSourceJSONKeptAsWritten(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer func() {
+		mp.checkClearCalls([]string{
+			"POST /endpoint/{env}/{service}/rest/api/v2/evidence-sources",
+			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			"GET /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+			"DELETE /endpoint/{env}/{service}/rest/api/v2/evidence-sources/{evidenceSource}",
+		})
+		mp.server.Close()
+	}()
+
+	esResource := "kaleido_platform_pms_evidence_source.transfer"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + pms_es_workflow_handwritten,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// The server's re-serialisation means the same value, so the configured text is kept
+					resource.TestCheckResourceAttr(esResource, "workflow.transaction_template_json",
+						"{\n  \"workflow\": \"flw:9kxviy9izf\",\n  \"operation\": \"transfer\",\n  \"amount\": 1000000000000000000001\n}\n"),
+					func(s *terraform.State) error {
+						id := s.RootModule().Resources[esResource].Primary.Attributes["id"]
+						stored := string(mp.pmsEvidenceSources[id].Workflow.TransactionTemplate)
+						assert.Equal(t, `{"amount":1000000000000000000001,"operation":"transfer","workflow":"flw:9kxviy9izf"}`, stored,
+							"the amount must reach the server without losing precision")
+						return nil
+					},
+				),
+			},
+			{
+				Config:             providerConfig + pms_es_workflow_handwritten,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
 var pms_es_type_mismatch = `
 resource "kaleido_platform_pms_evidence_source" "mismatch" {
   environment = "test-env"
@@ -496,11 +558,16 @@ func deriveApprovalSchema(source *PMSEvidenceSourceAPIModel) {
 		return
 	}
 	typed := source.Approval.Responses.Approve.TypedDataV4
+	var types map[string][]struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(typed.Types, &types)
 	properties := map[string]interface{}{}
-	for _, member := range typed.Types[typed.PrimaryType] {
+	for _, member := range types[typed.PrimaryType] {
 		properties[member.Name] = map[string]interface{}{"type": "string"}
 	}
-	source.Schema = map[string]interface{}{"type": "object", "properties": properties}
+	// The server serialises the derived schema with its keys sorted
+	source.Schema, _ = json.Marshal(map[string]interface{}{"type": "object", "properties": properties})
 }
 
 func (mp *mockPlatform) postPMSEvidenceSource(res http.ResponseWriter, req *http.Request) {
@@ -510,6 +577,9 @@ func (mp *mockPlatform) postPMSEvidenceSource(res http.ResponseWriter, req *http
 	source.ID = "pes:" + nanoid.New()
 	// The server stores an FFEnum lowercased.
 	source.Type = strings.ToLower(source.Type)
+	if source.Workflow != nil {
+		source.Workflow.TransactionTemplate = mp.reserialiseJSON(source.Workflow.TransactionTemplate)
+	}
 	deriveApprovalSchema(&source)
 	source.Created = &now
 	source.Updated = &now
@@ -551,7 +621,7 @@ func (mp *mockPlatform) patchPMSEvidenceSource(res http.ResponseWriter, req *htt
 	if updates.Description != nil {
 		source.Description = *updates.Description
 	}
-	if updates.Schema != nil {
+	if pmsPatchHasValue(updates.Schema) {
 		source.Schema = updates.Schema
 	}
 	// A mapping with no expression clears the stored one

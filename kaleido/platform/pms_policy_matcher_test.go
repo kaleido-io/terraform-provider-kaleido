@@ -195,10 +195,10 @@ func (mp *mockPlatform) patchPMSPolicyMatcher(res http.ResponseWriter, req *http
 	}
 	var updates PMSPolicyMatcherPatchAPIModel
 	mp.recordPMSPatchBody(req, &updates)
-	if updates.Match != nil {
+	if pmsPatchHasValue(updates.Match) {
 		matcher.Match = updates.Match
 	}
-	if updates.Parameters != nil {
+	if pmsPatchHasValue(updates.Parameters) {
 		matcher.Parameters = updates.Parameters
 	}
 	now := time.Now().UTC()

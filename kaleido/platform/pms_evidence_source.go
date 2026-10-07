@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"reflect"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -42,33 +41,28 @@ const (
 )
 
 type PMSEvidenceSourceResourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	Environment        types.String `tfsdk:"environment"`
-	Service            types.String `tfsdk:"service"`
-	Name               types.String `tfsdk:"name"`
-	Description        types.String `tfsdk:"description"`
-	SchemaJSON         types.String `tfsdk:"schema_json"`
-	PayloadJSONata     types.String `tfsdk:"payload_jsonata"`
-	AttestationJSONata types.String `tfsdk:"attestation_jsonata"`
-	Parameters         types.List   `tfsdk:"parameter"`
-	Type               types.String `tfsdk:"type"`
-	Approval           types.Object `tfsdk:"approval"`
-	ServiceRequest     types.Object `tfsdk:"service_request"`
-	Workflow           types.Object `tfsdk:"workflow"`
+	ID                 types.String    `tfsdk:"id"`
+	Environment        types.String    `tfsdk:"environment"`
+	Service            types.String    `tfsdk:"service"`
+	Name               types.String    `tfsdk:"name"`
+	Description        types.String    `tfsdk:"description"`
+	SchemaJSON         jsonStringValue `tfsdk:"schema_json"`
+	PayloadJSONata     types.String    `tfsdk:"payload_jsonata"`
+	AttestationJSONata types.String    `tfsdk:"attestation_jsonata"`
+	Parameters         types.List      `tfsdk:"parameter"`
+	Type               types.String    `tfsdk:"type"`
+	Approval           types.Object    `tfsdk:"approval"`
+	ServiceRequest     types.Object    `tfsdk:"service_request"`
+	Workflow           types.Object    `tfsdk:"workflow"`
 }
 
 // PMSTypedDataV4ResponseAPIModel describes the EIP-712 document an approver signs for a
 // response: the struct types declared inline, the primary type, and the JSONata that builds
 // the message from {request, decision}.
 type PMSTypedDataV4ResponseAPIModel struct {
-	Types          map[string][]PMSEIP712TypeMemberAPIModel `json:"types"`
-	PrimaryType    string                                   `json:"primaryType"`
-	MessageMapping *JSONataMappingAPI                       `json:"messageMapping,omitempty"`
-}
-
-type PMSEIP712TypeMemberAPIModel struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Types          json.RawMessage    `json:"types"`
+	PrimaryType    string             `json:"primaryType"`
+	MessageMapping *JSONataMappingAPI `json:"messageMapping,omitempty"`
 }
 
 type PMSApprovalResponseAPIModel struct {
@@ -104,14 +98,14 @@ type JSONataMappingRaw string
 type PMSServiceRequestEvidenceSourceAPIModel struct {
 	Service        string                                   `json:"service,omitempty"`
 	Type           string                                   `json:"type,omitempty"`
-	Options        map[string]interface{}                   `json:"options,omitempty"`
+	Options        json.RawMessage                          `json:"options,omitempty"`
 	DynamicOptions *PMSServiceRequestDynamicOptionsAPIModel `json:"dynamicOptions,omitempty"`
 }
 
 type PMSWorkflowEvidenceSourceAPIModel struct {
-	Workflow            string                 `json:"workflow,omitempty"`
-	Operation           string                 `json:"operation,omitempty"`
-	TransactionTemplate map[string]interface{} `json:"transactionTemplate,omitempty"`
+	Workflow            string          `json:"workflow,omitempty"`
+	Operation           string          `json:"operation,omitempty"`
+	TransactionTemplate json.RawMessage `json:"transactionTemplate,omitempty"`
 }
 
 // PMSEvidenceSourceAPIModel is an evidence source on the wire. Schema is the JSON Schema of
@@ -124,7 +118,7 @@ type PMSEvidenceSourceAPIModel struct {
 	ID                 string                                   `json:"id,omitempty"`
 	Name               string                                   `json:"name,omitempty"`
 	Description        string                                   `json:"description,omitempty"`
-	Schema             map[string]interface{}                   `json:"schema,omitempty"`
+	Schema             json.RawMessage                          `json:"schema,omitempty"`
 	PayloadMapping     *JSONataMappingAPI                       `json:"payloadMapping,omitempty"`
 	AttestationMapping *JSONataMappingAPI                       `json:"attestationMapping,omitempty"`
 	Parameters         []PMSParameterAPIModel                   `json:"parameters,omitempty"`
@@ -142,7 +136,7 @@ type PMSEvidenceSourceAPIModel struct {
 // sent, which is how parameters are cleared; nil marshals as null, which leaves them alone.
 type PMSEvidenceSourcePatchAPIModel struct {
 	Description        *string                                  `json:"description,omitempty"`
-	Schema             map[string]interface{}                   `json:"schema"`
+	Schema             json.RawMessage                          `json:"schema"`
 	PayloadMapping     *JSONataMappingAPI                       `json:"payloadMapping,omitempty"`
 	AttestationMapping *JSONataMappingAPI                       `json:"attestationMapping,omitempty"`
 	Parameters         []PMSParameterAPIModel                   `json:"parameters"`
@@ -152,7 +146,7 @@ type PMSEvidenceSourcePatchAPIModel struct {
 }
 
 var esResponseAttrTypes = map[string]attr.Type{
-	"types_json":      types.StringType,
+	"types_json":      jsonStringType{},
 	"primary_type":    types.StringType,
 	"message_jsonata": types.StringType,
 }
@@ -174,14 +168,14 @@ var esDynamicOptionsAttrTypes = map[string]attr.Type{
 var esServiceRequestAttrTypes = map[string]attr.Type{
 	"service":         types.StringType,
 	"type":            types.StringType,
-	"options_json":    types.StringType,
+	"options_json":    jsonStringType{},
 	"dynamic_options": types.ObjectType{AttrTypes: esDynamicOptionsAttrTypes},
 }
 
 var esWorkflowAttrTypes = map[string]attr.Type{
 	"workflow":                  types.StringType,
 	"operation":                 types.StringType,
-	"transaction_template_json": types.StringType,
+	"transaction_template_json": jsonStringType{},
 }
 
 func PMSEvidenceSourceResourceFactory() resource.Resource {
@@ -202,6 +196,7 @@ func approvalResponseSchema(description string) *schema.SingleNestedAttribute {
 		Description: description + " The approver signs an EIP-712 (TypedDataV4) document built from these attributes; a 'decisionId' string member is added to the primary type.",
 		Attributes: map[string]schema.Attribute{
 			"types_json": &schema.StringAttribute{
+				CustomType:  jsonStringType{},
 				Required:    true,
 				Description: "The EIP-712 struct types (use jsonencode), keyed by type name, each a list of {name, type} members",
 			},
@@ -246,6 +241,7 @@ func (r *pms_evidenceSourceResource) Schema(_ context.Context, _ resource.Schema
 				Description: "Description of the evidence source",
 			},
 			"schema_json": &schema.StringAttribute{
+				CustomType:  jsonStringType{},
 				Optional:    true,
 				Computed:    true,
 				Description: "JSON Schema (use jsonencode) of one item of the evidence this source produces, read by the policy composer for the slots bound to it. Set it for a 'serviceRequest' or 'workflow' source, and always for an 'attachment' source. Leave it unset for an 'approval' source: the server derives it from the typed data of the responses, and it is reported here.",
@@ -294,6 +290,7 @@ func (r *pms_evidenceSourceResource) Schema(_ context.Context, _ resource.Schema
 						Description: "The service type the named service is expected to be, e.g. 'WalletManagerService'",
 					},
 					"options_json": &schema.StringAttribute{
+						CustomType:  jsonStringType{},
 						Optional:    true,
 						Description: "Static request options (use jsonencode): method, path, endpoint, headers, query, body, allowFailStatus",
 					},
@@ -322,6 +319,7 @@ func (r *pms_evidenceSourceResource) Schema(_ context.Context, _ resource.Schema
 						Description: "The workflow operation to dispatch when sourcing evidence",
 					},
 					"transaction_template_json": &schema.StringAttribute{
+						CustomType:  jsonStringType{},
 						Optional:    true,
 						Description: "Transaction template (use jsonencode) describing how to submit the transaction: workflow, operation and a 'jsonata' input mapping evaluated against {request, decision}",
 					},
@@ -400,36 +398,6 @@ func objectAttr(attrs map[string]attr.Value, name string) (types.Object, bool) {
 	return obj, ok
 }
 
-func jsonAttr(attrs map[string]attr.Value, name string, diagnostics *diag.Diagnostics) map[string]interface{} {
-	raw := stringAttr(attrs, name)
-	if raw == "" {
-		return nil
-	}
-	var out map[string]interface{}
-	if err := json.Unmarshal([]byte(raw), &out); err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("%s is not a JSON object: %s", name, err))
-		return nil
-	}
-	return out
-}
-
-// jsonToAttr renders a decoded JSON value for a *_json attribute. A nil or empty map or
-// slice is absent, not the string "null": the server omits the field, so the attribute
-// stays null and matches an operator who never set it.
-func jsonToAttr(value interface{}) types.String {
-	if value == nil {
-		return types.StringNull()
-	}
-	if rv := reflect.ValueOf(value); (rv.Kind() == reflect.Map || rv.Kind() == reflect.Slice) && rv.Len() == 0 {
-		return types.StringNull()
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return types.StringNull()
-	}
-	return types.StringValue(string(b))
-}
-
 func approvalResponseToAPI(val attr.Value, diagnostics *diag.Diagnostics) *PMSApprovalResponseAPIModel {
 	if val == nil || val.IsNull() || val.IsUnknown() {
 		return nil
@@ -439,12 +407,9 @@ func approvalResponseToAPI(val attr.Value, diagnostics *diag.Diagnostics) *PMSAp
 		return nil
 	}
 	attrs := obj.Attributes()
-	typedData := &PMSTypedDataV4ResponseAPIModel{PrimaryType: stringAttr(attrs, "primary_type")}
-	if raw := stringAttr(attrs, "types_json"); raw != "" {
-		if err := json.Unmarshal([]byte(raw), &typedData.Types); err != nil {
-			diagnostics.AddError("Invalid JSON", fmt.Sprintf("types_json is not a map of EIP-712 types: %s", err))
-			return nil
-		}
+	typedData := &PMSTypedDataV4ResponseAPIModel{
+		PrimaryType: stringAttr(attrs, "primary_type"),
+		Types:       jsonAttrToAPI(attrs, "types_json"),
 	}
 	if jsonata := stringAttr(attrs, "message_jsonata"); jsonata != "" {
 		typedData.MessageMapping = &JSONataMappingAPI{JSONata: jsonata}
@@ -457,7 +422,7 @@ func approvalResponseToData(response *PMSApprovalResponseAPIModel, diagnostics *
 		return types.ObjectNull(esResponseAttrTypes)
 	}
 	obj, diags := types.ObjectValue(esResponseAttrTypes, map[string]attr.Value{
-		"types_json":      jsonToAttr(response.TypedDataV4.Types),
+		"types_json":      jsonObjectFromAPI(response.TypedDataV4.Types),
 		"primary_type":    optionalString(response.TypedDataV4.PrimaryType),
 		"message_jsonata": jsonataAttr(response.TypedDataV4.MessageMapping),
 	})
@@ -520,7 +485,7 @@ func esServiceRequestToAPI(serviceRequest types.Object, diagnostics *diag.Diagno
 	result := &PMSServiceRequestEvidenceSourceAPIModel{
 		Service: stringAttr(attrs, "service"),
 		Type:    stringAttr(attrs, "type"),
-		Options: jsonAttr(attrs, "options_json", diagnostics),
+		Options: jsonAttrToAPI(attrs, "options_json"),
 	}
 	if dyn, ok := objectAttr(attrs, "dynamic_options"); ok {
 		dynAttrs := dyn.Attributes()
@@ -552,7 +517,7 @@ func esServiceRequestToData(sr *PMSServiceRequestEvidenceSourceAPIModel, diagnos
 	obj, diags := types.ObjectValue(esServiceRequestAttrTypes, map[string]attr.Value{
 		"service":         optionalString(sr.Service),
 		"type":            optionalString(sr.Type),
-		"options_json":    jsonToAttr(sr.Options),
+		"options_json":    jsonObjectFromAPI(sr.Options),
 		"dynamic_options": dynamic,
 	})
 	diagnostics.Append(diags...)
@@ -567,7 +532,7 @@ func esWorkflowToAPI(workflow types.Object, diagnostics *diag.Diagnostics) *PMSW
 	return &PMSWorkflowEvidenceSourceAPIModel{
 		Workflow:            stringAttr(attrs, "workflow"),
 		Operation:           stringAttr(attrs, "operation"),
-		TransactionTemplate: jsonAttr(attrs, "transaction_template_json", diagnostics),
+		TransactionTemplate: jsonAttrToAPI(attrs, "transaction_template_json"),
 	}
 }
 
@@ -578,7 +543,7 @@ func esWorkflowToData(wf *PMSWorkflowEvidenceSourceAPIModel, diagnostics *diag.D
 	obj, diags := types.ObjectValue(esWorkflowAttrTypes, map[string]attr.Value{
 		"workflow":                  optionalString(wf.Workflow),
 		"operation":                 optionalString(wf.Operation),
-		"transaction_template_json": jsonToAttr(wf.TransactionTemplate),
+		"transaction_template_json": jsonObjectFromAPI(wf.TransactionTemplate),
 	})
 	diagnostics.Append(diags...)
 	return obj
@@ -591,9 +556,7 @@ func (r *pms_evidenceSourceResource) toAPI(data *PMSEvidenceSourceResourceModel,
 	}
 	api.Name = data.Name.ValueString()
 	api.Description = data.Description.ValueString()
-	if isSet(data.SchemaJSON) {
-		api.Schema = jsonAttr(map[string]attr.Value{"schema_json": data.SchemaJSON}, "schema_json", diagnostics)
-	}
+	api.Schema = jsonToAPI(data.SchemaJSON)
 	if jsonata := data.PayloadJSONata.ValueString(); jsonata != "" {
 		api.PayloadMapping = &JSONataMappingAPI{JSONata: jsonata}
 	}
@@ -613,8 +576,8 @@ func (r *pms_evidenceSourceResource) toAPI(data *PMSEvidenceSourceResourceModel,
 // source.
 func (r *pms_evidenceSourceResource) toPatchAPI(data, state *PMSEvidenceSourceResourceModel, diagnostics *diag.Diagnostics) *PMSEvidenceSourcePatchAPIModel {
 	patch := &PMSEvidenceSourcePatchAPIModel{Description: patchString(data.Description, state.Description)}
-	if patchChanged(data.SchemaJSON, state.SchemaJSON) && isSet(data.SchemaJSON) {
-		patch.Schema = jsonAttr(map[string]attr.Value{"schema_json": data.SchemaJSON}, "schema_json", diagnostics)
+	if patchChanged(data.SchemaJSON, state.SchemaJSON) {
+		patch.Schema = jsonToAPI(data.SchemaJSON)
 	}
 	if patchChanged(data.PayloadJSONata, state.PayloadJSONata) {
 		patch.PayloadMapping = &JSONataMappingAPI{JSONata: data.PayloadJSONata.ValueString()}
@@ -646,10 +609,10 @@ func (r *pms_evidenceSourceResource) toData(api *PMSEvidenceSourceAPIModel, data
 		data.Name = types.StringValue(api.Name)
 	}
 	data.Description = optionalString(api.Description)
-	data.SchemaJSON = jsonAnyToAttr(data.SchemaJSON, api.Schema)
+	data.SchemaJSON = jsonFromAPI(api.Schema)
 	data.PayloadJSONata = jsonataAttr(api.PayloadMapping)
 	data.AttestationJSONata = jsonataAttr(api.AttestationMapping)
-	data.Parameters = pmsParametersToData(api.Parameters, data.Parameters, diagnostics)
+	data.Parameters = pmsParametersToData(api.Parameters, diagnostics)
 	// The wire value of an FFEnum is lowercased; keep the configured spelling.
 	if data.Type.IsNull() || data.Type.IsUnknown() {
 		data.Type = types.StringValue(api.Type)

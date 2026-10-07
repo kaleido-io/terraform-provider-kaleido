@@ -553,6 +553,27 @@ func (mp *mockPlatform) recordPMSPatchBody(req *http.Request, updates interface{
 	return rawBody
 }
 
+// reserialiseJSON stores a JSON value the way a server does: decoded and encoded again,
+// so keys are sorted and whitespace is dropped, but numbers keep every digit.
+func (mp *mockPlatform) reserialiseJSON(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var value interface{}
+	assert.NoError(mp.t, decoder.Decode(&value))
+	out, err := json.Marshal(value)
+	assert.NoError(mp.t, err)
+	return out
+}
+
+// pmsPatchHasValue reports whether a raw JSON field of a PATCH body carries a value. As
+// on the server, a field that is null is the same as one left out.
+func pmsPatchHasValue(raw json.RawMessage) bool {
+	return len(raw) > 0 && string(raw) != "null"
+}
+
 // lastPMSPatchBody is the most recent Policy Manager PATCH body, or nil if there was none.
 func (mp *mockPlatform) lastPMSPatchBody() map[string]interface{} {
 	if len(mp.pmsPatchBodies) == 0 {

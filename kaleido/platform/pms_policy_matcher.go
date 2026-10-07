@@ -35,14 +35,14 @@ import (
 )
 
 type PMSPolicyMatcherResourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	Environment      types.String `tfsdk:"environment"`
-	Service          types.String `tfsdk:"service"`
-	Policy           types.String `tfsdk:"policy"`
-	EnforcementPoint types.String `tfsdk:"enforcement_point"`
-	MatchJSON        types.String `tfsdk:"match_json"`
-	ParametersJSON   types.String `tfsdk:"parameters_json"`
-	Evidence         types.List   `tfsdk:"evidence"`
+	ID               types.String    `tfsdk:"id"`
+	Environment      types.String    `tfsdk:"environment"`
+	Service          types.String    `tfsdk:"service"`
+	Policy           types.String    `tfsdk:"policy"`
+	EnforcementPoint types.String    `tfsdk:"enforcement_point"`
+	MatchJSON        jsonStringValue `tfsdk:"match_json"`
+	ParametersJSON   jsonStringValue `tfsdk:"parameters_json"`
+	Evidence         types.List      `tfsdk:"evidence"`
 }
 
 type PMSMatcherEvidenceMappingAPIModel struct {
@@ -61,8 +61,8 @@ type PMSPolicyMatcherAPIModel struct {
 	ID               string                              `json:"id,omitempty"`
 	PolicyID         string                              `json:"policyId,omitempty"`
 	EnforcementPoint string                              `json:"enforcementPoint,omitempty"`
-	Match            map[string]interface{}              `json:"match,omitempty"`
-	Parameters       map[string]interface{}              `json:"parameters,omitempty"`
+	Match            json.RawMessage                     `json:"match,omitempty"`
+	Parameters       json.RawMessage                     `json:"parameters,omitempty"`
 	Evidence         []PMSMatcherEvidenceMappingAPIModel `json:"evidence,omitempty"`
 	Created          *time.Time                          `json:"created,omitempty"`
 	Updated          *time.Time                          `json:"updated,omitempty"`
@@ -72,8 +72,8 @@ type PMSPolicyMatcherAPIModel struct {
 // are immutable after create. A field that is null is kept as stored, so neither carries
 // omitempty: an empty parameters map is sent to clear the parameters.
 type PMSPolicyMatcherPatchAPIModel struct {
-	Match      map[string]interface{} `json:"match"`
-	Parameters map[string]interface{} `json:"parameters"`
+	Match      json.RawMessage `json:"match"`
+	Parameters json.RawMessage `json:"parameters"`
 }
 
 var matcherEvidenceAttrTypes = map[string]attr.Type{
@@ -125,10 +125,12 @@ func (r *pms_policy_matcherResource) Schema(_ context.Context, _ resource.Schema
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"match_json": &schema.StringAttribute{
+				CustomType:  jsonStringType{},
 				Required:    true,
 				Description: "A JSON query expression (use jsonencode) evaluated against the fields and 'label.<name>' labels of the object at the enforcement point",
 			},
 			"parameters_json": &schema.StringAttribute{
+				CustomType:  jsonStringType{},
 				Optional:    true,
 				Description: "Values (use jsonencode) for the parameters declared by the policy definition",
 			},
@@ -172,11 +174,8 @@ func (r *pms_policy_matcherResource) instancePath(data *PMSPolicyMatcherResource
 
 func (r *pms_policy_matcherResource) toAPI(data *PMSPolicyMatcherResourceModel, api *PMSPolicyMatcherAPIModel, diagnostics *diag.Diagnostics) {
 	api.EnforcementPoint = data.EnforcementPoint.ValueString()
-	api.Match = jsonObjectFromString(data.MatchJSON, "match_json", diagnostics)
-	api.Parameters = jsonObjectFromString(data.ParametersJSON, "parameters_json", diagnostics)
-	if diagnostics.HasError() {
-		return
-	}
+	api.Match = jsonToAPI(data.MatchJSON)
+	api.Parameters = jsonToAPI(data.ParametersJSON)
 
 	if data.Evidence.IsNull() || data.Evidence.IsUnknown() {
 		return
@@ -200,39 +199,13 @@ func (r *pms_policy_matcherResource) toAPI(data *PMSPolicyMatcherResourceModel, 
 	api.Evidence = evidence
 }
 
-// jsonObjectFromString unmarshals an optional JSON-string attribute into a map.
-func jsonObjectFromString(v types.String, attrName string, diagnostics *diag.Diagnostics) map[string]interface{} {
-	if v.IsNull() || v.IsUnknown() || v.ValueString() == "" {
-		return nil
-	}
-	obj := make(map[string]interface{})
-	if err := json.Unmarshal([]byte(v.ValueString()), &obj); err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to parse %s: %v.  %s", attrName, err, v.ValueString()))
-		return nil
-	}
-	return obj
-}
-
-// jsonStringFromObject renders a map back to a JSON-string attribute value.
-func jsonStringFromObject(obj map[string]interface{}, attrName string, diagnostics *diag.Diagnostics) types.String {
-	if len(obj) == 0 {
-		return types.StringNull()
-	}
-	b, err := json.Marshal(obj)
-	if err != nil {
-		diagnostics.AddError("Invalid JSON", fmt.Sprintf("Failed to serialize %s: %v", attrName, err))
-		return types.StringNull()
-	}
-	return types.StringValue(string(b))
-}
-
 func (r *pms_policy_matcherResource) toData(api *PMSPolicyMatcherAPIModel, data *PMSPolicyMatcherResourceModel, diagnostics *diag.Diagnostics) {
 	data.ID = types.StringValue(api.ID)
 	if api.EnforcementPoint != "" {
 		data.EnforcementPoint = types.StringValue(api.EnforcementPoint)
 	}
-	data.MatchJSON = jsonStringFromObject(api.Match, "match_json", diagnostics)
-	data.ParametersJSON = jsonStringFromObject(api.Parameters, "parameters_json", diagnostics)
+	data.MatchJSON = jsonFromAPI(api.Match)
+	data.ParametersJSON = jsonObjectFromAPI(api.Parameters)
 
 	if len(api.Evidence) == 0 {
 		data.Evidence = types.ListNull(types.ObjectType{AttrTypes: matcherEvidenceAttrTypes})
@@ -319,16 +292,13 @@ func (r *pms_policy_matcherResource) Update(ctx context.Context, req resource.Up
 	// Only what changed is sent. Removed parameters are cleared by sending an empty map.
 	var patch PMSPolicyMatcherPatchAPIModel
 	if patchChanged(data.MatchJSON, state.MatchJSON) {
-		patch.Match = jsonObjectFromString(data.MatchJSON, "match_json", &resp.Diagnostics)
+		patch.Match = jsonToAPI(data.MatchJSON)
 	}
 	if patchChanged(data.ParametersJSON, state.ParametersJSON) {
-		patch.Parameters = jsonObjectFromString(data.ParametersJSON, "parameters_json", &resp.Diagnostics)
+		patch.Parameters = jsonToAPI(data.ParametersJSON)
 		if patch.Parameters == nil {
-			patch.Parameters = map[string]interface{}{}
+			patch.Parameters = json.RawMessage("{}")
 		}
-	}
-	if resp.Diagnostics.HasError() {
-		return
 	}
 
 	var api PMSPolicyMatcherAPIModel
