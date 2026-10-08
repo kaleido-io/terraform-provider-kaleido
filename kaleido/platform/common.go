@@ -22,10 +22,12 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"gopkg.in/yaml.v3"
 
@@ -190,6 +192,18 @@ func (r *commonResource) apiRequest(ctx context.Context, method, path string, bo
 		}
 	}
 	return ok, statusCode
+}
+
+func patchString(plan, state types.String) *string {
+	if !patchChanged(plan, state) {
+		return nil
+	}
+	value := plan.ValueString()
+	return &value
+}
+
+func patchChanged(plan, state attr.Value) bool {
+	return !plan.IsUnknown() && !plan.Equal(state)
 }
 
 func (r *commonResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -416,8 +430,14 @@ func Resources() []func() resource.Resource {
 		WMSWalletResourceFactory,
 		PMSIdentityResourceFactory,
 		PMSIdentityListResourceFactory,
-		PMSPolicyDeploymentResourceFactory,
-		PMSPolicyAttachmentResourceFactory,
+		PMSPolicyResourceFactory,
+		PMSPolicyVersionResourceFactory,
+		PMSPolicyMatcherResourceFactory,
+		PMSEvidenceSourceResourceFactory,
+		PMSPolicyEvidenceSourceBindingResourceFactory,
+		PMSOutputFormatterResourceFactory,
+		PMSPolicyOutputFormatterBindingResourceFactory,
+		PMSPolicyIdentityListBindingResourceFactory,
 		WFEWorkflowResourceFactory,
 		WFEStreamResourceFactory,
 		WFEStreamFactoryResourceFactory,
