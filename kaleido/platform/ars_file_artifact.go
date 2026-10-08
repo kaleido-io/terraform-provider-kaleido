@@ -128,7 +128,8 @@ func (r *arsFileArtifactResource) Metadata(_ context.Context, _ resource.Metadat
 
 func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum.",
+		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_repository first with the same name. " +
+			"Destroying the artifact deletes only the tracked version; the repository is left in place.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:    true,
@@ -183,7 +184,7 @@ func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
-				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade.",
+				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade. Destroy always deletes only the tracked version; remaining versions and the repository itself are left for kaleido_platform_ars_repository or namespace force_destroy.",
 			},
 			"content_sha256": &schema.StringAttribute{
 				Computed:    true,
@@ -375,6 +376,12 @@ func (r *arsFileArtifactResource) uploadFile(ctx context.Context, data *ARSFileA
 				"Push under a new tag, or use 'version' instead of 'tag' to derive content-addressed tags automatically.", apiPath, body))
 		return false
 	}
+	if !res.IsSuccess() && arsAlreadyDeleted(string(body)) {
+		diagnostics.AddError("Repository or namespace not found",
+			fmt.Sprintf("POST %s returned status code %d: %s. Create the repository with a kaleido_platform_ars_repository of the same name, "+
+				"or set auto_create_repos = true on the namespace so pushes create it.", apiPath, res.StatusCode(), body))
+		return false
+	}
 	if !res.IsSuccess() {
 		diagnostics.AddError("POST failed", fmt.Sprintf("POST %s returned status code %d: %s", apiPath, res.StatusCode(), body))
 		return false
@@ -431,7 +438,6 @@ func (r *arsFileArtifactResource) Update(ctx context.Context, req resource.Updat
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	// A known planned tag equal to the current one means no new version is being
 	// pushed - the update only touches attributes with no server-side effect (e.g.
 	// 'file_path' in explicit-tag mode, or 'remove_old_versions'). Read and re-set state.
@@ -478,11 +484,21 @@ func (r *arsFileArtifactResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	// Idempotent delete: Allow404 treats an already-removed tag as success.
-	ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
-	if !ok {
-		return
+	// Only the tracked version is deleted; the repository record is left for an
+	// explicit kaleido_platform_ars_repository or namespace force_destroy
+	var untagDiags diag.Diagnostics
+	if ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &untagDiags, Allow404()); !ok {
+		for _, d := range untagDiags.Errors() {
+			// The registry reports an already-deleted file or namespace as a plain (non-404) error
+			if !arsAlreadyDeleted(d.Detail()) {
+				resp.Diagnostics.Append(d)
+			}
+		}
 	}
+}
+
+func arsAlreadyDeleted(errorDetail string) bool {
+	return strings.Contains(errorDetail, "repository not found") || strings.Contains(errorDetail, "namespace not found")
 }
 
 func (r *arsFileArtifactResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
