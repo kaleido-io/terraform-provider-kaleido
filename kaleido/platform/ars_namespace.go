@@ -90,7 +90,7 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 				Optional:      false,
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The artifact family for the namespace, such as file or custom-providers. Validated by the Artifact Registry.",
+				Description:   "The artifact family for the namespace, such as file or custom-providers.",
 			},
 			"description": &schema.StringAttribute{
 				Optional:      true,
@@ -127,7 +127,7 @@ func (api *ARSNamespaceAPIModel) toData(ctx context.Context, data *ARSNamespaceR
 	if api.Description != "" || !data.Description.IsNull() {
 		data.Description = types.StringValue(api.Description)
 	}
-	data.ArtifactFamily = types.StringValue(api.ArtifactFamily)
+
 	data.AutoCreateRepos = types.BoolValue(api.AutoCreateRepos)
 	if data.ForceDestroy.IsNull() || data.ForceDestroy.IsUnknown() {
 		data.ForceDestroy = types.BoolValue(false)
