@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_ars_file_artifact Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_repository first with the same name. Destroying the artifact deletes the tracked version, then the repository if no other versions remain.
+  A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_repository first with the same name. Destroying the artifact deletes only the tracked version; the repository is left in place.
 ---
 
 # kaleido_platform_ars_file_artifact (Resource)
 
-A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_repository first with the same name. Destroying the artifact deletes the tracked version, then the repository if no other versions remain.
+A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_repository first with the same name. Destroying the artifact deletes only the tracked version; the repository is left in place.
 
 ## Example Usage
 
@@ -65,7 +65,7 @@ resource "kaleido_platform_ars_file_artifact" "release_notes" {
 
 ### Optional
 
-- `remove_old_versions` (Boolean) When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade, and are not deleted on destroy - they keep the repository, and so the namespace, from being deleted unless the namespace sets force_destroy.
+- `remove_old_versions` (Boolean) When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade. Destroy always deletes only the tracked version; remaining versions and the repository itself are left for kaleido_platform_ars_repository or namespace force_destroy.
 - `tag` (String) Explicit immutable tag. When set, the tag's existence is trusted: local file changes are not detected and the file is only uploaded when the tag changes. Pushing to an existing tag with different content fails (tags are immutable).
 - `version` (String) Version prefix for the content-addressed tag '{version}-{sha8}'. Exactly one of 'version' or 'tag' must be set. Changing the file content uploads the artifact under a new tag.
 

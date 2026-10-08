@@ -233,8 +233,9 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 			},
 		},
 	})
+	// Destroy only untags the tracked version; the (now empty) repository is orphaned
 	assert.Empty(t, mp.arsFiles)
-	assert.Empty(t, mp.arsRepos)
+	assert.NotNil(t, mp.arsRepos["env1/svc1/ns1/path/to/myfilename.ext"])
 }
 
 func TestARSFileArtifactDestroyKeepsUntrackedVersions(t *testing.T) {
@@ -322,13 +323,13 @@ func TestARSFileArtifactManagedRepository(t *testing.T) {
 				},
 			},
 			{
+				// Destroying the artifact only untags the version; the repository resource still owns the repo
 				Config: providerConfig + arsManagedRepositoryConfig(filePath, false),
 				Check: func(s *terraform.State) error {
 					assert.Nil(t, mp.arsFiles[repoKey+":rel1"])
-					assert.Nil(t, mp.arsRepos[repoKey])
+					assert.NotNil(t, mp.arsRepos[repoKey])
 					return nil
 				},
-				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
