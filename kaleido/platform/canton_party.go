@@ -69,17 +69,17 @@ func (r *cantonPartyResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"name": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{planmodifiers.RequireRecreate(typeName)},
-				Description:   "Human-readable name of the Canton party",
+				Description:   "Human-readable name of the Canton party. Immutable after create — changing this value is not supported; create a new, separate party instead.",
 			},
 			"party": &schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-				Description:   "Canton party ID. Immutable after create — changing this value is not supported; create a new, separate party instead.",
+				Description:   "Canton party ID.",
 			},
 			"identifier": &schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-				Description:   "Canton party identifier. Immutable after create — changing this value is not supported; create a new, separate party instead.",
+				Description:   "Canton party identifier.",
 			},
 			"environment": &schema.StringAttribute{
 				Required:      true,
@@ -114,7 +114,7 @@ func (r *cantonPartyResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:      true,
 				ElementType:   types.StringType,
 				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
-				Description:   "Synchronizers for the party. Immutable after create — changing this value is not supported; create a new, separate party instead.",
+				Description:   "Synchronizers for the party",
 			},
 		},
 	}
@@ -284,6 +284,7 @@ func (r *cantonPartyResource) Update(ctx context.Context, req resource.UpdateReq
 // Party deletion is not supported in API so just remove it from state
 func (r *cantonPartyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CantonPartyResourceModel
+	resp.Diagnostics.AddWarning("Party deletion not supported", "Performing a destory on this resource will not trigger the deletion of the party")
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	resp.State.RemoveResource(ctx)
