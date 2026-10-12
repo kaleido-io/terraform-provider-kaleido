@@ -233,7 +233,7 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 			},
 		},
 	})
-	// Destroy only untags the tracked version; the (now empty) repository is orphaned
+	// Destroy only untags the tracked version; the (now empty) repository remains
 	assert.Empty(t, mp.arsFiles)
 	assert.NotNil(t, mp.arsRepos["env1/svc1/ns1/path/to/myfilename.ext"])
 }

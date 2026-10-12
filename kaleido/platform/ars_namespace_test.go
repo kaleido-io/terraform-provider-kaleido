@@ -129,7 +129,8 @@ func TestARSNamespaceDeleteBlockedByRepositories(t *testing.T) {
 
 	filePath := filepath.Join(t.TempDir(), "artifact.json")
 	assert.NoError(t, os.WriteFile(filePath, []byte(`{"rev": 1}`), 0644))
-	orphanRepo := "env1/svc1/files/orphan.json"
+	untrackedRepo := "env1/svc1/files/untracked.json"
+	trackedRepo := "env1/svc1/files/tracked.json"
 
 	config := `
 resource "kaleido_platform_ars_namespace" "files" {
@@ -159,18 +160,19 @@ resource "kaleido_platform_ars_file_artifact" "file1" {
 				Config: providerConfig + config,
 			},
 			{
-				// The tracked artifact cleans up its own repository, but a repository the
-				// configuration does not track (e.g. pushed outside Terraform) blocks the
-				// namespace: the destroy fails immediately rather than waiting for removal
+				// Artifact destroy only untags, so tracked.json's repository remains.
+				// An untracked repository (e.g. pushed outside Terraform) also remains:
+				// the namespace destroy fails immediately rather than waiting for removal.
 				PreConfig: func() {
-					mp.arsRepos[orphanRepo] = &ARSRepositoryAPIModel{Name: "orphan.json"}
+					mp.arsRepos[untrackedRepo] = &ARSRepositoryAPIModel{Name: "untracked.json"}
 				},
 				Config:      providerConfig,
-				ExpectError: regexp.MustCompile(`(?s)Namespace still contains repositories.*contains 1 repositories.*force_destroy`),
+				ExpectError: regexp.MustCompile(`(?s)Namespace still contains repositories.*contains 2 repositories.*force_destroy`),
 			},
 			{
 				PreConfig: func() {
-					delete(mp.arsRepos, orphanRepo)
+					delete(mp.arsRepos, untrackedRepo)
+					delete(mp.arsRepos, trackedRepo)
 				},
 				Config: providerConfig,
 			},
