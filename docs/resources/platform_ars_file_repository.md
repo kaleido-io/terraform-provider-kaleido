@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_ars_file_repository Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  A repository in a Kaleido Artifact Registry namespaceRequired for artifacts in namespaces with auto_create_repos = false. Destroying a repository that still holds artifact versions will fail and leave it in the registry namespace with a warning.
+  A repository in a Kaleido Artifact Registry namespace. Required for artifacts in namespaces with auto_create_repos = false. Destroying a repository that still holds artifact versions will fail and leave it in the registry namespace with a warning.
 ---
 
 # kaleido_platform_ars_file_repository (Resource)
 
-A repository in a Kaleido Artifact Registry namespaceRequired for artifacts in namespaces with auto_create_repos = false. Destroying a repository that still holds artifact versions will fail and leave it in the registry namespace with a warning.
+A repository in a Kaleido Artifact Registry namespace. Required for artifacts in namespaces with auto_create_repos = false. Destroying a repository that still holds artifact versions will fail and leave it in the registry namespace with a warning.
 
 ## Example Usage
 

@@ -60,7 +60,7 @@ func (r *arsFileRepositoryResource) Metadata(_ context.Context, _ resource.Metad
 
 func (r *arsFileRepositoryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A repository in a Kaleido Artifact Registry namespace" +
+		Description: "A repository in a Kaleido Artifact Registry namespace. " +
 			"Required for artifacts in namespaces with auto_create_repos = false. Destroying a repository that still holds artifact versions will fail and leave it in the registry namespace with a warning.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
