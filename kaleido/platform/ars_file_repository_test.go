@@ -26,15 +26,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const arsRepositoryRepoKey = "env1/svc1/ns1/path/to/myrepo"
+const arsFileRepositoryRepoKey = "env1/svc1/ns1/path/to/myrepo"
 
-func arsRepositoryConfig(description string) string {
+func arsFileRepositoryConfig(description string) string {
 	descriptionAttr := ""
 	if description != "" {
 		descriptionAttr = fmt.Sprintf("description = %q", description)
 	}
 	return fmt.Sprintf(`
-resource "kaleido_platform_ars_repository" "repo1" {
+resource "kaleido_platform_ars_file_repository" "repo1" {
   environment = "env1"
   service     = "svc1"
   namespace   = "ns1"
@@ -44,26 +44,26 @@ resource "kaleido_platform_ars_repository" "repo1" {
 `, descriptionAttr)
 }
 
-func TestARSRepository(t *testing.T) {
+func TestARSFileRepository(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
 	}()
 
-	repoResource := "kaleido_platform_ars_repository.repo1"
+	repoResource := "kaleido_platform_ars_file_repository.repo1"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsRepositoryConfig("my repo"),
+				Config: providerConfig + arsFileRepositoryConfig("my repo"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(repoResource, "id"),
 					resource.TestCheckResourceAttr(repoResource, "name", "path/to/myrepo"),
 					resource.TestCheckResourceAttr(repoResource, "namespace", "ns1"),
 					resource.TestCheckResourceAttr(repoResource, "description", "my repo"),
 					func(s *terraform.State) error {
-						obj := mp.arsRepos[arsRepositoryRepoKey]
+						obj := mp.arsRepos[arsFileRepositoryRepoKey]
 						assert.NotNil(t, obj)
 						assert.Equal(t, "my repo", obj.Description)
 						return nil
@@ -71,7 +71,7 @@ func TestARSRepository(t *testing.T) {
 				),
 			},
 			{
-				Config:            providerConfig + arsRepositoryConfig("my repo"),
+				Config:            providerConfig + arsFileRepositoryConfig("my repo"),
 				ResourceName:      repoResource,
 				ImportState:       true,
 				ImportStateId:     "env1/svc1/ns1/path/to/myrepo",
@@ -79,19 +79,19 @@ func TestARSRepository(t *testing.T) {
 			},
 			{
 				// An unset description stays null across refreshes
-				Config: providerConfig + arsRepositoryConfig(""),
+				Config: providerConfig + arsFileRepositoryConfig(""),
 				Check:  resource.TestCheckNoResourceAttr(repoResource, "description"),
 			},
 			{
-				Config:   providerConfig + arsRepositoryConfig(""),
+				Config:   providerConfig + arsFileRepositoryConfig(""),
 				PlanOnly: true,
 			},
 			{
 				// Deleted outside Terraform: refresh drops it from state and plans a re-create
 				PreConfig: func() {
-					delete(mp.arsRepos, arsRepositoryRepoKey)
+					delete(mp.arsRepos, arsFileRepositoryRepoKey)
 				},
-				Config:             providerConfig + arsRepositoryConfig(""),
+				Config:             providerConfig + arsFileRepositoryConfig(""),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
 			},
@@ -100,7 +100,7 @@ func TestARSRepository(t *testing.T) {
 	assert.Empty(t, mp.arsRepos)
 }
 
-func TestARSRepositoryDestroyWithVersionsWarns(t *testing.T) {
+func TestARSFileRepositoryDestroyWithVersionsWarns(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -111,46 +111,46 @@ func TestARSRepositoryDestroyWithVersionsWarns(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsRepositoryConfig(""),
+				Config: providerConfig + arsFileRepositoryConfig(""),
 			},
 			{
 				// A version not tracked by Terraform keeps the repository in the registry,
 				// but the destroy succeeds with a warning
 				PreConfig: func() {
-					mp.arsFiles[arsRepositoryRepoKey+":v1"] = &ARSFileArtifactAPIModel{Repository: "path/to/myrepo", Tag: "v1"}
+					mp.arsFiles[arsFileRepositoryRepoKey+":v1"] = &ARSFileTagAPIModel{Repository: "path/to/myrepo", Tag: "v1"}
 				},
 				Config: providerConfig,
 			},
 		},
 	})
-	assert.NotNil(t, mp.arsRepos[arsRepositoryRepoKey])
-	assert.NotNil(t, mp.arsFiles[arsRepositoryRepoKey+":v1"])
+	assert.NotNil(t, mp.arsRepos[arsFileRepositoryRepoKey])
+	assert.NotNil(t, mp.arsFiles[arsFileRepositoryRepoKey+":v1"])
 }
 
-func TestARSRepositoryAlreadyExists(t *testing.T) {
+func TestARSFileRepositoryAlreadyExists(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
 	}()
 
 	// e.g. auto-created by an artifact push
-	mp.arsRepos[arsRepositoryRepoKey] = &ARSRepositoryAPIModel{ID: "existing", NamespaceName: "ns1", Name: "path/to/myrepo"}
+	mp.arsRepos[arsFileRepositoryRepoKey] = &ARSFileRepositoryAPIModel{ID: "existing", NamespaceName: "ns1", Name: "path/to/myrepo"}
 
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config:      providerConfig + arsRepositoryConfig(""),
+				Config:      providerConfig + arsFileRepositoryConfig(""),
 				ExpectError: regexp.MustCompile(`(?s)Repository already exists.*terraform import`),
 			},
 		},
 	})
 }
 
-func (mp *mockPlatform) postARSRepository(res http.ResponseWriter, req *http.Request) {
+func (mp *mockPlatform) postARSFileRepository(res http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	var obj ARSRepositoryAPIModel
+	var obj ARSFileRepositoryAPIModel
 	mp.getBody(req, &obj)
 	vars["name"] = obj.Name
 	repoKey := mp.arsRepoKey(vars)
@@ -166,7 +166,7 @@ func (mp *mockPlatform) postARSRepository(res http.ResponseWriter, req *http.Req
 	mp.respond(res, &obj, 201)
 }
 
-func (mp *mockPlatform) getARSRepository(res http.ResponseWriter, req *http.Request) {
+func (mp *mockPlatform) getARSFileRepository(res http.ResponseWriter, req *http.Request) {
 	obj := mp.arsRepos[mp.arsRepoKey(mux.Vars(req))]
 	if obj == nil {
 		mp.respond(res, map[string]string{"error": "repository not found"}, 500)

@@ -52,7 +52,7 @@ var (
 	arsFileReservedComponents = []string{"content"}
 )
 
-type ARSFileArtifactResourceModel struct {
+type ARSFileTagResourceModel struct {
 	ID                types.String `tfsdk:"id"`
 	Environment       types.String `tfsdk:"environment"`
 	Service           types.String `tfsdk:"service"`
@@ -69,7 +69,7 @@ type ARSFileArtifactResourceModel struct {
 }
 
 // FileVersion (POST response) / FileMetadata (GET response) from the Artifact Registry
-type ARSFileArtifactAPIModel struct {
+type ARSFileTagAPIModel struct {
 	Namespace      string `json:"namespace,omitempty"`
 	Repository     string `json:"repository,omitempty"`
 	Tag            string `json:"tag,omitempty"`
@@ -80,16 +80,16 @@ type ARSFileArtifactAPIModel struct {
 	Size           int64  `json:"size,omitempty"`
 }
 
-func ARSFileArtifactResourceFactory() resource.Resource {
-	return &arsFileArtifactResource{}
+func ARSFileTagResourceFactory() resource.Resource {
+	return &arsFileTagResource{}
 }
 
-type arsFileArtifactResource struct {
+type arsFileTagResource struct {
 	commonResource
 }
 
-var _ resource.ResourceWithModifyPlan = &arsFileArtifactResource{}
-var _ resource.ResourceWithImportState = &arsFileArtifactResource{}
+var _ resource.ResourceWithModifyPlan = &arsFileTagResource{}
+var _ resource.ResourceWithImportState = &arsFileTagResource{}
 
 type arsFileNameValidator struct{}
 
@@ -122,13 +122,13 @@ func (v arsFileNameValidator) ValidateString(_ context.Context, req validator.St
 	}
 }
 
-func (r *arsFileArtifactResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_ars_file_artifact"
+func (r *arsFileTagResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_ars_file_tag"
 }
 
-func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *arsFileTagResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_repository first with the same name. " +
+		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_file_repository first with the same name. " +
 			"Destroying the artifact deletes only the tracked version; the repository is left in place.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
@@ -184,7 +184,7 @@ func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
-				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade. Destroy always deletes only the tracked version; remaining versions and the repository itself are left for kaleido_platform_ars_repository or namespace force_destroy.",
+				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade. Destroy always deletes only the tracked version; remaining versions and the repository itself are left for kaleido_platform_ars_file_repository or namespace force_destroy.",
 			},
 			"content_sha256": &schema.StringAttribute{
 				Computed:    true,
@@ -202,7 +202,7 @@ func (r *arsFileArtifactResource) Schema(_ context.Context, _ resource.SchemaReq
 	}
 }
 
-func (api *ARSFileArtifactAPIModel) toData(data *ARSFileArtifactResourceModel) {
+func (api *ARSFileTagAPIModel) toData(data *ARSFileTagResourceModel) {
 	if api.Repository != "" {
 		data.Name = types.StringValue(api.Repository)
 	}
@@ -224,7 +224,7 @@ func (api *ARSFileArtifactAPIModel) toData(data *ARSFileArtifactResourceModel) {
 		data.Tag.ValueString()))
 }
 
-func (r *arsFileArtifactResource) apiPath(data *ARSFileArtifactResourceModel) string {
+func (r *arsFileTagResource) apiPath(data *ARSFileTagResourceModel) string {
 	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/namespaces/%s/files/%s:%s",
 		data.Environment.ValueString(),
 		data.Service.ValueString(),
@@ -237,22 +237,22 @@ func deriveFileArtifactTag(version, hexDigest string) string {
 	return fmt.Sprintf("%s-%s", version, hexDigest[:8])
 }
 
-func (r *arsFileArtifactResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+func (r *arsFileTagResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() {
 		// Destroy plan - never reads the file
 		return
 	}
 
-	var plan ARSFileArtifactResourceModel
+	var plan ARSFileTagResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	var config ARSFileArtifactResourceModel
+	var config ARSFileTagResourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	var state *ARSFileArtifactResourceModel
+	var state *ARSFileTagResourceModel
 	if !req.State.Raw.IsNull() {
-		state = &ARSFileArtifactResourceModel{}
+		state = &ARSFileTagResourceModel{}
 		resp.Diagnostics.Append(req.State.Get(ctx, state)...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -316,7 +316,7 @@ func (r *arsFileArtifactResource) ModifyPlan(ctx context.Context, req resource.M
 
 // uploadFile reads the local file, re-derives the tag in auto mode, pushes the content
 // to the registry, and populates data from the server response.
-func (r *arsFileArtifactResource) uploadFile(ctx context.Context, data *ARSFileArtifactResourceModel, diagnostics *diag.Diagnostics) bool {
+func (r *arsFileTagResource) uploadFile(ctx context.Context, data *ARSFileTagResourceModel, diagnostics *diag.Diagnostics) bool {
 	filePath := data.FilePath.ValueString()
 	fileBytes, err := os.ReadFile(filePath)
 	if err != nil {
@@ -378,7 +378,7 @@ func (r *arsFileArtifactResource) uploadFile(ctx context.Context, data *ARSFileA
 	}
 	if !res.IsSuccess() && arsAlreadyDeleted(string(body)) {
 		diagnostics.AddError("Repository or namespace not found",
-			fmt.Sprintf("POST %s returned status code %d: %s. Create the repository with a kaleido_platform_ars_repository of the same name, "+
+			fmt.Sprintf("POST %s returned status code %d: %s. Create the repository with a kaleido_platform_ars_file_repository of the same name, "+
 				"or set auto_create_repos = true on the namespace so pushes create it.", apiPath, res.StatusCode(), body))
 		return false
 	}
@@ -387,7 +387,7 @@ func (r *arsFileArtifactResource) uploadFile(ctx context.Context, data *ARSFileA
 		return false
 	}
 
-	var api ARSFileArtifactAPIModel
+	var api ARSFileTagAPIModel
 	if err := json.Unmarshal(body, &api); err != nil {
 		diagnostics.AddError("POST failed", fmt.Sprintf("POST %s returned unparsable body: %v", apiPath, err))
 		return false
@@ -396,8 +396,8 @@ func (r *arsFileArtifactResource) uploadFile(ctx context.Context, data *ARSFileA
 	return true
 }
 
-func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data ARSFileArtifactResourceModel
+func (r *arsFileTagResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data ARSFileTagResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -409,14 +409,14 @@ func (r *arsFileArtifactResource) Create(ctx context.Context, req resource.Creat
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *arsFileArtifactResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data ARSFileArtifactResourceModel
+func (r *arsFileTagResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ARSFileTagResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var api ARSFileArtifactAPIModel
+	var api ARSFileTagAPIModel
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 	if !ok {
 		return
@@ -430,10 +430,10 @@ func (r *arsFileArtifactResource) Read(ctx context.Context, req resource.ReadReq
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *arsFileArtifactResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data ARSFileArtifactResourceModel
+func (r *arsFileTagResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ARSFileTagResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	var state ARSFileArtifactResourceModel
+	var state ARSFileTagResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -442,7 +442,7 @@ func (r *arsFileArtifactResource) Update(ctx context.Context, req resource.Updat
 	// pushed - the update only touches attributes with no server-side effect (e.g.
 	// 'file_path' in explicit-tag mode, or 'remove_old_versions'). Read and re-set state.
 	if !data.Tag.IsUnknown() && data.Tag.ValueString() == state.Tag.ValueString() {
-		var api ARSFileArtifactAPIModel
+		var api ARSFileTagAPIModel
 		ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
 		if !ok || status == 404 {
 			return
@@ -477,15 +477,15 @@ func (r *arsFileArtifactResource) Update(ctx context.Context, req resource.Updat
 	}
 }
 
-func (r *arsFileArtifactResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data ARSFileArtifactResourceModel
+func (r *arsFileTagResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ARSFileTagResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	// Only the tracked version is deleted; the repository record is left for an
-	// explicit kaleido_platform_ars_repository or namespace force_destroy
+	// explicit kaleido_platform_ars_file_repository or namespace force_destroy
 	var untagDiags diag.Diagnostics
 	if ok, _ := r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &untagDiags, Allow404()); !ok {
 		for _, d := range untagDiags.Errors() {
@@ -501,7 +501,7 @@ func arsAlreadyDeleted(errorDetail string) bool {
 	return strings.Contains(errorDetail, "repository not found") || strings.Contains(errorDetail, "namespace not found")
 }
 
-func (r *arsFileArtifactResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *arsFileTagResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Import format: environment/service/namespace/name:tag - the name itself may
 	// contain slashes, so only the first three parts are positional.
 	parts := strings.SplitN(req.ID, "/", 4)

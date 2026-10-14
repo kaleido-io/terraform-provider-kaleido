@@ -28,7 +28,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-type ARSRepositoryResourceModel struct {
+type ARSFileRepositoryResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Environment types.String `tfsdk:"environment"`
 	Service     types.String `tfsdk:"service"`
@@ -37,28 +37,28 @@ type ARSRepositoryResourceModel struct {
 	Description types.String `tfsdk:"description"`
 }
 
-type ARSRepositoryAPIModel struct {
+type ARSFileRepositoryAPIModel struct {
 	ID            string `json:"id,omitempty"`
 	NamespaceName string `json:"namespaceName,omitempty"`
 	Name          string `json:"name"`
 	Description   string `json:"description,omitempty"`
 }
 
-func ARSRepositoryResourceFactory() resource.Resource {
-	return &arsRepositoryResource{}
+func ARSFileRepositoryResourceFactory() resource.Resource {
+	return &arsFileRepositoryResource{}
 }
 
-type arsRepositoryResource struct {
+type arsFileRepositoryResource struct {
 	commonResource
 }
 
-var _ resource.ResourceWithImportState = &arsRepositoryResource{}
+var _ resource.ResourceWithImportState = &arsFileRepositoryResource{}
 
-func (r *arsRepositoryResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "kaleido_platform_ars_repository"
+func (r *arsFileRepositoryResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "kaleido_platform_ars_file_repository"
 }
 
-func (r *arsRepositoryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *arsFileRepositoryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "A repository in a Kaleido Artifact Registry namespace" +
 			"Required for artifacts in namespaces with auto_create_repos = false. Destroying a repository that still holds artifact versions will fail and leave it in the registry namespace with a warning.",
@@ -96,7 +96,7 @@ func (r *arsRepositoryResource) Schema(_ context.Context, _ resource.SchemaReque
 	}
 }
 
-func (api *ARSRepositoryAPIModel) toData(data *ARSRepositoryResourceModel) {
+func (api *ARSFileRepositoryAPIModel) toData(data *ARSFileRepositoryResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	if api.Description != "" || !data.Description.IsNull() {
@@ -104,19 +104,19 @@ func (api *ARSRepositoryAPIModel) toData(data *ARSRepositoryResourceModel) {
 	}
 }
 
-func (r *arsRepositoryResource) namespacePath(data *ARSRepositoryResourceModel) string {
+func (r *arsFileRepositoryResource) namespacePath(data *ARSFileRepositoryResourceModel) string {
 	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/namespaces/%s",
 		data.Environment.ValueString(), data.Service.ValueString(), data.Namespace.ValueString())
 }
 
-func (r *arsRepositoryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data ARSRepositoryResourceModel
+func (r *arsFileRepositoryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data ARSFileRepositoryResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	api := ARSRepositoryAPIModel{
+	api := ARSFileRepositoryAPIModel{
 		Name:        data.Name.ValueString(),
 		Description: data.Description.ValueString(),
 	}
@@ -141,8 +141,8 @@ func (r *arsRepositoryResource) Create(ctx context.Context, req resource.CreateR
 }
 
 // getRepository returns false with no diagnostics when the repository (or its namespace) no longer exists
-func (r *arsRepositoryResource) getRepository(ctx context.Context, data *ARSRepositoryResourceModel, diagnostics *diag.Diagnostics) bool {
-	var api ARSRepositoryAPIModel
+func (r *arsFileRepositoryResource) getRepository(ctx context.Context, data *ARSFileRepositoryResourceModel, diagnostics *diag.Diagnostics) bool {
+	var api ARSFileRepositoryAPIModel
 	var getDiags diag.Diagnostics
 	ok, status := r.apiRequest(ctx, http.MethodGet, r.namespacePath(data)+"/repositories/"+data.Name.ValueString(), nil, &api, &getDiags, Allow404())
 	if !ok {
@@ -161,8 +161,8 @@ func (r *arsRepositoryResource) getRepository(ctx context.Context, data *ARSRepo
 	return true
 }
 
-func (r *arsRepositoryResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data ARSRepositoryResourceModel
+func (r *arsFileRepositoryResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data ARSFileRepositoryResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -177,8 +177,8 @@ func (r *arsRepositoryResource) Read(ctx context.Context, req resource.ReadReque
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
-func (r *arsRepositoryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data ARSRepositoryResourceModel
+func (r *arsFileRepositoryResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data ARSFileRepositoryResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -188,8 +188,8 @@ func (r *arsRepositoryResource) Update(ctx context.Context, req resource.UpdateR
 	}
 }
 
-func (r *arsRepositoryResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data ARSRepositoryResourceModel
+func (r *arsFileRepositoryResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data ARSFileRepositoryResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -217,7 +217,7 @@ func arsHasTaggedVersions(errorDetail string) bool {
 	return strings.Contains(errorDetail, "tagged version(s)")
 }
 
-func (r *arsRepositoryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *arsFileRepositoryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Import format: environment/service/namespace/name - the name may contain slashes
 	parts := strings.SplitN(req.ID, "/", 4)
 	if len(parts) != 4 || parts[0] == "" || parts[1] == "" || parts[2] == "" || parts[3] == "" {

@@ -33,9 +33,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func arsFileArtifactAutoConfig(filePath string, removeOldVersions bool) string {
+func arsFileTagAutoConfig(filePath string, removeOldVersions bool) string {
 	return fmt.Sprintf(`
-resource "kaleido_platform_ars_file_artifact" "file1" {
+resource "kaleido_platform_ars_file_tag" "file1" {
   environment         = "env1"
   service             = "svc1"
   namespace           = "ns1"
@@ -48,9 +48,9 @@ resource "kaleido_platform_ars_file_artifact" "file1" {
 `, filePath, removeOldVersions)
 }
 
-func arsFileArtifactExplicitConfig(filePath, tag string, removeOldVersions bool) string {
+func arsFileTagExplicitConfig(filePath, tag string, removeOldVersions bool) string {
 	return fmt.Sprintf(`
-resource "kaleido_platform_ars_file_artifact" "file1" {
+resource "kaleido_platform_ars_file_tag" "file1" {
   environment         = "env1"
   service             = "svc1"
   namespace           = "ns1"
@@ -68,7 +68,7 @@ func sha256Hex(content []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func TestARSFileArtifactAutoTag(t *testing.T) {
+func TestARSFileTagAutoTag(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -86,13 +86,13 @@ func TestARSFileArtifactAutoTag(t *testing.T) {
 	key2 := "env1/svc1/ns1/path/to/myfilename.ext:" + tag2
 	key3 := "env1/svc1/ns1/path/to/myfilename.ext:" + tag3
 
-	fileResource := "kaleido_platform_ars_file_artifact.file1"
+	fileResource := "kaleido_platform_ars_file_tag.file1"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileArtifactAutoConfig(filePath, false),
+				Config: providerConfig + arsFileTagAutoConfig(filePath, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(fileResource, "id", "env1/svc1/ns1/path/to/myfilename.ext:"+tag1),
 					resource.TestCheckResourceAttr(fileResource, "tag", tag1),
@@ -116,7 +116,7 @@ func TestARSFileArtifactAutoTag(t *testing.T) {
 				PreConfig: func() {
 					assert.NoError(t, os.WriteFile(filePath, content2, 0644))
 				},
-				Config: providerConfig + arsFileArtifactAutoConfig(filePath, false),
+				Config: providerConfig + arsFileTagAutoConfig(filePath, false),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(fileResource, plancheck.ResourceActionUpdate),
@@ -138,7 +138,7 @@ func TestARSFileArtifactAutoTag(t *testing.T) {
 				PreConfig: func() {
 					assert.NoError(t, os.WriteFile(filePath, content3, 0644))
 				},
-				Config: providerConfig + arsFileArtifactAutoConfig(filePath, true),
+				Config: providerConfig + arsFileTagAutoConfig(filePath, true),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(fileResource, plancheck.ResourceActionUpdate),
@@ -165,7 +165,7 @@ func TestARSFileArtifactAutoTag(t *testing.T) {
 	assert.Empty(t, mp.arsFiles)
 }
 
-func TestARSFileArtifactExplicitTag(t *testing.T) {
+func TestARSFileTagExplicitTag(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -178,13 +178,13 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 	key1 := "env1/svc1/ns1/path/to/myfilename.ext:rel1"
 	key2 := "env1/svc1/ns1/path/to/myfilename.ext:rel2"
 
-	fileResource := "kaleido_platform_ars_file_artifact.file1"
+	fileResource := "kaleido_platform_ars_file_tag.file1"
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true,
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(fileResource, "id", "env1/svc1/ns1/path/to/myfilename.ext:rel1"),
 					resource.TestCheckResourceAttr(fileResource, "tag", "rel1"),
@@ -201,11 +201,11 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 				PreConfig: func() {
 					assert.NoError(t, os.WriteFile(filePath, content2, 0644))
 				},
-				Config:   providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+				Config:   providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
 				PlanOnly: true,
 			},
 			{
-				Config:                  providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+				Config:                  providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
 				ResourceName:            fileResource,
 				ImportState:             true,
 				ImportStateId:           "env1/svc1/ns1/path/to/myfilename.ext:rel1",
@@ -215,7 +215,7 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 			{
 				// Changing the explicit tag re-uploads the (changed) file under the new
 				// tag, and remove_old_versions untags the previous one
-				Config: providerConfig + arsFileArtifactExplicitConfig(filePath, "rel2", true),
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel2", true),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(fileResource, plancheck.ResourceActionUpdate),
@@ -238,7 +238,7 @@ func TestARSFileArtifactExplicitTag(t *testing.T) {
 	assert.NotNil(t, mp.arsRepos["env1/svc1/ns1/path/to/myfilename.ext"])
 }
 
-func TestARSFileArtifactDestroyKeepsUntrackedVersions(t *testing.T) {
+func TestARSFileTagDestroyKeepsUntrackedVersions(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -253,11 +253,11 @@ func TestARSFileArtifactDestroyKeepsUntrackedVersions(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
 			},
 			{
 				PreConfig: func() {
-					mp.arsFiles[repoKey+":manual"] = &ARSFileArtifactAPIModel{Repository: "path/to/myfilename.ext", Tag: "manual"}
+					mp.arsFiles[repoKey+":manual"] = &ARSFileTagAPIModel{Repository: "path/to/myfilename.ext", Tag: "manual"}
 				},
 				Config: providerConfig,
 			},
@@ -278,7 +278,7 @@ resource "kaleido_platform_ars_namespace" "files" {
   auto_create_repos = false
 }
 
-resource "kaleido_platform_ars_repository" "repo1" {
+resource "kaleido_platform_ars_file_repository" "repo1" {
   environment = "env1"
   service     = "svc1"
   namespace   = kaleido_platform_ars_namespace.files.name
@@ -287,11 +287,11 @@ resource "kaleido_platform_ars_repository" "repo1" {
 `
 	if includeArtifact {
 		config += `
-resource "kaleido_platform_ars_file_artifact" "file1" {
+resource "kaleido_platform_ars_file_tag" "file1" {
   environment = "env1"
   service     = "svc1"
   namespace   = kaleido_platform_ars_namespace.files.name
-  name        = kaleido_platform_ars_repository.repo1.name
+  name        = kaleido_platform_ars_file_repository.repo1.name
   file_path   = "` + filePath + `"
   type        = "json"
   tag         = "rel1"
@@ -301,7 +301,7 @@ resource "kaleido_platform_ars_file_artifact" "file1" {
 	return config
 }
 
-func TestARSFileArtifactManagedRepository(t *testing.T) {
+func TestARSFileTagManagedRepository(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -337,7 +337,7 @@ func TestARSFileArtifactManagedRepository(t *testing.T) {
 	assert.Empty(t, mp.arsNamespaces)
 }
 
-func TestARSFileArtifactMissingRepository(t *testing.T) {
+func TestARSFileTagMissingRepository(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -361,7 +361,7 @@ resource "kaleido_platform_ars_namespace" "files" {
   auto_create_repos = false
 }
 
-resource "kaleido_platform_ars_file_artifact" "file1" {
+resource "kaleido_platform_ars_file_tag" "file1" {
   environment = "env1"
   service     = "svc1"
   namespace   = kaleido_platform_ars_namespace.files.name
@@ -371,7 +371,7 @@ resource "kaleido_platform_ars_file_artifact" "file1" {
   tag         = "rel1"
 }
 `,
-				ExpectError: regexp.MustCompile(`(?s)Repository or namespace not found.*kaleido_platform_ars_repository`),
+				ExpectError: regexp.MustCompile(`(?s)Repository or namespace not found.*kaleido_platform_ars_file_repository`),
 			},
 		},
 	})
@@ -379,7 +379,7 @@ resource "kaleido_platform_ars_file_artifact" "file1" {
 	assert.Empty(t, mp.arsNamespaces)
 }
 
-func TestARSFileArtifactDestroyAlreadyDeleted(t *testing.T) {
+func TestARSFileTagDestroyAlreadyDeleted(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -394,7 +394,7 @@ func TestARSFileArtifactDestroyAlreadyDeleted(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
 			},
 			{
 				PreConfig: func() {
@@ -407,7 +407,7 @@ func TestARSFileArtifactDestroyAlreadyDeleted(t *testing.T) {
 	assert.Empty(t, mp.arsFiles)
 }
 
-func TestARSFileArtifactTagImmutable(t *testing.T) {
+func TestARSFileTagTagImmutable(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer func() {
 		mp.server.Close()
@@ -417,7 +417,7 @@ func TestARSFileArtifactTagImmutable(t *testing.T) {
 	assert.NoError(t, os.WriteFile(filePath, []byte(`{"rev": 1}`), 0644))
 
 	// The tag already exists in the registry with different content
-	mp.arsFiles["env1/svc1/ns1/path/to/myfilename.ext:rel1"] = &ARSFileArtifactAPIModel{
+	mp.arsFiles["env1/svc1/ns1/path/to/myfilename.ext:rel1"] = &ARSFileTagAPIModel{
 		Namespace:   "ns1",
 		Repository:  "path/to/myfilename.ext",
 		Tag:         "rel1",
@@ -432,7 +432,7 @@ func TestARSFileArtifactTagImmutable(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config:      providerConfig + arsFileArtifactExplicitConfig(filePath, "rel1", false),
+				Config:      providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
 				ExpectError: regexp.MustCompile(`Tag is immutable`),
 			},
 		},
@@ -492,7 +492,7 @@ func (mp *mockPlatform) postARSFile(res http.ResponseWriter, req *http.Request) 
 			mp.respond(res, map[string]string{"error": "repository not found"}, 500)
 			return
 		}
-		mp.arsRepos[repoKey] = &ARSRepositoryAPIModel{ID: nanoid.New(), NamespaceName: vars["ns"], Name: vars["name"]}
+		mp.arsRepos[repoKey] = &ARSFileRepositoryAPIModel{ID: nanoid.New(), NamespaceName: vars["ns"], Name: vars["name"]}
 	}
 	if existing := mp.arsFiles[key]; existing != nil {
 		if existing.LayerDigest != digest {
@@ -506,7 +506,7 @@ func (mp *mockPlatform) postARSFile(res http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	obj := &ARSFileArtifactAPIModel{
+	obj := &ARSFileTagAPIModel{
 		Namespace:      vars["ns"],
 		Repository:     vars["name"],
 		Tag:            vars["tag"],
@@ -551,8 +551,8 @@ func (mp *mockPlatform) arsRepoKey(vars map[string]string) string {
 	return vars["env"] + "/" + vars["service"] + "/" + vars["ns"] + "/" + vars["name"]
 }
 
-func (mp *mockPlatform) arsRepoTags(repoKey string) []*ARSFileArtifactAPIModel {
-	tags := []*ARSFileArtifactAPIModel{}
+func (mp *mockPlatform) arsRepoTags(repoKey string) []*ARSFileTagAPIModel {
+	tags := []*ARSFileTagAPIModel{}
 	for key, obj := range mp.arsFiles {
 		if strings.HasPrefix(key, repoKey+":") {
 			tags = append(tags, obj)
@@ -561,7 +561,7 @@ func (mp *mockPlatform) arsRepoTags(repoKey string) []*ARSFileArtifactAPIModel {
 	return tags
 }
 
-func (mp *mockPlatform) deleteARSRepository(res http.ResponseWriter, req *http.Request) {
+func (mp *mockPlatform) deleteARSFileRepository(res http.ResponseWriter, req *http.Request) {
 	repoKey := mp.arsRepoKey(mux.Vars(req))
 	if mp.arsRepos[repoKey] == nil {
 		mp.respond(res, map[string]string{"error": "repository not found"}, 500)

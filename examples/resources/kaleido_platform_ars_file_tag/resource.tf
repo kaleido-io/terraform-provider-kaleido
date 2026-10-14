@@ -8,7 +8,7 @@ resource "kaleido_platform_ars_namespace" "files" {
 # Recommended: content-addressed tagging. The tag is derived as
 # "<version>-<first 8 hex chars of the file's SHA-256>", so any change to the
 # local file uploads the artifact under a new tag.
-resource "kaleido_platform_ars_file_artifact" "indexer_typescript" {
+resource "kaleido_platform_ars_file_tag" "indexer_typescript" {
   environment = kaleido_platform_environment.env_0.id
   service     = kaleido_platform_service.ars_0.id
   namespace   = kaleido_platform_ars_namespace.files.name
@@ -25,7 +25,7 @@ resource "kaleido_platform_ars_file_artifact" "indexer_typescript" {
 # Explicit tagging: the tag's existence is trusted and local file changes are
 # NOT detected or re-uploaded. Tags are immutable server-side, so pushing to
 # an existing tag with different content fails.
-resource "kaleido_platform_ars_file_artifact" "release_notes" {
+resource "kaleido_platform_ars_file_tag" "release_notes" {
   environment = kaleido_platform_environment.env_0.id
   service     = kaleido_platform_service.ars_0.id
   namespace   = kaleido_platform_ars_namespace.files.name

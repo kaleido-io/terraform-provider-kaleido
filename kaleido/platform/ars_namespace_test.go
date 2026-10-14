@@ -141,7 +141,7 @@ resource "kaleido_platform_ars_namespace" "files" {
   description     = "files"
 }
 
-resource "kaleido_platform_ars_file_artifact" "file1" {
+resource "kaleido_platform_ars_file_tag" "file1" {
   environment = "env1"
   service     = "svc1"
   namespace   = kaleido_platform_ars_namespace.files.name
@@ -164,7 +164,7 @@ resource "kaleido_platform_ars_file_artifact" "file1" {
 				// An untracked repository (e.g. pushed outside Terraform) also remains:
 				// the namespace destroy fails immediately rather than waiting for removal.
 				PreConfig: func() {
-					mp.arsRepos[untrackedRepo] = &ARSRepositoryAPIModel{Name: "untracked.json"}
+					mp.arsRepos[untrackedRepo] = &ARSFileRepositoryAPIModel{Name: "untracked.json"}
 				},
 				Config:      providerConfig,
 				ExpectError: regexp.MustCompile(`(?s)Namespace still contains repositories.*contains 2 repositories.*force_destroy`),
@@ -220,8 +220,8 @@ resource "kaleido_platform_ars_namespace" "files" {
 			{
 				// A leftover repository with a version no longer blocks the destroy
 				PreConfig: func() {
-					mp.arsRepos["env1/svc1/files/leftover.json"] = &ARSRepositoryAPIModel{Name: "leftover.json"}
-					mp.arsFiles["env1/svc1/files/leftover.json:v1"] = &ARSFileArtifactAPIModel{Repository: "leftover.json", Tag: "v1"}
+					mp.arsRepos["env1/svc1/files/leftover.json"] = &ARSFileRepositoryAPIModel{Name: "leftover.json"}
+					mp.arsFiles["env1/svc1/files/leftover.json:v1"] = &ARSFileTagAPIModel{Repository: "leftover.json", Tag: "v1"}
 				},
 				Config: providerConfig,
 			},
