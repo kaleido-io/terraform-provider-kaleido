@@ -85,7 +85,7 @@ func (r *arsFileRepositoryResource) Schema(_ context.Context, _ resource.SchemaR
 			"name": &schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Repository name, e.g. 'path/to/myfilename.ext'. Validated by the Artifact Registry against the namespace's artifact family.",
+				Description:   "Repository name, e.g. 'path/to/myfilename.ext'.",
 			},
 			"description": &schema.StringAttribute{
 				Optional:      true,

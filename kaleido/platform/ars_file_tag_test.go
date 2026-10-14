@@ -489,7 +489,7 @@ func (mp *mockPlatform) postARSFile(res http.ResponseWriter, req *http.Request) 
 	repoKey := mp.arsRepoKey(vars)
 	if mp.arsRepos[repoKey] == nil {
 		if ns := mp.arsNamespaceByName(vars); ns != nil && !ns.AutoCreateRepos {
-			mp.respond(res, map[string]string{"error": "repository not found"}, 500)
+			mp.respond(res, map[string]string{"error": "repository not found"}, 404)
 			return
 		}
 		mp.arsRepos[repoKey] = &ARSFileRepositoryAPIModel{ID: nanoid.New(), NamespaceName: vars["ns"], Name: vars["name"]}
@@ -564,7 +564,7 @@ func (mp *mockPlatform) arsRepoTags(repoKey string) []*ARSFileTagAPIModel {
 func (mp *mockPlatform) deleteARSFileRepository(res http.ResponseWriter, req *http.Request) {
 	repoKey := mp.arsRepoKey(mux.Vars(req))
 	if mp.arsRepos[repoKey] == nil {
-		mp.respond(res, map[string]string{"error": "repository not found"}, 500)
+		mp.respond(res, map[string]string{"error": "repository not found"}, 404)
 		return
 	}
 	assert.Empty(mp.t, req.URL.Query().Get("force"))

@@ -169,7 +169,7 @@ func (mp *mockPlatform) postARSFileRepository(res http.ResponseWriter, req *http
 func (mp *mockPlatform) getARSFileRepository(res http.ResponseWriter, req *http.Request) {
 	obj := mp.arsRepos[mp.arsRepoKey(mux.Vars(req))]
 	if obj == nil {
-		mp.respond(res, map[string]string{"error": "repository not found"}, 500)
+		mp.respond(res, map[string]string{"error": "repository not found"}, 404)
 		return
 	}
 	mp.respond(res, obj, 200)

@@ -47,7 +47,7 @@ resource "kaleido_platform_ars_file_tag" "routing_table" {
 ### Required
 
 - `environment` (String) Environment ID
-- `name` (String) Repository name, e.g. 'path/to/myfilename.ext'. Validated by the Artifact Registry against the namespace's artifact family.
+- `name` (String) Repository name, e.g. 'path/to/myfilename.ext'.
 - `namespace` (String) Name of the namespace to create the repository in
 - `service` (String) Artifact Registry service ID
 

@@ -102,7 +102,7 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 				Computed:      true,
 				Default:       booldefault.StaticBool(true),
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
-				Description:   "When true, pushing an artifact will create a new repository if it doesn't exist. When false, every repository must be created before artifact pushes.",
+				Description:   "When true, pushing an artifact (kaleido_platform_ars_file_tag) will create a new repository if it doesn't exist. When false, every repository must be created before artifact pushes.",
 			},
 			"force_destroy": &schema.BoolAttribute{
 				Optional:    true,
