@@ -125,7 +125,7 @@ func (r *arsFileRepositoryResource) Create(ctx context.Context, req resource.Cre
 		for _, d := range createDiags.Errors() {
 			if strings.Contains(d.Detail(), "already exists") {
 				resp.Diagnostics.AddError("Repository already exists",
-					fmt.Sprintf("Repository '%s' already exists in namespace '%s', for example created by an artifact push to a namespace with auto_create_repos = true. "+
+					fmt.Sprintf("Repository '%s' already exists in namespace '%s', "+
 						"Import it with: terraform import <address> %s/%s/%s/%s\n\n%s",
 						data.Name.ValueString(), data.Namespace.ValueString(),
 						data.Environment.ValueString(), data.Service.ValueString(), data.Namespace.ValueString(), data.Name.ValueString(), d.Detail()))

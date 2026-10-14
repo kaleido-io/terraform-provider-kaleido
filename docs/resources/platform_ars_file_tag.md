@@ -3,12 +3,12 @@
 page_title: "kaleido_platform_ars_file_tag Resource - terraform-provider-kaleido"
 subcategory: ""
 description: |-
-  A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_file_repository first with the same name. Destroying the artifact deletes only the tracked version; the repository is left in place.
+  A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, you must create a kaleido_platform_ars_repository first with the same name. Destroying the artifact deletes only the tracked version. A repository created automatically (auto_create_repos = true) is removed with its last version; a kaleido_platform_ars_repository is left in place.
 ---
 
 # kaleido_platform_ars_file_tag (Resource)
 
-A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_file_repository first with the same name. Destroying the artifact deletes only the tracked version; the repository is left in place.
+A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, you must create a kaleido_platform_ars_repository first with the same name. Destroying the artifact deletes only the tracked version. A repository created automatically (auto_create_repos = true) is removed with its last version; a kaleido_platform_ars_repository is left in place.
 
 ## Example Usage
 

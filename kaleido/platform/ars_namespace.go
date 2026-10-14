@@ -217,7 +217,7 @@ func (r *arsNamespaceResource) Delete(ctx context.Context, req resource.DeleteRe
 			if strings.Contains(d.Detail(), arsNamespaceHasRepositoriesCode) {
 				resp.Diagnostics.AddError("Namespace still contains repositories",
 					fmt.Sprintf("Namespace '%s' cannot be destroyed while it contains repositories: %s\n\n"+
-						"These are the non-empty repositories. Delete them from the "+
+						"Delete them from the "+
 						"Artifact Registry, or apply force_destroy = true on the namespace to delete them with it, then "+
 						"re-run the destroy.",
 						data.Name.ValueString(), d.Detail()))

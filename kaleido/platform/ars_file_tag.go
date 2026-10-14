@@ -128,8 +128,7 @@ func (r *arsFileTagResource) Metadata(_ context.Context, _ resource.MetadataRequ
 
 func (r *arsFileTagResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, create a kaleido_platform_ars_file_repository first with the same name. " +
-			"Destroying the artifact deletes only the tracked version; the repository is left in place.",
+		Description: "A file artifact in the Kaleido Artifact Registry, pushed from a local file and addressed as '{name}:{tag}' within a namespace, where the tag can be derived from a version and a checksum. The file is stored in the repository named after it: in a namespace with auto_create_repos = false, you must create a kaleido_platform_ars_repository first with the same name. Destroying the artifact deletes only the tracked version. A repository created automatically (auto_create_repos = true) is removed with its last version; a kaleido_platform_ars_repository is left in place.",
 		Attributes: map[string]schema.Attribute{
 			"id": &schema.StringAttribute{
 				Computed:    true,
