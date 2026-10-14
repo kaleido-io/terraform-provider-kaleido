@@ -52,18 +52,18 @@ var (
 )
 
 type ARSFileTagResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Environment       types.String `tfsdk:"environment"`
-	Service           types.String `tfsdk:"service"`
-	Namespace         types.String `tfsdk:"namespace"`
-	Name              types.String `tfsdk:"name"`
-	FilePath          types.String `tfsdk:"file_path"`
-	Type              types.String `tfsdk:"type"`
-	Version           types.String `tfsdk:"version"`
-	Tag           types.String `tfsdk:"tag"`
-	ContentSHA256 types.String `tfsdk:"content_sha256"`
-	Size              types.Int64  `tfsdk:"size"`
-	RegistryFileRef   types.String `tfsdk:"registry_file_ref"`
+	ID              types.String `tfsdk:"id"`
+	Environment     types.String `tfsdk:"environment"`
+	Service         types.String `tfsdk:"service"`
+	Namespace       types.String `tfsdk:"namespace"`
+	Name            types.String `tfsdk:"name"`
+	FilePath        types.String `tfsdk:"file_path"`
+	Type            types.String `tfsdk:"type"`
+	Version         types.String `tfsdk:"version"`
+	Tag             types.String `tfsdk:"tag"`
+	ContentSHA256   types.String `tfsdk:"content_sha256"`
+	Size            types.Int64  `tfsdk:"size"`
+	RegistryFileRef types.String `tfsdk:"registry_file_ref"`
 }
 
 // FileVersion (POST response) / FileMetadata (GET response) from the Artifact Registry
