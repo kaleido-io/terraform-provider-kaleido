@@ -33,7 +33,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -61,9 +60,8 @@ type ARSFileTagResourceModel struct {
 	FilePath          types.String `tfsdk:"file_path"`
 	Type              types.String `tfsdk:"type"`
 	Version           types.String `tfsdk:"version"`
-	Tag               types.String `tfsdk:"tag"`
-	RemoveOldVersions types.Bool   `tfsdk:"remove_old_versions"`
-	ContentSHA256     types.String `tfsdk:"content_sha256"`
+	Tag           types.String `tfsdk:"tag"`
+	ContentSHA256 types.String `tfsdk:"content_sha256"`
 	Size              types.Int64  `tfsdk:"size"`
 	RegistryFileRef   types.String `tfsdk:"registry_file_ref"`
 }
@@ -178,12 +176,6 @@ func (r *arsFileTagResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					stringvalidator.RegexMatches(arsFileTagPattern, "must be a valid OCI tag (word character followed by up to 127 word/'.'/'-' characters)"),
 				},
 				Description: "Explicit immutable tag. When set, the tag's existence is trusted: local file changes are not detected and the file is only uploaded when the tag changes. Pushing to an existing tag with different content fails (tags are immutable).",
-			},
-			"remove_old_versions": &schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade. Destroy always deletes only the tracked version; remaining versions and the repository itself are left for kaleido_platform_ars_file_repository or namespace force_destroy.",
 			},
 			"content_sha256": &schema.StringAttribute{
 				Computed:    true,
@@ -439,7 +431,7 @@ func (r *arsFileTagResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 	// A known planned tag equal to the current one means no new version is being
 	// pushed - the update only touches attributes with no server-side effect (e.g.
-	// 'file_path' in explicit-tag mode, or 'remove_old_versions'). Read and re-set state.
+	// 'file_path' in explicit-tag mode). Read and re-set state.
 	if !data.Tag.IsUnknown() && data.Tag.ValueString() == state.Tag.ValueString() {
 		var api ARSFileTagAPIModel
 		ok, status := r.apiRequest(ctx, http.MethodGet, r.apiPath(&data), nil, &api, &resp.Diagnostics, Allow404())
@@ -451,29 +443,11 @@ func (r *arsFileTagResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	// Upgrade to a new tag: upload the new version first, then optionally remove the
-	// old one. Old versions are retained unless 'remove_old_versions' is set.
+	// Upgrade to a new tag: upload the new version. Old versions are retained in the registry.
 	if !r.uploadFile(ctx, &data, &resp.Diagnostics) {
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if data.RemoveOldVersions.ValueBool() && data.Tag.ValueString() != state.Tag.ValueString() {
-		oldPath := r.apiPath(&state)
-		tflog.Debug(ctx, fmt.Sprintf("Removing old file artifact version %s", oldPath))
-		// The new version is already uploaded and recorded in state, so a failure to
-		// untag the old version is surfaced as a warning rather than failing the apply
-		var deleteDiags diag.Diagnostics
-		if ok, _ := r.apiRequest(ctx, http.MethodDelete, oldPath, nil, nil, &deleteDiags, Allow404()); !ok {
-			for _, d := range deleteDiags.Errors() {
-				resp.Diagnostics.AddWarning(
-					fmt.Sprintf("Failed to remove old version '%s'", state.Tag.ValueString()), d.Detail())
-			}
-		}
-	}
 }
 
 func (r *arsFileTagResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -521,6 +495,5 @@ func (r *arsFileTagResource) ImportState(ctx context.Context, req resource.Impor
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), parts[3][:colonIdx])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("tag"), parts[3][colonIdx+1:])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("registry_file_ref"), parts[3])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("remove_old_versions"), false)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }

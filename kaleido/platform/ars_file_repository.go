@@ -204,7 +204,7 @@ func (r *arsFileRepositoryResource) Delete(ctx context.Context, req resource.Del
 				resp.Diagnostics.AddWarning(
 					fmt.Sprintf("Repository '%s' still contains versions", data.Name.ValueString()),
 					"The repository was removed from Terraform state but left in the Artifact Registry, because it holds versions "+
-						"not tracked by any artifact resource (for example versions retained by remove_old_versions = false). "+
+						"not tracked by any artifact resource. "+
 						"It blocks destroying the namespace unless the namespace sets force_destroy = true. "+d.Detail())
 			default:
 				resp.Diagnostics.Append(d)

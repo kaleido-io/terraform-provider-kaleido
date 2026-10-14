@@ -33,34 +33,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func arsFileTagAutoConfig(filePath string, removeOldVersions bool) string {
+func arsFileTagAutoConfig(filePath string) string {
 	return fmt.Sprintf(`
 resource "kaleido_platform_ars_file_tag" "file1" {
-  environment         = "env1"
-  service             = "svc1"
-  namespace           = "ns1"
-  name                = "path/to/myfilename.ext"
-  file_path           = "%s"
-  type                = "json"
-  version             = "v1.2.3.4"
-  remove_old_versions = %t
+  environment = "env1"
+  service     = "svc1"
+  namespace   = "ns1"
+  name        = "path/to/myfilename.ext"
+  file_path   = "%s"
+  type        = "json"
+  version     = "v1.2.3.4"
 }
-`, filePath, removeOldVersions)
+`, filePath)
 }
 
-func arsFileTagExplicitConfig(filePath, tag string, removeOldVersions bool) string {
+func arsFileTagExplicitConfig(filePath, tag string) string {
 	return fmt.Sprintf(`
 resource "kaleido_platform_ars_file_tag" "file1" {
-  environment         = "env1"
-  service             = "svc1"
-  namespace           = "ns1"
-  name                = "path/to/myfilename.ext"
-  file_path           = "%s"
-  type                = "json"
-  tag                 = "%s"
-  remove_old_versions = %t
+  environment = "env1"
+  service     = "svc1"
+  namespace   = "ns1"
+  name        = "path/to/myfilename.ext"
+  file_path   = "%s"
+  type        = "json"
+  tag         = "%s"
 }
-`, filePath, tag, removeOldVersions)
+`, filePath, tag)
 }
 
 func sha256Hex(content []byte) string {
@@ -77,14 +75,11 @@ func TestARSFileTagAutoTag(t *testing.T) {
 	filePath := filepath.Join(t.TempDir(), "artifact.json")
 	content1 := []byte(`{"rev": 1}`)
 	content2 := []byte(`{"rev": 2}`)
-	content3 := []byte(`{"rev": 3}`)
 	assert.NoError(t, os.WriteFile(filePath, content1, 0644))
 	tag1 := "v1.2.3.4-" + sha256Hex(content1)[:8]
 	tag2 := "v1.2.3.4-" + sha256Hex(content2)[:8]
-	tag3 := "v1.2.3.4-" + sha256Hex(content3)[:8]
 	key1 := "env1/svc1/ns1/path/to/myfilename.ext:" + tag1
 	key2 := "env1/svc1/ns1/path/to/myfilename.ext:" + tag2
-	key3 := "env1/svc1/ns1/path/to/myfilename.ext:" + tag3
 
 	fileResource := "kaleido_platform_ars_file_tag.file1"
 	resource.Test(t, resource.TestCase{
@@ -92,7 +87,7 @@ func TestARSFileTagAutoTag(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileTagAutoConfig(filePath, false),
+				Config: providerConfig + arsFileTagAutoConfig(filePath),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(fileResource, "id", "env1/svc1/ns1/path/to/myfilename.ext:"+tag1),
 					resource.TestCheckResourceAttr(fileResource, "tag", tag1),
@@ -111,12 +106,12 @@ func TestARSFileTagAutoTag(t *testing.T) {
 				),
 			},
 			{
-				// Changing the file content changes the derived tag => in-place upgrade
-				// retaining the old version by default
+				// Changing the file content changes the derived tag => in-place upgrade;
+				// the old version is always retained in the registry
 				PreConfig: func() {
 					assert.NoError(t, os.WriteFile(filePath, content2, 0644))
 				},
-				Config: providerConfig + arsFileTagAutoConfig(filePath, false),
+				Config: providerConfig + arsFileTagAutoConfig(filePath),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(fileResource, plancheck.ResourceActionUpdate),
@@ -127,38 +122,16 @@ func TestARSFileTagAutoTag(t *testing.T) {
 					resource.TestCheckResourceAttr(fileResource, "tag", tag2),
 					resource.TestCheckResourceAttr(fileResource, "content_sha256", "sha256:"+sha256Hex(content2)),
 					func(s *terraform.State) error {
-						assert.NotNil(t, mp.arsFiles[key1]) // old version retained by default
+						assert.NotNil(t, mp.arsFiles[key1]) // old version retained
 						assert.NotNil(t, mp.arsFiles[key2])
-						return nil
-					},
-				),
-			},
-			{
-				// With remove_old_versions the upgrade untags the previous version
-				PreConfig: func() {
-					assert.NoError(t, os.WriteFile(filePath, content3, 0644))
-				},
-				Config: providerConfig + arsFileTagAutoConfig(filePath, true),
-				ConfigPlanChecks: resource.ConfigPlanChecks{
-					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectResourceAction(fileResource, plancheck.ResourceActionUpdate),
-					},
-				},
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(fileResource, "tag", tag3),
-					func(s *terraform.State) error {
-						assert.NotNil(t, mp.arsFiles[key1]) // retained from the earlier upgrade
-						assert.Nil(t, mp.arsFiles[key2])    // untagged by remove_old_versions
-						assert.NotNil(t, mp.arsFiles[key3])
 						return nil
 					},
 				),
 			},
 		},
 	})
-	// Destroy only untags the tracked version; tag1 was retained by the first
-	// (default) upgrade, so it and the auto-created repository are left (with a warning)
-	assert.Nil(t, mp.arsFiles[key3])
+	// Destroy only untags the tracked version; key1 is retained and the auto-created repository remains
+	assert.Nil(t, mp.arsFiles[key2])
 	assert.NotNil(t, mp.arsFiles[key1])
 	assert.NotNil(t, mp.arsRepos["env1/svc1/ns1/path/to/myfilename.ext"])
 	delete(mp.arsFiles, key1)
@@ -184,7 +157,7 @@ func TestARSFileTagExplicitTag(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(fileResource, "id", "env1/svc1/ns1/path/to/myfilename.ext:rel1"),
 					resource.TestCheckResourceAttr(fileResource, "tag", "rel1"),
@@ -201,11 +174,11 @@ func TestARSFileTagExplicitTag(t *testing.T) {
 				PreConfig: func() {
 					assert.NoError(t, os.WriteFile(filePath, content2, 0644))
 				},
-				Config:   providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
+				Config:   providerConfig + arsFileTagExplicitConfig(filePath, "rel1"),
 				PlanOnly: true,
 			},
 			{
-				Config:                  providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
+				Config:                  providerConfig + arsFileTagExplicitConfig(filePath, "rel1"),
 				ResourceName:            fileResource,
 				ImportState:             true,
 				ImportStateId:           "env1/svc1/ns1/path/to/myfilename.ext:rel1",
@@ -213,9 +186,9 @@ func TestARSFileTagExplicitTag(t *testing.T) {
 				ImportStateVerifyIgnore: []string{"file_path"},
 			},
 			{
-				// Changing the explicit tag re-uploads the (changed) file under the new
-				// tag, and remove_old_versions untags the previous one
-				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel2", true),
+				// Changing the explicit tag re-uploads the (changed) file under the new tag;
+				// the old version is retained in the registry
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel2"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(fileResource, plancheck.ResourceActionUpdate),
@@ -225,7 +198,7 @@ func TestARSFileTagExplicitTag(t *testing.T) {
 					resource.TestCheckResourceAttr(fileResource, "id", "env1/svc1/ns1/path/to/myfilename.ext:rel2"),
 					resource.TestCheckResourceAttr(fileResource, "content_sha256", "sha256:"+sha256Hex(content2)),
 					func(s *terraform.State) error {
-						assert.Nil(t, mp.arsFiles[key1]) // untagged by remove_old_versions
+						assert.NotNil(t, mp.arsFiles[key1]) // old version retained
 						assert.NotNil(t, mp.arsFiles[key2])
 						return nil
 					},
@@ -233,8 +206,8 @@ func TestARSFileTagExplicitTag(t *testing.T) {
 			},
 		},
 	})
-	// Destroy only untags the tracked version; the (now empty) repository remains
-	assert.Empty(t, mp.arsFiles)
+	// Destroy only untags the tracked version; key1 is retained and the repository remains
+	assert.NotNil(t, mp.arsFiles[key1])
 	assert.NotNil(t, mp.arsRepos["env1/svc1/ns1/path/to/myfilename.ext"])
 }
 
@@ -253,7 +226,7 @@ func TestARSFileTagDestroyKeepsUntrackedVersions(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1"),
 			},
 			{
 				PreConfig: func() {
@@ -394,7 +367,7 @@ func TestARSFileTagDestroyAlreadyDeleted(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
+				Config: providerConfig + arsFileTagExplicitConfig(filePath, "rel1"),
 			},
 			{
 				PreConfig: func() {
@@ -432,7 +405,7 @@ func TestARSFileTagTagImmutable(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config:      providerConfig + arsFileTagExplicitConfig(filePath, "rel1", false),
+				Config:      providerConfig + arsFileTagExplicitConfig(filePath, "rel1"),
 				ExpectError: regexp.MustCompile(`Tag is immutable`),
 			},
 		},

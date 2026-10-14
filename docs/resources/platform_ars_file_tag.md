@@ -30,11 +30,7 @@ resource "kaleido_platform_ars_file_tag" "indexer_typescript" {
   name        = "tssdk_modules/indexer.ts"
   file_path   = "${path.module}/tssdk_modules/src/indexer.ts"
   type        = "json"
-  version     = "v1.0.0" # the tag will be suffixed with a shortened checksum
-
-  # Old versions are retained in the registry on upgrade by default; set this
-  # to remove the previously tracked version once the new one uploads
-  remove_old_versions = true
+  version = "v1.0.0" # the tag will be suffixed with a shortened checksum
 }
 
 # Explicit tagging: the tag's existence is trusted and local file changes are
@@ -65,7 +61,6 @@ resource "kaleido_platform_ars_file_tag" "release_notes" {
 
 ### Optional
 
-- `remove_old_versions` (Boolean) When true, moving to a new tag (e.g. a file content change with 'version' set) deletes the previously tracked version from the registry after the new one uploads. Defaults to false: old versions are retained in the registry on upgrade. Destroy always deletes only the tracked version; remaining versions and the repository itself are left for kaleido_platform_ars_file_repository or namespace force_destroy.
 - `tag` (String) Explicit immutable tag. When set, the tag's existence is trusted: local file changes are not detected and the file is only uploaded when the tag changes. Pushing to an existing tag with different content fails (tags are immutable).
 - `version` (String) Version prefix for the content-addressed tag '{version}-{sha8}'. Exactly one of 'version' or 'tag' must be set. Changing the file content uploads the artifact under a new tag.
 

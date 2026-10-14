@@ -15,11 +15,7 @@ resource "kaleido_platform_ars_file_tag" "indexer_typescript" {
   name        = "tssdk_modules/indexer.ts"
   file_path   = "${path.module}/tssdk_modules/src/indexer.ts"
   type        = "json"
-  version     = "v1.0.0" # the tag will be suffixed with a shortened checksum
-
-  # Old versions are retained in the registry on upgrade by default; set this
-  # to remove the previously tracked version once the new one uploads
-  remove_old_versions = true
+  version = "v1.0.0" # the tag will be suffixed with a shortened checksum
 }
 
 # Explicit tagging: the tag's existence is trusted and local file changes are
