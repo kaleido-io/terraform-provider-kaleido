@@ -28,7 +28,8 @@ Manages identity list in Policy Manager.
 
 ### Read-Only
 
-- `applied_version` (String) The currently applied version of the identity list
+- `applied_version` (String) The name of the currently applied version of the identity list
+- `applied_version_id` (String) The ID of the currently applied version of the identity list. This is the value to bind to, e.g. the identity_list_version_id of a kaleido_platform_pms_policy_identity_list_binding.
 - `created` (String) Creation timestamp
 - `id` (String) The ID of this resource.
 - `updated` (String) Last update timestamp
