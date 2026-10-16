@@ -46,7 +46,8 @@ type mockPlatform struct {
 	networkinitdatas            map[string]*NetworkInitData
 	kmsWallets                  map[string]*KMSWalletAPIModel
 	arsNamespaces               map[string]*ARSNamespaceAPIModel
-	arsFiles                    map[string]*ARSFileArtifactAPIModel
+	arsFiles                    map[string]*ARSFileTagAPIModel
+	arsRepos                    map[string]*ARSFileRepositoryAPIModel // env/service/ns/name
 	kmsKeys                     map[string]*KMSKeyAPIModel
 	kmsKeysByID                 map[string]*KMSKeyAPIModel // env/service/id for global /keys/{id}
 	cmsBuilds                   map[string]*CMSBuildAPIModel
@@ -111,7 +112,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		networkinitdatas:           make(map[string]*NetworkInitData),
 		kmsWallets:                 make(map[string]*KMSWalletAPIModel),
 		arsNamespaces:              make(map[string]*ARSNamespaceAPIModel),
-		arsFiles:                   make(map[string]*ARSFileArtifactAPIModel),
+		arsFiles:                   make(map[string]*ARSFileTagAPIModel),
+		arsRepos:                   make(map[string]*ARSFileRepositoryAPIModel),
 		kmsKeys:                    make(map[string]*KMSKeyAPIModel),
 		kmsKeysByID:                make(map[string]*KMSKeyAPIModel),
 		cmsBuilds:                  make(map[string]*CMSBuildAPIModel),
@@ -209,11 +211,16 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodGet, mp.getARSNamespace)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}", http.MethodDelete, mp.deleteARSNamespace)
 
-	// See ars_file_artifact_test.go - greedy {name:.+} backtracks to the last colon,
+	// See ars_file_tag_test.go - greedy {name:.+} backtracks to the last colon,
 	// matching the route shape of the real Artifact Registry API
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodPost, mp.postARSFile)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodGet, mp.getARSFile)
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}:{tag}", http.MethodDelete, mp.deleteARSFile)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/files/{name:.+}", http.MethodDelete, mp.deleteARSFileRepository)
+
+	// See ars_file_repository_test.go
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/repositories", http.MethodPost, mp.postARSFileRepository)
+	mp.register("/endpoint/{env}/{service}/rest/api/v1/namespaces/{ns}/repositories/{name:.+}", http.MethodGet, mp.getARSFileRepository)
 
 	// See kms_key.go
 	mp.register("/endpoint/{env}/{service}/rest/api/v1/wallets/{wallet}/keys", http.MethodPut, mp.putKMSKey)
