@@ -158,7 +158,7 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		wfeStreamFactories:         make(map[string]*WFEStreamFactoryAPIModel),
 		fireflyContractListeners:   make(map[string]*FireFlyContractListenerAPIModel),
 		fireflySubscriptions:       make(map[string]*FireFlySubscriptionAPIModel),
- 		cantonParties:               make(map[string]*CantonPartyAPIModel),
+		cantonParties:              make(map[string]*CantonPartyAPIModel),
 		router:                     mux.NewRouter(),
 		calls:                      []string{},
 	}
