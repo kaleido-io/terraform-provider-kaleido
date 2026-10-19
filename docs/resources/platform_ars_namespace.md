@@ -17,15 +17,16 @@ A namespace in the Kaleido Artifact Registry. Namespaces group repositories and 
 
 ### Required
 
-- `artifact_family` (String) The artifact family for the namespace (e.g. provider).
+- `artifact_family` (String) The artifact family for the namespace, such as file or custom-providers.
 - `environment` (String) Environment ID
 - `name` (String) Namespace name
 - `service` (String) Artifact Registry service ID
 
 ### Optional
 
-- `auto_create_repos` (Boolean) Whether to automatically create repositories when pushing unknown names.
+- `auto_create_repos` (Boolean) When true, pushing an artifact (kaleido_platform_ars_file_tag) will create a new repository if it doesn't exist. When false, every repository must be created before artifact pushes.
 - `description` (String) Optional description for the namespace.
+- `force_destroy` (Boolean) By default, destroying the namespace fails while it contains repositories. When force_destroy is true, destroying the namespace also deletes every repository and version left in it.
 
 ### Read-Only
 

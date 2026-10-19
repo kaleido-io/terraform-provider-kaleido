@@ -17,8 +17,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -26,23 +27,21 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
-
-var SupportedArtifactFamilies = []string{
-	"provider",
-}
 
 type ARSNamespaceResourceModel struct {
 	ID              types.String `tfsdk:"id"`
 	Environment     types.String `tfsdk:"environment"`
 	Service         types.String `tfsdk:"service"`
 	Name            types.String `tfsdk:"name"`
-	AutoCreateRepos types.Bool   `tfsdk:"auto_create_repos"`
 	ArtifactFamily  types.String `tfsdk:"artifact_family"`
 	Description     types.String `tfsdk:"description"`
+	AutoCreateRepos types.Bool   `tfsdk:"auto_create_repos"`
+	ForceDestroy    types.Bool   `tfsdk:"force_destroy"`
 }
+
+const arsNamespaceHasRepositoriesCode = "KA250001"
 
 type ARSNamespaceAPIModel struct {
 	ID              string `json:"id,omitempty"`
@@ -87,24 +86,29 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Namespace name",
 			},
-			"auto_create_repos": &schema.BoolAttribute{
-				Optional:      true,
-				Computed:      true,
-				Default:       booldefault.StaticBool(true),
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
-				Description:   "Whether to automatically create repositories when pushing unknown names.",
-			},
 			"artifact_family": &schema.StringAttribute{
 				Optional:      false,
 				Required:      true,
-				Validators:    []validator.String{stringvalidator.OneOf(SupportedArtifactFamilies...)},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "The artifact family for the namespace (e.g. provider).",
+				Description:   "The artifact family for the namespace, such as file or custom-providers.",
 			},
 			"description": &schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 				Description:   "Optional description for the namespace.",
+			},
+			"auto_create_repos": &schema.BoolAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(true),
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Description:   "When true, pushing an artifact (kaleido_platform_ars_file_tag) will create a new repository if it doesn't exist. When false, every repository must be created before artifact pushes.",
+			},
+			"force_destroy": &schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "By default, destroying the namespace fails while it contains repositories. When force_destroy is true, destroying the namespace also deletes every repository and version left in it.",
 			},
 		},
 	}
@@ -112,17 +116,22 @@ func (r *arsNamespaceResource) Schema(_ context.Context, _ resource.SchemaReques
 
 func (data *ARSNamespaceResourceModel) toAPI(api *ARSNamespaceAPIModel) {
 	api.Name = data.Name.ValueString()
-	api.AutoCreateRepos = data.AutoCreateRepos.ValueBool()
 	api.Description = data.Description.ValueString()
 	api.ArtifactFamily = data.ArtifactFamily.ValueString()
+	api.AutoCreateRepos = data.AutoCreateRepos.ValueBool()
 }
 
 func (api *ARSNamespaceAPIModel) toData(ctx context.Context, data *ARSNamespaceResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
+	if api.Description != "" || !data.Description.IsNull() {
+		data.Description = types.StringValue(api.Description)
+	}
+
 	data.AutoCreateRepos = types.BoolValue(api.AutoCreateRepos)
-	data.Description = types.StringValue(api.Description)
-	data.ArtifactFamily = types.StringValue(api.ArtifactFamily)
+	if data.ForceDestroy.IsNull() || data.ForceDestroy.IsUnknown() {
+		data.ForceDestroy = types.BoolValue(false)
+	}
 }
 
 func (r *arsNamespaceResource) apiPath(data *ARSNamespaceResourceModel) string {
@@ -198,6 +207,25 @@ func (r *arsNamespaceResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	_, _ = r.apiRequest(ctx, http.MethodDelete, r.apiPath(&data), nil, nil, &resp.Diagnostics, Allow404())
+	deletePath := r.apiPath(&data)
+	if data.ForceDestroy.ValueBool() {
+		deletePath += "?force=true"
+	}
+	var deleteDiags diag.Diagnostics
+	if ok, _ := r.apiRequest(ctx, http.MethodDelete, deletePath, nil, nil, &deleteDiags, Allow404()); !ok {
+		for _, d := range deleteDiags.Errors() {
+			if strings.Contains(d.Detail(), arsNamespaceHasRepositoriesCode) {
+				resp.Diagnostics.AddError("Namespace still contains repositories",
+					fmt.Sprintf("Namespace '%s' cannot be destroyed while it contains repositories: %s\n\n"+
+						"Delete them from the "+
+						"Artifact Registry, or apply force_destroy = true on the namespace to delete them with it, then "+
+						"re-run the destroy.",
+						data.Name.ValueString(), d.Detail()))
+			} else {
+				resp.Diagnostics.Append(d)
+			}
+		}
+		return
+	}
 	r.waitForRemoval(ctx, r.apiPath(&data), &resp.Diagnostics)
 }

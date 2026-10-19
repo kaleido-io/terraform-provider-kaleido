@@ -163,7 +163,7 @@ func (api *NetworkInitData) toBootstrapData(ctx context.Context, data *NetworkBo
 
 			data := map[string]attr.Value{}
 
-			if len(f.Data.Text) > 0 {
+			if f.Data != nil && len(f.Data.Text) > 0 {
 				data["text"] = types.StringValue(f.Data.Text)
 			}
 

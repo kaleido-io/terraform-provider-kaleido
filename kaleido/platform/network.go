@@ -257,6 +257,7 @@ func (data *NetworkResourceModel) toAPI(ctx context.Context, api *NetworkAPIMode
 				diagnostics.Append(d...)
 				f := &FileAPI{
 					Type: tfFileAttrs["type"].(types.String).ValueString(),
+					Data: &FileDataAPI{},
 				}
 				tfData := tfFileData.Attributes()
 				if !tfData["base64"].IsNull() {
@@ -384,7 +385,18 @@ func (r *networkResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	api.toData(&data, &resp.Diagnostics) // need the ID copied over
+
+	// Persist state before the ready-wait so a failed/interrupted wait leaves
+	// the resource tainted (replaced on next apply) rather than orphaned
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	r.waitForReadyStatus(ctx, r.apiPath(&data), &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	api.toData(&data, &resp.Diagnostics) // need the latest status after the readiness check completes, to extract generated values
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 
