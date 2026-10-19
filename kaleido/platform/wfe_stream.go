@@ -319,15 +319,16 @@ func (r *wfe_streamResource) toData(api *WFEStreamAPIModel, data *WFEStreamResou
 			if t == "transaction_dispatch" {
 				eventProcessorTypeCamelCase = "transactionDispatch"
 			}
-			if content, ok := api.EventProcessor[eventProcessorTypeCamelCase]; ok {
+			content, ok := api.EventProcessor[eventProcessorTypeCamelCase]
+			if !ok || content == nil {
+				data.EventProcessorJSON = types.StringValue("{}")
+			} else {
 				contentBytes, err := json.Marshal(content)
 				if err != nil {
 					diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Failed to marshal stream event processor: %v", err))
 					return
 				}
 				data.EventProcessorJSON = types.StringValue(string(contentBytes))
-			} else {
-				data.EventProcessorJSON = types.StringNull()
 			}
 		} else {
 			data.EventProcessorType = types.StringNull()

@@ -20,7 +20,9 @@ import (
 
 	"github.com/aidarkhanov/nanoid"
 	"github.com/gorilla/mux"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/stretchr/testify/assert"
 )
 
 const wfe_stream_step1 = `
@@ -214,6 +216,24 @@ func (mp *mockPlatform) getWFEStream(res http.ResponseWriter, req *http.Request)
 	}
 
 	mp.respond(res, stream, http.StatusOK)
+}
+
+func TestWFEStreamCorrelationProcessorOmitsEmptyBody(t *testing.T) {
+	r := &wfe_streamResource{}
+	var diagnostics diag.Diagnostics
+	data := &WFEStreamResourceModel{}
+
+	r.toData(&WFEStreamAPIModel{
+		ID:   "fst:1",
+		Name: "policy-events",
+		EventProcessor: map[string]interface{}{
+			"type": "correlation",
+		},
+	}, data, &diagnostics)
+
+	assert.False(t, diagnostics.HasError())
+	assert.Equal(t, "correlation", data.EventProcessorType.ValueString())
+	assert.Equal(t, "{}", data.EventProcessorJSON.ValueString())
 }
 
 func (mp *mockPlatform) deleteWFEStream(res http.ResponseWriter, req *http.Request) {
