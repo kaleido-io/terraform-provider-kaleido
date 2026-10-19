@@ -284,7 +284,7 @@ func (r *cantonPartyResource) Update(ctx context.Context, req resource.UpdateReq
 // Party deletion is not supported in API so just remove it from state
 func (r *cantonPartyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data CantonPartyResourceModel
-	resp.Diagnostics.AddWarning("Party deletion not supported", "Performing a destory on this resource will not trigger the deletion of the party")
+	resp.Diagnostics.AddWarning("Party deletion not supported", "Performing a destroy on this resource will not trigger the deletion of the party")
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	resp.State.RemoveResource(ctx)
