@@ -265,7 +265,6 @@ func (mp *mockPlatform) postPolicyIdentity(res http.ResponseWriter, req *http.Re
 	}
 	created := obj
 	created.VerificationMethods = nil
-	created.NotificationMethods = nil
 	mp.respond(res, &created, 201)
 }
 
@@ -416,14 +415,6 @@ func TestPMSIdentityUpgradeStateV0(t *testing.T) {
 		assert.Equal(t, "Multikey", multi["type"].(types.String).ValueString())
 		assert.True(t, multi["ethereum_address"].IsNull(), "only an EthereumAddress method carries an ethereum_address")
 	}
-
-	notifications := data.NotificationMethods.Elements()
-	if assert.Len(t, notifications, 1) {
-		nm := notifications[0].(types.Object).Attributes()
-		assert.Equal(t, "approvals", nm["name"].(types.String).ValueString())
-		assert.Equal(t, `{"workflow":"flw:1"}`, nm["value_json"].(jsonStringValue).ValueString())
-		assert.True(t, nm["id"].IsNull(), "the refresh after the upgrade supplies the ID")
-	}
 }
 
 // pmsIdentityStateV0FromV2 is the state of an identity written against the v2 API by a
@@ -480,7 +471,6 @@ func TestPMSIdentityUpgradeStateV0FromV2(t *testing.T) {
 	assert.Equal(t, "id:67890fghij", data.ID.ValueString())
 	assert.Equal(t, "ap:alice12345", data.Controller.ValueString())
 	assert.True(t, data.Description.IsNull())
-	assert.True(t, data.NotificationMethods.IsNull())
 
 	methods := data.VerificationMethods.Elements()
 	if assert.Len(t, methods, 1) {

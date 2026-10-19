@@ -30,7 +30,6 @@ Manages Policy Manager identities. An identity is a subject that can make attest
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `notification_method` (Attributes List) Notification methods (e.g. workflow) associated with this identity. Read-only: the v2 Policy Manager API returns notification methods but provides no way to create them. (see [below for nested schema](#nestedatt--notification_method))
 
 <a id="nestedatt--verification_method"></a>
 ### Nested Schema for `verification_method`
@@ -52,14 +51,3 @@ Read-Only:
 
 - `created` (String) Creation timestamp
 - `id` (String)
-
-
-<a id="nestedatt--notification_method"></a>
-### Nested Schema for `notification_method`
-
-Read-Only:
-
-- `id` (String) ID of the notification method
-- `name` (String) Name of the notification method
-- `type` (String) Type of the notification method, e.g. 'workflow' or 'email'
-- `value_json` (String) The type-specific configuration of the notification method, as a JSON string

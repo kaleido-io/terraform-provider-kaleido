@@ -39,7 +39,6 @@ type PolicyIdentityResourceModel struct {
 	Description         types.String `tfsdk:"description"`
 	Controller          types.String `tfsdk:"controller"`
 	VerificationMethods types.List   `tfsdk:"verification_method"`
-	NotificationMethods types.List   `tfsdk:"notification_method"`
 }
 
 type PolicyIdentityAPIModel struct {
@@ -50,15 +49,6 @@ type PolicyIdentityAPIModel struct {
 	Description         string               `json:"description,omitempty"`
 	Controller          string               `json:"controller,omitempty"`
 	VerificationMethods []VerificationMethod `json:"verificationMethods,omitempty"`
-	NotificationMethods []NotificationMethod `json:"notificationMethods,omitempty"`
-}
-
-type NotificationMethod struct {
-	ID         string          `json:"id,omitempty"`
-	IdentityID string          `json:"identityId,omitempty"`
-	Name       string          `json:"name,omitempty"`
-	Type       string          `json:"type,omitempty"`
-	Value      json.RawMessage `json:"value,omitempty"`
 }
 
 type VerificationMethod struct {
@@ -91,14 +81,6 @@ var verificationMethodAttrTypes = map[string]attr.Type{
 	"expires":              types.StringType,
 	"revoked":              types.StringType,
 	"key_uri":              types.StringType,
-}
-
-// notificationMethodAttrTypes is the object type of the notification_method list elements.
-var notificationMethodAttrTypes = map[string]attr.Type{
-	"id":         types.StringType,
-	"name":       types.StringType,
-	"type":       types.StringType,
-	"value_json": jsonStringType{},
 }
 
 var _ resource.ResourceWithUpgradeState = &policyIdentityResource{}
@@ -205,32 +187,6 @@ func (r *policyIdentityResource) Schema(_ context.Context, _ resource.SchemaRequ
 						"key_uri": &schema.StringAttribute{
 							Optional:    true,
 							Description: "URI of the Key Manager key backing this verification method, e.g. 'kld:///keystore/<id>/key/<name>'. Required to route a signing request to the Key Manager, which addresses keys by URI rather than by public key.",
-						},
-					},
-				},
-			},
-			"notification_method": &schema.ListNestedAttribute{
-				Computed:      true,
-				Description:   "Notification methods (e.g. workflow) associated with this identity. Read-only: the v2 Policy Manager API returns notification methods but provides no way to create them.",
-				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"id": &schema.StringAttribute{
-							Computed:    true,
-							Description: "ID of the notification method",
-						},
-						"name": &schema.StringAttribute{
-							Computed:    true,
-							Description: "Name of the notification method",
-						},
-						"type": &schema.StringAttribute{
-							Computed:    true,
-							Description: "Type of the notification method, e.g. 'workflow' or 'email'",
-						},
-						"value_json": &schema.StringAttribute{
-							CustomType:  jsonStringType{},
-							Computed:    true,
-							Description: "The type-specific configuration of the notification method, as a JSON string",
 						},
 					},
 				},
@@ -410,8 +366,6 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 
 	data.Controller = optionalString(api.Controller)
 
-	r.notificationMethodsToData(api, data, diagnostics)
-
 	if len(api.VerificationMethods) == 0 {
 		data.VerificationMethods = types.ListNull(types.ObjectType{AttrTypes: verificationMethodAttrTypes})
 		return
@@ -438,26 +392,6 @@ func (r *policyIdentityResource) toData(api *PolicyIdentityAPIModel, data *Polic
 		verificationMethods[i] = obj
 	}
 	data.VerificationMethods = types.ListValueMust(types.ObjectType{AttrTypes: verificationMethodAttrTypes}, verificationMethods)
-}
-
-// notificationMethodsToData renders the read-only notification methods returned by the API.
-func (r *policyIdentityResource) notificationMethodsToData(api *PolicyIdentityAPIModel, data *PolicyIdentityResourceModel, diagnostics *diag.Diagnostics) {
-	if len(api.NotificationMethods) == 0 {
-		data.NotificationMethods = types.ListNull(types.ObjectType{AttrTypes: notificationMethodAttrTypes})
-		return
-	}
-	notificationMethods := make([]attr.Value, len(api.NotificationMethods))
-	for i, nm := range api.NotificationMethods {
-		obj, diags := types.ObjectValue(notificationMethodAttrTypes, map[string]attr.Value{
-			"id":         types.StringValue(nm.ID),
-			"name":       optionalString(nm.Name),
-			"type":       optionalString(nm.Type),
-			"value_json": jsonFromAPI(nm.Value),
-		})
-		diagnostics.Append(diags...)
-		notificationMethods[i] = obj
-	}
-	data.NotificationMethods = types.ListValueMust(types.ObjectType{AttrTypes: notificationMethodAttrTypes}, notificationMethods)
 }
 
 // optionalString renders an API string as a terraform string, mapping empty to null
@@ -492,7 +426,6 @@ type policyIdentityStateV0 struct {
 	Controller         *string              `json:"controller"`
 	AssertionMethod    []map[string]*string `json:"assertion_method"`
 	VerificationMethod []map[string]*string `json:"verification_method"`
-	NotificationMethod []map[string]*string `json:"notification_method"`
 }
 
 // UpgradeState migrates state of schema version 0 to version 1. The v1 and v2 Policy
@@ -513,8 +446,7 @@ func (r *policyIdentityResource) UpgradeState(_ context.Context) map[int64]resou
 //   - owner is the identity's controller (the same stored value, renamed on the v2 API)
 //   - each assertion_method is a verification_method, its verification_material the
 //     ethereum_address of an EthereumAddress method (the only type that ever had one)
-//   - preferred_assertion_method and signing_method have no v2 equivalent and are dropped
-//   - notification_method, now read-only, keeps its values until the refresh adds IDs
+//   - preferred_assertion_method, signing_method, and notification_method are dropped
 func upgradePolicyIdentityStateV0(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
 	if req.RawState == nil {
 		resp.Diagnostics.AddError("Unable to upgrade state", "no prior state was supplied")
@@ -572,16 +504,6 @@ func upgradePolicyIdentityStateV0(ctx context.Context, req resource.UpgradeState
 		}
 	}
 
-	var notificationMethods []map[string]attr.Value
-	for _, nm := range old.NotificationMethod {
-		notificationMethods = append(notificationMethods, map[string]attr.Value{
-			"id":         types.StringPointerValue(nm["id"]),
-			"name":       types.StringPointerValue(nm["name"]),
-			"type":       types.StringPointerValue(nm["type"]),
-			"value_json": jsonStringPointer(nm["value_json"]),
-		})
-	}
-
 	data := PolicyIdentityResourceModel{
 		ID:                  types.StringPointerValue(old.ID),
 		Environment:         types.StringPointerValue(old.Environment),
@@ -590,7 +512,6 @@ func upgradePolicyIdentityStateV0(ctx context.Context, req resource.UpgradeState
 		Description:         types.StringPointerValue(old.Description),
 		Controller:          types.StringPointerValue(controller),
 		VerificationMethods: objectListOrNull(verificationMethodAttrTypes, verificationMethods, old.VerificationMethod != nil || old.AssertionMethod != nil, &resp.Diagnostics),
-		NotificationMethods: objectListOrNull(notificationMethodAttrTypes, notificationMethods, old.NotificationMethod != nil, &resp.Diagnostics),
 	}
 	if resp.Diagnostics.HasError() {
 		return
