@@ -1,0 +1,40 @@
+# A binding ties one of the policy's evidence slots (evidence[].source) to an evidence
+# source, plus the inputs that source needs from this policy.
+
+# Approvals: both slots share one source. Who each asks is the slot's
+# attestation.attesters in the policy definition, not part of the binding.
+resource "kaleido_platform_pms_policy_evidence_source_binding" "treasury_approval" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "treasuryApproval"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+}
+
+resource "kaleido_platform_pms_policy_evidence_source_binding" "executive_approval" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "executiveApproval"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.transfer_approval.id
+}
+
+# A service request source acts as an application
+resource "kaleido_platform_pms_policy_evidence_source_binding" "wallet_mapping" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "walletMapping"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.wallet_lookup.id
+  run_as                 = "ap:294hqr959b"
+}
+
+# A slot whose evidence is pushed in is bound to an attachment source, which carries the
+# schema and the mappings that select the payload and attestation out of what arrives
+resource "kaleido_platform_pms_policy_evidence_source_binding" "document" {
+  environment            = kaleido_platform_environment.env_0.id
+  service                = kaleido_platform_service.pms_0.id
+  policy                 = kaleido_platform_pms_policy.tiered_approval.id
+  policy_evidence_source = "document"
+  evidence_source_id     = kaleido_platform_pms_evidence_source.signed_document.id
+}

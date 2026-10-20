@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/kaleido-io/terraform-provider-kaleido/kaleido/kaleidobase"
 	"github.com/stretchr/testify/assert"
@@ -63,4 +65,30 @@ func testYAMLEqual(t *testing.T, obj interface{}, expected string) {
 	yamlObj, err := yaml.Marshal(obj)
 	assert.NoError(t, err)
 	assert.YAMLEq(t, expected, string(yamlObj))
+}
+
+func TestPatchString(t *testing.T) {
+	assert.Nil(t, patchString(types.StringValue("a"), types.StringValue("a")), "unchanged is left out")
+	assert.Nil(t, patchString(types.StringUnknown(), types.StringValue("a")), "unknown is left out")
+	assert.Nil(t, patchString(types.StringNull(), types.StringNull()), "still unset is left out")
+	if changed := patchString(types.StringValue("b"), types.StringValue("a")); assert.NotNil(t, changed) {
+		assert.Equal(t, "b", *changed)
+	}
+	if removed := patchString(types.StringNull(), types.StringValue("a")); assert.NotNil(t, removed) {
+		assert.Equal(t, "", *removed, "removed is sent empty to clear it")
+	}
+}
+
+func TestPatchChanged(t *testing.T) {
+	list := func(values ...string) types.List {
+		elements := make([]attr.Value, len(values))
+		for i, v := range values {
+			elements[i] = types.StringValue(v)
+		}
+		return types.ListValueMust(types.StringType, elements)
+	}
+	assert.False(t, patchChanged(list("a"), list("a")))
+	assert.False(t, patchChanged(types.ListUnknown(types.StringType), list("a")))
+	assert.True(t, patchChanged(list("a", "b"), list("a")))
+	assert.True(t, patchChanged(types.ListNull(types.StringType), list("a")))
 }

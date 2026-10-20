@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"time"
 
@@ -30,15 +31,16 @@ import (
 )
 
 type PMSIdentityListResourceModel struct {
-	ID             types.String `tfsdk:"id"`
-	Name           types.String `tfsdk:"name"`
-	Description    types.String `tfsdk:"description"`
-	Environment    types.String `tfsdk:"environment"`
-	Service        types.String `tfsdk:"service"`
-	Identities     types.List   `tfsdk:"identities"` // Array of identity IDs/DIDs
-	AppliedVersion types.String `tfsdk:"applied_version"`
-	Created        types.String `tfsdk:"created"`
-	Updated        types.String `tfsdk:"updated"`
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	Description      types.String `tfsdk:"description"`
+	Environment      types.String `tfsdk:"environment"`
+	Service          types.String `tfsdk:"service"`
+	Identities       types.List   `tfsdk:"identities"` // Array of identity IDs/DIDs
+	AppliedVersion   types.String `tfsdk:"applied_version"`
+	AppliedVersionID types.String `tfsdk:"applied_version_id"`
+	Created          types.String `tfsdk:"created"`
+	Updated          types.String `tfsdk:"updated"`
 }
 
 type PMSIdentityListAPIModel struct {
@@ -49,6 +51,12 @@ type PMSIdentityListAPIModel struct {
 	Updated        *time.Time `json:"updated,omitempty"`
 	CurrentVersion string     `json:"currentVersion,omitempty"`
 	Identities     []string   `json:"identities,omitempty"`
+}
+
+// PMSIdentityListPatchAPIModel is the sparse PATCH body for the identity list itself: a
+// field that is left out is kept as stored.
+type PMSIdentityListPatchAPIModel struct {
+	Description *string `json:"description,omitempty"`
 }
 
 type PMSIdentityListVersionAPIModel struct {
@@ -107,7 +115,11 @@ func (r *pms_identity_listResource) Schema(_ context.Context, _ resource.SchemaR
 			},
 			"applied_version": &schema.StringAttribute{
 				Computed:    true,
-				Description: "The currently applied version of the identity list",
+				Description: "The name of the currently applied version of the identity list",
+			},
+			"applied_version_id": &schema.StringAttribute{
+				Computed:    true,
+				Description: "The ID of the currently applied version of the identity list. This is the value to bind to, e.g. the identity_list_version_id of a kaleido_platform_pms_policy_identity_list_binding.",
 			},
 			"created": &schema.StringAttribute{
 				Computed:    true,
@@ -132,13 +144,13 @@ func (r *pms_identity_listResource) apiGetPath(data *PMSIdentityListResourceMode
 func (r *pms_identity_listResource) apiPath(data *PMSIdentityListResourceModel, idOrName string) string {
 	env := data.Environment.ValueString()
 	service := data.Service.ValueString()
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identity-lists/%s", env, service, idOrName)
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v2/identity-lists/%s", env, service, idOrName)
 }
 
 func (r *pms_identity_listResource) apiIdentityListVersionPath(data *PMSIdentityListResourceModel, idOrName string) string {
 	env := data.Environment.ValueString()
 	service := data.Service.ValueString()
-	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v1/identity-lists/%s/versions", env, service, idOrName)
+	return fmt.Sprintf("/endpoint/%s/%s/rest/api/v2/identity-lists/%s/versions", env, service, idOrName)
 }
 
 func (r *pms_identity_listResource) toAPI(data *PMSIdentityListResourceModel, api *PMSIdentityListAPIModel) {
@@ -162,6 +174,24 @@ func (r *pms_identity_listResource) toData(api *PMSIdentityListAPIModel, data *P
 		return
 	} //else leave the identities in the data as they are which matches the current state of the plan
 
+}
+
+// lookupAppliedVersionID finds the ID of the named version of an identity list. The
+// identity list itself only carries the version name, but bindings reference the
+// version by ID.
+func (r *pms_identity_listResource) lookupAppliedVersionID(ctx context.Context, data *PMSIdentityListResourceModel, identityListID, versionName string, diagnostics *diag.Diagnostics) types.String {
+	if versionName == "" {
+		return types.StringNull()
+	}
+	listURL := fmt.Sprintf("%s?name=%s", r.apiIdentityListVersionPath(data, identityListID), url.QueryEscape(versionName))
+	var result struct {
+		Items []PMSIdentityListVersionAPIModel `json:"items"`
+	}
+	ok, _ := r.apiRequest(ctx, http.MethodGet, listURL, nil, &result, diagnostics)
+	if !ok || len(result.Items) == 0 {
+		return types.StringNull()
+	}
+	return types.StringValue(result.Items[0].ID)
 }
 
 func (r *pms_identity_listResource) toVersionAPI(data *PMSIdentityListResourceModel, versionAPI *PMSIdentityListVersionAPIModel, diagnostics *diag.Diagnostics) bool {
@@ -217,6 +247,7 @@ func (r *pms_identity_listResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	r.toData(&updatedAPI, &data, &resp.Diagnostics)
+	data.AppliedVersionID = types.StringValue(versionAPI.ID)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -238,6 +269,10 @@ func (r *pms_identity_listResource) Read(ctx context.Context, req resource.ReadR
 	}
 
 	r.toData(&api, &data, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.AppliedVersionID = r.lookupAppliedVersionID(ctx, &data, data.ID.ValueString(), api.CurrentVersion, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -249,19 +284,25 @@ func (r *pms_identity_listResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	var api PMSIdentityListAPIModel
-	r.toAPI(&data, &api)
+	var state PMSIdentityListResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	identityListID := data.ID.ValueString()
 
-	// Update the identity list metadata
-	ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, identityListID), &api, &api, &resp.Diagnostics)
-	if !ok {
-		return
+	// Update the identity list metadata. The name is immutable, so the description is the
+	// only field a sparse PATCH carries, and only when it changed.
+	if description := patchString(data.Description, state.Description); description != nil {
+		patch := PMSIdentityListPatchAPIModel{Description: description}
+		if ok, _ := r.apiRequest(ctx, http.MethodPatch, r.apiPath(&data, identityListID), &patch, nil, &resp.Diagnostics); !ok {
+			return
+		}
 	}
 
 	// Create a new version with updated identities
 	var versionAPI PMSIdentityListVersionAPIModel
-	ok = r.toVersionAPI(&data, &versionAPI, &resp.Diagnostics)
+	ok := r.toVersionAPI(&data, &versionAPI, &resp.Diagnostics)
 	if !ok {
 		return
 	}
@@ -280,6 +321,7 @@ func (r *pms_identity_listResource) Update(ctx context.Context, req resource.Upd
 	}
 
 	r.toData(&updatedAPI, &data, &resp.Diagnostics)
+	data.AppliedVersionID = types.StringValue(versionAPI.ID)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 

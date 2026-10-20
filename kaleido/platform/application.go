@@ -31,21 +31,23 @@ import (
 )
 
 type ApplicationResourceModel struct {
-	ID           types.String                   `tfsdk:"id"`
-	Name         types.String                   `tfsdk:"name"`
-	OAuthEnabled types.Bool                     `tfsdk:"oauth_enabled"`
-	AdminEnabled types.Bool                     `tfsdk:"admin_enabled"`
-	OAuth        *ApplicationOAuthResourceModel `tfsdk:"oauth"`
+	ID               types.String                   `tfsdk:"id"`
+	Name             types.String                   `tfsdk:"name"`
+	OAuthEnabled     types.Bool                     `tfsdk:"oauth_enabled"`
+	AdminEnabled     types.Bool                     `tfsdk:"admin_enabled"`
+	ServicePrincipal types.Bool                     `tfsdk:"service_principal"`
+	OAuth            *ApplicationOAuthResourceModel `tfsdk:"oauth"`
 }
 
 type ApplicationAPIModel struct {
-	ID          string                    `json:"id,omitempty"`
-	Created     *time.Time                `json:"created,omitempty"`
-	Updated     *time.Time                `json:"updated,omitempty"`
-	Name        string                    `json:"name"`
-	OAuth       *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
-	IsAdmin     *bool                     `json:"isAdmin,omitempty"`
-	EnableOAuth *bool                     `json:"enableOAuth,omitempty"`
+	ID               string                    `json:"id,omitempty"`
+	Created          *time.Time                `json:"created,omitempty"`
+	Updated          *time.Time                `json:"updated,omitempty"`
+	Name             string                    `json:"name"`
+	OAuth            *ApplicationOAuthAPIModel `json:"oauth,omitempty"`
+	IsAdmin          *bool                     `json:"isAdmin,omitempty"`
+	EnableOAuth      *bool                     `json:"enableOAuth,omitempty"`
+	ServicePrincipal *bool                     `json:"servicePrincipal,omitempty"`
 }
 
 type ApplicationOAuthAPIModel struct {
@@ -69,6 +71,9 @@ type ApplicationOAuthResourceModel struct {
 	CACertificate   types.String `tfsdk:"ca_certificate"`
 	EnableBasicAuth types.Bool   `tfsdk:"enable_basic_auth"`
 }
+
+// force a build time check that we have correctly spelled the ValidateConfig function
+var _ resource.ResourceWithValidateConfig = &applicationResource{}
 
 func ApplicationResourceFactory() resource.Resource {
 	return &applicationResource{}
@@ -97,6 +102,13 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 				Description: "Grant the application the ability to act as an administrator of the platform",
+			},
+			"service_principal": &schema.BoolAttribute{
+				Optional:      true,
+				Computed:      true,
+				Default:       booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+				Description:   "Mark the application as a service principal: one that other services act as through a run-as binding, such as a Policy Manager evidence source's run_as. A service principal cannot have OAuth configuration or API keys, and cannot be an administrator. Immutable after create.",
 			},
 			"oauth_enabled": &schema.BoolAttribute{
 				Optional:      true,
@@ -160,10 +172,42 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 	}
 }
 
+// ValidateConfig rejects at plan time the combinations the server refuses: a service
+// principal has no way to authenticate itself and cannot be an administrator. Checking
+// the configuration rather than waiting for apply matters because service_principal
+// forces replacement, which would otherwise destroy the existing application before the
+// server refused its replacement. A value not yet known is not judged.
+func (r *applicationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var servicePrincipal, adminEnabled, oauthEnabled types.Bool
+	var oauth types.Object
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("service_principal"), &servicePrincipal)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("admin_enabled"), &adminEnabled)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("oauth_enabled"), &oauthEnabled)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("oauth"), &oauth)...)
+	if resp.Diagnostics.HasError() || !servicePrincipal.ValueBool() {
+		return
+	}
+	if adminEnabled.ValueBool() {
+		resp.Diagnostics.AddAttributeError(path.Root("admin_enabled"), "Invalid configuration",
+			"admin_enabled must not be true when service_principal is true: a service principal cannot be an administrator")
+	}
+	if oauthEnabled.ValueBool() {
+		resp.Diagnostics.AddAttributeError(path.Root("oauth_enabled"), "Invalid configuration",
+			"oauth_enabled must not be true when service_principal is true: a service principal cannot authenticate itself")
+	}
+	if !oauth.IsNull() && !oauth.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(path.Root("oauth"), "Invalid configuration",
+			"oauth must not be set when service_principal is true: a service principal cannot authenticate itself")
+	}
+}
+
 func (data *ApplicationResourceModel) toAPI(api *ApplicationAPIModel) {
 	api.Name = data.Name.ValueString()
 	api.IsAdmin = data.AdminEnabled.ValueBoolPointer()
 	api.EnableOAuth = data.OAuthEnabled.ValueBoolPointer()
+	if data.ServicePrincipal.ValueBool() {
+		api.ServicePrincipal = data.ServicePrincipal.ValueBoolPointer()
+	}
 	if data.OAuth != nil {
 		api.OAuth = &ApplicationOAuthAPIModel{}
 		if !data.OAuth.EnableBasicAuth.IsNull() {
@@ -199,6 +243,8 @@ func (api *ApplicationAPIModel) toData(data *ApplicationResourceModel) {
 	data.ID = types.StringValue(api.ID)
 	data.Name = types.StringValue(api.Name)
 	data.AdminEnabled = types.BoolPointerValue(api.IsAdmin)
+	// The server omits the field on an ordinary application; that is a plain false
+	data.ServicePrincipal = types.BoolValue(api.ServicePrincipal != nil && *api.ServicePrincipal)
 	if api.EnableOAuth != nil {
 		data.OAuthEnabled = types.BoolPointerValue(api.EnableOAuth)
 	}
@@ -244,6 +290,9 @@ func (r *applicationResource) Create(ctx context.Context, req resource.CreateReq
 
 	var data ApplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	var api ApplicationAPIModel
 	data.toAPI(&api)
@@ -262,6 +311,9 @@ func (r *applicationResource) Update(ctx context.Context, req resource.UpdateReq
 	var data ApplicationResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &data.ID)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Read full current object
 	var api ApplicationAPIModel
