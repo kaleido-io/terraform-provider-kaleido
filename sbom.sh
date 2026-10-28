@@ -27,6 +27,7 @@ rm -rf $TMP_DIR
 
 set -e
 echo "Scanning SBOM for Vulnerabilities..."
-trivy sbom sbom.spdx.json --db-repository public.ecr.aws/aquasecurity/trivy-db \
-  --java-db-repository public.ecr.aws/aquasecurity/trivy-java-db \
+trivy sbom sbom.spdx.json \
+  --db-repository mirror.gcr.io/aquasec/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db:2 \
+  --java-db-repository mirror.gcr.io/aquasec/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1,public.ecr.aws/aquasecurity/trivy-java-db:1 \
   --severity UNKNOWN,HIGH,CRITICAL --exit-code 1
