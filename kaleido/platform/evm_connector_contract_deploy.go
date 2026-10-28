@@ -325,30 +325,34 @@ func (r *evmConnectorContractDeployResource) failedTransactionError(api *EVMConn
 		api.ID, api.IdempotencyKey, api.Stage, errorInfo)
 }
 
-// waitForTransaction uses the workflow-engine transaction wait API to block until the
-// transaction completes (or the wait_timeout expires). Each individual wait call is subject
-// to server-side and gateway timeouts, so it is retried until a terminal status is reached.
 func (r *evmConnectorContractDeployResource) waitForTransaction(ctx context.Context, data *EVMConnectorContractDeployResourceModel, txID string, api *EVMConnectorTransactionAPIModel, diagnostics *diag.Diagnostics) bool {
 	timeout := data.waitTimeout(diagnostics)
 	if diagnostics.HasError() {
 		return false
 	}
+	return waitForEVMConnectorTransaction(ctx, &r.commonResource, "deploy", r.transactionPath(data, txID, "/wait"), txID, timeout, api, r.failedTransactionError, diagnostics)
+}
+
+// waitForEVMConnectorTransaction uses the workflow-engine transaction wait API to block until the
+// transaction completes (or the timeout expires). Each individual wait call is subject to
+// server-side and gateway timeouts, so it is retried until a terminal status is reached.
+// The operation name (e.g. deploy / invoke) is only used in messages.
+func waitForEVMConnectorTransaction(ctx context.Context, r *commonResource, operation, waitPath, txID string, timeout time.Duration, api *EVMConnectorTransactionAPIModel, failedTransactionError func(*EVMConnectorTransactionAPIModel) string, diagnostics *diag.Diagnostics) bool {
 	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	waitPath := r.transactionPath(data, txID, "/wait")
 	cancelInfo := APICancelInfo()
-	cancelInfo.CancelInfo = "(waiting for deploy transaction submission)"
-	err := kaleidobase.Retry.Do(waitCtx, fmt.Sprintf("deploy-wait %s", waitPath), func(attempt int) (retry bool, err error) {
+	cancelInfo.CancelInfo = fmt.Sprintf("(waiting for %s transaction submission)", operation)
+	err := kaleidobase.Retry.Do(waitCtx, fmt.Sprintf("%s-wait %s", operation, waitPath), func(attempt int) (retry bool, err error) {
 		attemptDiags := diag.Diagnostics{}
 		ok, statusCode := r.apiRequest(waitCtx, http.MethodGet, waitPath, nil, api, &attemptDiags, cancelInfo)
 		if !ok {
 			// The wait API returns an error when its server-side timeout expires before the
 			// transaction completes, and intermediate gateways can time the request out too -
-			// keep retrying those (and transport errors) until our own wait_timeout expires.
+			// keep retrying those (and transport errors) until our own timeout expires.
 			if statusCode >= 400 && statusCode < 500 && statusCode != 429 {
 				diagnostics.Append(attemptDiags...)
-				return false, fmt.Errorf("deploy-wait failed") // already set in diag
+				return false, fmt.Errorf("%s-wait failed", operation) // already set in diag
 			}
 			return true, fmt.Errorf("transaction wait incomplete (status %d)", statusCode)
 		}
@@ -357,15 +361,15 @@ func (r *evmConnectorContractDeployResource) waitForTransaction(ctx context.Cont
 		case "success":
 			return false, nil
 		case "failure":
-			diagnostics.AddError("deploy failed", r.failedTransactionError(api))
-			return false, fmt.Errorf("deploy failed")
+			diagnostics.AddError(fmt.Sprintf("%s failed", operation), failedTransactionError(api))
+			return false, fmt.Errorf("%s failed", operation)
 		default:
 			return true, fmt.Errorf("transaction not complete yet (status: %s)", api.Status)
 		}
 	})
 	if err != nil {
 		if !diagnostics.HasError() {
-			diagnostics.AddError("deploy wait failed", fmt.Sprintf("failed waiting for deploy transaction %s to complete: %s", txID, err))
+			diagnostics.AddError(fmt.Sprintf("%s wait failed", operation), fmt.Sprintf("failed waiting for %s transaction %s to complete: %s", operation, txID, err))
 		}
 		return false
 	}
