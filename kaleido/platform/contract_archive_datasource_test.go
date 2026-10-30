@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -54,8 +55,11 @@ const testLinkedArtifact = `{
   "contractName": "Zeto_AnonNullifier",
   "sourceName": "contracts/zeto_anon_nullifier.sol",
   "abi": [],
-  "bytecode": "0x6080__$abc$__",
-  "linkReferences": {"@iden3/contracts/contracts/lib/Poseidon.sol": {"PoseidonUnit2L": []}}
+  "bytecode": "0x6080__$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa$__6001__$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb$____$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb$__00",
+  "linkReferences": {
+    "@iden3/contracts/contracts/lib/Poseidon.sol": {"PoseidonUnit2L": [{"start": 2, "length": 20}]},
+    "@iden3/contracts/contracts/lib/SmtLib.sol": {"SmtLib": [{"start": 24, "length": 20}, {"start": 44, "length": 20}]}
+  }
 }`
 
 const testInterfaceArtifact = `{
@@ -140,6 +144,17 @@ data "kaleido_platform_contract_archive" "zeto" {
 `, url, quote(contracts), filesAttr)
 }
 
+// contractArchiveLibrariesConfig adds a libraries map to the data source config
+func contractArchiveLibrariesConfig(url string, contracts []string, libraries map[string]string) string {
+	entries := make([]string, 0, len(libraries))
+	for name, address := range libraries {
+		entries = append(entries, fmt.Sprintf("%q = %q", name, address))
+	}
+	sort.Strings(entries)
+	return strings.Replace(contractArchiveConfig(url, contracts, nil), "contracts =",
+		"libraries = {\n      "+strings.Join(entries, "\n      ")+"\n    }\n    contracts =", 1)
+}
+
 func TestContractArchiveDatasource(t *testing.T) {
 	mp, providerConfig := testSetup(t)
 	defer mp.server.Close()
@@ -213,7 +228,7 @@ func TestContractArchiveDatasourceErrors(t *testing.T) {
 		{"missing contract", fileURL, []string{"Zeto_AnonEnc"}, nil, `'Zeto_AnonEnc.json' not found in the archive`},
 		{"missing file", fileURL, []string{"Zeto_Anon"}, []string{"missing-vkey.json"}, `'missing-vkey.json' not found in the archive`},
 		{"differing copies", fileURL, []string{"Dup"}, nil, `'Dup.json' is ambiguous`},
-		{"library linking", fileURL, []string{"Zeto_AnonNullifier"}, nil, `requires linking libraries from @iden3/contracts/contracts/lib/Poseidon.sol`},
+		{"unlinked libraries", fileURL, []string{"Zeto_AnonNullifier"}, nil, `links libraries that have no address in libraries: @iden3/contracts/contracts/lib/Poseidon.sol:PoseidonUnit2L, @iden3/contracts/contracts/lib/SmtLib.sol:SmtLib`},
 		{"interface", fileURL, []string{"IZeto"}, nil, `has no bytecode`},
 		{"not an archive", "file://" + filepath.Join(dir, "notarchive.gz"), []string{"Zeto_Anon"}, nil, `invalid archive \(expected a .zip`},
 		{"missing local file", "file://" + filepath.Join(dir, "nope.tar.gz"), []string{"Zeto_Anon"}, nil, `failed to open archive`},
@@ -234,6 +249,60 @@ func TestContractArchiveDatasourceErrors(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestContractArchiveDatasourceLinking(t *testing.T) {
+	mp, providerConfig := testSetup(t)
+	defer mp.server.Close()
+
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "contracts.tgz")
+	writeTestTar(t, archive, true)
+	fileURL := "file://" + archive
+
+	const ds = "data.kaleido_platform_contract_archive.zeto"
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true,
+		ProtoV6ProviderFactories: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				// The fully qualified name takes precedence, addresses are lower-cased, and
+				// libraries no contract links (Unused) and unlinked contracts are fine
+				Config: providerConfig + contractArchiveLibrariesConfig(fileURL, []string{"Zeto_AnonNullifier", "Zeto_Anon"}, map[string]string{
+					"PoseidonUnit2L": "0x1111111111111111111111111111111111111111",
+					"SmtLib":         "0x2222222222222222222222222222222222222222",
+					"@iden3/contracts/contracts/lib/SmtLib.sol:SmtLib": "0xABCDEFabcdef0000000000000000000000000003",
+					"Unused": "0x4444444444444444444444444444444444444444",
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(ds, "artifacts.Zeto_AnonNullifier.bytecode",
+						"0x6080"+strings.Repeat("11", 20)+"6001"+"abcdefabcdef0000000000000000000000000003"+"abcdefabcdef0000000000000000000000000003"+"00"),
+					resource.TestCheckResourceAttr(ds, "artifacts.Zeto_Anon.bytecode", "0x60a0604052"),
+				),
+			},
+			{
+				Config: providerConfig + contractArchiveLibrariesConfig(fileURL, []string{"Zeto_AnonNullifier"}, map[string]string{
+					"PoseidonUnit2L": "0x1111111111111111111111111111111111111111",
+				}),
+				ExpectError: regexp.MustCompile(`no\s+address\s+in\s+libraries:\s+@iden3/contracts/contracts/lib/SmtLib.sol:SmtLib`),
+			},
+			{
+				Config: providerConfig + contractArchiveLibrariesConfig(fileURL, []string{"Zeto_AnonNullifier"}, map[string]string{
+					"PoseidonUnit2L": "0x1234",
+				}),
+				ExpectError: regexp.MustCompile(`library\s+'PoseidonUnit2L'\s+address\s+'0x1234'\s+is\s+not`),
+			},
+		},
+	})
+}
+
+func TestLinkContractArchiveLibrariesBadReference(t *testing.T) {
+	refs := map[string]map[string][]hardhatLinkReference{"lib.sol": {"Lib": {{Start: 1, Length: 20}}}}
+	_, err := linkContractArchiveLibraries("C", "6080"+strings.Repeat("00", 20), refs, map[string]string{"Lib": strings.Repeat("11", 20)})
+	assert.ErrorContains(t, err, "invalid link reference for library 'Lib' at offset 1")
+
+	_, err = linkContractArchiveLibraries("C", "6080", refs, map[string]string{"Lib": strings.Repeat("11", 20)})
+	assert.ErrorContains(t, err, "invalid link reference")
 }
 
 func TestContractArchiveRelativeFileURL(t *testing.T) {

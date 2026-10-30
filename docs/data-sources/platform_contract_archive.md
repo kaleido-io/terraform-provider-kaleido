@@ -17,12 +17,13 @@ Read compiled contract artifacts (Hardhat format JSON files with `abi` and `byte
 
 ### Required
 
-- `contracts` (List of String) Names of the contracts to extract. Each is matched to an artifact file named `<contract>.json` anywhere in the archive, and must be found exactly once (identical copies are allowed), be deployable (non-empty bytecode) and need no library linking
+- `contracts` (List of String) Names of the contracts to extract. Each is matched to an artifact file named `<contract>.json` anywhere in the archive, and must be found exactly once (identical copies are allowed) and be deployable (non-empty bytecode). Any libraries it links must be given in `libraries`
 - `url` (String) Location of the archive: an `http://` or `https://` URL, or a local file as a `file:` URL (`file:///abs/path.tar.gz`, or `file:relative/path.tar.gz` relative to the working directory)
 
 ### Optional
 
 - `files` (List of String) Base names of additional text files to return the contents of (for example `anon-vkey.json`), matched anywhere in the archive
+- `libraries` (Map of String) Addresses of deployed libraries to link into the contracts' bytecode, keyed by library name (`SmtLib`) or fully qualified name (`@iden3/contracts/contracts/lib/SmtLib.sol:SmtLib`), which takes precedence. Libraries that no contract links are ignored
 
 ### Read-Only
 
@@ -35,6 +36,6 @@ Read compiled contract artifacts (Hardhat format JSON files with `abi` and `byte
 Read-Only:
 
 - `abi` (String) Contract ABI as a JSON string
-- `bytecode` (String) 0x-prefixed deployment bytecode
+- `bytecode` (String) 0x-prefixed deployment bytecode, with any libraries linked
 - `path` (String) Path of the artifact file within the archive
 - `source_name` (String) Solidity source file the contract was compiled from

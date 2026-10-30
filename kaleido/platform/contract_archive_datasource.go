@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -39,10 +40,13 @@ import (
 // matching a large binary by name. Compiled contract artifacts are well under this.
 const contractArchiveMaxFileSize = 32 * 1024 * 1024
 
+var contractArchiveAddressRegexp = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
+
 type ContractArchiveDatasourceModel struct {
 	URL       types.String                            `tfsdk:"url"`
 	Contracts []types.String                          `tfsdk:"contracts"`
 	Files     []types.String                          `tfsdk:"files"`
+	Libraries map[string]types.String                 `tfsdk:"libraries"`
 	Artifacts map[string]ContractArchiveArtifactModel `tfsdk:"artifacts"`
 	FileData  map[string]types.String                 `tfsdk:"file_contents"`
 }
@@ -56,11 +60,17 @@ type ContractArchiveArtifactModel struct {
 
 // hardhatArtifact is the subset of a Hardhat/Foundry compiled artifact JSON file used here
 type hardhatArtifact struct {
-	ContractName   string                     `json:"contractName"`
-	SourceName     string                     `json:"sourceName"`
-	ABI            json.RawMessage            `json:"abi"`
-	Bytecode       string                     `json:"bytecode"`
-	LinkReferences map[string]json.RawMessage `json:"linkReferences"`
+	ContractName   string                                       `json:"contractName"`
+	SourceName     string                                       `json:"sourceName"`
+	ABI            json.RawMessage                              `json:"abi"`
+	Bytecode       string                                       `json:"bytecode"`
+	LinkReferences map[string]map[string][]hardhatLinkReference `json:"linkReferences"`
+}
+
+// hardhatLinkReference is the byte offset and length of a library address placeholder in the bytecode
+type hardhatLinkReference struct {
+	Start  int `json:"start"`
+	Length int `json:"length"`
 }
 
 type contractArchiveEntry struct {
@@ -91,12 +101,17 @@ func (s *contractArchiveDatasource) Schema(_ context.Context, _ datasource.Schem
 			"contracts": &schema.ListAttribute{
 				Required:    true,
 				ElementType: types.StringType,
-				Description: "Names of the contracts to extract. Each is matched to an artifact file named `<contract>.json` anywhere in the archive, and must be found exactly once (identical copies are allowed), be deployable (non-empty bytecode) and need no library linking",
+				Description: "Names of the contracts to extract. Each is matched to an artifact file named `<contract>.json` anywhere in the archive, and must be found exactly once (identical copies are allowed) and be deployable (non-empty bytecode). Any libraries it links must be given in `libraries`",
 			},
 			"files": &schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
 				Description: "Base names of additional text files to return the contents of (for example `anon-vkey.json`), matched anywhere in the archive",
+			},
+			"libraries": &schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Addresses of deployed libraries to link into the contracts' bytecode, keyed by library name (`SmtLib`) or fully qualified name (`@iden3/contracts/contracts/lib/SmtLib.sol:SmtLib`), which takes precedence. Libraries that no contract links are ignored",
 			},
 			"artifacts": &schema.MapNestedAttribute{
 				Computed:    true,
@@ -109,7 +124,7 @@ func (s *contractArchiveDatasource) Schema(_ context.Context, _ datasource.Schem
 						},
 						"bytecode": &schema.StringAttribute{
 							Computed:    true,
-							Description: "0x-prefixed deployment bytecode",
+							Description: "0x-prefixed deployment bytecode, with any libraries linked",
 						},
 						"source_name": &schema.StringAttribute{
 							Computed:    true,
@@ -147,6 +162,17 @@ func (s *contractArchiveDatasource) Read(ctx context.Context, req datasource.Rea
 	for _, f := range data.Files {
 		wantedFiles[f.ValueString()] = true
 	}
+	libraries := map[string]string{}
+	for name, address := range data.Libraries {
+		if !contractArchiveAddressRegexp.MatchString(address.ValueString()) {
+			resp.Diagnostics.AddError("invalid library address", fmt.Sprintf("library '%s' address '%s' is not a 0x-prefixed 20-byte hex address", name, address.ValueString()))
+			continue
+		}
+		libraries[name] = strings.ToLower(strings.TrimPrefix(address.ValueString(), "0x"))
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	found, err := readContractArchive(ctx, data.URL.ValueString(), func(name string) bool {
 		base := path.Base(name)
@@ -159,7 +185,7 @@ func (s *contractArchiveDatasource) Read(ctx context.Context, req datasource.Rea
 
 	data.Artifacts = map[string]ContractArchiveArtifactModel{}
 	for base, contractName := range wantedContracts {
-		artifact, err := parseContractArchiveArtifact(contractName, found[base])
+		artifact, err := parseContractArchiveArtifact(contractName, found[base], libraries)
 		if err != nil {
 			resp.Diagnostics.AddError("invalid contract archive", err.Error())
 			continue
@@ -202,7 +228,7 @@ func uniqueContractArchiveEntry(name string, entries []contractArchiveEntry) (*c
 	return &entries[0], nil
 }
 
-func parseContractArchiveArtifact(contractName string, entries []contractArchiveEntry) (*ContractArchiveArtifactModel, error) {
+func parseContractArchiveArtifact(contractName string, entries []contractArchiveEntry, libraries map[string]string) (*ContractArchiveArtifactModel, error) {
 	entry, err := uniqueContractArchiveEntry(contractName+".json", entries)
 	if err != nil {
 		return nil, err
@@ -220,24 +246,47 @@ func parseContractArchiveArtifact(contractName string, entries []contractArchive
 	if strings.TrimPrefix(artifact.Bytecode, "0x") == "" {
 		return nil, fmt.Errorf("artifact '%s' for contract '%s' has no bytecode (interface or abstract contract)", entry.path, contractName)
 	}
-	if len(artifact.LinkReferences) > 0 {
-		libs := make([]string, 0, len(artifact.LinkReferences))
-		for lib := range artifact.LinkReferences {
-			libs = append(libs, lib)
-		}
-		sort.Strings(libs)
-		return nil, fmt.Errorf("contract '%s' requires linking libraries from %s, which is not supported", contractName, strings.Join(libs, ", "))
-	}
-	bytecode := artifact.Bytecode
-	if !strings.HasPrefix(bytecode, "0x") {
-		bytecode = "0x" + bytecode
+	bytecode, err := linkContractArchiveLibraries(contractName, strings.TrimPrefix(artifact.Bytecode, "0x"), artifact.LinkReferences, libraries)
+	if err != nil {
+		return nil, err
 	}
 	return &ContractArchiveArtifactModel{
 		ABI:        types.StringValue(string(artifact.ABI)),
-		Bytecode:   types.StringValue(bytecode),
+		Bytecode:   types.StringValue("0x" + bytecode),
 		SourceName: types.StringValue(artifact.SourceName),
 		Path:       types.StringValue(entry.path),
 	}, nil
+}
+
+// linkContractArchiveLibraries writes each linked library's address over its placeholders in
+// the (unprefixed) hex bytecode. Every library the contract links must have an address.
+func linkContractArchiveLibraries(contractName, bytecode string, linkReferences map[string]map[string][]hardhatLinkReference, libraries map[string]string) (string, error) {
+	var missing []string
+	linked := []byte(bytecode)
+	for sourceName, libs := range linkReferences {
+		for lib, refs := range libs {
+			address, ok := libraries[sourceName+":"+lib]
+			if !ok {
+				address, ok = libraries[lib]
+			}
+			if !ok {
+				missing = append(missing, sourceName+":"+lib)
+				continue
+			}
+			for _, ref := range refs {
+				pos := ref.Start * 2
+				if ref.Length != 20 || pos < 0 || pos+40 > len(linked) || !bytes.HasPrefix(linked[pos:], []byte("__")) {
+					return "", fmt.Errorf("contract '%s' has an invalid link reference for library '%s' at offset %d", contractName, lib, ref.Start)
+				}
+				copy(linked[pos:pos+40], address)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return "", fmt.Errorf("contract '%s' links libraries that have no address in libraries: %s", contractName, strings.Join(missing, ", "))
+	}
+	return string(linked), nil
 }
 
 // readContractArchive opens the archive at the URL and returns the contents of every
