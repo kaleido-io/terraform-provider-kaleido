@@ -68,6 +68,8 @@ type PMSTypedDataV4ResponseAPIModel struct {
 type PMSApprovalResponseAPIModel struct {
 	Type        string                          `json:"type"`
 	TypedDataV4 *PMSTypedDataV4ResponseAPIModel `json:"typedDataV4,omitempty"`
+	// FieldHints is a JSON object keyed by member path, each value a JSON Schema fragment.
+	FieldHints json.RawMessage `json:"fieldHints,omitempty"`
 }
 
 type PMSApprovalResponsesAPIModel struct {
@@ -136,9 +138,10 @@ type PMSEvidenceSourcePatchAPIModel struct {
 }
 
 var esResponseAttrTypes = map[string]attr.Type{
-	"types_json":      jsonStringType{},
-	"primary_type":    types.StringType,
-	"message_jsonata": types.StringType,
+	"types_json":       jsonStringType{},
+	"primary_type":     types.StringType,
+	"message_jsonata":  types.StringType,
+	"field_hints_json": jsonStringType{},
 }
 
 var esApprovalAttrTypes = map[string]attr.Type{
@@ -200,6 +203,11 @@ func approvalResponseSchema(description string) *schema.SingleNestedAttribute {
 			"message_jsonata": &schema.StringAttribute{
 				Optional:    true,
 				Description: "JSONata building the message from the evaluation context {request, decision}",
+			},
+			"field_hints_json": &schema.StringAttribute{
+				CustomType:  jsonStringType{},
+				Optional:    true,
+				Description: "Field hints for the message (use jsonencode): an object keyed by member path from the primary type (such as \"amount\"), each value a JSON Schema fragment. Standard keywords such as title, description, readOnly, minLength, maxLength and format, plus any x- vendor keyword, tell the client that renders the task how to label, show and collect the field. Every path must name a member of the message. Not part of what the approver signs.",
 			},
 		},
 	}
@@ -425,7 +433,11 @@ func approvalResponseToAPI(val attr.Value, diagnostics *diag.Diagnostics) *PMSAp
 	if jsonata := stringAttr(attrs, "message_jsonata"); jsonata != "" {
 		typedData.MessageMapping = &JSONataMappingAPI{JSONata: jsonata}
 	}
-	return &PMSApprovalResponseAPIModel{Type: "TypedDataV4", TypedDataV4: typedData}
+	return &PMSApprovalResponseAPIModel{
+		Type:        "TypedDataV4",
+		TypedDataV4: typedData,
+		FieldHints:  jsonAttrToAPI(attrs, "field_hints_json"),
+	}
 }
 
 func approvalResponseToData(response *PMSApprovalResponseAPIModel, diagnostics *diag.Diagnostics) types.Object {
@@ -433,9 +445,10 @@ func approvalResponseToData(response *PMSApprovalResponseAPIModel, diagnostics *
 		return types.ObjectNull(esResponseAttrTypes)
 	}
 	obj, diags := types.ObjectValue(esResponseAttrTypes, map[string]attr.Value{
-		"types_json":      jsonObjectFromAPI(response.TypedDataV4.Types),
-		"primary_type":    optionalString(response.TypedDataV4.PrimaryType),
-		"message_jsonata": jsonataAttr(response.TypedDataV4.MessageMapping),
+		"types_json":       jsonObjectFromAPI(response.TypedDataV4.Types),
+		"primary_type":     optionalString(response.TypedDataV4.PrimaryType),
+		"message_jsonata":  jsonataAttr(response.TypedDataV4.MessageMapping),
+		"field_hints_json": jsonObjectFromAPI(response.FieldHints),
 	})
 	diagnostics.Append(diags...)
 	return obj
