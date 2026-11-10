@@ -177,6 +177,7 @@ Required:
 
 Optional:
 
+- `field_hints_json` (String) Field hints for the message (use jsonencode): an object keyed by member path from the primary type (such as "amount"), each value a JSON Schema fragment. Standard keywords such as title, description, readOnly, minLength, maxLength and format, plus any x- vendor keyword, tell the client that renders the task how to label, show and collect the field. Every path must name a member of the message. Not part of what the approver signs.
 - `message_jsonata` (String) JSONata building the message from the evaluation context {request, decision}
 
 
@@ -190,6 +191,7 @@ Required:
 
 Optional:
 
+- `field_hints_json` (String) Field hints for the message (use jsonencode): an object keyed by member path from the primary type (such as "amount"), each value a JSON Schema fragment. Standard keywords such as title, description, readOnly, minLength, maxLength and format, plus any x- vendor keyword, tell the client that renders the task how to label, show and collect the field. Every path must name a member of the message. Not part of what the approver signs.
 - `message_jsonata` (String) JSONata building the message from the evaluation context {request, decision}
 
 

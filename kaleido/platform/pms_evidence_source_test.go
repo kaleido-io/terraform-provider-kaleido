@@ -72,6 +72,9 @@ resource "kaleido_platform_pms_evidence_source" "transfer_approval" {
         Approval = [{ name = "amount", type = "uint256" }]
       })
       message_jsonata = "{\"amount\": request.amount}"
+      field_hints_json = jsonencode({
+        amount = { title = "Amount", readOnly = true }
+      })
     }
     reject = {
       primary_type = "Rejection"
@@ -127,6 +130,15 @@ func TestPMSEvidenceSourceApproval(t *testing.T) {
 					resource.TestCheckResourceAttr(esResource, "approval.reject.primary_type", "Rejection"),
 					resource.TestCheckResourceAttr(esResource, "approval.label_jsonata", `{"amount": $string(request.amount)}`),
 					resource.TestCheckResourceAttr(esResource, "approval.summary_jsonata", `"Approve a transfer of " & $string(request.amount)`),
+					resource.TestCheckResourceAttr(esResource, "approval.approve.field_hints_json", `{"amount":{"readOnly":true,"title":"Amount"}}`),
+					resource.TestCheckNoResourceAttr(esResource, "approval.reject.field_hints_json"),
+					func(s *terraform.State) error {
+						id := s.RootModule().Resources[esResource].Primary.Attributes["id"]
+						stored := string(mp.pmsEvidenceSources[id].Approval.Responses.Approve.FieldHints)
+						assert.JSONEq(t, `{"amount":{"readOnly":true,"title":"Amount"}}`, stored, "the field hints must reach the server unchanged")
+						assert.Nil(t, mp.pmsEvidenceSources[id].Approval.Responses.Reject.FieldHints, "unset field hints must not be sent")
+						return nil
+					},
 					func(s *terraform.State) error {
 						body := mp.lastPMSPatchBody()
 						assert.Contains(t, body, "description")
