@@ -72,6 +72,8 @@ type mockPlatform struct {
 	serviceAccess               map[string]*ServiceAccessAPIModel
 	serviceAccessPolicies       map[string]*ServiceAccessPolicyAPIModel
 	accountAccessPolicies       map[string]*AccountAccessPolicyAPIModel
+	permissionSets              map[string]*PermissionSetAPIModel
+	grants                      map[string]*GrantAPIModel
 	stackAccess                 map[string]*StackAccessAPIModel
 	wmsWallets                  map[string]*WMSWalletAPIModel
 	wmsAssets                   map[string]*WMSAssetAPIModel
@@ -135,6 +137,8 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 		serviceAccess:              make(map[string]*ServiceAccessAPIModel),
 		serviceAccessPolicies:      make(map[string]*ServiceAccessPolicyAPIModel),
 		accountAccessPolicies:      make(map[string]*AccountAccessPolicyAPIModel),
+		permissionSets:             mockBuiltinPermissionSets(),
+		grants:                     make(map[string]*GrantAPIModel),
 		stackAccess:                make(map[string]*StackAccessAPIModel),
 		apiKeys:                    make(map[string]*APIKeyAPIModel),
 		wmsWallets:                 make(map[string]*WMSWalletAPIModel),
@@ -447,6 +451,16 @@ func startMockPlatformServer(t *testing.T) *mockPlatform {
 	mp.register("/api/v1/account-access/policies", http.MethodPost, mp.postAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodGet, mp.getAccountAccessPolicy)
 	mp.register("/api/v1/account-access/policies/{policy}", http.MethodDelete, mp.deleteAccountAccessPolicy)
+
+	// Permission sets and grants
+	mp.register("/api/v1/permissionsets", http.MethodPost, mp.postPermissionSet)
+	mp.register("/api/v1/permissionsets/{set}", http.MethodGet, mp.getPermissionSet)
+	mp.register("/api/v1/permissionsets/{set}", http.MethodPatch, mp.patchPermissionSet)
+	mp.register("/api/v1/permissionsets/{set}", http.MethodDelete, mp.deletePermissionSet)
+	mp.register("/api/v1/grants", http.MethodPost, mp.postGrant)
+	mp.register("/api/v1/grants/{grant}", http.MethodGet, mp.getGrant)
+	mp.register("/api/v1/grants/{grant}", http.MethodPatch, mp.patchGrant)
+	mp.register("/api/v1/grants/{grant}", http.MethodDelete, mp.deleteGrant)
 
 	// See canton_party_test.go
 	mp.register("/endpoint/{env}/{service}/node/parties", http.MethodPut, mp.putCantonParty)
