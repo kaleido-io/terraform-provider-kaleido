@@ -370,6 +370,7 @@ func DataSources() []func() datasource.DataSource {
 		AccountDatasourceModelFactory,
 		PaladinEVMRegistryDatasourceModelFactory,
 		EnvironmentVersionsDatasourceModelFactory,
+		PermissionSetDatasourceFactory,
 	}
 }
 
@@ -382,6 +383,8 @@ func Resources() []func() resource.Resource {
 		ServiceAccessResourceFactory,
 		ServiceAccessPolicyResourceFactory,
 		AccountAccessPolicyResourceFactory,
+		PermissionSetResourceFactory,
+		GrantResourceFactory,
 		StackAccessResourceFactory,
 		NetworkResourceFactory,
 		KMSWalletResourceFactory,
